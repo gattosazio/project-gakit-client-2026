@@ -1,0 +1,210 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, X } from 'lucide-react';
+
+export function LoginPage() {
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+
+  const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsRequestModalOpen(true);
+  };
+
+  return (
+    <main className="min-h-screen bg-canvas-light flex flex-col md:flex-row">
+      <section className="w-full md:w-[40%] bg-white flex items-center justify-center px-6 py-10 md:py-16">
+        <div className="w-full max-w-md">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#004aad] mb-8"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </Link>
+
+          <Link href="/" className="flex items-center gap-3 mb-10">
+            <div className="w-9 h-9 bg-[#004aad] rounded-lg flex items-center justify-center shadow-sm">
+              <span className="text-white font-bold text-sm">GK</span>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-slate-900 leading-tight">
+                Project GAKIT
+              </div>
+              <div className="text-xs text-slate-500 font-medium">
+                Flood Assessment Reporting
+              </div>
+            </div>
+          </Link>
+
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-slate-900">Sign in</h1>
+            <p className="text-sm text-slate-600 mt-2">
+              Access the reporting dashboard and protected GAKIT tools.
+            </p>
+          </div>
+
+          <button
+            onClick={() => setIsRequestModalOpen(true)}
+            className="w-full py-3 px-4 rounded-lg border border-canvas-grey hover:border-[#004aad] hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 font-semibold text-slate-700"
+          >
+            <GoogleLogo />
+            Continue with Gmail
+          </button>
+
+          <div className="flex items-center gap-3 my-6">
+            <div className="h-px flex-1 bg-canvas-grey" />
+            <span className="text-xs font-medium text-slate-400">or</span>
+            <div className="h-px flex-1 bg-canvas-grey" />
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Email address
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="name@example.com"
+                className="w-full px-4 py-3 rounded-lg border border-canvas-grey focus:outline-none focus:ring-2 focus:ring-[#004aad] focus:border-[#004aad]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-slate-900 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                placeholder="Enter your password"
+                className="w-full px-4 py-3 rounded-lg border border-canvas-grey focus:outline-none focus:ring-2 focus:ring-[#004aad] focus:border-[#004aad]"
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center gap-2 text-slate-600">
+                <input type="checkbox" className="rounded border-canvas-grey" />
+                Remember me
+              </label>
+              <button type="button" className="font-semibold text-[#004aad] hover:text-blue-800">
+                Forgot password?
+              </button>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full py-3 px-6 rounded-lg font-semibold bg-[#004aad] hover:bg-blue-800 text-white transition-colors"
+            >
+              Sign in
+            </button>
+          </form>
+
+          <div className="mt-8 pt-6 border-t border-canvas-grey text-center text-sm text-slate-600">
+            Don't have an account?{' '}
+            <button
+              onClick={() => setIsRequestModalOpen(true)}
+              className="font-semibold text-[#004aad] hover:text-blue-800"
+            >
+              Request Access
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section
+        className="relative hidden md:flex w-[60%] bg-cover bg-center items-end"
+        style={{ backgroundImage: "url('/images/flooded-image1.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-[#004aad]/35" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
+        <div className="relative z-10 p-12 max-w-3xl">
+          <div className="text-sm font-semibold text-white/80 mb-3">
+            Project GAKIT
+          </div>
+          <h2 className="text-5xl font-bold text-white leading-tight">
+            Geohazard Assessment & Knowledge Integration Tool
+          </h2>
+          <p className="text-lg text-white/85 mt-5">
+            Submit, validate, and monitor flood reports so communities and responders can make faster decisions.
+          </p>
+        </div>
+      </section>
+
+      <RequestAccessModal
+        isOpen={isRequestModalOpen}
+        onClose={() => setIsRequestModalOpen(false)}
+      />
+    </main>
+  );
+}
+
+function GoogleLogo() {
+  return (
+    <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.31 9.14 5.38 12 5.38z"
+      />
+    </svg>
+  );
+}
+
+function RequestAccessModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[1300] bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-canvas-grey">
+          <h2 className="text-lg font-bold text-slate-900">Request account access</h2>
+          <button onClick={onClose} className="p-1 hover:bg-canvas-light rounded-lg">
+            <X className="w-5 h-5 text-slate-500" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <p className="text-sm text-slate-600">
+            This account is not registered yet. Please request access from the Project GAKIT administrator.
+          </p>
+
+          <div className="bg-blue-50 border border-[#004aad]/20 rounded-lg p-4">
+            <div className="text-sm font-semibold text-slate-900">
+              For now
+            </div>
+            <div className="text-sm text-slate-600 mt-1">
+              Contact your barangay, CDRRMO staff, or system admin to create an account.
+            </div>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full py-3 px-6 rounded-lg font-semibold bg-[#004aad] hover:bg-blue-800 text-white transition-colors"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
