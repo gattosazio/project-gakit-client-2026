@@ -4,7 +4,7 @@ import { useState, useCallback, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
-import { CheckCircle2, MapPin, Navigation, X } from 'lucide-react';
+import { CheckCircle2, Loader2, MapPin, Navigation, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // Dynamically import the map to avoid window is not defined errors
@@ -23,6 +23,7 @@ interface SelectedLocation {
 export function PublicViewPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(
     null
@@ -72,7 +73,7 @@ export function PublicViewPage() {
       return;
     }
 
-    setIsLocationPromptOpen(false);
+    setIsGettingLocation(true);
     navigator.geolocation.getCurrentPosition(async (position) => {
       const { latitude, longitude } = position.coords;
       const fallbackLocation = {
@@ -84,7 +85,10 @@ export function PublicViewPage() {
       setSelectedLocation(fallbackLocation);
       setIsModalOpen(true);
       setSelectedLocation(await resolveLocation(latitude, longitude));
+      setIsGettingLocation(false);
+      setIsLocationPromptOpen(false);
     }, () => {
+      setIsGettingLocation(false);
       toast.error('Unable to get your location. Please allow location access.', {
         position: 'top-right',
         autoClose: 3000,
@@ -212,6 +216,7 @@ export function PublicViewPage() {
 
       <LocationPromptModal
         isOpen={isLocationPromptOpen}
+        isGettingLocation={isGettingLocation}
         onClose={() => setIsLocationPromptOpen(false)}
         onUseCurrentLocation={handleUseCurrentLocation}
         onChooseLocation={handleChooseLocation}
@@ -227,11 +232,13 @@ export function PublicViewPage() {
 
 function LocationPromptModal({
   isOpen,
+  isGettingLocation,
   onClose,
   onUseCurrentLocation,
   onChooseLocation,
 }: {
   isOpen: boolean;
+  isGettingLocation: boolean;
   onClose: () => void;
   onUseCurrentLocation: () => void;
   onChooseLocation: () => void;
@@ -251,13 +258,22 @@ function LocationPromptModal({
         <div className="p-5 space-y-3">
           <button
             onClick={onUseCurrentLocation}
+            disabled={isGettingLocation}
             className="w-full p-4 rounded-lg border-2 border-[#004aad] bg-blue-50 text-left hover:bg-blue-100 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <Navigation className="w-5 h-5 text-[#004aad]" />
+              {isGettingLocation ? (
+                <Loader2 className="w-5 h-5 text-[#004aad] animate-spin" />
+              ) : (
+                <Navigation className="w-5 h-5 text-[#004aad]" />
+              )}
               <div>
-                <div className="font-semibold text-slate-900">Use my current location</div>
-                <div className="text-xs text-slate-600">Turn on location access and continue.</div>
+                <div className="font-semibold text-slate-900">
+                  {isGettingLocation ? 'Getting your location...' : 'Use my current location'}
+                </div>
+                <div className="text-xs text-slate-600">
+                  {isGettingLocation ? 'Please wait while we locate you.' : 'Turn on location access and continue.'}
+                </div>
               </div>
             </div>
           </button>
