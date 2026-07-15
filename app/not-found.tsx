@@ -1,6 +1,6 @@
 'use client';
 
-import { MapOff, Home } from 'lucide-react';
+import { MapPinOff, Home } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function NotFound() {
@@ -12,7 +12,7 @@ export default function NotFound() {
         {/* 404 Icon */}
         <div className="flex justify-center">
           <div className="bg-amber-100 rounded-full p-4">
-            <MapOff className="w-8 h-8 text-hazard-pending" />
+            <MapPinOff className="w-8 h-8 text-hazard-pending" />
           </div>
         </div>
 

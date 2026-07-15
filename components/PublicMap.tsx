@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvent } from 'react-leaflet';
+import { useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvent } from 'react-leaflet';
 import L from 'leaflet';
 import { Navigation } from 'lucide-react';
+import { toast } from 'react-toastify';
 
 interface HazardReport {
   id: string;
@@ -109,13 +110,11 @@ function MapClickHandler({ onLocationSelect }: MapClickHandlerProps) {
 }
 
 interface MapControlsProps {
-  onShareLocation: () => void;
+  onShareLocation: (lat: number, lng: number) => void;
 }
 
 function MapControls({ onShareLocation }: MapControlsProps) {
-  const map = useMapEvent('click', (e) => {
-    // This is handled by MapClickHandler
-  });
+  const map = useMap();
 
   // Force Leaflet to recalculate container size after mounting
   useMapEvent('load', () => {
@@ -129,6 +128,17 @@ function MapControls({ onShareLocation }: MapControlsProps) {
       navigator.geolocation.getCurrentPosition((position) => {
         const { latitude, longitude } = position.coords;
         map.flyTo([latitude, longitude], 16);
+        onShareLocation(latitude, longitude);
+      }, () => {
+        toast.error('Unable to get your location. Please allow location access.', {
+          position: 'top-right',
+          autoClose: 3000,
+        });
+      });
+    } else {
+      toast.error('Location sharing is not supported by this browser.', {
+        position: 'top-right',
+        autoClose: 3000,
       });
     }
   }, [map, onShareLocation]);
@@ -136,8 +146,9 @@ function MapControls({ onShareLocation }: MapControlsProps) {
   return (
     <button
       onClick={handleShareLocation}
-      className="absolute bottom-6 right-6 z-40 bg-white p-3 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200 border border-canvas-grey"
+      className="absolute bottom-20 md:bottom-6 right-4 md:right-6 z-[1000] bg-white p-3 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200 border border-canvas-grey"
       title="Share my location"
+      aria-label="Share my location"
     >
       <Navigation className="w-5 h-5 text-gakit-blue" />
     </button>
@@ -153,14 +164,13 @@ export function PublicMap({
   onLocationSelect,
   selectedLocation,
 }: PublicMapProps) {
-  const [mapClickLocation, setMapClickLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-
   const handleLocationSelect = useCallback(
     async (lat: number, lng: number) => {
-      setMapClickLocation({ lat, lng });
+      onLocationSelect({
+        lat,
+        lng,
+        address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+      });
       
       try {
         // Fetch address via reverse geocoding
@@ -285,7 +295,7 @@ export function PublicMap({
           </Marker>
         )}
 
-        <MapControls onShareLocation={() => {}} />
+        <MapControls onShareLocation={handleLocationSelect} />
       </MapContainer>
     </div>
   );
