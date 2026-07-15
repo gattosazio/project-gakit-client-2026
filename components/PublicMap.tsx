@@ -158,11 +158,18 @@ function MapControls({ onShareLocation }: MapControlsProps) {
 interface PublicMapProps {
   onLocationSelect: (location: { lat: number; lng: number; address: string; elevation?: number }) => void;
   selectedLocation: { lat: number; lng: number; elevation?: number } | null;
+  submittedReports?: Array<{
+    id: string;
+    location: { lat: number; lng: number; address: string };
+    depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
+    submittedAt: string;
+  }>;
 }
 
 export function PublicMap({
   onLocationSelect,
   selectedLocation,
+  submittedReports = [],
 }: PublicMapProps) {
   const handleLocationSelect = useCallback(
     async (lat: number, lng: number) => {
@@ -259,6 +266,31 @@ export function PublicMap({
                   )}
                 </div>
                 <div className="text-xs text-slate-500">Time: {hazard.time}</div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+
+        {submittedReports.map((report) => (
+          <Marker
+            key={report.id}
+            position={[report.location.lat, report.location.lng]}
+            icon={createHazardIcon('pending')}
+          >
+            <Popup className="gakit-map-popup">
+              <div className="max-w-xs">
+                <div className="font-semibold text-slate-900 mb-1">
+                  Your submitted report
+                </div>
+                <div className="text-xs text-slate-600 mb-2">
+                  {report.location.address}
+                </div>
+                <div className="text-xs font-medium text-hazard-pending">
+                  Status: Pending validation
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  Submitted: {report.submittedAt}
+                </div>
               </div>
             </Popup>
           </Marker>
