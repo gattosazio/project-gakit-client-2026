@@ -20,6 +20,22 @@ interface SelectedLocation {
   elevation?: number;
 }
 
+interface SubmittedReport {
+  id: string;
+  location: SelectedLocation;
+  depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
+  submittedAt: string;
+  hasImage: boolean;
+}
+
+const FLOOD_DEPTH_LABELS: Record<SubmittedReport['depth'], string> = {
+  ankle: 'Ankle Deep',
+  knee: 'Knee Deep',
+  waist: 'Waist Deep',
+  head: 'Head Deep',
+  overhead: 'Overhead',
+};
+
 export function PublicViewPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
@@ -27,6 +43,8 @@ export function PublicViewPage() {
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(
     null
   );
+  const [submittedReports, setSubmittedReports] = useState<SubmittedReport[]>([]);
+  const [lastSubmittedReport, setLastSubmittedReport] = useState<SubmittedReport | null>(null);
 
   const scrollToMap = useCallback(() => {
     document
@@ -120,6 +138,19 @@ export function PublicViewPage() {
         // In a real app, this would call your backend API with FormData
         // to handle both the JSON data and the image file
         console.log('Report confirmed by backend');
+        const report: SubmittedReport = {
+          id: `GAKIT-${Date.now().toString().slice(-6)}`,
+          location: selectedLocation || {
+            ...data.location,
+            address: `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`,
+          },
+          depth: data.depth,
+          submittedAt: new Date().toLocaleString(),
+          hasImage: Boolean(data.image),
+        };
+
+        setLastSubmittedReport(report);
+        setSubmittedReports((currentReports) => [report, ...currentReports]);
         resolve();
       }, 1500);
     });
@@ -176,6 +207,7 @@ export function PublicViewPage() {
                 <PublicMap
                   onLocationSelect={handleLocationSelect}
                   selectedLocation={selectedLocation}
+                  submittedReports={submittedReports}
                 />
               </Suspense>
             </div>
@@ -219,7 +251,16 @@ export function PublicViewPage() {
 
       <SuccessModal
         isOpen={isSuccessOpen}
+        report={lastSubmittedReport}
         onClose={() => setIsSuccessOpen(false)}
+        onViewMap={() => {
+          setIsSuccessOpen(false);
+          scrollToMap();
+        }}
+        onSubmitAnother={() => {
+          setIsSuccessOpen(false);
+          handleStartReport();
+        }}
       />
     </div>
   );
@@ -282,10 +323,16 @@ function LocationPromptModal({
 
 function SuccessModal({
   isOpen,
+  report,
   onClose,
+  onViewMap,
+  onSubmitAnother,
 }: {
   isOpen: boolean;
+  report: SubmittedReport | null;
   onClose: () => void;
+  onViewMap: () => void;
+  onSubmitAnother: () => void;
 }) {
   if (!isOpen) return null;
 
@@ -297,14 +344,56 @@ function SuccessModal({
         </div>
         <h2 className="text-xl font-bold text-slate-900 mt-4">Report submitted</h2>
         <p className="text-sm text-slate-600 mt-2">
-          Thank you. Your flood report was received and will help update the hazard map.
+          Thank you. Your report has been added as unverified and will be reviewed with other flood data.
         </p>
-        <button
-          onClick={onClose}
-          className="w-full mt-6 py-3 px-6 rounded-lg font-semibold bg-[#004aad] hover:bg-blue-800 text-white transition-colors"
-        >
-          Done
-        </button>
+
+        {report && (
+          <div className="mt-5 text-left rounded-lg border border-canvas-grey bg-canvas-light p-4 space-y-3">
+            <div>
+              <div className="text-xs font-semibold text-slate-500">Reference ID</div>
+              <div className="text-sm font-semibold text-slate-900">{report.id}</div>
+            </div>
+            <div>
+              <div className="text-xs font-semibold text-slate-500">Location</div>
+              <div className="text-sm text-slate-900">{report.location.address}</div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs font-semibold text-slate-500">Flood depth</div>
+                <div className="text-sm text-slate-900">{FLOOD_DEPTH_LABELS[report.depth]}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-slate-500">Status</div>
+                <div className="text-sm font-semibold text-hazard-pending">Pending validation</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs font-semibold text-slate-500">Photo</div>
+                <div className="text-sm text-slate-900">{report.hasImage ? 'Attached' : 'None'}</div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-slate-500">Submitted</div>
+                <div className="text-sm text-slate-900">{report.submittedAt}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <button
+            onClick={onViewMap}
+            className="py-3 px-4 rounded-lg font-semibold bg-[#004aad] hover:bg-blue-800 text-white transition-colors"
+          >
+            View on Map
+          </button>
+          <button
+            onClick={onSubmitAnother}
+            className="py-3 px-4 rounded-lg font-semibold border border-canvas-grey text-slate-700 hover:bg-canvas-light transition-colors"
+          >
+            Submit Another
+          </button>
+        </div>
       </div>
     </div>
   );
