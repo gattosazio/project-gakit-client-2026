@@ -1,11 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
   Clock,
   FileText,
-  Info,
   MapPin,
   ShieldAlert,
 } from 'lucide-react';
@@ -24,27 +24,26 @@ const reports = [
   { id: 'GAKIT-284193', location: 'Pala-o Market', depth: 'Ankle Deep', status: 'Anomaly', time: '09:54 AM' },
 ];
 
-const heatmapMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-const heatmapRows = ['Mon', 'Wed', 'Fri'];
-const heatmapData = [
-  [1, 2, 0, 3, 1, 0, 2, 1, 4, 3, 0, 2, 1, 2, 3, 0, 1, 2, 4, 3, 2, 1, 0, 2],
-  [0, 1, 2, 2, 0, 1, 3, 2, 2, 1, 4, 3, 1, 0, 2, 4, 3, 2, 1, 1, 2, 3, 4, 2],
-  [2, 3, 1, 0, 2, 4, 3, 1, 0, 2, 2, 1, 3, 4, 2, 1, 0, 2, 3, 4, 2, 1, 3, 4],
-  [1, 0, 2, 3, 4, 2, 1, 0, 2, 3, 1, 0, 2, 2, 4, 3, 2, 1, 0, 2, 4, 3, 2, 1],
-  [0, 2, 4, 3, 1, 0, 2, 4, 3, 2, 1, 0, 2, 3, 4, 2, 1, 0, 2, 4, 3, 1, 0, 2],
-  [3, 4, 2, 1, 0, 2, 4, 3, 2, 1, 0, 2, 3, 4, 2, 1, 0, 2, 4, 3, 2, 1, 0, 2],
-  [2, 1, 0, 2, 3, 4, 2, 1, 0, 2, 4, 3, 1, 0, 2, 3, 4, 2, 1, 0, 2, 3, 4, 2],
+const monthlyReports = [
+  { month: 'Jan', reports: 42 },
+  { month: 'Feb', reports: 58 },
+  { month: 'Mar', reports: 73 },
+  { month: 'Apr', reports: 51 },
+  { month: 'May', reports: 88 },
+  { month: 'Jun', reports: 126 },
+  { month: 'Jul', reports: 142 },
+  { month: 'Aug', reports: 118 },
+  { month: 'Sep', reports: 96 },
+  { month: 'Oct', reports: 84 },
+  { month: 'Nov', reports: 67 },
+  { month: 'Dec', reports: 53 },
 ];
-
-function getHeatmapClass(level: number) {
-  if (level >= 4) return 'admin-heatmap-cell admin-heatmap-cell-4';
-  if (level === 3) return 'admin-heatmap-cell admin-heatmap-cell-3';
-  if (level === 2) return 'admin-heatmap-cell admin-heatmap-cell-2';
-  if (level === 1) return 'admin-heatmap-cell admin-heatmap-cell-1';
-  return 'admin-heatmap-cell admin-heatmap-cell-0';
-}
+const years = ['2026', '2025', '2024'];
+const maxMonthlyReports = Math.max(...monthlyReports.map((item) => item.reports));
 
 export function DashboardOverview() {
+  const [selectedYear, setSelectedYear] = useState(years[0]);
+
   return (
     <>
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -121,59 +120,38 @@ export function DashboardOverview() {
       </section>
 
       <section className="bg-white border border-canvas-grey rounded-lg p-5 shadow-sm">
-        <div className="flex items-start justify-between gap-4 mb-5">
+        <div className="flex flex-col gap-4 mb-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="font-bold text-slate-900">Reports Over Time</h2>
             <p className="text-sm text-slate-500">
-              Report intensity by week and day across the last 6 months.
+              Monthly public report volume for {selectedYear}.
             </p>
           </div>
-          <div className="hidden md:flex items-center gap-2 text-xs text-slate-500">
-            <Info className="w-4 h-4" />
-            Darker cells mean more reports submitted.
-          </div>
-        </div>
-
-        <div className="admin-heatmap-layout">
-          <div className="admin-heatmap-months">
-            {heatmapMonths.map((month) => (
-              <span key={month}>{month}</span>
-            ))}
-          </div>
-
-          <div className="admin-heatmap-body">
-            <div className="admin-heatmap-days">
-              {Array.from({ length: 7 }).map((_, index) => (
-                <span key={index}>
-                  {heatmapRows.includes(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index])
-                    ? ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][index]
-                    : ''}
-                </span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <select
+              value={selectedYear}
+              onChange={(event) => setSelectedYear(event.target.value)}
+              className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none"
+            >
+              {years.map((year) => (
+                <option key={year}>{year}</option>
               ))}
-            </div>
-
-            <div className="admin-heatmap-grid">
-              {heatmapData.map((row, rowIndex) =>
-                row.map((value, columnIndex) => (
-                  <div
-                    key={`${rowIndex}-${columnIndex}`}
-                    className={getHeatmapClass(value)}
-                    title={`${value} reports`}
-                  />
-                ))
-              )}
-            </div>
+            </select>
           </div>
         </div>
 
-        <div className="mt-5 flex items-center justify-end gap-3 text-xs text-slate-500">
-          <span>Less</span>
-          <div className="flex items-center gap-1">
-            {[0, 1, 2, 3, 4].map((level) => (
-              <div key={level} className={getHeatmapClass(level)} />
-            ))}
-          </div>
-          <span>More</span>
+        <div className="admin-bar-chart">
+          {monthlyReports.map((item) => (
+            <div key={item.month} className="admin-bar-item">
+              <div className="admin-bar-value">{item.reports}</div>
+              <div
+                className="admin-bar"
+                style={{ height: `${Math.max(12, (item.reports / maxMonthlyReports) * 100)}%` }}
+                title={`${item.month} ${selectedYear}: ${item.reports} reports`}
+              />
+              <div className="admin-bar-label">{item.month}</div>
+            </div>
+          ))}
         </div>
       </section>
     </>

@@ -27,7 +27,6 @@ export function MonitoringShell() {
         <AdminHeader
           title={activeFeature.title}
           description={activeFeature.description}
-          searchPlaceholder="Search reports, locations, or queue items"
           profileLabel="Staff"
         />
 
@@ -39,7 +38,11 @@ export function MonitoringShell() {
   );
 }
 
-function MonitoringTabContent({ activeTab }: { activeTab: MonitoringFeatureId }) {
+function MonitoringTabContent({
+  activeTab,
+}: {
+  activeTab: MonitoringFeatureId;
+}) {
   switch (activeTab) {
     case 'reports':
       return <ReportsTab />;

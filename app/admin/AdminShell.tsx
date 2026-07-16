@@ -28,7 +28,6 @@ export function AdminShell() {
         <AdminHeader
           title={activeFeature.title}
           description={activeFeature.description}
-          searchPlaceholder="Search users, roles, or audit logs"
           profileLabel="Platform Admin"
         />
 
