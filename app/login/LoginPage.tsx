@@ -2,14 +2,16 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, X } from 'lucide-react';
 
 export function LoginPage() {
+  const router = useRouter();
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
 
   const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsRequestModalOpen(true);
+    router.push('/monitoring');
   };
 
   return (
