@@ -137,7 +137,7 @@ const priorityStyles: Record<Priority, string> = {
 
 const supportStyles: Record<EvidenceSupport, string> = {
   Strong: 'bg-green-50 text-hazard-safe border-green-200',
-  Partial: 'bg-blue-50 text-[#004aad] border-blue-200',
+  Partial: 'bg-maroon-50 text-gakit-maroon border-maroon-200',
   Weak: 'bg-amber-50 text-hazard-pending border-amber-200',
   Mismatch: 'bg-red-50 text-hazard-critical border-red-200',
 };
@@ -270,7 +270,7 @@ export function ReviewQueueTab() {
                 {paginatedItems.map((item) => (
                   <tr
                     key={item.id}
-                    className={selectedItem.id === item.id ? 'bg-blue-50/60' : 'hover:bg-canvas-light/70'}
+                    className={selectedItem.id === item.id ? 'bg-maroon-50/60' : 'hover:bg-canvas-light/70'}
                   >
                     <td className="px-5 py-4">
                       <div className="font-semibold text-slate-900">{item.id}</div>
@@ -292,7 +292,7 @@ export function ReviewQueueTab() {
                     <td className="px-5 py-4">
                       <button
                         onClick={() => setSelectedItemId(item.id)}
-                        className="rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-[#004aad] hover:text-[#004aad]"
+                        className="rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
                       >
                         Review
                       </button>
@@ -357,7 +357,7 @@ function ReviewDetails({ item }: { item: ReviewItem }) {
       <div className="p-5 space-y-5">
         <div className="rounded-lg bg-canvas-light border border-canvas-grey p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <MapPinned className="w-4 h-4 text-[#004aad]" />
+            <MapPinned className="w-4 h-4 text-gakit-maroon" />
             {item.location}
           </div>
           <div className="text-sm text-slate-600 mt-2">{item.barangay}</div>
@@ -389,13 +389,13 @@ function ReviewDetails({ item }: { item: ReviewItem }) {
           <EvidenceCard icon={Layers} label="Interpolation" value={item.evidence.interpolation.value} support={item.evidence.interpolation.support} />
         </div>
 
-        <div className="rounded-lg bg-blue-50 border border-blue-100 p-4">
+        <div className="rounded-lg bg-maroon-50 border border-maroon-100 p-4">
           <div className="text-sm font-semibold text-slate-900">Recommended Decision</div>
           <p className="text-sm text-slate-600 mt-2">{item.recommendedAction}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <button className="rounded-lg bg-[#004aad] px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800">
+          <button className="rounded-lg bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white hover:bg-maroon-800">
             Confirm Verdict
           </button>
           <button className="rounded-lg border border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light">
@@ -427,7 +427,7 @@ function EvidenceCard({
   return (
     <div className="rounded-lg border border-canvas-grey p-3">
       <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-        <Icon className="w-4 h-4 text-[#004aad]" />
+        <Icon className="w-4 h-4 text-gakit-maroon" />
         {label}
       </div>
       <p className="text-xs text-slate-600 mt-2 min-h-8">{value}</p>
@@ -442,7 +442,7 @@ function ConfidenceBar({ value }: { value: number }) {
   return (
     <div className="mt-2">
       <div className="h-2 rounded-full bg-canvas-grey overflow-hidden">
-        <div className="h-full rounded-full bg-[#004aad]" style={{ width: `${value}%` }} />
+        <div className="h-full rounded-full bg-gakit-maroon" style={{ width: `${value}%` }} />
       </div>
       <div className="text-xs text-slate-500 mt-1">{value}% confidence</div>
     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigation, Layers } from 'lucide-react';
+import { Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -81,6 +81,24 @@ const STATUS_LABEL_CLASS: Record<string, string> = {
   pending: 'text-hazard-pending',
 };
 
+// Distinct color for the user's picked report location (vs. verified #3B82F6)
+const SELECTED_LOCATION_COLOR = '#27e867';
+
+const REPORT_DEPTH_LABELS: Record<string, string> = {
+  ankle: 'Ankle Deep',
+  knee: 'Knee Deep',
+  waist: 'Waist Deep',
+  head: 'Head Deep',
+  overhead: 'Overhead',
+};
+
+const escapeHtml = (value: string) =>
+  value.replace(
+    /[&<>"']/g,
+    (ch) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] || ch
+  );
+
 interface PublicMapProps {
   onLocationSelect: (location: { lat: number; lng: number; address: string; elevation?: number }) => void;
   selectedLocation: { lat: number; lng: number; elevation?: number } | null;
@@ -100,7 +118,7 @@ export function PublicMap({
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
-  const [terrain3D, setTerrain3D] = useState(false);
+  const popupsRef = useRef<any[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [maplibregl, setMaplibregl] = useState<any>(null);
 
@@ -187,7 +205,7 @@ export function PublicMap({
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 16, pitch: 60, bearing: 20 });
+          mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 16 });
           handleLocationSelect(latitude, longitude);
         },
         () => {
@@ -219,8 +237,6 @@ export function PublicMap({
       style: MAPTILER_STYLE,
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 14,
-      pitch: 60,
-      bearing: 20,
     });
 
     mapRef.current = map;
@@ -228,31 +244,6 @@ export function PublicMap({
 
     map.on('load', () => {
       setTimeout(() => map.resize(), 250);
-
-      if (terrain3D) {
-        map.addSource('dem', {
-          type: 'raster-dem',
-          url: 'https://terrain.reearth.land/terrarium/ellipsoid/tilejson.json',
-          encoding: 'terrarium',
-          tileSize: 256,
-          maxzoom: 15,
-        });
-
-        const firstSymbolLayer = map
-          .getStyle()
-          .layers?.find((layer: any) => layer.type === 'symbol')?.id;
-
-        map.addLayer(
-          {
-            id: 'hillshade',
-            type: 'hillshade',
-            source: 'dem',
-          },
-          firstSymbolLayer
-        );
-
-        map.setTerrain({ source: 'dem', exaggeration: 1.0 });
-      }
     });
 
     map.on('click', (e: any) => {
@@ -267,119 +258,134 @@ export function PublicMap({
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !map.isStyleLoaded()) return;
-
-    if (terrain3D) {
-      if (!map.getSource('dem')) {
-        map.addSource('dem', {
-          type: 'raster-dem',
-          url: 'https://terrain.reearth.land/terrarium/ellipsoid/tilejson.json',
-          encoding: 'terrarium',
-          tileSize: 256,
-          maxzoom: 15,
-        });
-      }
-
-      const firstSymbolLayer = map
-        .getStyle()
-        .layers?.find((layer: any) => layer.type === 'symbol')?.id;
-
-      if (!map.getLayer('hillshade')) {
-        map.addLayer(
-          {
-            id: 'hillshade',
-            type: 'hillshade',
-            source: 'dem',
-          },
-          firstSymbolLayer
-        );
-      }
-
-      map.setTerrain({ source: 'dem', exaggeration: 1.0 });
-      map.easeTo({ pitch: 60 });
-    } else {
-      map.setTerrain(null);
-      if (map.getLayer('hillshade')) map.removeLayer('hillshade');
-      if (map.getSource('dem')) map.removeSource('dem');
-      map.easeTo({ pitch: 0 });
-    }
-  }, [terrain3D]);
-
-  useEffect(() => {
-    const map = mapRef.current;
     if (!map) return;
 
     markersRef.current.forEach((m) => m.remove());
     markersRef.current = [];
+    popupsRef.current.forEach((p) => p.remove());
+    popupsRef.current = [];
 
-    HARDCODED_HAZARDS.forEach((hazard) => {
-      const labelClass = STATUS_LABEL_CLASS[hazard.status] || 'text-slate-600';
-      const labelText = STATUS_LABEL[hazard.status] || '';
-      const popup = new maplibregl.Popup({ className: 'gakit-map-popup', offset: 24 }).setHTML(`
-        <div class="max-w-xs">
-          <div class="font-semibold text-slate-900 mb-1">${hazard.location}</div>
-          ${labelText ? `<div class="text-xs text-slate-600 mb-2"><span class="font-medium ${labelClass}">${labelText}</span></div>` : ''}
-          <div class="text-xs text-slate-500">Time: ${hazard.time}</div>
+    const addReportMarker = (
+      lat: number,
+      lng: number,
+      color: string,
+      title: string,
+      detailRows: Array<{ label: string; value: string }>
+    ) => {
+      // MapLibre positions the marker element itself via `transform: translate(...)`
+      // and rewrites it on every pan/zoom. So the visual dot must be a CHILD
+      // element — scaling the container would clobber maplibre's translate and
+      // make markers jump/disappear on hover or when the map moves.
+      const el = document.createElement('div');
+      el.style.width = '18px';
+      el.style.height = '18px';
+      el.style.cursor = 'pointer';
+
+      const dot = document.createElement('div');
+      dot.style.width = '100%';
+      dot.style.height = '100%';
+      dot.style.borderRadius = '9999px';
+      dot.style.backgroundColor = color;
+      dot.style.border = '3px solid #ffffff';
+      dot.style.boxShadow = '0 1px 4px rgba(15, 23, 42, 0.45)';
+      dot.style.transition = 'transform 120ms ease';
+      el.appendChild(dot);
+
+      const growDot = () => {
+        dot.style.transform = 'scale(1.3)';
+      };
+      const shrinkDot = () => {
+        dot.style.transform = 'scale(1)';
+      };
+
+      el.addEventListener('mouseenter', growDot);
+      el.addEventListener('mouseleave', shrinkDot);
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([lng, lat])
+        .addTo(map);
+      markersRef.current.push(marker);
+
+      const popup = new maplibregl.Popup({
+        closeButton: false,
+        closeOnClick: false,
+        anchor: 'bottom',
+        offset: 10,
+      }).setLngLat([lng, lat]).setHTML(`
+        <div class="gakit-tooltip" style="font-family: var(--font-inter), system-ui, sans-serif;">
+          <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
+            ${escapeHtml(title)}
+          </div>
+          ${detailRows
+            .map(
+              (row) => `
+            <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 12px; line-height: 1.6;">
+              <span style="color: #64748b;">${escapeHtml(row.label)}</span>
+              <span style="color: #0f172a; font-weight: 600;">${escapeHtml(row.value)}</span>
+            </div>`
+            )
+            .join('')}
         </div>
       `);
-      
-      const marker = new maplibregl.Marker({ color: STATUS_COLOR[hazard.status] || '#6B7280' })
-        .setLngLat([hazard.lng, hazard.lat])
-        .setPopup(popup)
-        .addTo(map);
-      
-      // Add click handler to the marker element
-      const markerElement = marker.getElement();
-      markerElement.style.cursor = 'pointer';
-      markerElement.addEventListener('click', (e: any) => {
-        e.stopPropagation();
-        handleLocationSelect(hazard.lat, hazard.lng);
+
+      el.addEventListener('mouseenter', () => {
+        if (!popup.isOpen()) popup.addTo(map);
       });
-      
-      markersRef.current.push(marker);
+      el.addEventListener('mouseleave', () => {
+        popup.remove();
+      });
+      popupsRef.current.push(popup);
+    };
+
+    HARDCODED_HAZARDS.forEach((hazard) => {
+      addReportMarker(
+        hazard.lat,
+        hazard.lng,
+        STATUS_COLOR[hazard.status] || '#6B7280',
+        hazard.location,
+        [
+          { label: 'Status', value: STATUS_LABEL[hazard.status] || 'Unknown' },
+          ...(hazard.depth ? [{ label: 'Depth', value: hazard.depth }] : []),
+          { label: 'Reported', value: hazard.time },
+        ]
+      );
     });
 
     submittedReports.forEach((report) => {
-      const popup = new maplibregl.Popup({ className: 'gakit-map-popup', offset: 24 }).setHTML(`
-        <div class="max-w-xs">
-          <div class="font-semibold text-slate-900 mb-1">Your submitted report</div>
-          <div class="text-xs text-slate-600 mb-2">${report.location.address}</div>
-          <div class="text-xs font-medium text-hazard-pending">Status: Pending validation</div>
-          <div class="text-xs text-slate-500 mt-1">Submitted: ${report.submittedAt}</div>
-        </div>
-      `);
-      
-      const marker = new maplibregl.Marker({ color: STATUS_COLOR.pending })
-        .setLngLat([report.location.lng, report.location.lat])
-        .setPopup(popup)
-        .addTo(map);
-      
-      // Add click handler to the marker element
-      const markerElement = marker.getElement();
-      markerElement.style.cursor = 'pointer';
-      markerElement.addEventListener('click', (e: any) => {
-        e.stopPropagation();
-        handleLocationSelect(report.location.lat, report.location.lng);
-      });
-      
-      markersRef.current.push(marker);
+      addReportMarker(
+        report.location.lat,
+        report.location.lng,
+        STATUS_COLOR.pending,
+        report.location.address,
+        [
+          {
+            label: 'Depth',
+            value: REPORT_DEPTH_LABELS[report.depth] || report.depth,
+          },
+          { label: 'Status', value: 'Pending validation' },
+          { label: 'Reported', value: report.submittedAt },
+          { label: 'Ref', value: report.id },
+        ]
+      );
     });
 
     if (selectedLocation) {
-      const popup = new maplibregl.Popup({ className: 'gakit-map-popup', offset: 24 }).setHTML(`
-        <div class="text-sm">
-          <div class="font-semibold mb-1">Selected Location</div>
-          <div class="text-xs text-slate-600">${selectedLocation.lat.toFixed(4)}, ${selectedLocation.lng.toFixed(4)}</div>
-          ${selectedLocation.elevation !== undefined ? `<div class="text-xs text-slate-600 mt-1">Elevation: ${selectedLocation.elevation.toFixed(1)}m</div>` : ''}
-        </div>
-      `);
-      const marker = new maplibregl.Marker()
-        .setLngLat([selectedLocation.lng, selectedLocation.lat])
-        .setPopup(popup)
-        .addTo(map);
-      markersRef.current.push(marker);
+      addReportMarker(
+        selectedLocation.lat,
+        selectedLocation.lng,
+        SELECTED_LOCATION_COLOR,
+        'Selected location',
+        [
+          {
+            label: 'Coordinates',
+            value: `${selectedLocation.lat.toFixed(4)}, ${selectedLocation.lng.toFixed(4)}`,
+          },
+        ]
+      );
     }
-  }, [selectedLocation, submittedReports]);
+    // `maplibregl` is loaded asynchronously; the map doesn't exist on the first
+    // render, so re-run once it resolves to draw the initial markers.
+  }, [selectedLocation, submittedReports, maplibregl]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
@@ -391,18 +397,8 @@ export function PublicMap({
         title="Share my location"
         aria-label="Share my location"
       >
-        <Navigation className="w-5 h-5 text-gakit-blue" />
+        <Navigation className="w-5 h-5 text-gakit-maroon" />
         <span className="text-sm font-medium text-slate-700">Share location</span>
-      </button>
-
-      <button
-        onClick={() => setTerrain3D((v) => !v)}
-        className="absolute bottom-36 md:bottom-20 right-4 md:right-6 z-[1000] bg-white flex items-center gap-2 px-3 py-3 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200 border border-canvas-grey"
-        title={terrain3D ? 'Hide terrain' : 'Show terrain'}
-        aria-label={terrain3D ? 'Hide terrain' : 'Show terrain'}
-      >
-        <Layers className="w-5 h-5 text-gakit-blue" />
-        <span className="text-sm font-medium text-slate-700">{terrain3D ? 'Hide terrain' : 'Show terrain'}</span>
       </button>
     </div>
   );

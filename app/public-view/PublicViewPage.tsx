@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useCallback, Suspense } from 'react';
+import { useState, useCallback, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
-import { CheckCircle2, MapPin, Navigation, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, MapPin, Navigation, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 // Dynamically import the map to avoid window is not defined errors
@@ -36,10 +36,15 @@ const FLOOD_DEPTH_LABELS: Record<SubmittedReport['depth'], string> = {
   overhead: 'Overhead',
 };
 
+// Home comes first in the DOM, but the map is scrolled to on load so it opens first
+const SECTION_ORDER = ['home', 'hazard-map', 'verified-reports', 'about'] as const;
+type SectionId = (typeof SECTION_ORDER)[number];
+
 export function PublicViewPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<SectionId>('hazard-map');
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(
     null
   );
@@ -51,6 +56,55 @@ export function PublicViewPage() {
       .getElementById('hazard-map')
       ?.scrollIntoView({ behavior: 'smooth' });
   }, []);
+
+  const scrollToSection = useCallback((sectionId: SectionId) => {
+    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  const getSectionFromScroll = useCallback((scrollPosition: number): SectionId => {
+    const adjustedScrollPosition = scrollPosition + 120;
+    const documentBottom = window.scrollY + window.innerHeight;
+    const pageBottom = document.documentElement.scrollHeight;
+
+    if (documentBottom >= pageBottom - 8) {
+      return 'about';
+    }
+
+    return [...SECTION_ORDER]
+      .reverse()
+      .find((sectionId) => {
+        const element = document.getElementById(sectionId);
+        return element ? element.offsetTop <= adjustedScrollPosition : false;
+      }) ?? 'hazard-map';
+  }, []);
+
+  useEffect(() => {
+    const updateActiveSection = () => {
+      setActiveSection(getSectionFromScroll(window.scrollY));
+    };
+
+    updateActiveSection();
+    window.addEventListener('scroll', updateActiveSection, { passive: true });
+    window.addEventListener('resize', updateActiveSection);
+
+    setIsLocationPromptOpen(true);
+    scrollToMap();
+
+    return () => {
+      window.removeEventListener('scroll', updateActiveSection);
+      window.removeEventListener('resize', updateActiveSection);
+    };
+  }, [getSectionFromScroll, scrollToMap]);
+
+  const navigateSections = useCallback((direction: 'previous' | 'next') => {
+    const currentSection = activeSection;
+    const currentIndex = SECTION_ORDER.indexOf(currentSection);
+    const nextIndex = direction === 'previous'
+      ? Math.max(currentIndex - 1, 0)
+      : Math.min(currentIndex + 1, SECTION_ORDER.length - 1);
+
+    scrollToSection(SECTION_ORDER[nextIndex]);
+  }, [activeSection, scrollToSection]);
 
   const resolveLocation = async (lat: number, lng: number): Promise<SelectedLocation> => {
     try {
@@ -159,6 +213,12 @@ export function PublicViewPage() {
   return (
     <div className="min-h-screen bg-canvas-grey">
       <PublicHeader />
+      <SectionJumpControls
+        showUp={activeSection !== 'home'}
+        showDown={activeSection !== 'about'}
+        onMoveUp={() => navigateSections('previous')}
+        onMoveDown={() => navigateSections('next')}
+      />
 
       <main className="pt-16 pb-14 md:pb-0">
         <section
@@ -180,7 +240,7 @@ export function PublicViewPage() {
               </p>
               <button
                 onClick={handleStartReport}
-                className="mt-8 px-6 py-3 bg-[#004aad] hover:bg-blue-800 text-white font-semibold rounded-lg transition-colors"
+                className="mt-8 px-6 py-3 bg-gakit-maroon hover:bg-maroon-800 text-white font-semibold rounded-lg transition-colors"
               >
                 Submit A Report
               </button>
@@ -189,8 +249,8 @@ export function PublicViewPage() {
         </section>
 
         <section id="hazard-map" className="min-h-[calc(100vh-4rem)] scroll-mt-16">
-          <div className="h-[calc(100vh-4rem)] flex overflow-hidden border-y-4 border-[#004aad] bg-white">
-            <div className="relative flex-1 w-full h-full min-h-0 border-x border-[#004aad]/30">
+          <div className="h-[calc(100vh-4rem)] flex overflow-hidden border-y-4 border-gakit-maroon bg-white">
+            <div className="relative flex-1 w-full h-full min-h-0 border-x border-gakit-maroon/30">
               <div
                 className={`absolute top-4 right-4 z-[1000] max-w-xs bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-4 transition-all duration-200 ${
                   isModalOpen ? 'md:right-[25rem]' : 'md:right-4'
@@ -228,7 +288,7 @@ export function PublicViewPage() {
         <section id="about" className="bg-canvas-grey scroll-mt-16">
           <div className="w-full max-w-5xl mx-auto px-6 py-16">
             <div className="max-w-3xl">
-              <div className="text-sm font-semibold text-[#004aad] mb-3">
+              <div className="text-sm font-semibold text-gakit-maroon mb-3">
                 About Project GAKIT
               </div>
               <h2 className="text-3xl font-bold text-slate-900">
@@ -266,6 +326,44 @@ export function PublicViewPage() {
   );
 }
 
+function SectionJumpControls({
+  showUp,
+  showDown,
+  onMoveUp,
+  onMoveDown,
+}: {
+  showUp: boolean;
+  showDown: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  return (
+    <>
+      {showUp && (
+        <button
+          type="button"
+          onClick={onMoveUp}
+          className="fixed left-1/2 top-4 z-[1250] hidden h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-slate-500/50 bg-slate-700/30 text-white shadow-lg backdrop-blur-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-700/50 md:flex"
+          aria-label="Move to previous section"
+        >
+          <ChevronUp className="h-5 w-5" />
+        </button>
+      )}
+
+      {showDown && (
+        <button
+          type="button"
+          onClick={onMoveDown}
+          className="fixed left-1/2 bottom-4 z-[1250] hidden h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-slate-500/50 bg-slate-700/30 text-white shadow-lg backdrop-blur-sm transition-transform hover:translate-y-0.5 hover:bg-slate-700/50 md:flex"
+          aria-label="Move to next section"
+        >
+          <ChevronDown className="h-5 w-5" />
+        </button>
+      )}
+    </>
+  );
+}
+
 function LocationPromptModal({
   isOpen,
   onClose,
@@ -283,7 +381,7 @@ function LocationPromptModal({
     <div className="fixed inset-0 z-[1300] bg-black/40 flex items-end md:items-center justify-center p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
         <div className="flex items-center justify-between p-5 border-b border-canvas-grey">
-          <h2 className="text-lg font-bold text-slate-900">Choose report location</h2>
+          <h2 className="text-lg font-bold text-slate-900">Submit a flood report</h2>
           <button onClick={onClose} className="p-1 hover:bg-canvas-light rounded-lg">
             <X className="w-5 h-5 text-slate-500" />
           </button>
@@ -292,10 +390,10 @@ function LocationPromptModal({
         <div className="p-5 space-y-3">
           <button
             onClick={onUseCurrentLocation}
-            className="w-full p-4 rounded-lg border-2 border-[#004aad] bg-blue-50 text-left hover:bg-blue-100 transition-colors"
+            className="w-full p-4 rounded-lg border-2 border-gakit-maroon bg-maroon-50 text-left hover:bg-maroon-100 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <Navigation className="w-5 h-5 text-[#004aad]" />
+              <Navigation className="w-5 h-5 text-gakit-maroon" />
               <div>
                 <div className="font-semibold text-slate-900">Use my current location</div>
                 <div className="text-xs text-slate-600">Turn on location access and continue.</div>
@@ -305,10 +403,10 @@ function LocationPromptModal({
 
           <button
             onClick={onChooseLocation}
-            className="w-full p-4 rounded-lg border-2 border-canvas-grey text-left hover:border-[#004aad] hover:bg-blue-50 transition-colors"
+            className="w-full p-4 rounded-lg border-2 border-canvas-grey text-left hover:border-gakit-maroon hover:bg-maroon-50 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-[#004aad]" />
+              <MapPin className="w-5 h-5 text-gakit-maroon" />
               <div>
                 <div className="font-semibold text-slate-900">Choose on the map</div>
                 <div className="text-xs text-slate-600">Tap the flooded location manually.</div>
@@ -383,7 +481,7 @@ function SuccessModal({
         <div className="mt-6 grid grid-cols-2 gap-3">
           <button
             onClick={onViewMap}
-            className="py-3 px-4 rounded-lg font-semibold bg-[#004aad] hover:bg-blue-800 text-white transition-colors"
+            className="py-3 px-4 rounded-lg font-semibold bg-gakit-maroon hover:bg-maroon-800 text-white transition-colors"
           >
             View on Map
           </button>

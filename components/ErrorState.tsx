@@ -67,7 +67,7 @@ export function ErrorState({
           {showRetryButton && onRetry && (
             <button
               onClick={onRetry}
-              className="w-full py-3 px-6 rounded-lg font-semibold text-white bg-gakit-blue hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 px-6 rounded-lg font-semibold text-white bg-gakit-maroon hover:bg-maroon-800 transition-colors flex items-center justify-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />
               Try Again
@@ -77,7 +77,7 @@ export function ErrorState({
           {showHomeButton && (
             <button
               onClick={handleHome}
-              className="w-full py-3 px-6 rounded-lg font-semibold text-gakit-blue border-2 border-gakit-blue hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 px-6 rounded-lg font-semibold text-gakit-maroon border-2 border-gakit-maroon hover:bg-maroon-50 transition-colors flex items-center justify-center gap-2"
             >
               <Home className="w-4 h-4" />
               Back to Home

@@ -233,7 +233,7 @@ export function ReportsTab() {
 
           <button
             onClick={() => setIsSubmitOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#004aad] px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-800"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white hover:bg-maroon-800"
           >
             <PlusCircle className="w-4 h-4" />
             Submit Report
@@ -270,7 +270,7 @@ export function ReportsTab() {
                   {paginatedReports.map((report) => (
                     <tr
                       key={report.id}
-                      className={selectedReport.id === report.id ? 'bg-blue-50/60' : 'hover:bg-canvas-light/70'}
+                      className={selectedReport.id === report.id ? 'bg-maroon-50/60' : 'hover:bg-canvas-light/70'}
                     >
                       <td className="px-5 py-4">
                         <div className="font-semibold text-slate-900">{report.id}</div>
@@ -290,7 +290,7 @@ export function ReportsTab() {
                       <td className="px-5 py-4">
                         <button
                           onClick={() => setSelectedReportId(report.id)}
-                          className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-[#004aad] hover:text-[#004aad]"
+                          className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
                         >
                           <Eye className="w-4 h-4" />
                           Inspect
@@ -438,7 +438,7 @@ function ReportDetails({ report }: { report: FloodReport }) {
         <div className="aspect-video rounded-lg bg-canvas-light border border-canvas-grey flex items-center justify-center">
           {report.hasPhoto ? (
             <div className="text-center">
-              <FileImage className="w-8 h-8 text-[#004aad] mx-auto" />
+              <FileImage className="w-8 h-8 text-gakit-maroon mx-auto" />
               <div className="text-sm font-semibold text-slate-700 mt-2">Photo attached</div>
             </div>
           ) : (
@@ -461,7 +461,7 @@ function ReportDetails({ report }: { report: FloodReport }) {
         </div> */}
 
         <div className="grid grid-cols-2 gap-3">
-          <button className="rounded-lg bg-[#004aad] px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800">
+          <button className="rounded-lg bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white hover:bg-maroon-800">
             Verify
           </button>
           <button className="rounded-lg border border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light">

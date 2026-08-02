@@ -11,7 +11,9 @@ export function LoginPage() {
 
   const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    router.push('/monitoring');
+    // TODO: Check user role and redirect accordingly
+    // For now, redirecting to admin dashboard
+    router.push('/admin');
   };
 
   return (
@@ -20,14 +22,14 @@ export function LoginPage() {
         <div className="w-full max-w-md">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-[#004aad] mb-8"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 hover:text-gakit-maroon mb-8"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Home
           </Link>
 
           <Link href="/" className="flex items-center gap-3 mb-10">
-            <div className="w-9 h-9 bg-[#004aad] rounded-lg flex items-center justify-center shadow-sm">
+            <div className="w-9 h-9 bg-gakit-maroon rounded-lg flex items-center justify-center shadow-sm">
               <span className="text-white font-bold text-sm">GK</span>
             </div>
             <div>
@@ -49,7 +51,7 @@ export function LoginPage() {
 
           <button
             onClick={() => setIsRequestModalOpen(true)}
-            className="w-full py-3 px-4 rounded-lg border border-canvas-grey hover:border-[#004aad] hover:bg-blue-50 transition-colors flex items-center justify-center gap-2 font-semibold text-slate-700"
+            className="w-full py-3 px-4 rounded-lg border border-canvas-grey hover:border-gakit-maroon hover:bg-maroon-50 transition-colors flex items-center justify-center gap-2 font-semibold text-slate-700"
           >
             <GoogleLogo />
             Continue with Gmail
@@ -70,7 +72,7 @@ export function LoginPage() {
                 type="email"
                 required
                 placeholder="name@example.com"
-                className="w-full px-4 py-3 rounded-lg border border-canvas-grey focus:outline-none focus:ring-2 focus:ring-[#004aad] focus:border-[#004aad]"
+                className="w-full px-4 py-3 rounded-lg border border-canvas-grey focus:outline-none focus:ring-2 focus:ring-gakit-maroon focus:border-gakit-maroon"
               />
             </div>
 
@@ -82,7 +84,7 @@ export function LoginPage() {
                 type="password"
                 required
                 placeholder="Enter your password"
-                className="w-full px-4 py-3 rounded-lg border border-canvas-grey focus:outline-none focus:ring-2 focus:ring-[#004aad] focus:border-[#004aad]"
+                className="w-full px-4 py-3 rounded-lg border border-canvas-grey focus:outline-none focus:ring-2 focus:ring-gakit-maroon focus:border-gakit-maroon"
               />
             </div>
 
@@ -91,14 +93,14 @@ export function LoginPage() {
                 <input type="checkbox" className="rounded border-canvas-grey" />
                 Remember me
               </label>
-              <button type="button" className="font-semibold text-[#004aad] hover:text-blue-800">
+              <button type="button" className="font-semibold text-gakit-maroon hover:text-maroon-800">
                 Forgot password?
               </button>
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 px-6 rounded-lg font-semibold bg-[#004aad] hover:bg-blue-800 text-white transition-colors"
+              className="w-full py-3 px-6 rounded-lg font-semibold bg-gakit-maroon hover:bg-maroon-800 text-white transition-colors"
             >
               Sign in
             </button>
@@ -108,7 +110,7 @@ export function LoginPage() {
             Don't have an account?{' '}
             <button
               onClick={() => setIsRequestModalOpen(true)}
-              className="font-semibold text-[#004aad] hover:text-blue-800"
+              className="font-semibold text-gakit-maroon hover:text-maroon-800"
             >
               Request Access
             </button>
@@ -120,7 +122,7 @@ export function LoginPage() {
         className="relative hidden md:flex w-[60%] bg-cover bg-center items-end"
         style={{ backgroundImage: "url('/images/flooded-image1.jpg')" }}
       >
-        <div className="absolute inset-0 bg-[#004aad]/35" />
+        <div className="absolute inset-0 bg-gakit-maroon/35" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
         <div className="relative z-10 p-12 max-w-3xl">
           <div className="text-sm font-semibold text-white/80 mb-3">
@@ -190,7 +192,7 @@ function RequestAccessModal({
             This account is not registered yet. Please request access from the Project GAKIT administrator.
           </p>
 
-          <div className="bg-blue-50 border border-[#004aad]/20 rounded-lg p-4">
+          <div className="bg-maroon-50 border border-gakit-maroon/20 rounded-lg p-4">
             <div className="text-sm font-semibold text-slate-900">
               For now
             </div>
@@ -201,7 +203,7 @@ function RequestAccessModal({
 
           <button
             onClick={onClose}
-            className="w-full py-3 px-6 rounded-lg font-semibold bg-[#004aad] hover:bg-blue-800 text-white transition-colors"
+            className="w-full py-3 px-6 rounded-lg font-semibold bg-gakit-maroon hover:bg-maroon-800 text-white transition-colors"
           >
             Got it
           </button>

@@ -11,7 +11,7 @@ export function PlaceholderTab({ title, icon: Icon, description, contents }: Pla
   return (
     <div className="bg-white border border-canvas-grey rounded-lg p-8 shadow-sm">
       <div className="flex items-center gap-3">
-        <Icon className="w-6 h-6 text-[#004aad]" />
+        <Icon className="w-6 h-6 text-gakit-maroon" />
         <h2 className="text-xl font-bold text-slate-900">{title}</h2>
       </div>
       <p className="text-slate-600 mt-3">{description}</p>
@@ -20,7 +20,7 @@ export function PlaceholderTab({ title, icon: Icon, description, contents }: Pla
         <ul className="mt-3 space-y-3">
           {contents.map((item) => (
             <li key={item} className="flex gap-3 text-sm text-slate-600">
-              <span className="mt-1.5 w-2 h-2 rounded-full bg-[#004aad] shrink-0" />
+              <span className="mt-1.5 w-2 h-2 rounded-full bg-gakit-maroon shrink-0" />
               <span>{item}</span>
             </li>
           ))}
