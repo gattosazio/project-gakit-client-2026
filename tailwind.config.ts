@@ -12,12 +12,24 @@ const config: Config = {
       },
       colors: {
         // GAKIT Brand Colors
-        'gakit-blue': '#2563EB',
-        'gakit-blue-light': '#3B82F6',
+        'gakit-maroon': '#7A0019',
+        'gakit-maroon-light': '#9B1C31',
+        maroon: {
+          50: '#FDF2F4',
+          100: '#FCE7EB',
+          200: '#F8C9D2',
+          300: '#F0A9B6',
+          400: '#E07A8C',
+          500: '#C94E67',
+          600: '#A9314D',
+          700: '#7A0019',
+          800: '#5E0013',
+          900: '#43000E',
+        },
         
         // Hazard Status Colors
         'hazard-critical': '#EF4444',  // Red - Critical/Impassable
-        'hazard-verified': '#3B82F6',   // Blue - Verified floods
+        'hazard-verified': '#7A0019',   // Maroon - Verified floods
         'hazard-pending': '#F59E0B',    // Amber - Pending reports
         'hazard-safe': '#10B981',       // Green - Safe routes
         

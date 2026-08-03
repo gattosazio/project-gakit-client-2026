@@ -26,7 +26,7 @@ export function FeaturePageShell({
       {hasHeader && (
         <section className="bg-white border border-canvas-grey rounded-lg p-5 shadow-sm">
           {eyebrow && (
-            <div className="text-xs font-semibold uppercase tracking-wide text-[#004aad]">
+            <div className="text-xs font-semibold uppercase tracking-wide text-gakit-maroon">
               {eyebrow}
             </div>
           )}

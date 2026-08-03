@@ -199,7 +199,7 @@ export function HazardMapTab() {
               <div className="border-t border-canvas-grey pt-3 xl:border-l xl:border-t-0 xl:pl-3 xl:pt-0">
                 <div className="text-xs font-bold text-slate-900 mb-2">Summary</div>
                 <div className="grid grid-cols-5 gap-2">
-                  <SummaryCount label="All" value={reportCounts.all} color="text-[#004aad]" />
+                  <SummaryCount label="All" value={reportCounts.all} color="text-gakit-maroon" />
                   <SummaryCount label="Pending" value={reportCounts.pending} color="text-hazard-pending" />
                   <SummaryCount label="Verified" value={reportCounts.verified} color="text-hazard-safe" />
                   <SummaryCount label="Critical" value={reportCounts.critical} color="text-hazard-critical" />
@@ -225,7 +225,7 @@ export function HazardMapTab() {
 
           <div className="border-t border-canvas-grey p-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-2 text-sm text-slate-600">
-              <Filter className="w-4 h-4 text-[#004aad]" />
+              <Filter className="w-4 h-4 text-gakit-maroon" />
               Showing {filteredReports.length} of {reports.length} mapped reports
             </div>
             <div className="text-xs text-slate-500">
@@ -258,7 +258,7 @@ function MapReportDetails({ report }: { report: OperationalMapReport }) {
       <div className="p-5 space-y-5">
         <div className="rounded-lg bg-canvas-light border border-canvas-grey p-4">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <MapPinned className="w-4 h-4 text-[#004aad]" />
+            <MapPinned className="w-4 h-4 text-gakit-maroon" />
             {report.location}
           </div>
           <div className="text-sm text-slate-600 mt-2">{report.barangay}</div>
@@ -282,7 +282,7 @@ function MapReportDetails({ report }: { report: OperationalMapReport }) {
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <button className="rounded-lg bg-[#004aad] px-4 py-3 text-sm font-semibold text-white hover:bg-blue-800">
+          <button className="rounded-lg bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white hover:bg-maroon-800">
             Inspect
           </button>
           <button className="rounded-lg border border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light">
@@ -326,8 +326,8 @@ function StatusFilterButton({
       onClick={onClick}
       className={`rounded-md border px-2 py-1 text-xs font-semibold ${
         isActive
-          ? 'border-[#004aad] bg-blue-50 text-[#004aad]'
-          : 'border-canvas-grey bg-canvas-light text-slate-600 hover:border-[#004aad] hover:text-[#004aad]'
+          ? 'border-gakit-maroon bg-maroon-50 text-gakit-maroon'
+          : 'border-canvas-grey bg-canvas-light text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon'
       }`}
     >
       {status}

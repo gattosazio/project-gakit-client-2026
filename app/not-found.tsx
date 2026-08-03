@@ -31,7 +31,7 @@ export default function NotFound() {
 
         <button
           onClick={() => router.push('/')}
-          className="w-full py-3 px-6 rounded-lg font-semibold text-white bg-gakit-blue hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+          className="w-full py-3 px-6 rounded-lg font-semibold text-white bg-gakit-maroon hover:bg-maroon-800 transition-colors flex items-center justify-center gap-2"
         >
           <Home className="w-4 h-4" />
           Back to Home

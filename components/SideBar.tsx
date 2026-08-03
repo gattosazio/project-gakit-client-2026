@@ -17,10 +17,10 @@ export function SideBar<T extends string>({
   onTabChange,
 }: SideBarProps<T>) {
   return (
-    <aside className="hidden lg:flex w-64 shrink-0 bg-[#004aad] text-white h-screen flex-col">
+    <aside className="hidden lg:flex w-64 shrink-0 bg-gakit-maroon text-white h-screen flex-col">
       <div className="h-20 px-6 flex items-center gap-3 border-b border-white/15">
         <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center shadow-sm">
-          <span className="text-[#004aad] font-bold text-sm">GK</span>
+          <span className="text-gakit-maroon font-bold text-sm">GK</span>
         </div>
         <div>
           <div className="font-bold leading-tight">Project GAKIT</div>
@@ -39,7 +39,7 @@ export function SideBar<T extends string>({
               onClick={() => onTabChange(feature.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                 isActive
-                  ? 'bg-white text-[#004aad]'
+                  ? 'bg-white text-gakit-maroon'
                   : 'text-white/85 hover:bg-white/15 hover:text-white'
               }`}
             >

@@ -37,7 +37,7 @@ export function AdminHeader({
             aria-expanded={isProfileOpen}
             aria-haspopup="menu"
           >
-            <UserRound className="w-5 h-5 text-[#004aad]" />
+            <UserRound className="w-5 h-5 text-gakit-maroon" />
             <span className="hidden md:inline text-sm font-semibold text-slate-700">{profileLabel}</span>
           </button>
 

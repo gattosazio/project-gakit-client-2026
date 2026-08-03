@@ -14,7 +14,7 @@
 /build
 
 # Local Environment Variables / Secrets
-.env*.local
+.env.local
 .env
 .env.production
 .env.development

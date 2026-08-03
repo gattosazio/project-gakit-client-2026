@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 const metrics = [
-  { label: 'Reports Today', value: '38', detail: '+12 from yesterday', icon: FileText, color: 'text-[#004aad]' },
+  { label: 'Reports Today', value: '38', detail: '+12 from yesterday', icon: FileText, color: 'text-gakit-maroon' },
   { label: 'Pending Validation', value: '14', detail: 'Needs review', icon: Clock, color: 'text-hazard-pending' },
   { label: 'Critical Reports', value: '6', detail: 'Impassable areas', icon: AlertTriangle, color: 'text-hazard-critical' },
   { label: 'Verified Reports', value: '21', detail: 'Trusted map pins', icon: CheckCircle2, color: 'text-hazard-safe' },
@@ -72,7 +72,7 @@ export function DashboardOverview() {
               <h2 className="font-bold text-slate-900">Latest Reports</h2>
               <p className="text-sm text-slate-500">Newest flood reports from the public map.</p>
             </div>
-            <MapPin className="w-5 h-5 text-[#004aad]" />
+            <MapPin className="w-5 h-5 text-gakit-maroon" />
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -92,7 +92,7 @@ export function DashboardOverview() {
                     <td className="px-5 py-4 text-slate-600">{report.location}</td>
                     <td className="px-5 py-4 text-slate-600">{report.depth}</td>
                     <td className="px-5 py-4">
-                      <span className="rounded-full bg-blue-50 text-[#004aad] px-2.5 py-1 text-xs font-semibold">
+                      <span className="rounded-full bg-maroon-50 text-gakit-maroon px-2.5 py-1 text-xs font-semibold">
                         {report.status}
                       </span>
                     </td>
@@ -104,7 +104,7 @@ export function DashboardOverview() {
           </div>
         </div>
 
-        <div className="bg-[#004aad] text-white rounded-lg p-5 shadow-sm">
+        <div className="bg-gakit-maroon text-white rounded-lg p-5 shadow-sm">
           <div className="flex items-center gap-3">
             <ShieldAlert className="w-6 h-6" />
             <h2 className="font-bold">Emergency Status</h2>
@@ -113,7 +113,7 @@ export function DashboardOverview() {
           <p className="text-sm text-white/80 mt-3">
             Six reports are marked critical. Prioritize validation and responder review.
           </p>
-          <button className="mt-6 w-full py-3 rounded-lg bg-white text-[#004aad] font-semibold hover:bg-white/90 transition-colors">
+          <button className="mt-6 w-full py-3 rounded-lg bg-white text-gakit-maroon font-semibold hover:bg-white/90 transition-colors">
             Review Critical Reports
           </button>
         </div>
