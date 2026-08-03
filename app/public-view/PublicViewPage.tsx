@@ -37,7 +37,7 @@ const FLOOD_DEPTH_LABELS: Record<SubmittedReport['depth'], string> = {
 };
 
 // Home comes first in the DOM, but the map is scrolled to on load so it opens first
-const SECTION_ORDER = ['home', 'hazard-map', 'verified-reports', 'about'] as const;
+const SECTION_ORDER = ['home', 'hazard-map', 'about'] as const;
 type SectionId = (typeof SECTION_ORDER)[number];
 
 export function PublicViewPage() {
