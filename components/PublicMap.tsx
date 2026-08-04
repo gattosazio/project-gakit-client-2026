@@ -192,19 +192,6 @@ export function PublicMap({
           addressData.display_name?.split(',')[0] ||
           `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
-        let elevation: number | undefined;
-        try {
-          const elevationResponse = await fetch(
-            `https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`,
-            { signal: abortController.signal }
-          );
-          const elevationData = await elevationResponse.json();
-          elevation = elevationData.results?.[0]?.elevation;
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') return;
-          console.warn('Elevation API error:', error);
-        }
-
         // Check again before final update
         if (abortController.signal.aborted) return;
 
@@ -212,7 +199,6 @@ export function PublicMap({
           lat,
           lng,
           address: address.trim(),
-          elevation,
         });
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
