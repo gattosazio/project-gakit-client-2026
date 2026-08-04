@@ -28,3 +28,12 @@ yarn-error.log*
 .DS_Store
 *.local
 tsconfig.tsbuildinfo
+
+# Shapefile source data (large binaries — converted GeoJSON in public/data/ is committed)
+/data
+
+#python venv
+.venv
+
+#scripts
+/scripts
