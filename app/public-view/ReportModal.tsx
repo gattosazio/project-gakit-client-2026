@@ -130,8 +130,8 @@ export function ReportModal({
       : 'Add Photo';
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[1300] flex items-end md:static md:flex md:items-stretch md:justify-end md:w-96">
-      <div className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[78vh] flex flex-col md:max-h-none md:rounded-l-2xl md:rounded-r-none md:h-full md:max-w-96">
+    <div className="fixed inset-x-0 bottom-0 z-[1300] flex items-end md:fixed md:right-0 md:top-0 md:bottom-0 md:items-center md:justify-end md:w-auto md:pointer-events-none">
+      <div className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[78vh] flex flex-col md:rounded-2xl md:max-h-[calc(100vh-12rem)] md:h-auto md:max-w-96 md:mr-6 md:pointer-events-auto">
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-canvas-grey">
           <div>
             <h2 className="text-xl font-bold text-slate-900">{title}</h2>
@@ -219,7 +219,7 @@ export function ReportModal({
                       selectedDepth === depth.id
                         ? depth.id === 'overhead'
                           ? 'border-hazard-critical bg-red-50'
-                          : 'border-gakit-maroon bg-maroon-50'
+                          : 'border-gakit-maroon bg-slate-50'
                         : 'border-canvas-grey hover:border-canvas-grey/70 bg-white'
                     }`}
                   >
@@ -240,7 +240,7 @@ export function ReportModal({
                             y="0"
                             width="40"
                             height="64"
-                            fill={depth.id === 'overhead' ? '#ef4444' : '#3b82f6'}
+                            fill={depth.id === 'overhead' ? '#7f1d1d' : '#3b82f6'}
                             opacity="0.4"
                             clipPath={`url(#water-${depth.id})`}
                           />

@@ -492,11 +492,11 @@ export function PublicMap({
       <div className="absolute bottom-36 md:bottom-20 right-4 md:right-6 z-[1000] bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-3">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-900 mb-2">
           <Layers className="w-3.5 h-3.5" />
-          Layers
+          Toggle Layers
         </div>
         <div className="space-y-1.5">
           <LayerToggle
-            label="Flood hazard"
+            label="Flood Risk Areas"
             color="#3B82F6"
             checked={showFloodHazard}
             onChange={setShowFloodHazard}

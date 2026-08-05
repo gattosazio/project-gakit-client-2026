@@ -249,20 +249,18 @@ export function PublicViewPage() {
         </section>
 
         <section id="hazard-map" className="min-h-[calc(100vh-4rem)] scroll-mt-16">
-          <div className="h-[calc(100vh-4rem)] flex overflow-hidden border-y-4 border-gakit-maroon bg-white">
-            <div className="relative flex-1 w-full h-full min-h-0 border-x border-gakit-maroon/30">
-              <div
-                className={`absolute top-4 right-4 z-[1000] max-w-xs bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-4 transition-all duration-200 ${
-                  isModalOpen ? 'md:right-[25rem]' : 'md:right-4'
-                }`}
-              >
-                <div className="text-sm font-semibold text-slate-900">
-                  Report a flood hazard
+          <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-white">
+            <div className="relative flex-1 w-full h-full min-h-0">
+              {!isModalOpen && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-xs bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-4">
+                  <div className="text-sm font-semibold text-slate-900">
+                    Report a flood hazard
+                  </div>
+                  <div className="text-xs text-slate-600 mt-1">
+                    Tap the map or use the location button, then choose the flood depth.
+                  </div>
                 </div>
-                <div className="text-xs text-slate-600 mt-1">
-                  Tap the map or use the location button, then choose the flood depth.
-                </div>
-              </div>
+              )}
               <Suspense fallback={<div className="w-full h-full bg-canvas-grey" />}>
                 <PublicMap
                   onLocationSelect={handleLocationSelect}
