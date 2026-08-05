@@ -99,17 +99,17 @@ const escapeHtml = (value: string) =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] || ch
   );
 
-// Flood zone risk colors — single source of truth for layers + legend
-const FLOOD_RISK_COLORS: Record<string, string> = {
-  high: '#EF4444',
+// Flood hazard colors — single source of truth for layers + legend
+const FLOOD_HAZARD_COLORS: Record<string, string> = {
+  high: '#DC2626',
   medium: '#F59E0B',
-  low: '#3B82F6',
+  low: '#FDE047',
 };
 
-const FLOOD_RISK_LEGEND: Array<{ key: string; label: string; color: string }> = [
-  { key: 'high', label: 'High risk', color: FLOOD_RISK_COLORS.high },
-  { key: 'medium', label: 'Medium risk', color: FLOOD_RISK_COLORS.medium },
-  { key: 'low', label: 'Low risk', color: FLOOD_RISK_COLORS.low },
+const FLOOD_HAZARD_LEGEND: Array<{ key: string; label: string; color: string }> = [
+  { key: 'high', label: 'High hazard', color: FLOOD_HAZARD_COLORS.high },
+  { key: 'medium', label: 'Medium hazard', color: FLOOD_HAZARD_COLORS.medium },
+  { key: 'low', label: 'Low hazard', color: FLOOD_HAZARD_COLORS.low },
 ];
 
 interface PublicMapProps {
@@ -136,8 +136,7 @@ export function PublicMap({
   const [maplibregl, setMaplibregl] = useState<any>(null);
 
   // Layer visibility toggles
-  const [showFloodZones, setShowFloodZones] = useState(true);
-  const [showBuildings, setShowBuildings] = useState(true);
+  const [showFloodHazard, setShowFloodHazard] = useState(true);
   const layersReadyRef = useRef(false);
 
   const fetchJson = useCallback(async (path: string) => {
@@ -259,101 +258,70 @@ export function PublicMap({
       setTimeout(() => map.resize(), 250);
 
       void (async () => {
-        let floodZoneCollection: any = { type: 'FeatureCollection', features: [] };
-
         try {
-          const manifest = await fetchJson('/data/flood-zones-manifest.json');
+          // Load PMTiles protocol handler
+          const pmtiles = await import('pmtiles');
+          const protocol = new pmtiles.Protocol();
+          maplibregl.addProtocol('pmtiles', protocol.tile);
 
-          if (manifest?.chunks?.length) {
-            const chunkCollections = await Promise.all(
-              manifest.chunks.map((chunk: { file: string }) => fetchJson(`/data/${chunk.file}`))
-            );
+          // --- Flood hazard vector tile layer (PMTiles) ---
+          map.addSource('flood-hazard', {
+            type: 'vector',
+            url: 'pmtiles:///data/flood-zones.pmtiles',
+            attribution:
+              'Flood data: <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">Project NOAH</a> (ODbL)',
+          });
 
-            floodZoneCollection = {
-              type: 'FeatureCollection',
-              features: chunkCollections.flatMap((chunk: any) => chunk.features ?? []),
-            };
-          } else {
-            floodZoneCollection = await fetchJson('/data/flood-zones.json');
-          }
+          map.addLayer({
+            id: 'flood-hazard-fill',
+            type: 'fill',
+            source: 'flood-hazard',
+            'source-layer': 'flood-zones',
+            paint: {
+              'fill-color': [
+                'match',
+                ['get', 'risk_level'],
+                'high',    FLOOD_HAZARD_COLORS.high,
+                'medium',  FLOOD_HAZARD_COLORS.medium,
+                'low',     FLOOD_HAZARD_COLORS.low,
+                'rgba(0,0,0,0.15)',
+              ],
+              'fill-opacity': 0.25,
+            },
+          });
+
+          map.addLayer({
+            id: 'flood-hazard-outline',
+            type: 'line',
+            source: 'flood-hazard',
+            'source-layer': 'flood-zones',
+            paint: {
+              'line-color': [
+                'match',
+                ['get', 'risk_level'],
+                'high',    FLOOD_HAZARD_COLORS.high,
+                'medium',  FLOOD_HAZARD_COLORS.medium,
+                'low',     FLOOD_HAZARD_COLORS.low,
+                '#999999',
+              ],
+              'line-width': 1.5,
+              'line-opacity': 0.6,
+            },
+          });
         } catch (error) {
-          console.error('Failed to load chunked flood zones', error);
-          toast.error('Flood zone map data could not be loaded.', {
+          console.error('Failed to load PMTiles flood hazard data', error);
+          toast.error('Flood hazard map data could not be loaded.', {
             position: 'top-right',
             autoClose: 4000,
           });
         }
 
-        // --- Flood zone fill layer (polygons from shapefile) ---
-        map.addSource('flood-zones', {
-          type: 'geojson',
-          data: floodZoneCollection,
-          attribution:
-            'Flood data: <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">Project NOAH</a> (ODbL)',
-        });
-
-        map.addLayer({
-          id: 'flood-zones-fill',
-          type: 'fill',
-          source: 'flood-zones',
-          paint: {
-            'fill-color': [
-              'match',
-              ['get', 'risk_level'],
-              'high',    FLOOD_RISK_COLORS.high,
-              'medium',  FLOOD_RISK_COLORS.medium,
-              'low',     FLOOD_RISK_COLORS.low,
-              'rgba(0,0,0,0.15)',
-            ],
-            'fill-opacity': 0.25,
-          },
-        });
-
-        map.addLayer({
-          id: 'flood-zones-outline',
-          type: 'line',
-          source: 'flood-zones',
-          paint: {
-            'line-color': [
-              'match',
-              ['get', 'risk_level'],
-              'high',    FLOOD_RISK_COLORS.high,
-              'medium',  FLOOD_RISK_COLORS.medium,
-              'low',     FLOOD_RISK_COLORS.low,
-              '#999999',
-            ],
-            'line-width': 1.5,
-            'line-opacity': 0.6,
-          },
-        });
-
-        // --- 3D building extrusions (behind labels, above flood zones) ---
-        map.addLayer({
-          id: '3d-buildings',
-          source: 'maptiler_planet',
-          'source-layer': 'building',
-          type: 'fill-extrusion',
-          minzoom: 15,
-          paint: {
-            'fill-extrusion-color': [
-              'interpolate', ['linear'], ['get', 'render_height'],
-              0,   '#e4e4e7',
-              50,  '#a1a1aa',
-              100, '#71717a',
-            ],
-            'fill-extrusion-height': ['get', 'render_height'],
-            'fill-extrusion-base': ['get', 'render_min_height'],
-            'fill-extrusion-opacity': 0.7,
-          },
-        }, 'Place labels');
-
         layersReadyRef.current = true;
 
         // Apply current toggle state (handles case where user toggled before load)
         const initialLayers: Array<[string, boolean]> = [
-          ['flood-zones-fill', showFloodZones],
-          ['flood-zones-outline', showFloodZones],
-          ['3d-buildings', showBuildings],
+          ['flood-hazard-fill', showFloodHazard],
+          ['flood-hazard-outline', showFloodHazard],
         ];
         initialLayers.forEach(([id, visible]) => {
           map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
@@ -508,15 +476,14 @@ export function PublicMap({
     if (!map || !layersReadyRef.current) return;
 
     const layers: Array<[string, boolean]> = [
-      ['flood-zones-fill', showFloodZones],
-      ['flood-zones-outline', showFloodZones],
-      ['3d-buildings', showBuildings],
+      ['flood-hazard-fill', showFloodHazard],
+      ['flood-hazard-outline', showFloodHazard],
     ];
 
     layers.forEach(([id, visible]) => {
       map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
     });
-  }, [showFloodZones, showBuildings]);
+  }, [showFloodHazard]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
@@ -529,17 +496,17 @@ export function PublicMap({
         </div>
         <div className="space-y-1.5">
           <LayerToggle
-            label="Flood zones"
+            label="Flood hazard"
             color="#3B82F6"
-            checked={showFloodZones}
-            onChange={setShowFloodZones}
+            checked={showFloodHazard}
+            onChange={setShowFloodHazard}
           />
-          {showFloodZones && (
+          {showFloodHazard && (
             <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
               <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">
                 Risk levels
               </div>
-              {FLOOD_RISK_LEGEND.map(({ key, label, color }) => (
+              {FLOOD_HAZARD_LEGEND.map(({ key, label, color }) => (
                 <div key={key} className="flex items-center gap-2">
                   <span
                     className="h-3 w-3 rounded-sm border border-slate-300"
@@ -550,12 +517,6 @@ export function PublicMap({
               ))}
             </div>
           )}
-          <LayerToggle
-            label="Buildings"
-            color="#71717a"
-            checked={showBuildings}
-            onChange={setShowBuildings}
-          />
         </div>
       </div>
 
