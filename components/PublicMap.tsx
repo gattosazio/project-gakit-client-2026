@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
+import type { FloodDepthCategory, ReportStatus } from '@/app/public-view/actions/public.view';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
 
@@ -84,13 +85,17 @@ const STATUS_LABEL_CLASS: Record<string, string> = {
 // Distinct color for the user's picked report location (vs. verified #3B82F6)
 const SELECTED_LOCATION_COLOR = '#27e867';
 
-const REPORT_DEPTH_LABELS: Record<string, string> = {
-  ankle: 'Ankle Deep',
-  knee: 'Knee Deep',
-  waist: 'Waist Deep',
-  head: 'Head Deep',
-  overhead: 'Overhead',
+const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
+  UNVERIFIED: 'Pending validation',
+  VERIFIED: 'Verified',
+  ANOMALY: 'Flagged for review',
+  REJECTED: 'Rejected',
 };
+
+const formatDepth = (depth: FloodDepthCategory) =>
+  depth.code === 'overhead'
+    ? `${depth.label} (approximately ${depth.approximateCm} cm or deeper)`
+    : `${depth.label} (approximately ${depth.approximateCm} cm)`;
 
 const escapeHtml = (value: string) =>
   value.replace(
@@ -100,12 +105,13 @@ const escapeHtml = (value: string) =>
   );
 
 interface PublicMapProps {
-  onLocationSelect: (location: { lat: number; lng: number; address: string; elevation?: number }) => void;
-  selectedLocation: { lat: number; lng: number; elevation?: number } | null;
+  onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
+  selectedLocation: { lat: number; lng: number } | null;
   submittedReports?: Array<{
     id: string;
     location: { lat: number; lng: number; address: string };
-    depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
+    depth: FloodDepthCategory;
+    status: ReportStatus;
     submittedAt: string;
   }>;
 }
@@ -165,19 +171,6 @@ export function PublicMap({
           addressData.display_name?.split(',')[0] ||
           `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
 
-        let elevation: number | undefined;
-        try {
-          const elevationResponse = await fetch(
-            `https://api.open-elevation.com/api/v1/lookup?locations=${lat},${lng}`,
-            { signal: abortController.signal }
-          );
-          const elevationData = await elevationResponse.json();
-          elevation = elevationData.results?.[0]?.elevation;
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') return;
-          console.warn('Elevation API error:', error);
-        }
-
         // Check again before final update
         if (abortController.signal.aborted) return;
 
@@ -185,7 +178,6 @@ export function PublicMap({
           lat,
           lng,
           address: address.trim(),
-          elevation,
         });
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
@@ -352,17 +344,23 @@ export function PublicMap({
     });
 
     submittedReports.forEach((report) => {
+      const statusColor = report.status === 'VERIFIED'
+        ? STATUS_COLOR.verified
+        : report.status === 'UNVERIFIED'
+          ? STATUS_COLOR.pending
+          : STATUS_COLOR.critical;
+
       addReportMarker(
         report.location.lat,
         report.location.lng,
-        STATUS_COLOR.pending,
+        statusColor,
         report.location.address,
         [
           {
             label: 'Depth',
-            value: REPORT_DEPTH_LABELS[report.depth] || report.depth,
+            value: formatDepth(report.depth),
           },
-          { label: 'Status', value: 'Pending validation' },
+          { label: 'Status', value: REPORT_STATUS_LABELS[report.status] },
           { label: 'Reported', value: report.submittedAt },
           { label: 'Ref', value: report.id },
         ]
