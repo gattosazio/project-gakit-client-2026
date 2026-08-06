@@ -9,23 +9,27 @@ import {
   MapPin,
   ShieldAlert,
 } from 'lucide-react';
-import { fetchReports, type Report } from '@/lib/api';
+import { fetchReportStats, fetchReports, type Report, type ReportStats } from '@/lib/api';
 import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
 
-export function DashboardOverview() {
-  const [reports, setReports] = useState<Report[]>([]);
+const CURRENT_YEAR = String(new Date().getFullYear());
+
+export function DashboardOverview({ onReviewCritical }: { onReviewCritical?: () => void }) {
+  const [stats, setStats] = useState<ReportStats | null>(null);
+  const [latestReports, setLatestReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<string>(
-    String(new Date().getFullYear())
-  );
+  const [selectedYear, setSelectedYear] = useState<string>(CURRENT_YEAR);
 
   useEffect(() => {
     let cancelled = false;
 
-    fetchReports({ limit: 100 })
-      .then((result) => {
-        if (!cancelled) setReports(result.items);
+    Promise.all([fetchReportStats(), fetchReports({ limit: 5 })])
+      .then(([statsResult, reportsResult]) => {
+        if (!cancelled) {
+          setStats(statsResult);
+          setLatestReports(reportsResult.items);
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -42,39 +46,28 @@ export function DashboardOverview() {
   }, []);
 
   const years = useMemo(() => {
-    const yearSet = new Set(
-      reports.map((report) => new Date(report.createdAt).getFullYear().toString())
-    );
-    if (yearSet.size === 0) yearSet.add(String(new Date().getFullYear()));
+    const yearSet = new Set(stats?.years.map(String) ?? []);
+    if (yearSet.size === 0) yearSet.add(CURRENT_YEAR);
     return Array.from(yearSet).sort().reverse();
-  }, [reports]);
+  }, [stats]);
 
-  const total = reports.length;
-  const today = new Date().toDateString();
-  const reportsToday = reports.filter(
-    (report) => new Date(report.createdAt).toDateString() === today
-  ).length;
-  const pendingCount = reports.filter((report) => report.status === 'UNVERIFIED').length;
-  const verifiedCount = reports.filter((report) => report.status === 'VERIFIED').length;
-  const criticalCount = reports.filter(
-    (report) => report.depth.code === 'head' || report.depth.code === 'overhead'
-  ).length;
-
-  const latestReports = useMemo(() => reports.slice(0, 5), [reports]);
+  const reportsToday = stats?.reportsToday ?? 0;
+  const pendingCount = stats?.pendingCount ?? 0;
+  const verifiedCount = stats?.verifiedCount ?? 0;
+  const criticalCount = stats?.criticalCount ?? 0;
 
   const monthlyReports = useMemo(() => {
     const byMonth = new Array(12).fill(0);
-    for (const report of reports) {
-      const date = new Date(report.createdAt);
-      if (date.getFullYear().toString() === selectedYear) {
-        byMonth[date.getMonth()] += 1;
+    for (const item of stats?.monthly ?? []) {
+      if (String(item.year) === selectedYear) {
+        byMonth[item.month - 1] = item.reports;
       }
     }
     return byMonth.map((count, monthIndex) => ({
       month: new Date(2020, monthIndex, 1).toLocaleString('en', { month: 'short' }),
       reports: count as number,
     }));
-  }, [reports, selectedYear]);
+  }, [stats, selectedYear]);
 
   const maxMonthlyReports = Math.max(1, ...monthlyReports.map((item) => item.reports));
 
@@ -189,7 +182,10 @@ export function DashboardOverview() {
               ? 'No head-deep or overhead reports on file. Keep monitoring live submissions.'
               : `${criticalCount} report${criticalCount === 1 ? ' is' : 's are'} marked critical. Prioritize validation and responder review.`}
           </p>
-          <button className="mt-6 w-full py-3 rounded-lg bg-white text-gakit-maroon font-semibold hover:bg-white/90 transition-colors">
+          <button
+            onClick={onReviewCritical}
+            className="mt-6 w-full py-3 rounded-lg bg-white text-gakit-maroon font-semibold hover:bg-white/90 transition-colors"
+          >
             Review Critical Reports
           </button>
         </div>

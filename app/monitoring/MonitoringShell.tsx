@@ -12,7 +12,18 @@ import './Monitoring.css';
 
 export function MonitoringShell() {
   const [activeTab, setActiveTab] = useState<MonitoringFeatureId>('dashboard');
+  const [criticalReportsOnly, setCriticalReportsOnly] = useState(false);
   const activeFeature = monitoringFeatureMap[activeTab];
+
+  const handleTabChange = (tab: MonitoringFeatureId) => {
+    setCriticalReportsOnly(false);
+    setActiveTab(tab);
+  };
+
+  const handleReviewCritical = () => {
+    setCriticalReportsOnly(true);
+    setActiveTab('reports');
+  };
 
   return (
     <div className="h-screen bg-canvas-light flex overflow-hidden">
@@ -20,7 +31,7 @@ export function MonitoringShell() {
         activeTab={activeTab}
         items={monitoringFeatures}
         portalSubtitle="Monitoring Portal"
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
       />
 
       <div className="flex-1 min-w-0 h-screen flex flex-col overflow-hidden">
@@ -31,7 +42,11 @@ export function MonitoringShell() {
         />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-          <MonitoringTabContent activeTab={activeTab} />
+          <MonitoringTabContent
+            activeTab={activeTab}
+            criticalReportsOnly={criticalReportsOnly}
+            onReviewCritical={handleReviewCritical}
+          />
         </main>
       </div>
     </div>
@@ -40,18 +55,22 @@ export function MonitoringShell() {
 
 function MonitoringTabContent({
   activeTab,
+  criticalReportsOnly,
+  onReviewCritical,
 }: {
   activeTab: MonitoringFeatureId;
+  criticalReportsOnly: boolean;
+  onReviewCritical: () => void;
 }) {
   switch (activeTab) {
     case 'reports':
-      return <ReportsTab />;
+      return <ReportsTab initialCritical={criticalReportsOnly} />;
     case 'hazard-map':
       return <HazardMapTab />;
     case 'review-queue':
       return <ReviewQueueTab />;
     case 'dashboard':
     default:
-      return <DashboardOverview />;
+      return <DashboardOverview onReviewCritical={onReviewCritical} />;
   }
 }

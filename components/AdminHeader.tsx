@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bell, LogOut, Settings, Shield, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { getStaffRole, ROLE_ADMIN, type StaffRole } from '@/lib/auth/roles';
 
 interface AdminHeaderProps {
   title: string;
@@ -20,6 +21,21 @@ export function AdminHeader({
   const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [role, setRole] = useState<StaffRole | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (cancelled || !data.user) return;
+      getStaffRole(supabase, data.user.id).then((staffRole) => {
+        if (!cancelled) setRole(staffRole);
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -56,22 +72,26 @@ export function AdminHeader({
 
           {isProfileOpen && (
             <div className="absolute right-0 top-12 z-50 w-52 rounded-lg border border-canvas-grey bg-white p-2 shadow-lg">
-              <Link
-                href="/monitoring"
-                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
-                onClick={() => setIsProfileOpen(false)}
-              >
-                <Settings className="w-4 h-4 text-slate-500" />
-                Settings
-              </Link>
-              <Link
-                href="/admin"
-                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
-                onClick={() => setIsProfileOpen(false)}
-              >
-                <Shield className="w-4 h-4 text-slate-500" />
-                Administration
-              </Link>
+              {role === ROLE_ADMIN && (
+                <>
+                  <Link
+                    href="/monitoring"
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+                    onClick={() => setIsProfileOpen(false)}
+                  >
+                    <Settings className="w-4 h-4 text-slate-500" />
+                    Monitoring Portal
+                  </Link>
+                  <Link
+                    href="/admin"
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+                    onClick={() => setIsProfileOpen(false)}
+                  >
+                    <Shield className="w-4 h-4 text-slate-500" />
+                    Administration
+                  </Link>
+                </>
+              )}
               <button
                 onClick={handleSignOut}
                 disabled={isSigningOut}

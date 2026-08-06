@@ -96,13 +96,25 @@ export function PublicMap({
     low: true,
   });
   const layersReadyRef = useRef(false);
+  const lastBoundsRef = useRef<string | null>(null);
+  const loadingReportsRef = useRef(false);
 
   const loadMapReports = useCallback(async () => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || loadingReportsRef.current) return;
 
+    const bounds = map.getBounds();
+    const key = [
+      bounds.getWest().toFixed(3),
+      bounds.getSouth().toFixed(3),
+      bounds.getEast().toFixed(3),
+      bounds.getNorth().toFixed(3),
+    ].join(',');
+    if (key === lastBoundsRef.current) return;
+    lastBoundsRef.current = key;
+
+    loadingReportsRef.current = true;
     try {
-      const bounds = map.getBounds();
       const reports = await fetchMapReports({
         west: bounds.getWest(),
         south: bounds.getSouth(),
@@ -113,6 +125,8 @@ export function PublicMap({
       setBackendReports(reports.features);
     } catch (error) {
       console.error('Failed to load reports from backend', error);
+    } finally {
+      loadingReportsRef.current = false;
     }
   }, []);
 

@@ -12,6 +12,7 @@ import {
   PlusCircle,
   RotateCcw,
   Search,
+  ShieldAlert,
   X,
 } from 'lucide-react';
 import { ReportModal } from '@/app/public-view/ReportModal';
@@ -36,7 +37,7 @@ const statusOptions: Array<'All' | ReportStatus> = ['All', 'UNVERIFIED', 'VERIFI
 const depthOptions: Array<'All' | FloodDepthCode> = ['All', 'ankle', 'knee', 'waist', 'head', 'overhead'];
 const REPORTS_PER_PAGE = 6;
 
-export function ReportsTab() {
+export function ReportsTab({ initialCritical = false }: { initialCritical?: boolean }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -45,6 +46,7 @@ export function ReportsTab() {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | ReportStatus>('All');
   const [depthFilter, setDepthFilter] = useState<'All' | FloodDepthCode>('All');
+  const [criticalFilter, setCriticalFilter] = useState(initialCritical);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -63,6 +65,7 @@ export function ReportsTab() {
         search: query.trim() || undefined,
         status: statusFilter === 'All' ? undefined : statusFilter,
         depth: depthFilter === 'All' ? undefined : depthFilter,
+        critical: criticalFilter || undefined,
       })
         .then((result) => {
           setReports(result.items);
@@ -84,7 +87,7 @@ export function ReportsTab() {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [currentPage, query, statusFilter, depthFilter, refreshKey]);
+  }, [currentPage, query, statusFilter, depthFilter, criticalFilter, refreshKey]);
 
   const selectedReport =
     reports.find((report) => report.id === selectedReportId) || reports[0] || null;
@@ -93,6 +96,7 @@ export function ReportsTab() {
     setQuery('');
     setStatusFilter('All');
     setDepthFilter('All');
+    setCriticalFilter(false);
     setCurrentPage(1);
   };
 
@@ -135,7 +139,7 @@ export function ReportsTab() {
     <>
       <FeaturePageShell
         toolbar={
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_auto_auto]">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_10rem_auto_auto]">
           <label className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2">
             <Search className="w-4 h-4 text-slate-400" />
             <input
@@ -178,6 +182,22 @@ export function ReportsTab() {
               </option>
             ))}
           </select>
+
+          <button
+            onClick={() => {
+              setCriticalFilter((value) => !value);
+              setCurrentPage(1);
+            }}
+            aria-pressed={criticalFilter}
+            className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+              criticalFilter
+                ? 'border-gakit-maroon bg-gakit-maroon text-white'
+                : 'border-canvas-grey bg-white text-slate-700 hover:bg-canvas-light'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4" />
+            Critical
+          </button>
 
           <button className="flex items-center justify-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light">
             <CalendarDays className="w-4 h-4" />

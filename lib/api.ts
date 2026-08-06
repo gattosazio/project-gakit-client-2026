@@ -79,6 +79,7 @@ export interface ReportListQuery {
   search?: string;
   status?: ReportStatus;
   depth?: FloodDepthCode;
+  critical?: boolean;
 }
 
 export interface PaginatedReports {
@@ -87,6 +88,22 @@ export interface PaginatedReports {
   page: number;
   limit: number;
   totalPages: number;
+}
+
+export interface MonthlyReportCount {
+  year: number;
+  month: number;
+  reports: number;
+}
+
+export interface ReportStats {
+  total: number;
+  reportsToday: number;
+  pendingCount: number;
+  verifiedCount: number;
+  criticalCount: number;
+  years: number[];
+  monthly: MonthlyReportCount[];
 }
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
@@ -111,6 +128,44 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return body as T;
 }
 
+const CACHE_TTL_MS = 30_000;
+
+interface CacheEntry {
+  data: unknown;
+  expiresAt: number;
+}
+
+const responseCache = new Map<string, CacheEntry>();
+const inflightRequests = new Map<string, Promise<unknown>>();
+
+function cachedGet<T>(path: string): Promise<T> {
+  const key = `GET ${path}`;
+  const now = Date.now();
+
+  const hit = responseCache.get(key);
+  if (hit && hit.expiresAt > now) return Promise.resolve(hit.data as T);
+
+  const pending = inflightRequests.get(key);
+  if (pending) return pending as Promise<T>;
+
+  const promise = request<T>(path)
+    .then((data) => {
+      responseCache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+      return data;
+    })
+    .finally(() => {
+      inflightRequests.delete(key);
+    });
+
+  inflightRequests.set(key, promise);
+  return promise;
+}
+
+function invalidateCachedData(): void {
+  responseCache.clear();
+  inflightRequests.clear();
+}
+
 export async function fetchMapReports(bounds: MapBounds): Promise<MapReportsResponse> {
   const params = new URLSearchParams({
     west: String(bounds.west),
@@ -119,18 +174,20 @@ export async function fetchMapReports(bounds: MapBounds): Promise<MapReportsResp
     north: String(bounds.north),
     ...(bounds.limit != null ? { limit: String(bounds.limit) } : {}),
   });
-  return request<MapReportsResponse>(`/api/v1/reports/map?${params}`);
+  return cachedGet<MapReportsResponse>(`/api/v1/reports/map?${params}`);
 }
 
 export async function fetchDepthCategories(): Promise<DepthCategory[]> {
-  return request<DepthCategory[]>('/api/v1/reports/depth-categories');
+  return cachedGet<DepthCategory[]>('/api/v1/reports/depth-categories');
 }
 
 export async function createReport(input: CreateReportInput): Promise<Report> {
-  return request<Report>('/api/v1/reports', {
+  const report = await request<Report>('/api/v1/reports', {
     method: 'POST',
     body: JSON.stringify(input),
   });
+  invalidateCachedData();
+  return report;
 }
 
 export async function fetchReports(query: ReportListQuery = {}): Promise<PaginatedReports> {
@@ -139,9 +196,13 @@ export async function fetchReports(query: ReportListQuery = {}): Promise<Paginat
     if (value != null) params.set(key, String(value));
   });
   const queryString = params.toString();
-  return request<PaginatedReports>(`/api/v1/reports${queryString ? `?${queryString}` : ''}`);
+  return cachedGet<PaginatedReports>(`/api/v1/reports${queryString ? `?${queryString}` : ''}`);
 }
 
 export async function fetchReport(id: string): Promise<Report> {
-  return request<Report>(`/api/v1/reports/${id}`);
+  return cachedGet<Report>(`/api/v1/reports/${id}`);
+}
+
+export async function fetchReportStats(): Promise<ReportStats> {
+  return cachedGet<ReportStats>('/api/v1/reports/stats');
 }
