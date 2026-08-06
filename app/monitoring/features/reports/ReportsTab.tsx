@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   CalendarDays,
@@ -15,15 +15,15 @@ import {
   X,
 } from 'lucide-react';
 import { ReportModal } from '@/app/public-view/ReportModal';
+import { createReport, fetchReports, type FloodDepthCode, type Report, type ReportStatus } from '@/lib/api';
+import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
+import { toast } from 'react-toastify';
 import { FeaturePageShell } from '../shared/FeaturePageShell';
 
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
   loading: () => <div className="w-full h-full bg-canvas-grey flex items-center justify-center">Loading map...</div>,
   ssr: false,
 });
-
-type ReportStatus = 'Pending' | 'Verified' | 'Critical' | 'Anomaly';
-type ReportDepth = 'Ankle Deep' | 'Knee Deep' | 'Waist Deep' | 'Head Deep' | 'Overhead';
 
 interface SelectedLocation {
   lat: number;
@@ -32,121 +32,62 @@ interface SelectedLocation {
   elevation?: number;
 }
 
-interface FloodReport {
-  id: string;
-  location: string;
-  barangay: string;
-  depth: ReportDepth;
-  status: ReportStatus;
-  submittedAt: string;
-  reporterType: 'Citizen' | 'Sentinel' | 'Staff';
-  hasPhoto: boolean;
-  coordinates: string;
-  validationNote: string;
-}
-
-const reports: FloodReport[] = [
-  {
-    id: 'GAKIT-284190',
-    location: 'Hinaplanon Road',
-    barangay: 'Hinaplanon',
-    depth: 'Waist Deep',
-    status: 'Pending',
-    submittedAt: 'Today, 10:42 AM',
-    reporterType: 'Citizen',
-    hasPhoto: true,
-    coordinates: '8.2312, 124.2570',
-    validationNote: 'Waiting for rainfall and nearby report checks.',
-  },
-  {
-    id: 'GAKIT-284191',
-    location: 'Tibanga Bridge',
-    barangay: 'Tibanga',
-    depth: 'Knee Deep',
-    status: 'Verified',
-    submittedAt: 'Today, 10:31 AM',
-    reporterType: 'Sentinel',
-    hasPhoto: true,
-    coordinates: '8.2284, 124.2452',
-    validationNote: 'Matched nearby reports and expected terrain depression.',
-  },
-  {
-    id: 'GAKIT-284192',
-    location: 'San Miguel Crossing',
-    barangay: 'San Miguel',
-    depth: 'Overhead',
-    status: 'Critical',
-    submittedAt: 'Today, 10:18 AM',
-    reporterType: 'Staff',
-    hasPhoto: false,
-    coordinates: '8.2241, 124.2518',
-    validationNote: 'Critical depth reported by staff. Needs responder visibility.',
-  },
-  {
-    id: 'GAKIT-284193',
-    location: 'Pala-o Market',
-    barangay: 'Pala-o',
-    depth: 'Ankle Deep',
-    status: 'Anomaly',
-    submittedAt: 'Today, 09:54 AM',
-    reporterType: 'Citizen',
-    hasPhoto: false,
-    coordinates: '8.2298, 124.2389',
-    validationNote: 'Terrain and nearby reports do not currently support this claim.',
-  },
-  {
-    id: 'GAKIT-284194',
-    location: 'Aguinaldo Street',
-    barangay: 'Poblacion',
-    depth: 'Head Deep',
-    status: 'Pending',
-    submittedAt: 'Today, 09:43 AM',
-    reporterType: 'Citizen',
-    hasPhoto: true,
-    coordinates: '8.2269, 124.2417',
-    validationNote: 'High severity report awaiting validation queue result.',
-  },
-];
-
-const statuses: Array<'All' | ReportStatus> = ['All', 'Pending', 'Verified', 'Critical', 'Anomaly'];
-const depths: Array<'All' | ReportDepth> = ['All', 'Ankle Deep', 'Knee Deep', 'Waist Deep', 'Head Deep', 'Overhead'];
-const REPORTS_PER_PAGE = 4;
-
-const statusStyles: Record<ReportStatus, string> = {
-  Pending: 'bg-amber-50 text-hazard-pending border-amber-200',
-  Verified: 'bg-green-50 text-hazard-safe border-green-200',
-  Critical: 'bg-red-50 text-hazard-critical border-red-200',
-  Anomaly: 'bg-slate-100 text-slate-700 border-slate-200',
-};
+const statusOptions: Array<'All' | ReportStatus> = ['All', 'UNVERIFIED', 'VERIFIED', 'ANOMALY', 'REJECTED'];
+const depthOptions: Array<'All' | FloodDepthCode> = ['All', 'ankle', 'knee', 'waist', 'head', 'overhead'];
+const REPORTS_PER_PAGE = 6;
 
 export function ReportsTab() {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | ReportStatus>('All');
-  const [depthFilter, setDepthFilter] = useState<'All' | ReportDepth>('All');
-  const [selectedReportId, setSelectedReportId] = useState(reports[0].id);
+  const [depthFilter, setDepthFilter] = useState<'All' | FloodDepthCode>('All');
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredReports = reports.filter((report) => {
-    const matchesQuery = `${report.id} ${report.location} ${report.barangay}`
-      .toLowerCase()
-      .includes(query.toLowerCase());
-    const matchesStatus = statusFilter === 'All' || report.status === statusFilter;
-    const matchesDepth = depthFilter === 'All' || report.depth === depthFilter;
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(true);
+      setError(null);
 
-    return matchesQuery && matchesStatus && matchesDepth;
-  });
+      fetchReports({
+        page: currentPage,
+        limit: REPORTS_PER_PAGE,
+        search: query.trim() || undefined,
+        status: statusFilter === 'All' ? undefined : statusFilter,
+        depth: depthFilter === 'All' ? undefined : depthFilter,
+      })
+        .then((result) => {
+          setReports(result.items);
+          setTotal(result.total);
+          setTotalPages(result.totalPages);
+          setSelectedReportId((currentId) =>
+            currentId && result.items.some((report) => report.id === currentId)
+              ? currentId
+              : (result.items[0]?.id ?? null)
+          );
+        })
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : 'Failed to load reports');
+          setReports([]);
+          setTotal(0);
+          setTotalPages(1);
+        })
+        .finally(() => setLoading(false));
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [currentPage, query, statusFilter, depthFilter, refreshKey]);
 
   const selectedReport =
-    reports.find((report) => report.id === selectedReportId) || filteredReports[0] || reports[0];
-  const totalPages = Math.max(1, Math.ceil(filteredReports.length / REPORTS_PER_PAGE));
-  const safeCurrentPage = Math.min(currentPage, totalPages);
-  const paginatedReports = filteredReports.slice(
-    (safeCurrentPage - 1) * REPORTS_PER_PAGE,
-    safeCurrentPage * REPORTS_PER_PAGE
-  );
+    reports.find((report) => report.id === selectedReportId) || reports[0] || null;
 
   const resetFilters = () => {
     setQuery('');
@@ -164,15 +105,31 @@ export function ReportsTab() {
     location: { lat: number; lng: number; elevation?: number };
     depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
     image?: File;
-  }) => {
-    console.log('Staff report submitted:', data);
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 800);
+  }): Promise<void> => {
+    const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
+
+    await createReport({
+      location: {
+        latitude: data.location.lat,
+        longitude: data.location.lng,
+        address: selectedLocation?.address || fallbackAddress,
+      },
+      depth: data.depth,
+    });
+
+    toast.success('Staff report submitted successfully.', {
+      position: 'top-right',
+      autoClose: 3000,
     });
     setIsReportModalOpen(false);
     setIsSubmitOpen(false);
     setSelectedLocation(null);
+    setRefreshKey((key) => key + 1);
   };
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
 
   return (
     <>
@@ -200,27 +157,31 @@ export function ReportsTab() {
             }}
             className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none"
           >
-            {statuses.map((status) => (
-              <option key={status}>{status}</option>
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status === 'All' ? 'All statuses' : STATUS_META[status].label}
+              </option>
             ))}
           </select>
 
           <select
             value={depthFilter}
             onChange={(event) => {
-              setDepthFilter(event.target.value as 'All' | ReportDepth);
+              setDepthFilter(event.target.value as 'All' | FloodDepthCode);
               setCurrentPage(1);
             }}
             className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none"
           >
-            {depths.map((depth) => (
-              <option key={depth}>{depth}</option>
+            {depthOptions.map((depth) => (
+              <option key={depth} value={depth}>
+                {depth === 'All' ? 'All depths' : DEPTH_LABELS[depth]}
+              </option>
             ))}
           </select>
 
           <button className="flex items-center justify-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light">
             <CalendarDays className="w-4 h-4" />
-            Today
+            All time
           </button>
 
           <button
@@ -246,7 +207,7 @@ export function ReportsTab() {
             <div className="p-4 border-b border-canvas-grey flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900">Reports</h3>
-                <p className="text-sm text-slate-500">{filteredReports.length} reports shown</p>
+                <p className="text-sm text-slate-500">{loading ? 'Loading...' : `${total} reports found`}</p>
               </div>
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
                 <Filter className="w-4 h-4" />
@@ -254,85 +215,117 @@ export function ReportsTab() {
               </div>
             </div>
 
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-canvas-light text-slate-500">
-                  <tr>
-                    <th className="text-left font-semibold px-5 py-3">Report</th>
-                    <th className="text-left font-semibold px-5 py-3">Location</th>
-                    <th className="text-left font-semibold px-5 py-3">Depth</th>
-                    <th className="text-left font-semibold px-5 py-3">Status</th>
-                    <th className="text-left font-semibold px-5 py-3">Submitted</th>
-                    <th className="text-left font-semibold px-5 py-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-canvas-grey">
-                  {paginatedReports.map((report) => (
-                    <tr
-                      key={report.id}
-                      className={selectedReport.id === report.id ? 'bg-maroon-50/60' : 'hover:bg-canvas-light/70'}
-                    >
-                      <td className="px-5 py-4">
-                        <div className="font-semibold text-slate-900">{report.id}</div>
-                        <div className="text-xs text-slate-500">{report.reporterType}</div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="text-slate-700">{report.location}</div>
-                        <div className="text-xs text-slate-500">{report.barangay}</div>
-                      </td>
-                      <td className="px-5 py-4 text-slate-700">{report.depth}</td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[report.status]}`}>
-                          {report.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-slate-600">{report.submittedAt}</td>
-                      <td className="px-5 py-4">
-                        <button
-                          onClick={() => setSelectedReportId(report.id)}
-                          className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Inspect
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {error ? (
+              <div className="p-6 text-sm text-red-700">{error}</div>
+            ) : (
+              <>
+                <div className="hidden lg:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-canvas-light text-slate-500">
+                      <tr>
+                        <th className="text-left font-semibold px-5 py-3">Report</th>
+                        <th className="text-left font-semibold px-5 py-3">Location</th>
+                        <th className="text-left font-semibold px-5 py-3">Depth</th>
+                        <th className="text-left font-semibold px-5 py-3">Status</th>
+                        <th className="text-left font-semibold px-5 py-3">Submitted</th>
+                        <th className="text-left font-semibold px-5 py-3">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-canvas-grey">
+                      {reports.map((report) => {
+                        const status = STATUS_META[report.status];
+                        return (
+                          <tr
+                            key={report.id}
+                            className={selectedReport?.id === report.id ? 'bg-maroon-50/60' : 'hover:bg-canvas-light/70'}
+                          >
+                            <td className="px-5 py-4">
+                              <div className="font-mono text-xs font-semibold text-slate-900">
+                                {report.id.slice(0, 8)}
+                              </div>
+                              <div className="text-xs text-slate-500">Public report</div>
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="text-slate-700">
+                                {report.location.address || 'Unknown location'}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-slate-700">{DEPTH_LABELS[report.depth.code]}</td>
+                            <td className="px-5 py-4">
+                              <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
+                                {status.label}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
+                            <td className="px-5 py-4">
+                              <button
+                                onClick={() => setSelectedReportId(report.id)}
+                                className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
+                              >
+                                <Eye className="w-4 h-4" />
+                                Inspect
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {reports.length === 0 && !loading && (
+                        <tr>
+                          <td colSpan={6} className="px-5 py-10 text-center text-sm text-slate-500">
+                            No reports match the current filters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
 
-            <div className="lg:hidden divide-y divide-canvas-grey">
-              {paginatedReports.map((report) => (
-                <button
-                  key={report.id}
-                  onClick={() => setSelectedReportId(report.id)}
-                  className="w-full p-4 text-left hover:bg-canvas-light"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-semibold text-slate-900">{report.id}</div>
-                      <div className="text-sm text-slate-600 mt-1">{report.location}</div>
-                      <div className="text-xs text-slate-500 mt-1">{report.submittedAt}</div>
-                    </div>
-                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[report.status]}`}>
-                      {report.status}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
+                <div className="lg:hidden divide-y divide-canvas-grey">
+                  {reports.map((report) => {
+                    const status = STATUS_META[report.status];
+                    return (
+                      <button
+                        key={report.id}
+                        onClick={() => setSelectedReportId(report.id)}
+                        className="w-full p-4 text-left hover:bg-canvas-light"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-mono text-xs font-semibold text-slate-900">
+                              {report.id.slice(0, 8)}
+                            </div>
+                            <div className="text-sm text-slate-600 mt-1">
+                              {report.location.address || 'Unknown location'}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-1">{formatDateTime(report.createdAt)}</div>
+                          </div>
+                          <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
+                            {status.label}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
 
-            <ReportsPagination
-              currentPage={safeCurrentPage}
-              totalPages={totalPages}
-              totalItems={filteredReports.length}
-              pageSize={REPORTS_PER_PAGE}
-              onPageChange={setCurrentPage}
-            />
+                <ReportsPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={total}
+                  pageSize={REPORTS_PER_PAGE}
+                  onPageChange={handlePageChange}
+                />
+              </>
+            )}
           </div>
 
-          <ReportDetails report={selectedReport} />
+          {selectedReport ? (
+            <ReportDetails report={selectedReport} />
+          ) : (
+            <aside className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
+              <div className="p-5 text-sm text-slate-500">Select a report to view details.</div>
+            </aside>
+          )}
         </section>
       </FeaturePageShell>
 
@@ -419,52 +412,54 @@ function StaffSubmitReportModal({
   );
 }
 
-function ReportDetails({ report }: { report: FloodReport }) {
+function ReportDetails({ report }: { report: Report }) {
+  const status = STATUS_META[report.status];
+  const address =
+    report.location.address ||
+    `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`;
+
   return (
     <aside className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
       <div className="p-5 border-b border-canvas-grey">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="font-bold text-slate-900">Report Details</h3>
-            <p className="text-sm text-slate-500 mt-1">{report.id}</p>
+            <p className="text-sm text-slate-500 mt-1 break-all">{report.id}</p>
           </div>
-          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[report.status]}`}>
-            {report.status}
+          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
+            {status.label}
           </span>
         </div>
       </div>
 
       <div className="p-5 space-y-5">
         <div className="aspect-video rounded-lg bg-canvas-light border border-canvas-grey flex items-center justify-center">
-          {report.hasPhoto ? (
-            <div className="text-center">
-              <FileImage className="w-8 h-8 text-gakit-maroon mx-auto" />
-              <div className="text-sm font-semibold text-slate-700 mt-2">Photo attached</div>
-            </div>
-          ) : (
-            <div className="text-sm font-semibold text-slate-500">No photo submitted</div>
-          )}
+          <div className="text-center">
+            <FileImage className="w-8 h-8 text-slate-300 mx-auto" />
+            <div className="text-sm font-semibold text-slate-500 mt-2">No photo submitted</div>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <DetailItem label="Location" value={report.location} />
-          <DetailItem label="Barangay" value={report.barangay} />
-          <DetailItem label="Depth" value={report.depth} />
-          <DetailItem label="Reporter" value={report.reporterType} />
-          <DetailItem label="Coordinates" value={report.coordinates} />
-          <DetailItem label="Submitted" value={report.submittedAt} />
+          <DetailItem label="Location" value={address} />
+          <DetailItem label="Depth" value={DEPTH_LABELS[report.depth.code]} />
+          <DetailItem label="Status" value={status.label} />
+          <DetailItem label="Coordinates" value={`${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`} />
+          <DetailItem label="Submitted" value={formatDateTime(report.createdAt)} />
+          <DetailItem label="Observed" value={formatDateTime(report.observedAt)} />
         </div>
 
-        {/* <div className="rounded-lg bg-canvas-light border border-canvas-grey p-4">
-          <div className="text-sm font-semibold text-slate-900">Validation note</div>
-          <p className="text-sm text-slate-600 mt-2">{report.validationNote}</p>
-        </div> */}
-
         <div className="grid grid-cols-2 gap-3">
-          <button className="rounded-lg bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white hover:bg-maroon-800">
+          <button
+            title="Status updates are not available yet"
+            className="rounded-lg bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white hover:bg-maroon-800"
+          >
             Verify
           </button>
-          <button className="rounded-lg border border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light">
+          <button
+            title="Status updates are not available yet"
+            className="rounded-lg border border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+          >
             Escalate
           </button>
         </div>

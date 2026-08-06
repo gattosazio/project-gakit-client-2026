@@ -6,6 +6,7 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
 import { CheckCircle2, ChevronDown, ChevronUp, MapPin, Navigation, X } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { createReport } from '@/lib/api';
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
@@ -180,34 +181,31 @@ export function PublicViewPage() {
     depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
     image?: File;
   }): Promise<void> => {
-    // Optimistic response pattern - simulate submission
-    console.log('Report submitted:', data);
-    if (data.image) {
-      console.log('Image attached:', data.image.name, data.image.size, 'bytes');
-    }
+    const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
 
-    // Simulate API call
-    return new Promise<void>((resolve) => {
-      setTimeout(() => {
-        // In a real app, this would call your backend API with FormData
-        // to handle both the JSON data and the image file
-        console.log('Report confirmed by backend');
-        const report: SubmittedReport = {
-          id: `GAKIT-${Date.now().toString().slice(-6)}`,
-          location: selectedLocation || {
-            ...data.location,
-            address: `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`,
-          },
-          depth: data.depth,
-          submittedAt: new Date().toLocaleString(),
-          hasImage: Boolean(data.image),
-        };
-
-        setLastSubmittedReport(report);
-        setSubmittedReports((currentReports) => [report, ...currentReports]);
-        resolve();
-      }, 1500);
+    const report = await createReport({
+      location: {
+        latitude: data.location.lat,
+        longitude: data.location.lng,
+        address: selectedLocation?.address || fallbackAddress,
+      },
+      depth: data.depth,
     });
+
+    const submittedReport: SubmittedReport = {
+      id: report.id,
+      location: {
+        lat: report.location.latitude,
+        lng: report.location.longitude,
+        address: report.location.address || fallbackAddress,
+      },
+      depth: report.depth.code,
+      submittedAt: new Date(report.createdAt).toLocaleString(),
+      hasImage: Boolean(data.image),
+    };
+
+    setLastSubmittedReport(submittedReport);
+    setSubmittedReports((currentReports) => [submittedReport, ...currentReports]);
   };
 
   return (

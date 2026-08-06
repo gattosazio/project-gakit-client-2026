@@ -5,83 +5,29 @@ import { Layers, Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { fetchMapReports, type MapReportFeature } from '@/lib/api';
 
 const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 const MAPTILER_STYLE = MAPTILER_KEY
   ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
   : 'https://tiles.openfreemap.org/styles/bright';
 
-interface HazardReport {
-  id: string;
-  lat: number;
-  lng: number;
-  location: string;
-  status: 'critical' | 'verified' | 'pending' | 'safe';
-  depth?: string;
-  time: string;
-}
-
-// Hardcoded hazard data for Iligan City
-const HARDCODED_HAZARDS: HazardReport[] = [
-  {
-    id: '1',
-    lat: 8.2312,
-    lng: 124.2570,
-    location: 'Hinaplanon Road: Waist Deep',  
-    status: 'verified',
-    depth: 'Waist Deep',
-    time: '10:42 AM',
-  },
-  {
-    id: '2',
-    lat: 8.2265,
-    lng: 124.2545,
-    location: 'Impasable',
-    status: 'critical',
-    time: '07:24 PM',
-  },
-  {
-    id: '3',
-    lat: 8.2290,
-    lng: 124.2548,
-    location: 'Waist Deep',
-    status: 'pending',
-    depth: 'Waist Deep',
-    time: '07:23 PM', 
-  },
-  {
-    id: '4',
-    lat: 8.2245,
-    lng: 124.2530,
-    location: 'Ankle Deep',
-    status: 'pending',
-    depth: 'Ankle Deep',
-    time: '10:15 AM',
-  },
-];
-
 const ILIGAN_CENTER = { lat: 8.2312, lng: 124.2470 };
 
-const STATUS_COLOR: Record<string, string> = {
-  critical: '#EF4444',
-  verified: '#3B82F6',
-  pending: '#F59E0B',
-  safe: '#10B981',
+const BACKEND_STATUS_COLOR: Record<string, string> = {
+  VERIFIED: '#3B82F6',
+  UNVERIFIED: '#F59E0B',
+  ANOMALY: '#EF4444',
+  REJECTED: '#6B7280',
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  critical: 'Status: Impassable',
-  verified: 'Status: Verified',
-  pending: 'Status: Pending',
+  VERIFIED: 'Status: Verified',
+  UNVERIFIED: 'Status: Pending',
+  ANOMALY: 'Status: Anomaly',
+  REJECTED: 'Status: Rejected',
 };
 
-const STATUS_LABEL_CLASS: Record<string, string> = {
-  critical: 'text-hazard-critical',
-  verified: 'text-hazard-verified',
-  pending: 'text-hazard-pending',
-};
-
-// Distinct color for the user's picked report location (vs. verified #3B82F6)
 const SELECTED_LOCATION_COLOR = '#27e867';
 
 const REPORT_DEPTH_LABELS: Record<string, string> = {
@@ -134,10 +80,30 @@ export function PublicMap({
   const popupsRef = useRef<any[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [maplibregl, setMaplibregl] = useState<any>(null);
+  const [backendReports, setBackendReports] = useState<MapReportFeature[]>([]);
 
   // Layer visibility toggles
   const [showFloodHazard, setShowFloodHazard] = useState(true);
   const layersReadyRef = useRef(false);
+
+  const loadMapReports = useCallback(async () => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    try {
+      const bounds = map.getBounds();
+      const reports = await fetchMapReports({
+        west: bounds.getWest(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        north: bounds.getNorth(),
+        limit: 500,
+      });
+      setBackendReports(reports.features);
+    } catch (error) {
+      console.error('Failed to load reports from backend', error);
+    }
+  }, []);
 
   const fetchJson = useCallback(async (path: string) => {
     const response = await fetch(path);
@@ -333,11 +299,19 @@ export function PublicMap({
       handleLocationSelect(e.lngLat.lat, e.lngLat.lng);
     });
 
+    map.on('load', () => {
+      void loadMapReports();
+    });
+
+    map.on('moveend', () => {
+      void loadMapReports();
+    });
+
     return () => {
       map.remove();
       mapRef.current = null;
     };
-  }, [handleLocationSelect, maplibregl]);
+  }, [handleLocationSelect, loadMapReports, maplibregl]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -420,16 +394,22 @@ export function PublicMap({
       popupsRef.current.push(popup);
     };
 
-    HARDCODED_HAZARDS.forEach((hazard) => {
+    backendReports.forEach((feature) => {
+      const [lng, lat] = feature.geometry.coordinates;
+      const props = feature.properties;
       addReportMarker(
-        hazard.lat,
-        hazard.lng,
-        STATUS_COLOR[hazard.status] || '#6B7280',
-        hazard.location,
+        lat,
+        lng,
+        BACKEND_STATUS_COLOR[props.status] || '#6B7280',
+        props.address || 'Flood report',
         [
-          { label: 'Status', value: STATUS_LABEL[hazard.status] || 'Unknown' },
-          ...(hazard.depth ? [{ label: 'Depth', value: hazard.depth }] : []),
-          { label: 'Reported', value: hazard.time },
+          { label: 'Depth', value: props.depth.label },
+          { label: 'Status', value: STATUS_LABEL[props.status] || props.status },
+          {
+            label: 'Reported',
+            value: new Date(props.createdAt).toLocaleString(),
+          },
+          { label: 'Ref', value: props.id },
         ]
       );
     });
@@ -438,7 +418,7 @@ export function PublicMap({
       addReportMarker(
         report.location.lat,
         report.location.lng,
-        STATUS_COLOR.pending,
+        BACKEND_STATUS_COLOR.UNVERIFIED,
         report.location.address,
         [
           {
@@ -468,7 +448,7 @@ export function PublicMap({
     }
     // `maplibregl` is loaded asynchronously; the map doesn't exist on the first
     // render, so re-run once it resolves to draw the initial markers.
-  }, [selectedLocation, submittedReports, maplibregl]);
+  }, [backendReports, selectedLocation, submittedReports, maplibregl]);
 
   // Apply layer visibility when toggles change
   useEffect(() => {
