@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Navigation } from 'lucide-react';
+import { Layers, Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
 import type { FloodDepthCategory, ReportStatus } from '@/app/public-view/actions/public.view';
 // @ts-ignore
@@ -104,6 +104,19 @@ const escapeHtml = (value: string) =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] || ch
   );
 
+// Flood hazard colors — single source of truth for layers + legend
+const FLOOD_HAZARD_COLORS: Record<string, string> = {
+  high: '#DC2626',
+  medium: '#F59E0B',
+  low: '#FDE047',
+};
+
+const FLOOD_HAZARD_LEGEND: Array<{ key: string; label: string; color: string }> = [
+  { key: 'high', label: 'High hazard', color: FLOOD_HAZARD_COLORS.high },
+  { key: 'medium', label: 'Medium hazard', color: FLOOD_HAZARD_COLORS.medium },
+  { key: 'low', label: 'Low hazard', color: FLOOD_HAZARD_COLORS.low },
+];
+
 interface PublicMapProps {
   onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
   selectedLocation: { lat: number; lng: number } | null;
@@ -127,6 +140,19 @@ export function PublicMap({
   const popupsRef = useRef<any[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [maplibregl, setMaplibregl] = useState<any>(null);
+
+  // Layer visibility toggles
+  const [showFloodHazard, setShowFloodHazard] = useState(true);
+  const layersReadyRef = useRef(false);
+
+  const fetchJson = useCallback(async (path: string) => {
+    const response = await fetch(path);
+    if (!response.ok) {
+      throw new Error(`Failed to load ${path}: ${response.status} ${response.statusText}`);
+    }
+
+    return response.json();
+  }, []);
 
   // Dynamically import maplibre-gl on client side only
   useEffect(() => {
@@ -236,6 +262,77 @@ export function PublicMap({
 
     map.on('load', () => {
       setTimeout(() => map.resize(), 250);
+
+      void (async () => {
+        try {
+          // Load PMTiles protocol handler
+          const pmtiles = await import('pmtiles');
+          const protocol = new pmtiles.Protocol();
+          maplibregl.addProtocol('pmtiles', protocol.tile);
+
+          // --- Flood hazard vector tile layer (PMTiles) ---
+          map.addSource('flood-hazard', {
+            type: 'vector',
+            url: 'pmtiles:///data/flood-zones.pmtiles',
+            attribution:
+              'Flood data: <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">Project NOAH</a> (ODbL)',
+          });
+
+          map.addLayer({
+            id: 'flood-hazard-fill',
+            type: 'fill',
+            source: 'flood-hazard',
+            'source-layer': 'flood-zones',
+            paint: {
+              'fill-color': [
+                'match',
+                ['get', 'risk_level'],
+                'high',    FLOOD_HAZARD_COLORS.high,
+                'medium',  FLOOD_HAZARD_COLORS.medium,
+                'low',     FLOOD_HAZARD_COLORS.low,
+                'rgba(0,0,0,0.15)',
+              ],
+              'fill-opacity': 0.25,
+            },
+          });
+
+          map.addLayer({
+            id: 'flood-hazard-outline',
+            type: 'line',
+            source: 'flood-hazard',
+            'source-layer': 'flood-zones',
+            paint: {
+              'line-color': [
+                'match',
+                ['get', 'risk_level'],
+                'high',    FLOOD_HAZARD_COLORS.high,
+                'medium',  FLOOD_HAZARD_COLORS.medium,
+                'low',     FLOOD_HAZARD_COLORS.low,
+                '#999999',
+              ],
+              'line-width': 1.5,
+              'line-opacity': 0.6,
+            },
+          });
+        } catch (error) {
+          console.error('Failed to load PMTiles flood hazard data', error);
+          toast.error('Flood hazard map data could not be loaded.', {
+            position: 'top-right',
+            autoClose: 4000,
+          });
+        }
+
+        layersReadyRef.current = true;
+
+        // Apply current toggle state (handles case where user toggled before load)
+        const initialLayers: Array<[string, boolean]> = [
+          ['flood-hazard-fill', showFloodHazard],
+          ['flood-hazard-outline', showFloodHazard],
+        ];
+        initialLayers.forEach(([id, visible]) => {
+          map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+        });
+      })();
     });
 
     map.on('click', (e: any) => {
@@ -385,9 +482,55 @@ export function PublicMap({
     // render, so re-run once it resolves to draw the initial markers.
   }, [selectedLocation, submittedReports, maplibregl]);
 
+  // Apply layer visibility when toggles change
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !layersReadyRef.current) return;
+
+    const layers: Array<[string, boolean]> = [
+      ['flood-hazard-fill', showFloodHazard],
+      ['flood-hazard-outline', showFloodHazard],
+    ];
+
+    layers.forEach(([id, visible]) => {
+      map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+    });
+  }, [showFloodHazard]);
+
   return (
     <div className="relative w-full h-full bg-canvas-grey">
-      <div ref={mapContainer} className="w-full h-full" />
+      <div ref={mapContainer} className="w-full h-full" />  
+
+      <div className="absolute bottom-36 md:bottom-20 right-4 md:right-6 z-[1000] bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-900 mb-2">
+          <Layers className="w-3.5 h-3.5" />
+          Toggle Layers
+        </div>
+        <div className="space-y-1.5">
+          <LayerToggle
+            label="Flood Risk Areas"
+            color="#3B82F6"
+            checked={showFloodHazard}
+            onChange={setShowFloodHazard}
+          />
+          {showFloodHazard && (
+            <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
+              <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">
+                Risk levels
+              </div>
+              {FLOOD_HAZARD_LEGEND.map(({ key, label, color }) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span
+                    className="h-3 w-3 rounded-sm border border-slate-300"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="text-[11px] text-slate-600 font-medium">{label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       <button
         onClick={handleShareLocation}
@@ -399,5 +542,44 @@ export function PublicMap({
         <span className="text-sm font-medium text-slate-700">Share location</span>
       </button>
     </div>
+  );
+}
+
+function LayerToggle({
+  label,
+  color,
+  checked,
+  onChange,
+}: {
+  label: string;
+  color: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 cursor-pointer select-none group">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="sr-only"
+      />
+      <span
+        className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border transition-colors"
+        style={{
+          borderColor: checked ? color : '#cbd5e1',
+          backgroundColor: checked ? color : 'transparent',
+        }}
+      >
+        {checked && (
+          <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M2 6l3 3 5-5" />
+          </svg>
+        )}
+      </span>
+      <span className="text-xs text-slate-700 font-medium group-hover:text-slate-900">
+        {label}
+      </span>
+    </label>
   );
 }
