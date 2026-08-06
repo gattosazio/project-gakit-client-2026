@@ -270,7 +270,7 @@ export function ReportModal({
             </div>
           )}
 
-          {step === 'photo' && (
+          {/* {step === 'photo' && (
             <div>
               <label className="block text-sm font-semibold text-slate-900 mb-3">
                 Photo or Image (Optional)
@@ -328,7 +328,7 @@ export function ReportModal({
                 </div>
               )}
             </div>
-          )}
+          )} */}
         </div>
 
         <div className="p-4 md:p-6 border-t border-canvas-grey bg-canvas-light/50">
