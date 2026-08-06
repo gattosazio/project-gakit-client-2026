@@ -52,7 +52,7 @@ export function PublicHeader() {
             onClick={() => router.push('/login')}
             className="px-3 py-2 text-slate-600 hover:text-gakit-maroon hover:bg-slate-50 rounded-lg transition-colors"
           >
-            Sign in
+            Staff Portal
           </button>
         </nav>
       </div>
@@ -80,7 +80,7 @@ export function PublicHeader() {
           onClick={() => router.push('/login')}
           className="py-2 text-slate-600 hover:text-gakit-maroon hover:bg-slate-50 rounded-lg transition-colors"
         >
-          Sign in
+          Staff Portal
         </button>
       </nav>
     </header>

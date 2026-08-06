@@ -1,8 +1,10 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Bell, Settings, Shield, UserRound } from 'lucide-react';
+import { Bell, LogOut, Settings, Shield, UserRound } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 
 interface AdminHeaderProps {
   title: string;
@@ -15,7 +17,18 @@ export function AdminHeader({
   description,
   profileLabel = 'Admin',
 }: AdminHeaderProps) {
+  const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setIsSigningOut(true);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setIsProfileOpen(false);
+    router.push('/login');
+    router.refresh();
+  }
 
   return (
     <header className="h-20 shrink-0 bg-white border-b border-canvas-grey px-4 md:px-6 flex items-center justify-between gap-4">
@@ -59,6 +72,14 @@ export function AdminHeader({
                 <Shield className="w-4 h-4 text-slate-500" />
                 Administration
               </Link>
+              <button
+                onClick={handleSignOut}
+                disabled={isSigningOut}
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                <LogOut className="w-4 h-4 text-red-500" />
+                {isSigningOut ? 'Signing out...' : 'Sign out'}
+              </button>
             </div>
           )}
         </div>

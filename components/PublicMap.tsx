@@ -58,6 +58,12 @@ const FLOOD_HAZARD_LEGEND: Array<{ key: string; label: string; color: string }> 
   { key: 'low', label: 'Low hazard', color: FLOOD_HAZARD_COLORS.low },
 ];
 
+const riskLevelFilter = (visible: Record<string, boolean>) => [
+  'in',
+  'risk_level',
+  ...Object.keys(FLOOD_HAZARD_COLORS).filter((level) => visible[level]),
+];
+
 interface PublicMapProps {
   onLocationSelect: (location: { lat: number; lng: number; address: string; elevation?: number }) => void;
   selectedLocation: { lat: number; lng: number; elevation?: number } | null;
@@ -83,7 +89,12 @@ export function PublicMap({
   const [backendReports, setBackendReports] = useState<MapReportFeature[]>([]);
 
   // Layer visibility toggles
-  const [showFloodHazard, setShowFloodHazard] = useState(true);
+  const [showFloodHazard, setShowFloodHazard] = useState(false);
+  const [visibleRiskLevels, setVisibleRiskLevels] = useState<Record<string, boolean>>({
+    high: true,
+    medium: true,
+    low: true,
+  });
   const layersReadyRef = useRef(false);
 
   const loadMapReports = useCallback(async () => {
@@ -292,6 +303,10 @@ export function PublicMap({
         initialLayers.forEach(([id, visible]) => {
           map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
         });
+
+        const initialFilter = riskLevelFilter(visibleRiskLevels);
+        map.setFilter('flood-hazard-fill', initialFilter);
+        map.setFilter('flood-hazard-outline', initialFilter);
       })();
     });
 
@@ -409,7 +424,6 @@ export function PublicMap({
             label: 'Reported',
             value: new Date(props.createdAt).toLocaleString(),
           },
-          { label: 'Ref', value: props.id },
         ]
       );
     });
@@ -427,7 +441,6 @@ export function PublicMap({
           },
           { label: 'Status', value: 'Pending validation' },
           { label: 'Reported', value: report.submittedAt },
-          { label: 'Ref', value: report.id },
         ]
       );
     });
@@ -450,7 +463,7 @@ export function PublicMap({
     // render, so re-run once it resolves to draw the initial markers.
   }, [backendReports, selectedLocation, submittedReports, maplibregl]);
 
-  // Apply layer visibility when toggles change
+  // Apply layer visibility + risk-level filters when toggles change
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !layersReadyRef.current) return;
@@ -463,7 +476,11 @@ export function PublicMap({
     layers.forEach(([id, visible]) => {
       map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
     });
-  }, [showFloodHazard]);
+
+    const filter = riskLevelFilter(visibleRiskLevels);
+    map.setFilter('flood-hazard-fill', filter);
+    map.setFilter('flood-hazard-outline', filter);
+  }, [showFloodHazard, visibleRiskLevels]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
@@ -476,7 +493,7 @@ export function PublicMap({
         </div>
         <div className="space-y-1.5">
           <LayerToggle
-            label="Flood Risk Areas"
+            label="Flood Hazard Zones"
             color="#3B82F6"
             checked={showFloodHazard}
             onChange={setShowFloodHazard}
@@ -487,13 +504,15 @@ export function PublicMap({
                 Risk levels
               </div>
               {FLOOD_HAZARD_LEGEND.map(({ key, label, color }) => (
-                <div key={key} className="flex items-center gap-2">
-                  <span
-                    className="h-3 w-3 rounded-sm border border-slate-300"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="text-[11px] text-slate-600 font-medium">{label}</span>
-                </div>
+                <LayerToggle
+                  key={key}
+                  label={label}
+                  color={color}
+                  checked={!!visibleRiskLevels[key]}
+                  onChange={(checked) =>
+                    setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
+                  }
+                />
               ))}
             </div>
           )}

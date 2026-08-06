@@ -3,17 +3,59 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, Eye, EyeOff, X } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
+import { getStaffRole, homePathForRole } from '@/lib/auth/roles';
 
 export function LoginPage() {
   const router = useRouter();
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // TODO: Check user role and redirect accordingly
-    // For now, redirecting to admin dashboard
-    router.push('/admin');
+    setIsSubmitting(true);
+    setError(null);
+
+    const supabase = createClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error) {
+      setIsSubmitting(false);
+      setError(error.message);
+      return;
+    }
+
+    const role = await getStaffRole(supabase, data.user.id);
+    const home = homePathForRole(role);
+
+    if (!home) {
+      setIsSubmitting(false);
+      setError(
+        "Your account isn't linked to a portal role yet. Ask the GAKIT administrator for access."
+      );
+      return;
+    }
+
+    router.push(home);
+    router.refresh();
+  };
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/admin` },
+    });
+
+    if (error) {
+      setError(error.message);
+    }
   };
 
   return (
@@ -43,14 +85,15 @@ export function LoginPage() {
           </Link>
 
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-900">Sign in</h1>
+            <h1 className="text-3xl font-bold text-slate-900">Staff Sign in</h1>
             <p className="text-sm text-slate-600 mt-2">
-              Access the reporting dashboard and protected GAKIT tools.
+              This sign in is for GAKIT staff and responders. Public flood reports are
+              anonymous and don't require an account.
             </p>
           </div>
 
           <button
-            onClick={() => setIsRequestModalOpen(true)}
+            onClick={handleGoogleLogin}
             className="w-full py-3 px-4 rounded-lg border border-canvas-grey hover:border-gakit-maroon hover:bg-maroon-50 transition-colors flex items-center justify-center gap-2 font-semibold text-slate-700"
           >
             <GoogleLogo />
@@ -71,6 +114,8 @@ export function LoginPage() {
               <input
                 type="email"
                 required
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
                 placeholder="name@example.com"
                 className="w-full px-4 py-3 rounded-lg border border-canvas-grey focus:outline-none focus:ring-2 focus:ring-gakit-maroon focus:border-gakit-maroon"
               />
@@ -80,13 +125,31 @@ export function LoginPage() {
               <label className="block text-sm font-semibold text-slate-900 mb-2">
                 Password
               </label>
-              <input
-                type="password"
-                required
-                placeholder="Enter your password"
-                className="w-full px-4 py-3 rounded-lg border border-canvas-grey focus:outline-none focus:ring-2 focus:ring-gakit-maroon focus:border-gakit-maroon"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  placeholder="Enter your password"
+                  className="w-full px-4 py-3 pr-11 rounded-lg border border-canvas-grey focus:outline-none focus:ring-2 focus:ring-gakit-maroon focus:border-gakit-maroon"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
+
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
 
             <div className="flex items-center justify-between text-sm">
               <label className="flex items-center gap-2 text-slate-600">
@@ -100,11 +163,18 @@ export function LoginPage() {
 
             <button
               type="submit"
-              className="w-full py-3 px-6 rounded-lg font-semibold bg-gakit-maroon hover:bg-maroon-800 text-white transition-colors"
+              disabled={isSubmitting}
+              className="w-full py-3 px-6 rounded-lg font-semibold bg-gakit-maroon hover:bg-maroon-800 text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Sign in
+              {isSubmitting ? 'Signing in...' : 'Sign in'}
             </button>
           </form>
+
+          <div className="mt-6 text-center text-sm">
+            <Link href="/" className="font-semibold text-gakit-maroon hover:text-maroon-800">
+              Submit a public flood report &mdash; no account needed
+            </Link>
+          </div>
 
           <div className="mt-8 pt-6 border-t border-canvas-grey text-center text-sm text-slate-600">
             Don't have an account?{' '}
