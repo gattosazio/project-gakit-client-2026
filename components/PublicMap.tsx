@@ -53,9 +53,20 @@ const buildReportsGeoJson = (
   backendReports: MapReportFeature[],
   submittedReports: SubmittedReportProps[]
 ) => {
-  const features: Array<Record<string, any>> = backendReports.map((feature) => {
+  // The map's own fetch and the page-level `submittedReports` carry the same
+  // API reports, so dedupe by id to avoid double-counting in clusters.
+  const seen = new Set<string>();
+  const features: Array<Record<string, any>> = [];
+
+  const pushReport = (id: string | undefined, feature: Record<string, any>) => {
+    if (!id || seen.has(id)) return;
+    seen.add(id);
+    features.push(feature);
+  };
+
+  backendReports.forEach((feature) => {
     const props = feature.properties;
-    return {
+    pushReport(props.id, {
       type: 'Feature',
       geometry: feature.geometry,
       properties: {
@@ -66,11 +77,11 @@ const buildReportsGeoJson = (
         statusLabel: REPORT_STATUS_LABELS[props.status] || props.status,
         createdAt: new Date(props.createdAt).toLocaleString(),
       },
-    };
+    });
   });
 
   submittedReports.forEach((report) => {
-    features.push({
+    pushReport(report.id, {
       type: 'Feature',
       geometry: {
         type: 'Point',
