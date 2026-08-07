@@ -6,7 +6,8 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
 import { CheckCircle2, ChevronDown, ChevronUp, MapPin, Navigation, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createReport } from '@/lib/api';
+import { createReport, listPublicReports } from './actions/public.view';
+import type { CreateReportInput, DepthCategory, MapReportFeature, Report, ReportStatus } from '@/types/report';
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
@@ -18,27 +19,58 @@ interface SelectedLocation {
   lat: number;
   lng: number;
   address: string;
-  elevation?: number;
 }
 
 interface SubmittedReport {
   id: string;
   location: SelectedLocation;
-  depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
+  depth: DepthCategory;
+  status: ReportStatus;
   submittedAt: string;
-  hasImage: boolean;
 }
 
-const FLOOD_DEPTH_LABELS: Record<SubmittedReport['depth'], string> = {
-  ankle: 'Ankle Deep',
-  knee: 'Knee Deep',
-  waist: 'Waist Deep',
-  head: 'Head Deep',
-  overhead: 'Overhead',
+const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
+  UNVERIFIED: 'Pending validation',
+  VERIFIED: 'Verified',
+  ANOMALY: 'Flagged for review',
+  REJECTED: 'Rejected',
 };
 
+const formatApproximateDepth = (depth: DepthCategory) =>
+  depth.code === 'overhead'
+    ? `approximately ${depth.approximateCm} cm or deeper`
+    : `approximately ${depth.approximateCm} cm`;
+
+const toSubmittedReport = (report: Report): SubmittedReport => ({
+  id: report.id,
+  location: {
+    lat: report.location.latitude,
+    lng: report.location.longitude,
+    address:
+      report.location.address ??
+      `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`,
+  },
+  depth: report.depth,
+  status: report.status,
+  submittedAt: new Date(report.createdAt).toLocaleString(),
+});
+
+const featureToSubmittedReport = (feature: MapReportFeature): SubmittedReport => ({
+  id: feature.properties.id,
+  location: {
+    lat: feature.geometry.coordinates[1],
+    lng: feature.geometry.coordinates[0],
+    address:
+      feature.properties.address ??
+      `${feature.geometry.coordinates[1].toFixed(4)}, ${feature.geometry.coordinates[0].toFixed(4)}`,
+  },
+  depth: feature.properties.depth,
+  status: feature.properties.status,
+  submittedAt: new Date(feature.properties.createdAt).toLocaleString(),
+});
+
 // Home comes first in the DOM, but the map is scrolled to on load so it opens first
-const SECTION_ORDER = ['home', 'hazard-map', 'about'] as const;
+const SECTION_ORDER = ['hazard-map', 'about'] as const;
 type SectionId = (typeof SECTION_ORDER)[number];
 
 export function PublicViewPage() {
@@ -96,6 +128,26 @@ export function PublicViewPage() {
       window.removeEventListener('resize', updateActiveSection);
     };
   }, [getSectionFromScroll, scrollToMap]);
+
+  useEffect(() => {
+    const abortController = new AbortController();
+
+    void listPublicReports(abortController.signal)
+      .then((features) => {
+        setSubmittedReports(features.map(featureToSubmittedReport));
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : 'Unable to load saved flood reports.',
+          { position: 'top-right', autoClose: 3000 }
+        );
+      });
+
+    return () => abortController.abort();
+  }, []);
 
   const navigateSections = useCallback((direction: 'previous' | 'next') => {
     const currentSection = activeSection;
@@ -177,9 +229,8 @@ export function PublicViewPage() {
   }, []);
 
   const handleReportSubmit = async (data: {
-    location: { lat: number; lng: number; elevation?: number };
-    depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
-    image?: File;
+    location: { lat: number; lng: number };
+    depth: CreateReportInput['depth'];
   }): Promise<void> => {
     const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
 
@@ -199,9 +250,9 @@ export function PublicViewPage() {
         lng: report.location.longitude,
         address: report.location.address || fallbackAddress,
       },
-      depth: report.depth.code,
+      depth: report.depth,
+      status: report.status,
       submittedAt: new Date(report.createdAt).toLocaleString(),
-      hasImage: Boolean(data.image),
     };
 
     setLastSubmittedReport(submittedReport);
@@ -212,40 +263,13 @@ export function PublicViewPage() {
     <div className="min-h-screen bg-canvas-grey">
       <PublicHeader />
       <SectionJumpControls
-        showUp={activeSection !== 'home'}
+        showUp={activeSection !== 'hazard-map'}
         showDown={activeSection !== 'about'}
         onMoveUp={() => navigateSections('previous')}
         onMoveDown={() => navigateSections('next')}
       />
 
       <main className="pt-16 pb-14 md:pb-0">
-        <section
-          id="home"
-          className="relative min-h-[calc(100vh-4rem)] bg-cover bg-center flex items-center"
-          style={{ backgroundImage: "url('/images/flooded-image1.jpg')" }}
-        >
-          <div className="absolute inset-0 bg-black/55" />
-          <div className="relative z-10 w-full max-w-5xl mx-auto px-6 py-16">
-            <div className="max-w-2xl">
-              <div className="text-sm font-semibold text-white/85 mb-3">
-                Project GAKIT Flood Assessment Reporting
-              </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight">
-                Do you want to submit a flood report?
-              </h1>
-              <p className="text-lg text-white/85 mt-5">
-                Help the community by sharing where flooding is happening and how deep the water is.
-              </p>
-              <button
-                onClick={handleStartReport}
-                className="mt-8 px-6 py-3 bg-gakit-maroon hover:bg-maroon-800 text-white font-semibold rounded-lg transition-colors"
-              >
-                Submit A Report
-              </button>
-            </div>
-          </div>
-        </section>
-
         <section id="hazard-map" className="min-h-[calc(100vh-4rem)] scroll-mt-16">
           <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-white">
             <div className="relative flex-1 w-full h-full min-h-0">
@@ -454,22 +478,20 @@ function SuccessModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-xs font-semibold text-slate-500">Flood depth</div>
-                <div className="text-sm text-slate-900">{FLOOD_DEPTH_LABELS[report.depth]}</div>
+                <div className="text-sm text-slate-900">
+                  {report.depth.label} ({formatApproximateDepth(report.depth)})
+                </div>
               </div>
               <div>
                 <div className="text-xs font-semibold text-slate-500">Status</div>
-                <div className="text-sm font-semibold text-hazard-pending">Pending validation</div>
+                <div className="text-sm font-semibold text-hazard-pending">
+                  {REPORT_STATUS_LABELS[report.status]}
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs font-semibold text-slate-500">Photo</div>
-                <div className="text-sm text-slate-900">{report.hasImage ? 'Attached' : 'None'}</div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-slate-500">Submitted</div>
-                <div className="text-sm text-slate-900">{report.submittedAt}</div>
-              </div>
+            <div>
+              <div className="text-xs font-semibold text-slate-500">Submitted</div>
+              <div className="text-sm text-slate-900">{report.submittedAt}</div>
             </div>
           </div>
         )}
