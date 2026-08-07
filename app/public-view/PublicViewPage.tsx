@@ -219,32 +219,6 @@ export function PublicViewPage() {
       />
 
       <main className="pt-16 pb-14 md:pb-0">
-        <section
-          id="home"
-          className="relative min-h-[calc(100vh-4rem)] bg-cover bg-center flex items-center"
-          style={{ backgroundImage: "url('/images/flooded-image1.jpg')" }}
-        >
-          <div className="absolute inset-0 bg-black/55" />
-          <div className="relative z-10 w-full max-w-5xl mx-auto px-6 py-16">
-            <div className="max-w-2xl">
-              <div className="text-sm font-semibold text-white/85 mb-3">
-                Project GAKIT Flood Assessment Reporting
-              </div>
-              <h1 className="text-4xl md:text-5xl font-bold text-white leading-tight">
-                Do you want to submit a flood report?
-              </h1>
-              <p className="text-lg text-white/85 mt-5">
-                Help the community by sharing where flooding is happening and how deep the water is.
-              </p>
-              <button
-                onClick={handleStartReport}
-                className="mt-8 px-6 py-3 bg-gakit-maroon hover:bg-maroon-800 text-white font-semibold rounded-lg transition-colors"
-              >
-                Submit A Report
-              </button>
-            </div>
-          </div>
-        </section>
 
         <section id="hazard-map" className="min-h-[calc(100vh-4rem)] scroll-mt-16">
           <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-white">
@@ -376,12 +350,12 @@ function LocationPromptModal({
   return (
     <div className="fixed inset-0 z-[1300] bg-black/40 flex items-end md:items-center justify-center p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-canvas-grey">
+        {/* <div className="flex items-center justify-between p-5 border-b border-canvas-grey">
           <h2 className="text-lg font-bold text-slate-900">Submit a flood report</h2>
           <button onClick={onClose} className="p-1 hover:bg-canvas-light rounded-lg">
             <X className="w-5 h-5 text-slate-500" />
           </button>
-        </div>
+        </div> */}
 
         <div className="p-5 space-y-3">
           <button
