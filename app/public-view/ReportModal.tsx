@@ -1,21 +1,56 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { X, Loader2, Camera, Upload } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Loader2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { listDepthCategories } from './actions/public.view';
+import type { FloodDepth, FloodDepthCategory } from './actions/public.view';
 
-type FloodDepth = 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
-type ReportStep = 'confirm' | 'depth' | 'photo';
+type ReportStep = 'confirm' | 'depth';
+
+const DEPTH_PRESENTATION: Record<
+  FloodDepth,
+  { localLabel: string; description: string; waterLevel: number }
+> = {
+  ankle: {
+    localLabel: 'Abot-bukong-bukong',
+    description: 'Pantay sa bukong-bukong ang tubig.',
+    waterLevel: 0.1,
+  },
+  knee: {
+    localLabel: 'Abot-tuhod',
+    description: 'Pantay sa tuhod ang tubig.',
+    waterLevel: 0.33,
+  },
+  waist: {
+    localLabel: 'Abot-baywang',
+    description: 'Pantay sa baywang ang tubig.',
+    waterLevel: 0.58,
+  },
+  head: {
+    localLabel: 'Abot-ulo',
+    description: 'Pantay sa ulo ang tubig.',
+    waterLevel: 0.78,
+  },
+  overhead: {
+    localLabel: 'Lampas-tao',
+    description: 'Lampas tao ang tubig.',
+    waterLevel: 1,
+  },
+};
 
 interface ReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  selectedLocation: { lat: number; lng: number; address: string; elevation?: number } | null;
+  selectedLocation: {
+    lat: number;
+    lng: number;
+    address: string;
+  } | null;
   onSubmit: (data: {
-    location: { lat: number; lng: number; elevation?: number };
+    location: { lat: number; lng: number };
     depth: FloodDepth;
-    image?: File;
   }) => Promise<void>;
 }
 
@@ -28,59 +63,35 @@ export function ReportModal({
 }: ReportModalProps) {
   const [step, setStep] = useState<ReportStep>('confirm');
   const [selectedDepth, setSelectedDepth] = useState<FloodDepth | null>(null);
+  const [depthCategories, setDepthCategories] = useState<FloodDepthCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setStep('confirm');
-    }
+    if (isOpen) setStep('confirm');
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const abortController = new AbortController();
+    void listDepthCategories(abortController.signal)
+      .then(setDepthCategories)
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : 'Unable to load flood-depth choices.',
+          { position: 'top-right', autoClose: 3000 }
+        );
+      });
+
+    return () => abortController.abort();
   }, [isOpen]);
 
   const resetForm = () => {
     setStep('confirm');
     setSelectedDepth(null);
-    setSelectedImage(null);
-    setPreviewUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
-  };
-
-  const handleImageSelect = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please select a valid image file', {
-        position: 'top-right',
-        autoClose: 3000,
-      });
-      return;
-    }
-
-    setSelectedImage(file);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setPreviewUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleImageSelect(file);
-  };
-
-  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) handleImageSelect(file);
-  };
-
-  const removeImage = () => {
-    setSelectedImage(null);
-    setPreviewUrl(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
   };
 
   const handleSubmit = async () => {
@@ -98,18 +109,16 @@ export function ReportModal({
       await onSubmit({
         location: selectedLocation,
         depth: selectedDepth,
-        image: selectedImage || undefined,
       });
       resetForm();
       onClose();
       onSuccess?.();
-    } catch (err) {
+    } catch (error) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to submit report. Please try again.',
-        {
-          position: 'top-right',
-          autoClose: 3000,
-        }
+        error instanceof Error
+          ? error.message
+          : 'Failed to submit report. Please try again.',
+        { position: 'top-right', autoClose: 3000 }
       );
     } finally {
       setIsSubmitting(false);
@@ -123,20 +132,16 @@ export function ReportModal({
 
   if (!isOpen) return null;
 
-  const title = step === 'confirm'
-    ? 'Confirm Location'
-    : step === 'depth'
-      ? 'Flood Depth'
-      : 'Add Photo';
-
   return (
     <div className="fixed inset-x-0 bottom-0 z-[1300] flex items-end md:fixed md:right-0 md:top-0 md:bottom-0 md:items-center md:justify-end md:w-auto md:pointer-events-none">
       <div className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[78vh] flex flex-col md:rounded-2xl md:max-h-[calc(100vh-12rem)] md:h-auto md:max-w-96 md:mr-6 md:pointer-events-auto">
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-canvas-grey">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+            <h2 className="text-xl font-bold text-slate-900">
+              {step === 'confirm' ? 'Confirm Location' : 'Flood Depth'}
+            </h2>
             <div className="text-xs text-slate-500 mt-1">
-              Step {step === 'confirm' ? '1' : step === 'depth' ? '2' : '3'} of 3
+              Step {step === 'confirm' ? '1' : '2'} of 2
             </div>
           </div>
           <button
@@ -159,7 +164,8 @@ export function ReportModal({
                 </div>
                 {selectedLocation && (
                   <div className="text-xs text-slate-600 mt-2">
-                    {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
+                    {selectedLocation.lat.toFixed(4)},{' '}
+                    {selectedLocation.lng.toFixed(4)}
                   </div>
                 )}
               </div>
@@ -264,7 +270,7 @@ export function ReportModal({
             </div>
           )}
 
-          {step === 'photo' && (
+          {/* {step === 'photo' && (
             <div>
               <label className="block text-sm font-semibold text-slate-900 mb-3">
                 Photo or Image (Optional)
@@ -322,11 +328,11 @@ export function ReportModal({
                 </div>
               )}
             </div>
-          )}
+          )} */}
         </div>
 
         <div className="p-4 md:p-6 border-t border-canvas-grey bg-canvas-light/50">
-          {step === 'confirm' && (
+          {step === 'confirm' ? (
             <button
               onClick={() => setStep('depth')}
               disabled={!selectedLocation}
@@ -334,9 +340,7 @@ export function ReportModal({
             >
               Confirm location
             </button>
-          )}
-
-          {step === 'depth' && (
+          ) : (
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setStep('confirm')}
@@ -345,36 +349,18 @@ export function ReportModal({
                 Back
               </button>
               <button
-                onClick={() => setStep('photo')}
-                disabled={!selectedDepth}
+                onClick={handleSubmit}
+                disabled={!selectedDepth || isSubmitting}
                 className="py-3 px-6 rounded-lg font-semibold transition-all duration-200 bg-gakit-maroon hover:bg-maroon-800 text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
               >
-                Continue
-              </button>
-            </div>
-          )}
-
-          {step === 'photo' && (
-            <div className="space-y-3">
-              <button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 bg-gakit-maroon hover:bg-maroon-800 text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
-              >
                 {isSubmitting ? (
-                  <div className="flex items-center justify-center gap-2">
+                  <span className="flex items-center justify-center gap-2">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Submitting...
-                  </div>
+                  </span>
                 ) : (
                   'Submit report'
                 )}
-              </button>
-              <button
-                onClick={() => setStep('depth')}
-                className="w-full py-2 px-6 rounded-lg font-medium text-slate-700 hover:bg-canvas-grey transition-colors"
-              >
-                Back
               </button>
             </div>
           )}

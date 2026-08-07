@@ -9,7 +9,8 @@ import {
   RotateCcw,
   Search,
 } from 'lucide-react';
-import { fetchReports, type Report } from '@/lib/api';
+import { listReports as fetchReports } from '../reports/actions/reports';
+import type { Report } from '@/types/report';
 import { DEPTH_LABELS, STATUS_META } from '@/lib/reportFormatting';
 import { FeaturePageShell } from '../shared/FeaturePageShell';
 import type { OperationalMapReport, OperationalReportStatus } from './OperationalHazardMap';
