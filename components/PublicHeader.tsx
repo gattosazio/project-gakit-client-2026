@@ -15,10 +15,10 @@ export function PublicHeader() {
       <div className="h-16 px-4 md:px-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-0.05">
-              <div className="flex h-8 w-20 items-center justify-center sm:h-9 sm:w-24 md:h-10 md:w-28 lg:h-10 lg:w-30">              <Image
+              <div className="flex h-8 w-20 items-center justify-center sm:h-9 sm:w-24 md:h-10 md:w-28 lg:h-20 lg:w-35">              <Image
                 src="/images/gakit_logo2.svg"
                 alt="GAKIT logo"
-                width={160}
+                width={160} 
                 height={48}
                 className="h-full w-full object-contain"
               />
