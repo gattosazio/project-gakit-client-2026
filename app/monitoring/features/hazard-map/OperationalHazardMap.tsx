@@ -3,7 +3,7 @@
 import { MapContainer, Marker, Popup, TileLayer } from 'react-leaflet';
 import L from 'leaflet';
 
-export type OperationalReportStatus = 'Pending' | 'Verified' | 'Critical' | 'Anomaly';
+export type OperationalReportStatus = 'Pending' | 'Verified' | 'Anomaly' | 'Rejected';
 
 export interface OperationalMapReport {
   id: string;
@@ -21,8 +21,8 @@ const ILIGAN_CENTER = { lat: 8.2312, lng: 124.2470 };
 const statusColors: Record<OperationalReportStatus, string> = {
   Pending: '#F59E0B',
   Verified: '#10B981',
-  Critical: '#EF4444',
   Anomaly: '#64748B',
+  Rejected: '#94A3B8',
 };
 
 function createStatusIcon(status: OperationalReportStatus, isSelected: boolean) {

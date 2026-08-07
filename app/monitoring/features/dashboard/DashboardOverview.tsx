@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -9,40 +9,93 @@ import {
   MapPin,
   ShieldAlert,
 } from 'lucide-react';
+import { fetchReportStats, fetchReports, type Report, type ReportStats } from '@/lib/api';
+import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
 
-const metrics = [
-  { label: 'Reports Today', value: '38', detail: '+12 from yesterday', icon: FileText, color: 'text-gakit-maroon' },
-  { label: 'Pending Validation', value: '14', detail: 'Needs review', icon: Clock, color: 'text-hazard-pending' },
-  { label: 'Critical Reports', value: '6', detail: 'Impassable areas', icon: AlertTriangle, color: 'text-hazard-critical' },
-  { label: 'Verified Reports', value: '21', detail: 'Trusted map pins', icon: CheckCircle2, color: 'text-hazard-safe' },
-];
+const CURRENT_YEAR = String(new Date().getFullYear());
 
-const reports = [
-  { id: 'GAKIT-284190', location: 'Hinaplanon Road', depth: 'Waist Deep', status: 'Pending', time: '10:42 AM' },
-  { id: 'GAKIT-284191', location: 'Tibanga Bridge', depth: 'Knee Deep', status: 'Verified', time: '10:31 AM' },
-  { id: 'GAKIT-284192', location: 'San Miguel', depth: 'Overhead', status: 'Critical', time: '10:18 AM' },
-  { id: 'GAKIT-284193', location: 'Pala-o Market', depth: 'Ankle Deep', status: 'Anomaly', time: '09:54 AM' },
-];
+export function DashboardOverview({ onReviewCritical }: { onReviewCritical?: () => void }) {
+  const [stats, setStats] = useState<ReportStats | null>(null);
+  const [latestReports, setLatestReports] = useState<Report[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedYear, setSelectedYear] = useState<string>(CURRENT_YEAR);
 
-const monthlyReports = [
-  { month: 'Jan', reports: 42 },
-  { month: 'Feb', reports: 58 },
-  { month: 'Mar', reports: 73 },
-  { month: 'Apr', reports: 51 },
-  { month: 'May', reports: 88 },
-  { month: 'Jun', reports: 126 },
-  { month: 'Jul', reports: 142 },
-  { month: 'Aug', reports: 118 },
-  { month: 'Sep', reports: 96 },
-  { month: 'Oct', reports: 84 },
-  { month: 'Nov', reports: 67 },
-  { month: 'Dec', reports: 53 },
-];
-const years = ['2026', '2025', '2024'];
-const maxMonthlyReports = Math.max(...monthlyReports.map((item) => item.reports));
+  useEffect(() => {
+    let cancelled = false;
 
-export function DashboardOverview() {
-  const [selectedYear, setSelectedYear] = useState(years[0]);
+    Promise.all([fetchReportStats(), fetchReports({ limit: 5 })])
+      .then(([statsResult, reportsResult]) => {
+        if (!cancelled) {
+          setStats(statsResult);
+          setLatestReports(reportsResult.items);
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Failed to load reports');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const years = useMemo(() => {
+    const yearSet = new Set(stats?.years.map(String) ?? []);
+    if (yearSet.size === 0) yearSet.add(CURRENT_YEAR);
+    return Array.from(yearSet).sort().reverse();
+  }, [stats]);
+
+  const reportsToday = stats?.reportsToday ?? 0;
+  const pendingCount = stats?.pendingCount ?? 0;
+  const verifiedCount = stats?.verifiedCount ?? 0;
+  const criticalCount = stats?.criticalCount ?? 0;
+
+  const monthlyReports = useMemo(() => {
+    const byMonth = new Array(12).fill(0);
+    for (const item of stats?.monthly ?? []) {
+      if (String(item.year) === selectedYear) {
+        byMonth[item.month - 1] = item.reports;
+      }
+    }
+    return byMonth.map((count, monthIndex) => ({
+      month: new Date(2020, monthIndex, 1).toLocaleString('en', { month: 'short' }),
+      reports: count as number,
+    }));
+  }, [stats, selectedYear]);
+
+  const maxMonthlyReports = Math.max(1, ...monthlyReports.map((item) => item.reports));
+
+  const metrics = [
+    { label: 'Reports Today', value: String(reportsToday), detail: 'From the public map', icon: FileText, color: 'text-gakit-maroon' },
+    { label: 'Pending Validation', value: String(pendingCount), detail: 'Awaiting review', icon: Clock, color: 'text-hazard-pending' },
+    { label: 'Critical Reports', value: String(criticalCount), detail: 'Head-deep or higher', icon: AlertTriangle, color: 'text-hazard-critical' },
+    { label: 'Verified Reports', value: String(verifiedCount), detail: 'Trusted map pins', icon: CheckCircle2, color: 'text-hazard-safe' },
+  ];
+
+  const emergencyLevel =
+    criticalCount >= 5 ? 'Elevated' : criticalCount > 0 ? 'Watch' : 'Normal';
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center rounded-lg border border-canvas-grey bg-white p-10 shadow-sm text-sm text-slate-500">
+        Loading dashboard data...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+        Could not load dashboard data: {error}
+      </div>
+    );
+  }
 
   return (
     <>
@@ -86,19 +139,33 @@ export function DashboardOverview() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-canvas-grey">
-                {reports.map((report) => (
-                  <tr key={report.id}>
-                    <td className="px-5 py-4 font-semibold text-slate-900">{report.id}</td>
-                    <td className="px-5 py-4 text-slate-600">{report.location}</td>
-                    <td className="px-5 py-4 text-slate-600">{report.depth}</td>
-                    <td className="px-5 py-4">
-                      <span className="rounded-full bg-maroon-50 text-gakit-maroon px-2.5 py-1 text-xs font-semibold">
-                        {report.status}
-                      </span>
+                {latestReports.map((report) => {
+                  const status = STATUS_META[report.status];
+                  return (
+                    <tr key={report.id}>
+                      <td className="px-5 py-4 font-mono text-xs font-semibold text-slate-900">
+                        {report.id.slice(0, 8)}
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">
+                        {report.location.address || `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`}
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">{DEPTH_LABELS[report.depth.code]}</td>
+                      <td className="px-5 py-4">
+                        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
+                          {status.label}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
+                    </tr>
+                  );
+                })}
+                {latestReports.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-500">
+                      No reports submitted yet.
                     </td>
-                    <td className="px-5 py-4 text-slate-600">{report.time}</td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
@@ -109,11 +176,16 @@ export function DashboardOverview() {
             <ShieldAlert className="w-6 h-6" />
             <h2 className="font-bold">Emergency Status</h2>
           </div>
-          <div className="text-4xl font-bold mt-6">Elevated</div>
+          <div className="text-4xl font-bold mt-6">{emergencyLevel}</div>
           <p className="text-sm text-white/80 mt-3">
-            Six reports are marked critical. Prioritize validation and responder review.
+            {criticalCount === 0
+              ? 'No head-deep or overhead reports on file. Keep monitoring live submissions.'
+              : `${criticalCount} report${criticalCount === 1 ? ' is' : 's are'} marked critical. Prioritize validation and responder review.`}
           </p>
-          <button className="mt-6 w-full py-3 rounded-lg bg-white text-gakit-maroon font-semibold hover:bg-white/90 transition-colors">
+          <button
+            onClick={onReviewCritical}
+            className="mt-6 w-full py-3 rounded-lg bg-white text-gakit-maroon font-semibold hover:bg-white/90 transition-colors"
+          >
             Review Critical Reports
           </button>
         </div>

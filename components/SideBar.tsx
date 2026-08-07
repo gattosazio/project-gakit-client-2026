@@ -1,6 +1,9 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import { LogOut } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 import { PortalNavItem } from './portalTypes';
 
 interface SideBarProps<T extends string> {
@@ -16,6 +19,17 @@ export function SideBar<T extends string>({
   portalSubtitle,
   onTabChange,
 }: SideBarProps<T>) {
+  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  async function handleLogOut() {
+    setIsSigningOut(true);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  }
+
   return (
     <aside className="hidden lg:flex w-64 shrink-0 bg-gakit-maroon text-white h-screen flex-col">
       <div className="h-20 px-6 flex items-center gap-3 border-b border-white/15">
@@ -51,9 +65,13 @@ export function SideBar<T extends string>({
       </nav>
 
       <div className="p-3 border-t border-white/15">
-        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-white/85 hover:bg-white/15 hover:text-white transition-colors">
+        <button
+          onClick={handleLogOut}
+          disabled={isSigningOut}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-white/85 hover:bg-white/15 hover:text-white transition-colors disabled:opacity-50"
+        >
           <LogOut className="w-4 h-4" />
-          Log Out
+          {isSigningOut ? 'Signing out...' : 'Sign Out'}
         </button>
       </div>
     </aside>

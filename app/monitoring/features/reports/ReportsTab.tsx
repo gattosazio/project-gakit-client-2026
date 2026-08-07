@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   ChevronLeft,
@@ -10,19 +10,13 @@ import {
   PlusCircle,
   RotateCcw,
   Search,
+  ShieldAlert,
   X,
 } from 'lucide-react';
 import { ReportModal } from '@/app/public-view/ReportModal';
-import {
-  createReport,
-  listDepthCategories,
-} from '@/app/public-view/actions/public.view';
-import type {
-  FloodDepth,
-  FloodDepthCategory,
-  ReportRecord,
-  ReportStatus,
-} from '@/app/public-view/actions/public.view';
+import { createReport, fetchReports, type FloodDepthCode, type Report, type ReportStatus } from '@/lib/api';
+import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
+import { toast } from 'react-toastify';
 import { FeaturePageShell } from '../shared/FeaturePageShell';
 import { listReports } from './actions/reports';
 
@@ -35,117 +29,64 @@ interface SelectedLocation {
   lat: number;
   lng: number;
   address: string;
+  elevation?: number;
 }
 
-const statuses: Array<{ value: 'All' | ReportStatus; label: string }> = [
-  { value: 'All', label: 'All statuses' },
-  { value: 'UNVERIFIED', label: 'Pending' },
-  { value: 'VERIFIED', label: 'Verified' },
-  { value: 'ANOMALY', label: 'Anomaly' },
-  { value: 'REJECTED', label: 'Rejected' },
-];
-const REPORTS_PER_PAGE = 4;
+const statusOptions: Array<'All' | ReportStatus> = ['All', 'UNVERIFIED', 'VERIFIED', 'ANOMALY', 'REJECTED'];
+const depthOptions: Array<'All' | FloodDepthCode> = ['All', 'ankle', 'knee', 'waist', 'head', 'overhead'];
+const REPORTS_PER_PAGE = 6;
 
-const statusStyles: Record<ReportStatus, string> = {
-  UNVERIFIED: 'bg-amber-50 text-hazard-pending border-amber-200',
-  VERIFIED: 'bg-green-50 text-hazard-safe border-green-200',
-  ANOMALY: 'bg-slate-100 text-slate-700 border-slate-200',
-  REJECTED: 'bg-red-50 text-hazard-critical border-red-200',
-};
-
-const statusLabels: Record<ReportStatus, string> = {
-  UNVERIFIED: 'Pending',
-  VERIFIED: 'Verified',
-  ANOMALY: 'Anomaly',
-  REJECTED: 'Rejected',
-};
-
-const formatLocation = (report: ReportRecord) =>
-  report.location.address ||
-  `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`;
-
-const formatCoordinates = (report: ReportRecord) =>
-  `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`;
-
-const formatDepth = (depth: FloodDepthCategory) =>
-  depth.code === 'overhead'
-    ? `${depth.label} (${depth.approximateCm} cm or deeper)`
-    : `${depth.label} (approximately ${depth.approximateCm} cm)`;
-
-const formatDateTime = (value: string) => new Date(value).toLocaleString();
-
-export function ReportsTab() {
+export function ReportsTab({ initialCritical = false }: { initialCritical?: boolean }) {
+  const [reports, setReports] = useState<Report[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | ReportStatus>('All');
-  const [depthFilter, setDepthFilter] = useState<'All' | FloodDepth>('All');
-  const [depthCategories, setDepthCategories] = useState<FloodDepthCategory[]>([]);
-  const [reports, setReports] = useState<ReportRecord[]>([]);
-  const [totalReports, setTotalReports] = useState(0);
-  const [totalPages, setTotalPages] = useState(1);
+  const [depthFilter, setDepthFilter] = useState<'All' | FloodDepthCode>('All');
+  const [criticalFilter, setCriticalFilter] = useState(initialCritical);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [refreshVersion, setRefreshVersion] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    const abortController = new AbortController();
+    const timer = setTimeout(() => {
+      setLoading(true);
+      setError(null);
 
-    void listDepthCategories(abortController.signal)
-      .then(setDepthCategories)
-      .catch(() => setDepthCategories([]));
-
-    return () => abortController.abort();
-  }, []);
-
-  useEffect(() => {
-    const abortController = new AbortController();
-    setIsLoading(true);
-    setLoadError(null);
-
-    const debounceTimer = window.setTimeout(() => {
-      void listReports(
-        {
-          page: currentPage,
-          limit: REPORTS_PER_PAGE,
-          search: query.trim() || undefined,
-          status: statusFilter === 'All' ? undefined : statusFilter,
-          depth: depthFilter === 'All' ? undefined : depthFilter,
-        },
-        abortController.signal
-      )
+      fetchReports({
+        page: currentPage,
+        limit: REPORTS_PER_PAGE,
+        search: query.trim() || undefined,
+        status: statusFilter === 'All' ? undefined : statusFilter,
+        depth: depthFilter === 'All' ? undefined : depthFilter,
+        critical: criticalFilter || undefined,
+      })
         .then((result) => {
           setReports(result.items);
-          setTotalReports(result.total);
+          setTotal(result.total);
           setTotalPages(result.totalPages);
           setSelectedReportId((currentId) =>
-            result.items.some((report) => report.id === currentId)
+            currentId && result.items.some((report) => report.id === currentId)
               ? currentId
-              : result.items[0]?.id ?? null
+              : (result.items[0]?.id ?? null)
           );
         })
-        .catch((error: unknown) => {
-          if (error instanceof DOMException && error.name === 'AbortError') return;
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : 'Failed to load reports');
           setReports([]);
-          setTotalReports(0);
-          setSelectedReportId(null);
-          setLoadError(
-            error instanceof Error ? error.message : 'Unable to load reports.'
-          );
+          setTotal(0);
+          setTotalPages(1);
         })
-        .finally(() => {
-          if (!abortController.signal.aborted) setIsLoading(false);
-        });
-    }, query.trim() ? 300 : 0);
+        .finally(() => setLoading(false));
+    }, 300);
 
-    return () => {
-      window.clearTimeout(debounceTimer);
-      abortController.abort();
-    };
-  }, [currentPage, depthFilter, query, refreshVersion, statusFilter]);
+    return () => clearTimeout(timer);
+  }, [currentPage, query, statusFilter, depthFilter, criticalFilter, refreshKey]);
 
   const selectedReport =
     reports.find((report) => report.id === selectedReportId) || reports[0] || null;
@@ -154,6 +95,7 @@ export function ReportsTab() {
     setQuery('');
     setStatusFilter('All');
     setDepthFilter('All');
+    setCriticalFilter(false);
     setCurrentPage(1);
   };
 
@@ -163,30 +105,40 @@ export function ReportsTab() {
   };
 
   const handleStaffReportSubmit = async (data: {
-    location: { lat: number; lng: number };
-    depth: FloodDepth;
-  }) => {
+    location: { lat: number; lng: number; elevation?: number };
+    depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
+    image?: File;
+  }): Promise<void> => {
+    const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
+
     await createReport({
       location: {
         latitude: data.location.lat,
         longitude: data.location.lng,
-        address: selectedLocation?.address,
+        address: selectedLocation?.address || fallbackAddress,
       },
       depth: data.depth,
-      observedAt: new Date().toISOString(),
+    });
+
+    toast.success('Staff report submitted successfully.', {
+      position: 'top-right',
+      autoClose: 3000,
     });
     setIsReportModalOpen(false);
     setIsSubmitOpen(false);
     setSelectedLocation(null);
-    setCurrentPage(1);
-    setRefreshVersion((version) => version + 1);
+    setRefreshKey((key) => key + 1);
   };
+
+  const handlePageChange = useCallback((page: number) => {
+    setCurrentPage(page);
+  }, []);
 
   return (
     <>
       <FeaturePageShell
         toolbar={
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_auto_auto]">
+        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_10rem_auto_auto]">
           <label className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2">
             <Search className="w-4 h-4 text-slate-400" />
             <input
@@ -208,24 +160,48 @@ export function ReportsTab() {
             }}
             className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none"
           >
-            {statuses.map((status) => (
-              <option key={status.value} value={status.value}>{status.label}</option>
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {status === 'All' ? 'All statuses' : STATUS_META[status].label}
+              </option>
             ))}
           </select>
 
           <select
             value={depthFilter}
             onChange={(event) => {
-              setDepthFilter(event.target.value as 'All' | FloodDepth);
+              setDepthFilter(event.target.value as 'All' | FloodDepthCode);
               setCurrentPage(1);
             }}
             className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none"
           >
-            <option value="All">All depths</option>
-            {depthCategories.map((depth) => (
-              <option key={depth.code} value={depth.code}>{depth.label}</option>
+            {depthOptions.map((depth) => (
+              <option key={depth} value={depth}>
+                {depth === 'All' ? 'All depths' : DEPTH_LABELS[depth]}
+              </option>
             ))}
           </select>
+
+          <button
+            onClick={() => {
+              setCriticalFilter((value) => !value);
+              setCurrentPage(1);
+            }}
+            aria-pressed={criticalFilter}
+            className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+              criticalFilter
+                ? 'border-gakit-maroon bg-gakit-maroon text-white'
+                : 'border-canvas-grey bg-white text-slate-700 hover:bg-canvas-light'
+            }`}
+          >
+            <ShieldAlert className="w-4 h-4" />
+            Critical
+          </button>
+
+          <button className="flex items-center justify-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light">
+            <CalendarDays className="w-4 h-4" />
+            All time
+          </button>
 
           <button
             onClick={resetFilters}
@@ -250,7 +226,7 @@ export function ReportsTab() {
             <div className="p-4 border-b border-canvas-grey flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900">Reports</h3>
-                <p className="text-sm text-slate-500">{totalReports} reports found</p>
+                <p className="text-sm text-slate-500">{loading ? 'Loading...' : `${total} reports found`}</p>
               </div>
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
                 <Filter className="w-4 h-4" />
@@ -258,123 +234,117 @@ export function ReportsTab() {
               </div>
             </div>
 
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-canvas-light text-slate-500">
-                  <tr>
-                    <th className="text-left font-semibold px-5 py-3">Report</th>
-                    <th className="text-left font-semibold px-5 py-3">Location</th>
-                    <th className="text-left font-semibold px-5 py-3">Depth</th>
-                    <th className="text-left font-semibold px-5 py-3">Status</th>
-                    <th className="text-left font-semibold px-5 py-3">Submitted</th>
-                    <th className="text-left font-semibold px-5 py-3">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-canvas-grey">
-                  {isLoading && (
-                    <tr>
-                      <td colSpan={6} className="px-5 py-10 text-center text-slate-500">
-                        Loading reports...
-                      </td>
-                    </tr>
-                  )}
-                  {!isLoading && loadError && (
-                    <tr>
-                      <td colSpan={6} className="px-5 py-10 text-center text-red-600">
-                        {loadError}
-                      </td>
-                    </tr>
-                  )}
-                  {!isLoading && !loadError && reports.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="px-5 py-10 text-center text-slate-500">
-                        No reports match the selected filters.
-                      </td>
-                    </tr>
-                  )}
-                  {!isLoading && !loadError && reports.map((report) => (
-                    <tr
-                      key={report.id}
-                      className={selectedReport?.id === report.id ? 'bg-maroon-50/60' : 'hover:bg-canvas-light/70'}
-                    >
-                      <td className="px-5 py-4">
-                        <div className="max-w-40 break-all text-xs font-semibold text-slate-900">{report.id}</div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="text-slate-700">{formatLocation(report)}</div>
-                        <div className="text-xs text-slate-500">{formatCoordinates(report)}</div>
-                      </td>
-                      <td className="px-5 py-4 text-slate-700">
-                        <div>{report.depth.label}</div>
-                        <div className="text-xs text-slate-500">
-                          {report.depth.code === 'overhead'
-                            ? `${report.depth.approximateCm} cm or deeper`
-                            : `Approx. ${report.depth.approximateCm} cm`}
-                        </div>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[report.status]}`}>
-                          {statusLabels[report.status]}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
-                      <td className="px-5 py-4">
-                        <button
-                          onClick={() => setSelectedReportId(report.id)}
-                          className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Inspect
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="lg:hidden divide-y divide-canvas-grey">
-              {isLoading && (
-                <div className="p-8 text-center text-sm text-slate-500">Loading reports...</div>
-              )}
-              {!isLoading && loadError && (
-                <div className="p-8 text-center text-sm text-red-600">{loadError}</div>
-              )}
-              {!isLoading && !loadError && reports.length === 0 && (
-                <div className="p-8 text-center text-sm text-slate-500">
-                  No reports match the selected filters.
+            {error ? (
+              <div className="p-6 text-sm text-red-700">{error}</div>
+            ) : (
+              <>
+                <div className="hidden lg:block overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-canvas-light text-slate-500">
+                      <tr>
+                        <th className="text-left font-semibold px-5 py-3">Report</th>
+                        <th className="text-left font-semibold px-5 py-3">Location</th>
+                        <th className="text-left font-semibold px-5 py-3">Depth</th>
+                        <th className="text-left font-semibold px-5 py-3">Status</th>
+                        <th className="text-left font-semibold px-5 py-3">Submitted</th>
+                        <th className="text-left font-semibold px-5 py-3">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-canvas-grey">
+                      {reports.map((report) => {
+                        const status = STATUS_META[report.status];
+                        return (
+                          <tr
+                            key={report.id}
+                            className={selectedReport?.id === report.id ? 'bg-maroon-50/60' : 'hover:bg-canvas-light/70'}
+                          >
+                            <td className="px-5 py-4">
+                              <div className="font-mono text-xs font-semibold text-slate-900">
+                                {report.id.slice(0, 8)}
+                              </div>
+                              <div className="text-xs text-slate-500">Public report</div>
+                            </td>
+                            <td className="px-5 py-4">
+                              <div className="text-slate-700">
+                                {report.location.address || 'Unknown location'}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-slate-700">{DEPTH_LABELS[report.depth.code]}</td>
+                            <td className="px-5 py-4">
+                              <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
+                                {status.label}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
+                            <td className="px-5 py-4">
+                              <button
+                                onClick={() => setSelectedReportId(report.id)}
+                                className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
+                              >
+                                <Eye className="w-4 h-4" />
+                                Inspect
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {reports.length === 0 && !loading && (
+                        <tr>
+                          <td colSpan={6} className="px-5 py-10 text-center text-sm text-slate-500">
+                            No reports match the current filters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              )}
-              {!isLoading && !loadError && reports.map((report) => (
-                <button
-                  key={report.id}
-                  onClick={() => setSelectedReportId(report.id)}
-                  className="w-full p-4 text-left hover:bg-canvas-light"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="break-all text-xs font-semibold text-slate-900">{report.id}</div>
-                      <div className="text-sm text-slate-600 mt-1">{formatLocation(report)}</div>
-                      <div className="text-xs text-slate-500 mt-1">{formatDateTime(report.createdAt)}</div>
-                    </div>
-                    <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[report.status]}`}>
-                      {statusLabels[report.status]}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
 
-            <ReportsPagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              totalItems={totalReports}
-              pageSize={REPORTS_PER_PAGE}
-              onPageChange={setCurrentPage}
-            />
+                <div className="lg:hidden divide-y divide-canvas-grey">
+                  {reports.map((report) => {
+                    const status = STATUS_META[report.status];
+                    return (
+                      <button
+                        key={report.id}
+                        onClick={() => setSelectedReportId(report.id)}
+                        className="w-full p-4 text-left hover:bg-canvas-light"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-mono text-xs font-semibold text-slate-900">
+                              {report.id.slice(0, 8)}
+                            </div>
+                            <div className="text-sm text-slate-600 mt-1">
+                              {report.location.address || 'Unknown location'}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-1">{formatDateTime(report.createdAt)}</div>
+                          </div>
+                          <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
+                            {status.label}
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <ReportsPagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  totalItems={total}
+                  pageSize={REPORTS_PER_PAGE}
+                  onPageChange={handlePageChange}
+                />
+              </>
+            )}
           </div>
 
-          <ReportDetails report={selectedReport} />
+          {selectedReport ? (
+            <ReportDetails report={selectedReport} />
+          ) : (
+            <aside className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
+              <div className="p-5 text-sm text-slate-500">Select a report to view details.</div>
+            </aside>
+          )}
         </section>
       </FeaturePageShell>
 
@@ -460,14 +430,11 @@ function StaffSubmitReportModal({
   );
 }
 
-function ReportDetails({ report }: { report: ReportRecord | null }) {
-  if (!report) {
-    return (
-      <aside className="bg-white border border-canvas-grey rounded-lg shadow-sm p-8 text-center text-sm text-slate-500">
-        Select a report to view its details.
-      </aside>
-    );
-  }
+function ReportDetails({ report }: { report: Report }) {
+  const status = STATUS_META[report.status];
+  const address =
+    report.location.address ||
+    `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`;
 
   return (
     <aside className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
@@ -475,38 +442,43 @@ function ReportDetails({ report }: { report: ReportRecord | null }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="font-bold text-slate-900">Report Details</h3>
-            <p className="break-all text-xs text-slate-500 mt-1">{report.id}</p>
+            <p className="text-sm text-slate-500 mt-1 break-all">{report.id}</p>
           </div>
-          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${statusStyles[report.status]}`}>
-            {statusLabels[report.status]}
+          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
+            {status.label}
           </span>
         </div>
       </div>
 
       <div className="p-5 space-y-5">
+        <div className="aspect-video rounded-lg bg-canvas-light border border-canvas-grey flex items-center justify-center">
+          <div className="text-center">
+            <FileImage className="w-8 h-8 text-slate-300 mx-auto" />
+            <div className="text-sm font-semibold text-slate-500 mt-2">No photo submitted</div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <DetailItem label="Location" value={formatLocation(report)} />
-          <DetailItem label="Depth" value={formatDepth(report.depth)} />
-          <DetailItem label="Coordinates" value={formatCoordinates(report)} />
-          <DetailItem label="Observed" value={formatDateTime(report.observedAt)} />
+          <DetailItem label="Location" value={address} />
+          <DetailItem label="Depth" value={DEPTH_LABELS[report.depth.code]} />
+          <DetailItem label="Status" value={status.label} />
+          <DetailItem label="Coordinates" value={`${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`} />
           <DetailItem label="Submitted" value={formatDateTime(report.createdAt)} />
-          <DetailItem label="Status" value={statusLabels[report.status]} />
+          <DetailItem label="Observed" value={formatDateTime(report.observedAt)} />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <button
-            disabled
-            title="Authentication is required before status updates are enabled."
-            className="cursor-not-allowed rounded-lg bg-canvas-grey px-4 py-3 text-sm font-semibold text-slate-400"
+            title="Status updates are not available yet"
+            className="rounded-lg bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white hover:bg-maroon-800"
           >
             Verify
           </button>
           <button
-            disabled
-            title="Authentication is required before status updates are enabled."
-            className="cursor-not-allowed rounded-lg border border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-400"
+            title="Status updates are not available yet"
+            className="rounded-lg border border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
           >
-            Reject
+            Escalate
           </button>
         </div>
       </div>

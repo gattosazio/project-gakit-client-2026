@@ -1,0 +1,28 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Next.js build output
+.next
+out
+build
+
+# Local env / secrets
+.env
+.env.*
+!.env.example
+
+# Git
+.git
+.gitignore
+
+# Source data / local tooling
+data
+scripts
+ml-service
+tsconfig.tsbuildinfo
+
+# Docker
+Dockerfile
+.dockerignore

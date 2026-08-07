@@ -6,17 +6,7 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
 import { CheckCircle2, ChevronDown, ChevronUp, MapPin, Navigation, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import {
-  createReport,
-  listPublicReports,
-} from './actions/public.view';
-import type {
-  FloodDepth,
-  FloodDepthCategory,
-  ReportFeature,
-  ReportRecord,
-  ReportStatus,
-} from './actions/public.view';
+import { createReport } from '@/lib/api';
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
@@ -243,23 +233,31 @@ export function PublicViewPage() {
     location: { lat: number; lng: number };
     depth: FloodDepth;
   }): Promise<void> => {
-    const createdReport = await createReport({
+    const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
+
+    const report = await createReport({
       location: {
         latitude: data.location.lat,
         longitude: data.location.lng,
-        address: selectedLocation?.address,
+        address: selectedLocation?.address || fallbackAddress,
       },
       depth: data.depth,
-      observedAt: new Date().toISOString(),
     });
-    const report = toSubmittedReport(createdReport);
 
-    setLastSubmittedReport(report);
-    setSubmittedReports((currentReports) => [
-      report,
-      ...currentReports.filter((current) => current.id !== report.id),
-    ]);
+    const submittedReport: SubmittedReport = {
+      id: report.id,
+      location: {
+        lat: report.location.latitude,
+        lng: report.location.longitude,
+        address: report.location.address || fallbackAddress,
+      },
+      depth: report.depth.code,
+      submittedAt: new Date(report.createdAt).toLocaleString(),
+      hasImage: Boolean(data.image),
+    };
 
+    setLastSubmittedReport(submittedReport);
+    setSubmittedReports((currentReports) => [submittedReport, ...currentReports]);
   };
 
   return (

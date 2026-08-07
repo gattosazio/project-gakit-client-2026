@@ -6,83 +6,29 @@ import { toast } from 'react-toastify';
 import type { FloodDepthCategory, ReportStatus } from '@/app/public-view/actions/public.view';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { fetchMapReports, type MapReportFeature } from '@/lib/api';
 
 const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 const MAPTILER_STYLE = MAPTILER_KEY
   ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
   : 'https://tiles.openfreemap.org/styles/bright';
 
-interface HazardReport {
-  id: string;
-  lat: number;
-  lng: number;
-  location: string;
-  status: 'critical' | 'verified' | 'pending' | 'safe';
-  depth?: string;
-  time: string;
-}
-
-// Hardcoded hazard data for Iligan City
-const HARDCODED_HAZARDS: HazardReport[] = [
-  {
-    id: '1',
-    lat: 8.2312,
-    lng: 124.2570,
-    location: 'Hinaplanon Road: Waist Deep',  
-    status: 'verified',
-    depth: 'Waist Deep',
-    time: '10:42 AM',
-  },
-  {
-    id: '2',
-    lat: 8.2265,
-    lng: 124.2545,
-    location: 'Impasable',
-    status: 'critical',
-    time: '07:24 PM',
-  },
-  {
-    id: '3',
-    lat: 8.2290,
-    lng: 124.2548,
-    location: 'Waist Deep',
-    status: 'pending',
-    depth: 'Waist Deep',
-    time: '07:23 PM', 
-  },
-  {
-    id: '4',
-    lat: 8.2245,
-    lng: 124.2530,
-    location: 'Ankle Deep',
-    status: 'pending',
-    depth: 'Ankle Deep',
-    time: '10:15 AM',
-  },
-];
-
 const ILIGAN_CENTER = { lat: 8.2312, lng: 124.2470 };
 
-const STATUS_COLOR: Record<string, string> = {
-  critical: '#EF4444',
-  verified: '#3B82F6',
-  pending: '#F59E0B',
-  safe: '#10B981',
+const BACKEND_STATUS_COLOR: Record<string, string> = {
+  VERIFIED: '#3B82F6',
+  UNVERIFIED: '#F59E0B',
+  ANOMALY: '#EF4444',
+  REJECTED: '#6B7280',
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  critical: 'Status: Impassable',
-  verified: 'Status: Verified',
-  pending: 'Status: Pending',
+  VERIFIED: 'Status: Verified',
+  UNVERIFIED: 'Status: Pending',
+  ANOMALY: 'Status: Anomaly',
+  REJECTED: 'Status: Rejected',
 };
 
-const STATUS_LABEL_CLASS: Record<string, string> = {
-  critical: 'text-hazard-critical',
-  verified: 'text-hazard-verified',
-  pending: 'text-hazard-pending',
-};
-
-// Distinct color for the user's picked report location (vs. verified #3B82F6)
 const SELECTED_LOCATION_COLOR = '#27e867';
 
 const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
@@ -117,6 +63,12 @@ const FLOOD_HAZARD_LEGEND: Array<{ key: string; label: string; color: string }> 
   { key: 'low', label: 'Low hazard', color: FLOOD_HAZARD_COLORS.low },
 ];
 
+const riskLevelFilter = (visible: Record<string, boolean>) => [
+  'in',
+  'risk_level',
+  ...Object.keys(FLOOD_HAZARD_COLORS).filter((level) => visible[level]),
+];
+
 interface PublicMapProps {
   onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
   selectedLocation: { lat: number; lng: number } | null;
@@ -140,10 +92,49 @@ export function PublicMap({
   const popupsRef = useRef<any[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const [maplibregl, setMaplibregl] = useState<any>(null);
+  const [backendReports, setBackendReports] = useState<MapReportFeature[]>([]);
 
   // Layer visibility toggles
-  const [showFloodHazard, setShowFloodHazard] = useState(true);
+  const [showFloodHazard, setShowFloodHazard] = useState(false);
+  const [visibleRiskLevels, setVisibleRiskLevels] = useState<Record<string, boolean>>({
+    high: true,
+    medium: true,
+    low: true,
+  });
   const layersReadyRef = useRef(false);
+  const lastBoundsRef = useRef<string | null>(null);
+  const loadingReportsRef = useRef(false);
+
+  const loadMapReports = useCallback(async () => {
+    const map = mapRef.current;
+    if (!map || loadingReportsRef.current) return;
+
+    const bounds = map.getBounds();
+    const key = [
+      bounds.getWest().toFixed(3),
+      bounds.getSouth().toFixed(3),
+      bounds.getEast().toFixed(3),
+      bounds.getNorth().toFixed(3),
+    ].join(',');
+    if (key === lastBoundsRef.current) return;
+    lastBoundsRef.current = key;
+
+    loadingReportsRef.current = true;
+    try {
+      const reports = await fetchMapReports({
+        west: bounds.getWest(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        north: bounds.getNorth(),
+        limit: 500,
+      });
+      setBackendReports(reports.features);
+    } catch (error) {
+      console.error('Failed to load reports from backend', error);
+    } finally {
+      loadingReportsRef.current = false;
+    }
+  }, []);
 
   const fetchJson = useCallback(async (path: string) => {
     const response = await fetch(path);
@@ -332,6 +323,10 @@ export function PublicMap({
         initialLayers.forEach(([id, visible]) => {
           map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
         });
+
+        const initialFilter = riskLevelFilter(visibleRiskLevels);
+        map.setFilter('flood-hazard-fill', initialFilter);
+        map.setFilter('flood-hazard-outline', initialFilter);
       })();
     });
 
@@ -339,11 +334,19 @@ export function PublicMap({
       handleLocationSelect(e.lngLat.lat, e.lngLat.lng);
     });
 
+    map.on('load', () => {
+      void loadMapReports();
+    });
+
+    map.on('moveend', () => {
+      void loadMapReports();
+    });
+
     return () => {
       map.remove();
       mapRef.current = null;
     };
-  }, [handleLocationSelect, maplibregl]);
+  }, [handleLocationSelect, loadMapReports, maplibregl]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -426,16 +429,21 @@ export function PublicMap({
       popupsRef.current.push(popup);
     };
 
-    HARDCODED_HAZARDS.forEach((hazard) => {
+    backendReports.forEach((feature) => {
+      const [lng, lat] = feature.geometry.coordinates;
+      const props = feature.properties;
       addReportMarker(
-        hazard.lat,
-        hazard.lng,
-        STATUS_COLOR[hazard.status] || '#6B7280',
-        hazard.location,
+        lat,
+        lng,
+        BACKEND_STATUS_COLOR[props.status] || '#6B7280',
+        props.address || 'Flood report',
         [
-          { label: 'Status', value: STATUS_LABEL[hazard.status] || 'Unknown' },
-          ...(hazard.depth ? [{ label: 'Depth', value: hazard.depth }] : []),
-          { label: 'Reported', value: hazard.time },
+          { label: 'Depth', value: props.depth.label },
+          { label: 'Status', value: STATUS_LABEL[props.status] || props.status },
+          {
+            label: 'Reported',
+            value: new Date(props.createdAt).toLocaleString(),
+          },
         ]
       );
     });
@@ -450,7 +458,7 @@ export function PublicMap({
       addReportMarker(
         report.location.lat,
         report.location.lng,
-        statusColor,
+        BACKEND_STATUS_COLOR.UNVERIFIED,
         report.location.address,
         [
           {
@@ -459,7 +467,6 @@ export function PublicMap({
           },
           { label: 'Status', value: REPORT_STATUS_LABELS[report.status] },
           { label: 'Reported', value: report.submittedAt },
-          { label: 'Ref', value: report.id },
         ]
       );
     });
@@ -480,9 +487,9 @@ export function PublicMap({
     }
     // `maplibregl` is loaded asynchronously; the map doesn't exist on the first
     // render, so re-run once it resolves to draw the initial markers.
-  }, [selectedLocation, submittedReports, maplibregl]);
+  }, [backendReports, selectedLocation, submittedReports, maplibregl]);
 
-  // Apply layer visibility when toggles change
+  // Apply layer visibility + risk-level filters when toggles change
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !layersReadyRef.current) return;
@@ -495,7 +502,11 @@ export function PublicMap({
     layers.forEach(([id, visible]) => {
       map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
     });
-  }, [showFloodHazard]);
+
+    const filter = riskLevelFilter(visibleRiskLevels);
+    map.setFilter('flood-hazard-fill', filter);
+    map.setFilter('flood-hazard-outline', filter);
+  }, [showFloodHazard, visibleRiskLevels]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
@@ -508,7 +519,7 @@ export function PublicMap({
         </div>
         <div className="space-y-1.5">
           <LayerToggle
-            label="Flood Risk Areas"
+            label="Flood Hazard Zones"
             color="#3B82F6"
             checked={showFloodHazard}
             onChange={setShowFloodHazard}
@@ -519,13 +530,15 @@ export function PublicMap({
                 Risk levels
               </div>
               {FLOOD_HAZARD_LEGEND.map(({ key, label, color }) => (
-                <div key={key} className="flex items-center gap-2">
-                  <span
-                    className="h-3 w-3 rounded-sm border border-slate-300"
-                    style={{ backgroundColor: color }}
-                  />
-                  <span className="text-[11px] text-slate-600 font-medium">{label}</span>
-                </div>
+                <LayerToggle
+                  key={key}
+                  label={label}
+                  color={color}
+                  checked={!!visibleRiskLevels[key]}
+                  onChange={(checked) =>
+                    setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
+                  }
+                />
               ))}
             </div>
           )}
