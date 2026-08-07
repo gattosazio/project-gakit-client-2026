@@ -1,4 +1,4 @@
-import type { FloodDepthCode, ReportStatus } from './api';
+import type { FloodDepthCode, ReportStatus } from '@/types/report';
 
 export const DEPTH_LABELS: Record<FloodDepthCode, string> = {
   ankle: 'Ankle Deep',

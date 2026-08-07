@@ -9,7 +9,8 @@ import {
   MapPin,
   ShieldAlert,
 } from 'lucide-react';
-import { fetchReportStats, fetchReports, type Report, type ReportStats } from '@/lib/api';
+import { fetchReportStats, listReports as fetchReports } from '../reports/actions/reports';
+import type { Report, ReportStats } from '@/types/report';
 import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
 
 const CURRENT_YEAR = String(new Date().getFullYear());

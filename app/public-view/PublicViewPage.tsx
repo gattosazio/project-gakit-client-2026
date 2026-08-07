@@ -6,7 +6,8 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
 import { CheckCircle2, ChevronDown, ChevronUp, MapPin, Navigation, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createReport } from '@/lib/api';
+import { createReport, listPublicReports } from './actions/public.view';
+import type { CreateReportInput, DepthCategory, MapReportFeature, Report, ReportStatus } from '@/types/report';
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
@@ -23,7 +24,7 @@ interface SelectedLocation {
 interface SubmittedReport {
   id: string;
   location: SelectedLocation;
-  depth: FloodDepthCategory;
+  depth: DepthCategory;
   status: ReportStatus;
   submittedAt: string;
 }
@@ -35,12 +36,12 @@ const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   REJECTED: 'Rejected',
 };
 
-const formatApproximateDepth = (depth: FloodDepthCategory) =>
+const formatApproximateDepth = (depth: DepthCategory) =>
   depth.code === 'overhead'
     ? `approximately ${depth.approximateCm} cm or deeper`
     : `approximately ${depth.approximateCm} cm`;
 
-const toSubmittedReport = (report: ReportRecord): SubmittedReport => ({
+const toSubmittedReport = (report: Report): SubmittedReport => ({
   id: report.id,
   location: {
     lat: report.location.latitude,
@@ -54,10 +55,8 @@ const toSubmittedReport = (report: ReportRecord): SubmittedReport => ({
   submittedAt: new Date(report.createdAt).toLocaleString(),
 });
 
-const featureToSubmittedReport = (
-  feature: ReportFeature
-): SubmittedReport => ({
-  id: feature.id,
+const featureToSubmittedReport = (feature: MapReportFeature): SubmittedReport => ({
+  id: feature.properties.id,
   location: {
     lat: feature.geometry.coordinates[1],
     lng: feature.geometry.coordinates[0],
@@ -231,7 +230,7 @@ export function PublicViewPage() {
 
   const handleReportSubmit = async (data: {
     location: { lat: number; lng: number };
-    depth: FloodDepth;
+    depth: CreateReportInput['depth'];
   }): Promise<void> => {
     const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
 
@@ -251,9 +250,9 @@ export function PublicViewPage() {
         lng: report.location.longitude,
         address: report.location.address || fallbackAddress,
       },
-      depth: report.depth.code,
+      depth: report.depth,
+      status: report.status,
       submittedAt: new Date(report.createdAt).toLocaleString(),
-      hasImage: Boolean(data.image),
     };
 
     setLastSubmittedReport(submittedReport);

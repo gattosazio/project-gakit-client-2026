@@ -1,58 +1,73 @@
 import type {
-  FloodDepth,
-  ReportRecord,
+  CreateReportInput,
+  FloodDepthCode,
+  PaginatedReports,
+  Report,
+  ReportStats,
   ReportStatus,
-} from '@/app/public-view/actions/public.view';
+} from '@/types/report';
 
-export interface ReportListQuery {
-  page: number;
-  limit: number;
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  });
+
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const detail =
+      body && typeof body === 'object' && 'detail' in body
+        ? String(body.detail)
+        : null;
+
+    throw new Error(
+      detail ||
+        `Request to ${path} failed with status ${response.status} ${response.statusText}`
+    );
+  }
+
+  return body as T;
+}
+
+export interface MonitoringReportListQuery {
+  page?: number;
+  limit?: number;
   search?: string;
   status?: ReportStatus;
-  depth?: FloodDepth;
+  depth?: FloodDepthCode;
+  critical?: boolean;
 }
 
-export interface PaginatedReports {
-  items: ReportRecord[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
-
-async function getErrorMessage(response: Response): Promise<string> {
-  const fallback = `Request failed with status ${response.status}`;
-
-  try {
-    const body = (await response.json()) as { message?: string | string[] };
-    if (Array.isArray(body.message)) return body.message.join(', ');
-    return body.message ?? fallback;
-  } catch {
-    return fallback;
-  }
+export async function createReport(
+  input: CreateReportInput,
+  signal?: AbortSignal
+): Promise<Report> {
+  return request<Report>('/api/v1/reports', {
+    method: 'POST',
+    body: JSON.stringify(input),
+    signal,
+  });
 }
 
 export async function listReports(
-  query: ReportListQuery,
+  query: MonitoringReportListQuery = {},
   signal?: AbortSignal
 ): Promise<PaginatedReports> {
-  const parameters = new URLSearchParams({
-    page: String(query.page),
-    limit: String(query.limit),
+  const params = new URLSearchParams();
+
+  Object.entries(query).forEach(([key, value]) => {
+    if (value != null) params.set(key, String(value));
   });
 
-  if (query.search) parameters.set('search', query.search);
-  if (query.status) parameters.set('status', query.status);
-  if (query.depth) parameters.set('depth', query.depth);
-
-  const response = await fetch(`${API_URL}/reports?${parameters}`, {
+  const queryString = params.toString();
+  return request<PaginatedReports>(`/api/v1/reports${queryString ? `?${queryString}` : ''}`, {
     signal,
-    cache: 'no-store',
   });
+}
 
-  if (!response.ok) throw new Error(await getErrorMessage(response));
-  return (await response.json()) as PaginatedReports;
+export async function fetchReportStats(signal?: AbortSignal): Promise<ReportStats> {
+  return request<ReportStats>('/api/v1/reports/stats', { signal });
 }

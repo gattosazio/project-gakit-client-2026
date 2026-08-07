@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
+  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Eye,
   Filter,
+  FileImage,
   PlusCircle,
   RotateCcw,
   Search,
@@ -14,11 +16,11 @@ import {
   X,
 } from 'lucide-react';
 import { ReportModal } from '@/app/public-view/ReportModal';
-import { createReport, fetchReports, type FloodDepthCode, type Report, type ReportStatus } from '@/lib/api';
 import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
+import type { FloodDepthCode, Report, ReportStatus } from '@/types/report';
 import { toast } from 'react-toastify';
 import { FeaturePageShell } from '../shared/FeaturePageShell';
-import { listReports } from './actions/reports';
+import { createReport, listReports as fetchReports } from './actions/reports';
 
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
   loading: () => <div className="w-full h-full bg-canvas-grey flex items-center justify-center">Loading map...</div>,
@@ -384,7 +386,7 @@ function StaffSubmitReportModal({
   onReportModalClose: () => void;
   onSubmit: (data: {
     location: { lat: number; lng: number };
-    depth: FloodDepth;
+    depth: FloodDepthCode;
   }) => Promise<void>;
 }) {
   return (

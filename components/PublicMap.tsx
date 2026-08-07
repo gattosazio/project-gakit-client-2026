@@ -3,10 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Layers, Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
-import type { FloodDepthCategory, ReportStatus } from '@/app/public-view/actions/public.view';
+import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { fetchMapReports, type MapReportFeature } from '@/lib/api';
+import { fetchMapReports } from '@/app/public-view/actions/public.view';
 
 const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 const MAPTILER_STYLE = MAPTILER_KEY
@@ -38,7 +38,7 @@ const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   REJECTED: 'Rejected',
 };
 
-const formatDepth = (depth: FloodDepthCategory) =>
+const formatDepth = (depth: DepthCategory) =>
   depth.code === 'overhead'
     ? `${depth.label} (approximately ${depth.approximateCm} cm or deeper)`
     : `${depth.label} (approximately ${depth.approximateCm} cm)`;
@@ -75,7 +75,7 @@ interface PublicMapProps {
   submittedReports?: Array<{
     id: string;
     location: { lat: number; lng: number; address: string };
-    depth: FloodDepthCategory;
+    depth: DepthCategory;
     status: ReportStatus;
     submittedAt: string;
   }>;
@@ -450,10 +450,10 @@ export function PublicMap({
 
     submittedReports.forEach((report) => {
       const statusColor = report.status === 'VERIFIED'
-        ? STATUS_COLOR.verified
+        ? '#3B82F6'
         : report.status === 'UNVERIFIED'
-          ? STATUS_COLOR.pending
-          : STATUS_COLOR.critical;
+          ? '#F59E0B'
+          : '#EF4444';
 
       addReportMarker(
         report.location.lat,
