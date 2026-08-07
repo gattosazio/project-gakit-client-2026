@@ -1,3 +1,5 @@
+import { cachedGet } from '@/lib/apiCache';
+import { ILIGAN_BOUNDS } from '@/lib/geoUtils';
 import type {
   CreateReportInput,
   DepthCategory,
@@ -63,16 +65,19 @@ export async function fetchMapReports(
     ...(bounds.limit != null ? { limit: String(bounds.limit) } : {}),
   });
 
-  return request<MapReportsResponse>(`/api/v1/reports/map?${params}`, { signal });
+  const url = `/api/v1/reports/map?${params}`;
+  return cachedGet<MapReportsResponse>(url, 30_000, () =>
+    request<MapReportsResponse>(url, { signal })
+  );
 }
 
 export async function listPublicReports(signal?: AbortSignal): Promise<MapReportFeature[]> {
   const response = await fetchMapReports(
     {
-      west: 124.1,
-      south: 8.1,
-      east: 124.4,
-      north: 8.4,
+      west: ILIGAN_BOUNDS[0][0],
+      south: ILIGAN_BOUNDS[0][1],
+      east: ILIGAN_BOUNDS[1][0],
+      north: ILIGAN_BOUNDS[1][1],
       limit: 500,
     },
     signal
@@ -82,5 +87,8 @@ export async function listPublicReports(signal?: AbortSignal): Promise<MapReport
 }
 
 export async function listDepthCategories(signal?: AbortSignal): Promise<FloodDepthCategory[]> {
-  return request<FloodDepthCategory[]>('/api/v1/reports/depth-categories', { signal });
+  const url = '/api/v1/reports/depth-categories';
+  return cachedGet<FloodDepthCategory[]>(url, 3_600_000, () =>
+    request<FloodDepthCategory[]>(url, { signal })
+  );
 }

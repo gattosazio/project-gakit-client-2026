@@ -7,6 +7,7 @@ import { ReportModal } from './ReportModal';
 import { CheckCircle2, ChevronDown, ChevronUp, MapPin, Navigation, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createReport, listPublicReports } from './actions/public.view';
+import { reverseGeocode } from '@/lib/geoUtils';
 import type { CreateReportInput, DepthCategory, MapReportFeature, Report, ReportStatus } from '@/types/report';
 
 // Dynamically import the map to avoid window is not defined errors
@@ -160,27 +161,8 @@ export function PublicViewPage() {
   }, [activeSection, scrollToSection]);
 
   const resolveLocation = async (lat: number, lng: number): Promise<SelectedLocation> => {
-    try {
-      const addressResponse = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-      );
-      const addressData = await addressResponse.json();
-      const address = addressData.address?.road || addressData.address?.village || addressData.address?.city ||
-                     addressData.address?.town || addressData.display_name?.split(',')[0] ||
-                     `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-
-      return {
-        lat,
-        lng,
-        address: address.trim(),
-      };
-    } catch {
-      return {
-        lat,
-        lng,
-        address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-      };
-    }
+    const address = await reverseGeocode(lat, lng);
+    return { lat, lng, address };
   };
 
   const handleStartReport = useCallback(() => {

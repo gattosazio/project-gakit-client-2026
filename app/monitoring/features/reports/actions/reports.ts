@@ -1,3 +1,4 @@
+import { cachedGet } from '@/lib/apiCache';
 import type {
   CreateReportInput,
   FloodDepthCode,
@@ -63,11 +64,13 @@ export async function listReports(
   });
 
   const queryString = params.toString();
-  return request<PaginatedReports>(`/api/v1/reports${queryString ? `?${queryString}` : ''}`, {
-    signal,
-  });
+  const url = `/api/v1/reports${queryString ? `?${queryString}` : ''}`;
+  return cachedGet<PaginatedReports>(url, 30_000, () =>
+    request<PaginatedReports>(url, { signal })
+  );
 }
 
 export async function fetchReportStats(signal?: AbortSignal): Promise<ReportStats> {
-  return request<ReportStats>('/api/v1/reports/stats', { signal });
+  const url = '/api/v1/reports/stats';
+  return cachedGet<ReportStats>(url, 30_000, () => request<ReportStats>(url, { signal }));
 }
