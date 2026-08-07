@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Layers, Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
+import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { fetchMapReports, type MapReportFeature } from '@/lib/api';
+import { fetchMapReports } from '@/app/public-view/actions/public.view';
 
 const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 const MAPTILER_STYLE = MAPTILER_KEY
@@ -30,13 +31,17 @@ const STATUS_LABEL: Record<string, string> = {
 
 const SELECTED_LOCATION_COLOR = '#27e867';
 
-const REPORT_DEPTH_LABELS: Record<string, string> = {
-  ankle: 'Ankle Deep',
-  knee: 'Knee Deep',
-  waist: 'Waist Deep',
-  head: 'Head Deep',
-  overhead: 'Overhead',
+const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
+  UNVERIFIED: 'Pending validation',
+  VERIFIED: 'Verified',
+  ANOMALY: 'Flagged for review',
+  REJECTED: 'Rejected',
 };
+
+const formatDepth = (depth: DepthCategory) =>
+  depth.code === 'overhead'
+    ? `${depth.label} (approximately ${depth.approximateCm} cm or deeper)`
+    : `${depth.label} (approximately ${depth.approximateCm} cm)`;
 
 const escapeHtml = (value: string) =>
   value.replace(
@@ -65,12 +70,13 @@ const riskLevelFilter = (visible: Record<string, boolean>) => [
 ];
 
 interface PublicMapProps {
-  onLocationSelect: (location: { lat: number; lng: number; address: string; elevation?: number }) => void;
-  selectedLocation: { lat: number; lng: number; elevation?: number } | null;
+  onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
+  selectedLocation: { lat: number; lng: number } | null;
   submittedReports?: Array<{
     id: string;
     location: { lat: number; lng: number; address: string };
-    depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
+    depth: DepthCategory;
+    status: ReportStatus;
     submittedAt: string;
   }>;
 }
@@ -443,6 +449,12 @@ export function PublicMap({
     });
 
     submittedReports.forEach((report) => {
+      const statusColor = report.status === 'VERIFIED'
+        ? '#3B82F6'
+        : report.status === 'UNVERIFIED'
+          ? '#F59E0B'
+          : '#EF4444';
+
       addReportMarker(
         report.location.lat,
         report.location.lng,
@@ -451,9 +463,9 @@ export function PublicMap({
         [
           {
             label: 'Depth',
-            value: REPORT_DEPTH_LABELS[report.depth] || report.depth,
+            value: formatDepth(report.depth),
           },
-          { label: 'Status', value: 'Pending validation' },
+          { label: 'Status', value: REPORT_STATUS_LABELS[report.status] },
           { label: 'Reported', value: report.submittedAt },
         ]
       );

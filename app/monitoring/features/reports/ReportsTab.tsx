@@ -7,8 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
-  FileImage,
   Filter,
+  FileImage,
   PlusCircle,
   RotateCcw,
   Search,
@@ -16,10 +16,11 @@ import {
   X,
 } from 'lucide-react';
 import { ReportModal } from '@/app/public-view/ReportModal';
-import { createReport, fetchReports, type FloodDepthCode, type Report, type ReportStatus } from '@/lib/api';
 import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
+import type { FloodDepthCode, Report, ReportStatus } from '@/types/report';
 import { toast } from 'react-toastify';
 import { FeaturePageShell } from '../shared/FeaturePageShell';
+import { createReport, listReports as fetchReports } from './actions/reports';
 
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
   loading: () => <div className="w-full h-full bg-canvas-grey flex items-center justify-center">Loading map...</div>,
@@ -148,7 +149,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                 setQuery(event.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search ID, location, or barangay"
+              placeholder="Search UUID or address"
               className="w-full bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
             />
           </label>
@@ -231,7 +232,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
               </div>
               <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
                 <Filter className="w-4 h-4" />
-                Live filters
+                Server filters
               </div>
             </div>
 
@@ -384,9 +385,8 @@ function StaffSubmitReportModal({
   onLocationSelect: (location: SelectedLocation) => void;
   onReportModalClose: () => void;
   onSubmit: (data: {
-    location: { lat: number; lng: number; elevation?: number };
-    depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
-    image?: File;
+    location: { lat: number; lng: number };
+    depth: FloodDepthCode;
   }) => Promise<void>;
 }) {
   return (
