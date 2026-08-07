@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Layers, Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
+import { ILIGAN_BOUNDS, ILIGAN_CENTER, reverseGeocode } from '@/lib/geoUtils';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -13,23 +14,13 @@ const MAPTILER_STYLE = MAPTILER_KEY
   ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
   : 'https://tiles.openfreemap.org/styles/bright';
 
-const ILIGAN_CENTER = { lat: 8.2312, lng: 124.2470 };
-
-const BACKEND_STATUS_COLOR: Record<string, string> = {
-  VERIFIED: '#3B82F6',
-  UNVERIFIED: '#F59E0B',
-  ANOMALY: '#EF4444',
-  REJECTED: '#6B7280',
+const ILIGAN_REPORT_BOUNDS = {
+  west: ILIGAN_BOUNDS[0][0],
+  south: ILIGAN_BOUNDS[0][1],
+  east: ILIGAN_BOUNDS[1][0],
+  north: ILIGAN_BOUNDS[1][1],
+  limit: 500,
 };
-
-const STATUS_LABEL: Record<string, string> = {
-  VERIFIED: 'Status: Verified',
-  UNVERIFIED: 'Status: Pending',
-  ANOMALY: 'Status: Anomaly',
-  REJECTED: 'Status: Rejected',
-};
-
-const SELECTED_LOCATION_COLOR = '#27e867';
 
 const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   UNVERIFIED: 'Pending validation',
@@ -49,6 +40,104 @@ const escapeHtml = (value: string) =>
     (ch) =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] || ch
   );
+
+interface SubmittedReportProps {
+  id: string;
+  location: { lat: number; lng: number; address: string };
+  depth: DepthCategory;
+  status: ReportStatus;
+  submittedAt: string;
+}
+
+const buildReportsGeoJson = (
+  backendReports: MapReportFeature[],
+  submittedReports: SubmittedReportProps[]
+) => {
+  const features: Array<Record<string, any>> = backendReports.map((feature) => {
+    const props = feature.properties;
+    return {
+      type: 'Feature',
+      geometry: feature.geometry,
+      properties: {
+        kind: 'report',
+        status: props.status,
+        address: props.address || 'Flood report',
+        depthLabel: props.depth.label,
+        statusLabel: REPORT_STATUS_LABELS[props.status] || props.status,
+        createdAt: new Date(props.createdAt).toLocaleString(),
+      },
+    };
+  });
+
+  submittedReports.forEach((report) => {
+    features.push({
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [report.location.lng, report.location.lat],
+      },
+      properties: {
+        kind: 'report',
+        status: report.status,
+        address: report.location.address,
+        depthLabel: formatDepth(report.depth),
+        statusLabel: REPORT_STATUS_LABELS[report.status],
+        createdAt: report.submittedAt,
+      },
+    });
+  });
+
+  return { type: 'FeatureCollection', features };
+};
+
+const buildSelectedGeoJson = (selectedLocation: { lat: number; lng: number } | null) => {
+  if (!selectedLocation) return { type: 'FeatureCollection', features: [] };
+  return {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        geometry: {
+          type: 'Point',
+          coordinates: [selectedLocation.lng, selectedLocation.lat],
+        },
+        properties: { kind: 'selected' },
+      },
+    ],
+  };
+};
+
+const buildReportPopupHtml = (feature: Record<string, any>): string => {
+  const props = feature.properties ?? {};
+  const coordinates = feature.geometry?.coordinates ?? [0, 0];
+  const [lng, lat] = coordinates;
+  const tooltipStyle = 'font-family: var(--font-inter), system-ui, sans-serif;';
+  const row = (label: string, value: string) => `
+    <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 12px; line-height: 1.6;">
+      <span style="color: #64748b;">${escapeHtml(label)}</span>
+      <span style="color: #0f172a; font-weight: 600;">${escapeHtml(value)}</span>
+    </div>`;
+
+  if (props.kind === 'selected') {
+    return `
+      <div class="gakit-tooltip" style="${tooltipStyle}">
+        <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
+          Selected location
+        </div>
+        ${row('Coordinates', `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
+      </div>`;
+  }
+
+  return `
+    <div class="gakit-tooltip" style="${tooltipStyle}">
+      <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
+        ${escapeHtml(props.address || 'Flood report')}
+      </div>
+      ${props.depthLabel ? row('Depth', props.depthLabel) : ''}
+      ${props.statusLabel ? row('Status', props.statusLabel) : ''}
+      ${props.createdAt ? row('Reported', props.createdAt) : ''}
+    </div>`;
+};
 
 // Flood hazard colors — single source of truth for layers + legend
 const FLOOD_HAZARD_COLORS: Record<string, string> = {
@@ -88,9 +177,13 @@ export function PublicMap({
 }: PublicMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const popupsRef = useRef<any[]>([]);
+  const backendReportsRef = useRef<MapReportFeature[]>([]);
+  const submittedReportsRef = useRef<SubmittedReportProps[]>([]);
+  const selectedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const moveendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reportPopupRef = useRef<any>(null);
   const [maplibregl, setMaplibregl] = useState<any>(null);
   const [backendReports, setBackendReports] = useState<MapReportFeature[]>([]);
 
@@ -102,47 +195,20 @@ export function PublicMap({
     low: true,
   });
   const layersReadyRef = useRef(false);
-  const lastBoundsRef = useRef<string | null>(null);
   const loadingReportsRef = useRef(false);
 
   const loadMapReports = useCallback(async () => {
-    const map = mapRef.current;
-    if (!map || loadingReportsRef.current) return;
-
-    const bounds = map.getBounds();
-    const key = [
-      bounds.getWest().toFixed(3),
-      bounds.getSouth().toFixed(3),
-      bounds.getEast().toFixed(3),
-      bounds.getNorth().toFixed(3),
-    ].join(',');
-    if (key === lastBoundsRef.current) return;
-    lastBoundsRef.current = key;
+    if (loadingReportsRef.current) return;
 
     loadingReportsRef.current = true;
     try {
-      const reports = await fetchMapReports({
-        west: bounds.getWest(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        north: bounds.getNorth(),
-        limit: 500,
-      });
+      const reports = await fetchMapReports(ILIGAN_REPORT_BOUNDS);
       setBackendReports(reports.features);
     } catch (error) {
       console.error('Failed to load reports from backend', error);
     } finally {
       loadingReportsRef.current = false;
     }
-  }, []);
-
-  const fetchJson = useCallback(async (path: string) => {
-    const response = await fetch(path);
-    if (!response.ok) {
-      throw new Error(`Failed to load ${path}: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
   }, []);
 
   // Dynamically import maplibre-gl on client side only
@@ -152,61 +218,48 @@ export function PublicMap({
     });
   }, []);
 
-  const handleLocationSelect = useCallback(
+  useEffect(() => {
+    return () => {
+      if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+      abortControllerRef.current?.abort();
+    };
+  }, []);
+
+  const reverseGeocodeWithAbort = useCallback(
     async (lat: number, lng: number) => {
-      // Cancel any pending requests
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+
+      try {
+        const address = await reverseGeocode(lat, lng, controller.signal);
+        if (controller.signal.aborted) return;
+        onLocationSelect({ lat, lng, address });
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
       }
+    },
+    [onLocationSelect]
+  );
 
-      // Create new abort controller for this request
-      const abortController = new AbortController();
-      abortControllerRef.current = abortController;
-
-      // Immediately update with coordinates
+  const handleLocationSelect = useCallback(
+    (lat: number, lng: number) => {
+      // Immediately update with coordinates.
       onLocationSelect({
         lat,
         lng,
         address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
       });
 
-      try {
-        const addressResponse = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-          { signal: abortController.signal }
-        );
-        const addressData = await addressResponse.json();
-
-        // Check if this request was cancelled
-        if (abortController.signal.aborted) return;
-
-        const address =
-          addressData.address?.road ||
-          addressData.address?.village ||
-          addressData.address?.city ||
-          addressData.address?.town ||
-          addressData.display_name?.split(',')[0] ||
-          `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-
-        // Check again before final update
-        if (abortController.signal.aborted) return;
-
-        onLocationSelect({
-          lat,
-          lng,
-          address: address.trim(),
-        });
-      } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
-        console.error('Geocoding error:', error);
-        onLocationSelect({
-          lat,
-          lng,
-          address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-        });
-      }
+      // Debounce reverse-geocoding so rapid clicks only send one request to
+      // OSM Nominatim (which rate-limits aggressively).
+      if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+      geocodeTimerRef.current = setTimeout(() => {
+        geocodeTimerRef.current = null;
+        void reverseGeocodeWithAbort(lat, lng);
+      }, 500);
     },
-    [onLocationSelect]
+    [onLocationSelect, reverseGeocodeWithAbort]
   );
 
   const handleShareLocation = useCallback(() => {
@@ -232,6 +285,54 @@ export function PublicMap({
     }
   }, [handleLocationSelect]);
 
+  // Keep refs in sync so stable callbacks can read the latest data without
+  // forcing the map-setup effect to re-run.
+  useEffect(() => {
+    backendReportsRef.current = backendReports;
+    submittedReportsRef.current = submittedReports;
+    selectedLocationRef.current = selectedLocation;
+  }, [backendReports, submittedReports, selectedLocation]);
+
+  const showReportPopup = useCallback(
+    (feature: Record<string, any>, lngLat: any) => {
+      if (!maplibregl) return;
+      if (!reportPopupRef.current) {
+        reportPopupRef.current = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          anchor: 'bottom',
+          offset: 10,
+        });
+      }
+      reportPopupRef.current
+        .setLngLat(lngLat)
+        .setHTML(buildReportPopupHtml(feature))
+        .addTo(mapRef.current);
+    },
+    [maplibregl]
+  );
+
+  const hideReportPopup = useCallback(() => {
+    reportPopupRef.current?.remove();
+  }, []);
+
+  const applyReportData = useCallback((map: any) => {
+    const reportsSource = map?.getSource?.('reports');
+    if (reportsSource) {
+      reportsSource.setData(
+        buildReportsGeoJson(backendReportsRef.current, submittedReportsRef.current)
+      );
+    }
+    const selectedSource = map?.getSource?.('selected-location');
+    if (selectedSource) {
+      selectedSource.setData(buildSelectedGeoJson(selectedLocationRef.current));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (mapRef.current) applyReportData(mapRef.current);
+  }, [backendReports, submittedReports, selectedLocation, applyReportData]);
+
   useEffect(() => {
     if (!mapContainer.current || !maplibregl) return;
 
@@ -246,6 +347,8 @@ export function PublicMap({
       style: MAPTILER_STYLE,
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 14,
+      maxBounds: ILIGAN_BOUNDS,
+      minZoom: 10,
     });
 
     mapRef.current = map;
@@ -327,167 +430,145 @@ export function PublicMap({
         const initialFilter = riskLevelFilter(visibleRiskLevels);
         map.setFilter('flood-hazard-fill', initialFilter);
         map.setFilter('flood-hazard-outline', initialFilter);
+
+        // --- Report markers as clustered GeoJSON (GPU-rendered, no DOM churn) ---
+        map.addSource('reports', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50,
+        });
+
+        map.addLayer({
+          id: 'report-clusters',
+          type: 'circle',
+          source: 'reports',
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': '#6366f1',
+            'circle-radius': ['step', ['get', 'point_count'], 20, 10, 26, 50, 32],
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff',
+          },
+        });
+
+        map.addLayer({
+          id: 'report-cluster-count',
+          type: 'symbol',
+          source: 'reports',
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': '{point_count_abbreviated}',
+            'text-size': 12,
+            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+          },
+          paint: { 'text-color': '#ffffff' },
+        });
+
+        map.addLayer({
+          id: 'report-points',
+          type: 'circle',
+          source: 'reports',
+          filter: ['!', ['has', 'point_count']],
+          paint: {
+            'circle-color': [
+              'match',
+              ['get', 'status'],
+              'VERIFIED', '#3B82F6',
+              'ANOMALY', '#EF4444',
+              'REJECTED', '#6B7280',
+              '#F59E0B',
+            ],
+            'circle-radius': 7,
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#ffffff',
+          },
+        });
+
+        map.addSource('selected-location', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        });
+
+        map.addLayer({
+          id: 'selected-location',
+          type: 'circle',
+          source: 'selected-location',
+          paint: {
+            'circle-color': '#27e867',
+            'circle-radius': 9,
+            'circle-stroke-width': 3,
+            'circle-stroke-color': '#ffffff',
+          },
+        });
+
+        map.on('mousemove', 'report-points', (e: any) => {
+          if (e.features?.length) showReportPopup(e.features[0], e.lngLat);
+        });
+        map.on('mouseleave', 'report-points', () => hideReportPopup());
+        map.on('click', 'report-points', (e: any) => {
+          if (e.features?.length) showReportPopup(e.features[0], e.lngLat);
+        });
+        map.on('mouseenter', 'report-points', () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'report-points', () => {
+          map.getCanvas().style.cursor = '';
+        });
+
+        map.on('mousemove', 'selected-location', (e: any) => {
+          if (e.features?.length) showReportPopup(e.features[0], e.lngLat);
+        });
+        map.on('mouseleave', 'selected-location', () => hideReportPopup());
+
+        map.on('click', 'report-clusters', (e: any) => {
+          const features = map.queryRenderedFeatures(e.point, { layers: ['report-clusters'] });
+          if (!features.length) return;
+          const clusterId = features[0].properties.cluster_id;
+          map.getSource('reports').getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
+            if (err) return;
+            map.easeTo({ center: features[0].geometry.coordinates, zoom });
+          });
+        });
+        map.on('mouseenter', 'report-clusters', () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'report-clusters', () => {
+          map.getCanvas().style.cursor = '';
+        });
+
+        applyReportData(map);
       })();
+
+      void loadMapReports();
     });
 
     map.on('click', (e: any) => {
       handleLocationSelect(e.lngLat.lat, e.lngLat.lng);
     });
 
-    map.on('load', () => {
-      void loadMapReports();
-    });
-
     map.on('moveend', () => {
-      void loadMapReports();
+      if (moveendTimerRef.current) clearTimeout(moveendTimerRef.current);
+      moveendTimerRef.current = setTimeout(() => {
+        moveendTimerRef.current = null;
+        void loadMapReports();
+      }, 300);
     });
 
     return () => {
+      if (moveendTimerRef.current) clearTimeout(moveendTimerRef.current);
       map.remove();
       mapRef.current = null;
     };
-  }, [handleLocationSelect, loadMapReports, maplibregl]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    markersRef.current.forEach((m) => m.remove());
-    markersRef.current = [];
-    popupsRef.current.forEach((p) => p.remove());
-    popupsRef.current = [];
-
-    const addReportMarker = (
-      lat: number,
-      lng: number,
-      color: string,
-      title: string,
-      detailRows: Array<{ label: string; value: string }>
-    ) => {
-      // MapLibre positions the marker element itself via `transform: translate(...)`
-      // and rewrites it on every pan/zoom. So the visual dot must be a CHILD
-      // element — scaling the container would clobber maplibre's translate and
-      // make markers jump/disappear on hover or when the map moves.
-      const el = document.createElement('div');
-      el.style.width = '18px';
-      el.style.height = '18px';
-      el.style.cursor = 'pointer';
-
-      const dot = document.createElement('div');
-      dot.style.width = '100%';
-      dot.style.height = '100%';
-      dot.style.borderRadius = '9999px';
-      dot.style.backgroundColor = color;
-      dot.style.border = '3px solid #ffffff';
-      dot.style.boxShadow = '0 1px 4px rgba(15, 23, 42, 0.45)';
-      dot.style.transition = 'transform 120ms ease';
-      el.appendChild(dot);
-
-      const growDot = () => {
-        dot.style.transform = 'scale(1.3)';
-      };
-      const shrinkDot = () => {
-        dot.style.transform = 'scale(1)';
-      };
-
-      el.addEventListener('mouseenter', growDot);
-      el.addEventListener('mouseleave', shrinkDot);
-
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([lng, lat])
-        .addTo(map);
-      markersRef.current.push(marker);
-
-      const popup = new maplibregl.Popup({
-        closeButton: false,
-        closeOnClick: false,
-        anchor: 'bottom',
-        offset: 10,
-      }).setLngLat([lng, lat]).setHTML(`
-        <div class="gakit-tooltip" style="font-family: var(--font-inter), system-ui, sans-serif;">
-          <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
-            ${escapeHtml(title)}
-          </div>
-          ${detailRows
-            .map(
-              (row) => `
-            <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 12px; line-height: 1.6;">
-              <span style="color: #64748b;">${escapeHtml(row.label)}</span>
-              <span style="color: #0f172a; font-weight: 600;">${escapeHtml(row.value)}</span>
-            </div>`
-            )
-            .join('')}
-        </div>
-      `);
-
-      el.addEventListener('mouseenter', () => {
-        if (!popup.isOpen()) popup.addTo(map);
-      });
-      el.addEventListener('mouseleave', () => {
-        popup.remove();
-      });
-      popupsRef.current.push(popup);
-    };
-
-    backendReports.forEach((feature) => {
-      const [lng, lat] = feature.geometry.coordinates;
-      const props = feature.properties;
-      addReportMarker(
-        lat,
-        lng,
-        BACKEND_STATUS_COLOR[props.status] || '#6B7280',
-        props.address || 'Flood report',
-        [
-          { label: 'Depth', value: props.depth.label },
-          { label: 'Status', value: STATUS_LABEL[props.status] || props.status },
-          {
-            label: 'Reported',
-            value: new Date(props.createdAt).toLocaleString(),
-          },
-        ]
-      );
-    });
-
-    submittedReports.forEach((report) => {
-      const statusColor = report.status === 'VERIFIED'
-        ? '#3B82F6'
-        : report.status === 'UNVERIFIED'
-          ? '#F59E0B'
-          : '#EF4444';
-
-      addReportMarker(
-        report.location.lat,
-        report.location.lng,
-        BACKEND_STATUS_COLOR.UNVERIFIED,
-        report.location.address,
-        [
-          {
-            label: 'Depth',
-            value: formatDepth(report.depth),
-          },
-          { label: 'Status', value: REPORT_STATUS_LABELS[report.status] },
-          { label: 'Reported', value: report.submittedAt },
-        ]
-      );
-    });
-
-    if (selectedLocation) {
-      addReportMarker(
-        selectedLocation.lat,
-        selectedLocation.lng,
-        SELECTED_LOCATION_COLOR,
-        'Selected location',
-        [
-          {
-            label: 'Coordinates',
-            value: `${selectedLocation.lat.toFixed(4)}, ${selectedLocation.lng.toFixed(4)}`,
-          },
-        ]
-      );
-    }
-    // `maplibregl` is loaded asynchronously; the map doesn't exist on the first
-    // render, so re-run once it resolves to draw the initial markers.
-  }, [backendReports, selectedLocation, submittedReports, maplibregl]);
+  }, [
+    applyReportData,
+    handleLocationSelect,
+    loadMapReports,
+    maplibregl,
+    showReportPopup,
+    hideReportPopup,
+  ]);
 
   // Apply layer visibility + risk-level filters when toggles change
   useEffect(() => {
