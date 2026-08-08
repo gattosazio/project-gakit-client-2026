@@ -382,12 +382,12 @@ function LocationPromptModal({
   return (
     <div className="fixed inset-0 z-[1300] bg-black/40 flex items-end md:items-center justify-center p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
-        <div className="flex items-center justify-between p-5 border-b border-canvas-grey">
+        {/* <div className="flex items-center justify-between p-5 border-b border-canvas-grey">
           <h2 className="text-lg font-bold text-slate-900">Submit a flood report</h2>
           <button onClick={onClose} className="p-1 hover:bg-canvas-light rounded-lg">
             <X className="w-5 h-5 text-slate-500" />
           </button>
-        </div>
+        </div> */}
 
         <div className="p-5 space-y-3">
           <button
