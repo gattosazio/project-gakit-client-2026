@@ -1,10 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from 'react';
 import { Layers, Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { ILIGAN_BOUNDS, ILIGAN_CENTER, reverseGeocode } from '@/lib/geoUtils';
+import { fetchRainfall, buildRainfallGrid } from '@/lib/rainfall';
+import { queryFloodHazard, type FloodRiskLevel } from '@/lib/floodHazard';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
+import type { RainfallGrid } from '@/types/rainfall';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { fetchMapReports } from '@/app/public-view/actions/public.view';
@@ -40,6 +49,13 @@ const escapeHtml = (value: string) =>
     (ch) =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] || ch
   );
+
+// GSMaP timestamps are UTC (returned naive); treat them as such when displaying.
+const formatRainfallTime = (isoUtc: string) => {
+  const date = new Date(`${isoUtc}Z`);
+  if (Number.isNaN(date.getTime())) return 'as of unknown time';
+  return `as of ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+};
 
 interface SubmittedReportProps {
   id: string;
@@ -163,11 +179,37 @@ const FLOOD_HAZARD_LEGEND: Array<{ key: string; label: string; color: string }> 
   { key: 'low', label: 'Low hazard', color: FLOOD_HAZARD_COLORS.low },
 ];
 
+// Near real-time rainfall (JAXA GSMaP_NOW) scale, in mm/hour.
+
+const RAINFALL_LEGEND_STOPS: Array<{ label: string; color: string }> = [
+  { label: 'Light', color: 'rgba(33,102,172,0.7)' },
+  { label: 'Moderate', color: 'rgba(103,169,207,0.8)' },
+  { label: 'Heavy', color: 'rgba(254,201,0,0.9)' },
+  { label: 'Intense', color: 'rgba(252,90,13,0.95)' },
+  { label: 'Extreme', color: 'rgba(203,24,29,1)' },
+];
+
+const RAINFALL_GRADIENT_CSS = `linear-gradient(to right, ${RAINFALL_LEGEND_STOPS.map(
+  (stop) => stop.color
+).join(', ')})`;
+
 const riskLevelFilter = (visible: Record<string, boolean>) => [
   'in',
   'risk_level',
   ...Object.keys(FLOOD_HAZARD_COLORS).filter((level) => visible[level]),
 ];
+
+export interface LocationRiskInfo {
+  hazardLevel: FloodRiskLevel | null;
+  precipMm: number | null;
+}
+
+export interface PublicMapHandle {
+  checkLocation: (location: {
+    lat: number;
+    lng: number;
+  }) => Promise<LocationRiskInfo>;
+}
 
 interface PublicMapProps {
   onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
@@ -179,12 +221,14 @@ interface PublicMapProps {
     status: ReportStatus;
     submittedAt: string;
   }>;
+  mapApiRef?: MutableRefObject<PublicMapHandle | null>;
 }
 
 export function PublicMap({
   onLocationSelect,
   selectedLocation,
   submittedReports = [],
+  mapApiRef,
 }: PublicMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -197,6 +241,8 @@ export function PublicMap({
   const reportPopupRef = useRef<any>(null);
   const [maplibregl, setMaplibregl] = useState<any>(null);
   const [backendReports, setBackendReports] = useState<MapReportFeature[]>([]);
+  const [showRainfall, setShowRainfall] = useState(false);
+  const [rainfallObservedAt, setRainfallObservedAt] = useState<string | null>(null);
 
   // Layer visibility toggles
   const [showFloodHazard, setShowFloodHazard] = useState(false);
@@ -207,6 +253,8 @@ export function PublicMap({
   });
   const layersReadyRef = useRef(false);
   const loadingReportsRef = useRef(false);
+  const rainfallSourceRef = useRef<RainfallGrid | null>(null);
+  const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadMapReports = useCallback(async () => {
     if (loadingReportsRef.current) return;
@@ -222,6 +270,62 @@ export function PublicMap({
     }
   }, []);
 
+  const loadRainfall = useCallback(async () => {
+    try {
+      const rainfall = await fetchRainfall();
+      const grid = buildRainfallGrid(rainfall);
+      rainfallSourceRef.current = grid;
+      const map = mapRef.current;
+      const source = map?.getSource?.('rainfall');
+      if (source) source.setData(grid);
+      setRainfallObservedAt(rainfall.properties.observedAt);
+    } catch (error) {
+      console.error('Failed to load near real-time rainfall', error);
+    }
+  }, []);
+
+  // Looks up the flood hazard level and precipitation at a coordinate. Hazard
+  // comes from the PMTiles archive directly (viewport-independent); rain comes
+  // from the in-memory GSMaP grid, reported as mm/hr (1-hour accumulation).
+  const checkLocation = useCallback(
+    async (location: { lat: number; lng: number }): Promise<LocationRiskInfo> => {
+      const { lat, lng } = location;
+
+      let precipMm: number | null = null;
+      const grid = rainfallSourceRef.current;
+      if (grid && grid.features.length > 0) {
+        let bestValue: number | null = null;
+        let bestDistSq = Infinity;
+        for (const feature of grid.features) {
+          const ring = feature.geometry.coordinates[0];
+          const cellLng = (ring[0][0] + ring[2][0]) / 2;
+          const cellLat = (ring[0][1] + ring[2][1]) / 2;
+          const dLng = cellLng - lng;
+          const dLat = cellLat - lat;
+          const distSq = dLng * dLng + dLat * dLat;
+          if (distSq < bestDistSq) {
+            bestDistSq = distSq;
+            bestValue = feature.properties.precip_mm;
+          }
+        }
+        precipMm = bestValue;
+      }
+
+      const hazardLevel = await queryFloodHazard(lat, lng);
+      return { hazardLevel, precipMm };
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (mapApiRef) {
+      mapApiRef.current = { checkLocation };
+      return () => {
+        mapApiRef.current = null;
+      };
+    }
+  }, [mapApiRef, checkLocation]);
+
   // Dynamically import maplibre-gl on client side only
   useEffect(() => {
     import('maplibre-gl').then((module) => {
@@ -232,6 +336,8 @@ export function PublicMap({
   useEffect(() => {
     return () => {
       if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+      if (moveendTimerRef.current) clearTimeout(moveendTimerRef.current);
+      if (rainfallTimerRef.current) clearInterval(rainfallTimerRef.current);
       abortControllerRef.current?.abort();
     };
   }, []);
@@ -344,6 +450,30 @@ export function PublicMap({
     if (mapRef.current) applyReportData(mapRef.current);
   }, [backendReports, submittedReports, selectedLocation, applyReportData]);
 
+  // Fetch near real-time rainfall when the layer is enabled, then refresh on the
+  // same cadence as the server-side cache (10 minutes).
+  useEffect(() => {
+    if (!showRainfall) {
+      if (rainfallTimerRef.current) {
+        clearInterval(rainfallTimerRef.current);
+        rainfallTimerRef.current = null;
+      }
+      return;
+    }
+
+    void loadRainfall();
+    rainfallTimerRef.current = setInterval(() => {
+      void loadRainfall();
+    }, 10 * 60 * 1000);
+
+    return () => {
+      if (rainfallTimerRef.current) {
+        clearInterval(rainfallTimerRef.current);
+        rainfallTimerRef.current = null;
+      }
+    };
+  }, [showRainfall, loadRainfall]);
+
   useEffect(() => {
     if (!mapContainer.current || !maplibregl) return;
 
@@ -357,9 +487,8 @@ export function PublicMap({
       container: mapContainer.current,
       style: MAPTILER_STYLE,
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
-      zoom: 14,
-      maxBounds: ILIGAN_BOUNDS,
-      minZoom: 10,
+      zoom: 12,
+      minZoom: 4,
     });
 
     mapRef.current = map;
@@ -419,6 +548,35 @@ export function PublicMap({
               'line-opacity': 0.6,
             },
           });
+
+          // --- Near real-time rainfall grid (JAXA GSMaP_NOW) ---
+          map.addSource('rainfall', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+            attribution:
+              'Rainfall: <a href="https://sharaku.eorc.jaxa.jp/GSMaP_NOW/" target="_blank" rel="noopener">JAXA GSMaP_NOW</a>',
+          });
+
+          map.addLayer({
+            id: 'rainfall-grid',
+            type: 'fill',
+            source: 'rainfall',
+            maxzoom: 0,
+            paint: {
+              'fill-color': [
+                'interpolate',
+                ['linear'],
+                ['get', 'precip_mm'],
+                0, 'rgba(33,102,172,0)',
+                0.5, 'rgba(33,102,172,0.7)',
+                5, 'rgba(103,169,207,0.9)',
+                15, 'rgba(254,201,0,0.95)',
+                30, 'rgba(252,90,13,1)',
+                50, 'rgba(203,24,29,1)',
+              ],
+              'fill-opacity': 0.8,
+            },
+          });
         } catch (error) {
           console.error('Failed to load PMTiles flood hazard data', error);
           toast.error('Flood hazard map data could not be loaded.', {
@@ -433,6 +591,7 @@ export function PublicMap({
         const initialLayers: Array<[string, boolean]> = [
           ['flood-hazard-fill', showFloodHazard],
           ['flood-hazard-outline', showFloodHazard],
+          ['rainfall-grid', showRainfall],
         ];
         initialLayers.forEach(([id, visible]) => {
           map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
@@ -550,6 +709,11 @@ export function PublicMap({
         });
 
         applyReportData(map);
+
+        // Apply rainfall data that was fetched before the map finished loading.
+        if (rainfallSourceRef.current) {
+          map.getSource('rainfall')?.setData(rainfallSourceRef.current);
+        }
       })();
 
       void loadMapReports();
@@ -589,6 +753,7 @@ export function PublicMap({
     const layers: Array<[string, boolean]> = [
       ['flood-hazard-fill', showFloodHazard],
       ['flood-hazard-outline', showFloodHazard],
+      ['rainfall-grid', showRainfall],
     ];
 
     layers.forEach(([id, visible]) => {
@@ -598,7 +763,7 @@ export function PublicMap({
     const filter = riskLevelFilter(visibleRiskLevels);
     map.setFilter('flood-hazard-fill', filter);
     map.setFilter('flood-hazard-outline', filter);
-  }, [showFloodHazard, visibleRiskLevels]);
+  }, [showFloodHazard, showRainfall, visibleRiskLevels]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
@@ -615,7 +780,42 @@ export function PublicMap({
             color="#3B82F6"
             checked={showFloodHazard}
             onChange={setShowFloodHazard}
+            credit={{
+              href: 'https://noah.upd.edu.ph/',
+              label: 'Project NOAH',
+            }}
           />
+          <LayerToggle
+            label="1-Hour Rainfall (GSMaP_NOW)"
+            color="#0284C7"
+            checked={showRainfall}
+            onChange={setShowRainfall}
+            credit={{
+              href: 'https://sharaku.eorc.jaxa.jp/GSMaP_NOW/',
+              label: 'JAXA',
+            }}
+          />
+          {showRainfall && (
+            <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
+              <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1 flex items-center justify-between gap-2">
+                <span>Precipitation</span>
+                {rainfallObservedAt && (
+                  <span className="normal-case tracking-normal font-medium">
+                    {formatRainfallTime(rainfallObservedAt)}
+                  </span>
+                )}
+              </div>
+              <div
+                className="h-2.5 w-56 rounded-full"
+                style={{ background: RAINFALL_GRADIENT_CSS }}
+              />
+              <div className="flex w-56 justify-between text-[10px] text-slate-500">
+                {RAINFALL_LEGEND_STOPS.map((stop) => (
+                  <span key={stop.label}>{stop.label}</span>
+                ))}
+              </div>
+            </div>
+          )}
           {showFloodHazard && (
             <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
               <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">
@@ -655,11 +855,13 @@ function LayerToggle({
   color,
   checked,
   onChange,
+  credit,
 }: {
   label: string;
   color: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  credit?: { href: string; label: string };
 }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none group">
@@ -685,6 +887,18 @@ function LayerToggle({
       <span className="text-xs text-slate-700 font-medium group-hover:text-slate-900">
         {label}
       </span>
+      {credit && (
+        <a
+          href={credit.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          className="ml-auto text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline"
+          title={`Data source: ${credit.label}`}
+        >
+          {credit.label}
+        </a>
+      )}
     </label>
   );
 }
