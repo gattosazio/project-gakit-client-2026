@@ -5,6 +5,7 @@ import { Loader2, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { listDepthCategories } from './actions/public.view';
 import type { FloodDepth, FloodDepthCategory } from './actions/public.view';
+import type { LocationRiskInfo } from '@/components/PublicMap';
 
 type ReportStep = 'confirm' | 'depth';
 
@@ -52,7 +53,21 @@ interface ReportModalProps {
     location: { lat: number; lng: number };
     depth: FloodDepth;
   }) => Promise<void>;
+  onCheckLocation?: (location: {
+    lat: number;
+    lng: number;
+  }) => Promise<LocationRiskInfo>;
 }
+
+const HAZARD_META: Record<
+  string,
+  { label: string; color: string; bg: string }
+> = {
+  high: { label: 'High hazard', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
+  medium: { label: 'Medium hazard', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
+  low: { label: 'Low hazard', color: 'text-lime-700', bg: 'bg-lime-50 border-lime-200' },
+  none: { label: 'Not in mapped flood zone', color: 'text-slate-600', bg: 'bg-slate-50 border-slate-200' },
+};
 
 export function ReportModal({
   isOpen,
@@ -60,15 +75,43 @@ export function ReportModal({
   onSuccess,
   selectedLocation,
   onSubmit,
+  onCheckLocation,
 }: ReportModalProps) {
   const [step, setStep] = useState<ReportStep>('confirm');
   const [selectedDepth, setSelectedDepth] = useState<FloodDepth | null>(null);
   const [depthCategories, setDepthCategories] = useState<FloodDepthCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingLocation, setIsCheckingLocation] = useState(false);
+  const [locationRisk, setLocationRisk] = useState<LocationRiskInfo | null>(null);
 
   useEffect(() => {
     if (isOpen) setStep('confirm');
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || step !== 'confirm' || !selectedLocation || !onCheckLocation) {
+      return;
+    }
+
+    let cancelled = false;
+    setIsCheckingLocation(true);
+    setLocationRisk(null);
+
+    void onCheckLocation(selectedLocation)
+      .then((risk) => {
+        if (!cancelled) setLocationRisk(risk);
+      })
+      .catch(() => {
+        if (!cancelled) setLocationRisk({ hazardLevel: null, precipMm: null });
+      })
+      .finally(() => {
+        if (!cancelled) setIsCheckingLocation(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, step, selectedLocation, onCheckLocation]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -169,6 +212,59 @@ export function ReportModal({
                   </div>
                 )}
               </div>
+
+              {selectedLocation && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div
+                    className={`rounded-lg border p-3 ${
+                      locationRisk?.hazardLevel
+                        ? HAZARD_META[locationRisk.hazardLevel].bg
+                        : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
+                      Flood Hazard
+                    </div>
+                    {isCheckingLocation ? (
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Checking...
+                      </div>
+                    ) : (
+                      <div
+                        className={`text-sm font-bold ${
+                          locationRisk?.hazardLevel
+                            ? HAZARD_META[locationRisk.hazardLevel].color
+                            : 'text-slate-600'
+                        }`}
+                      >
+                        {HAZARD_META[
+                          locationRisk?.hazardLevel ?? 'none'
+                        ].label}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
+                    <div className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
+                      Precipitation
+                    </div>
+                    {isCheckingLocation ? (
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Checking...
+                      </div>
+                    ) : (
+                      <div className="text-sm font-bold text-slate-900">
+                        {locationRisk?.precipMm != null
+                          ? `${locationRisk.precipMm.toFixed(1)} mm/hr`
+                          : 'No data'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <p className="text-sm text-slate-600">
                 Confirm this is the flooded location before continuing.
               </p>

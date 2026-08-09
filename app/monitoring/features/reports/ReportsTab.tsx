@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
   CalendarDays,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { ReportModal } from '@/app/public-view/ReportModal';
 import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
+import type { PublicMapHandle } from '@/components/PublicMap';
 import type { FloodDepthCode, Report, ReportStatus } from '@/types/report';
 import { toast } from 'react-toastify';
 import { FeaturePageShell } from '../shared/FeaturePageShell';
@@ -389,6 +390,8 @@ function StaffSubmitReportModal({
     depth: FloodDepthCode;
   }) => Promise<void>;
 }) {
+  const mapRef = useRef<PublicMapHandle | null>(null);
+
   return (
     <div className="fixed inset-0 z-[1400] bg-slate-950/60 p-3 md:p-6">
       <div className="h-full overflow-hidden rounded-lg bg-white shadow-2xl flex flex-col">
@@ -415,6 +418,7 @@ function StaffSubmitReportModal({
               </div>
             </div>
             <PublicMap
+              mapApiRef={mapRef}
               onLocationSelect={onLocationSelect}
               selectedLocation={selectedLocation}
             />
@@ -425,6 +429,10 @@ function StaffSubmitReportModal({
             onClose={onReportModalClose}
             selectedLocation={selectedLocation}
             onSubmit={onSubmit}
+            onCheckLocation={(location) =>
+              mapRef.current?.checkLocation(location) ??
+              Promise.resolve({ hazardLevel: null, precipMm: null })
+            }
           />
         </div>
       </div>

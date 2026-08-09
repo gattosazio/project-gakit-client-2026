@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, Suspense } from 'react';
+import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
@@ -8,6 +8,7 @@ import { CheckCircle2, ChevronDown, ChevronUp, MapPin, Navigation, X } from 'luc
 import { toast } from 'react-toastify';
 import { createReport, listPublicReports } from './actions/public.view';
 import { reverseGeocode } from '@/lib/geoUtils';
+import type { PublicMapHandle } from '@/components/PublicMap';
 import type { CreateReportInput, DepthCategory, MapReportFeature, Report, ReportStatus } from '@/types/report';
 
 // Dynamically import the map to avoid window is not defined errors
@@ -84,6 +85,7 @@ export function PublicViewPage() {
   );
   const [submittedReports, setSubmittedReports] = useState<SubmittedReport[]>([]);
   const [lastSubmittedReport, setLastSubmittedReport] = useState<SubmittedReport | null>(null);
+  const mapRef = useRef<PublicMapHandle | null>(null);
 
   const scrollToMap = useCallback(() => {
     document
@@ -267,6 +269,7 @@ export function PublicViewPage() {
               )}
               <Suspense fallback={<div className="w-full h-full bg-canvas-grey" />}>
                 <PublicMap
+                  mapApiRef={mapRef}
                   onLocationSelect={handleLocationSelect}
                   selectedLocation={selectedLocation}
                   submittedReports={submittedReports}
@@ -283,6 +286,10 @@ export function PublicViewPage() {
               selectedLocation={selectedLocation}
               onSubmit={handleReportSubmit}
               onSuccess={() => setIsSuccessOpen(true)}
+              onCheckLocation={(location) =>
+                mapRef.current?.checkLocation(location) ??
+                Promise.resolve({ hazardLevel: null, precipMm: null })
+              }
             />
           </div>
         </section>
