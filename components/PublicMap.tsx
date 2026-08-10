@@ -209,6 +209,7 @@ export interface PublicMapHandle {
     lat: number;
     lng: number;
   }) => Promise<LocationRiskInfo>;
+  focusLocation: (location: { lat: number; lng: number }) => void;
 }
 
 interface PublicMapProps {
@@ -317,14 +318,21 @@ export function PublicMap({
     []
   );
 
+  const focusLocation = useCallback((location: { lat: number; lng: number }) => {
+    mapRef.current?.flyTo({
+      center: [location.lng, location.lat],
+      zoom: 16,
+    });
+  }, []);
+
   useEffect(() => {
     if (mapApiRef) {
-      mapApiRef.current = { checkLocation };
+      mapApiRef.current = { checkLocation, focusLocation };
       return () => {
         mapApiRef.current = null;
       };
     }
-  }, [mapApiRef, checkLocation]);
+  }, [mapApiRef, checkLocation, focusLocation]);
 
   // Dynamically import maplibre-gl on client side only
   useEffect(() => {

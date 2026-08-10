@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef, Suspense } from 'react';
+import type { FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
-import { CheckCircle2, ChevronDown, ChevronUp, MapPin, Navigation, X } from 'lucide-react';
+import { CheckCircle2, ChevronDown, ChevronUp, Loader2, MapPin, Navigation, Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createReport, listPublicReports } from './actions/public.view';
-import { reverseGeocode } from '@/lib/geoUtils';
+import { reverseGeocode, searchLocations } from '@/lib/geoUtils';
+import type { LocationSearchResult } from '@/lib/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type { CreateReportInput, DepthCategory, MapReportFeature, Report, ReportStatus } from '@/types/report';
 
@@ -78,6 +80,7 @@ type SectionId = (typeof SECTION_ORDER)[number];
 export function PublicViewPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
+  const [isManualLocationMode, setIsManualLocationMode] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<SectionId>('hazard-map');
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(
@@ -169,6 +172,7 @@ export function PublicViewPage() {
 
   const handleStartReport = useCallback(() => {
     scrollToMap();
+    setIsManualLocationMode(false);
     setIsLocationPromptOpen(true);
   }, [scrollToMap]);
 
@@ -182,6 +186,7 @@ export function PublicViewPage() {
     }
 
     setIsLocationPromptOpen(false);
+    setIsManualLocationMode(false);
     navigator.geolocation.getCurrentPosition(async (position) => {
       const { latitude, longitude } = position.coords;
       const fallbackLocation = {
@@ -203,11 +208,19 @@ export function PublicViewPage() {
 
   const handleChooseLocation = useCallback(() => {
     setIsLocationPromptOpen(false);
+    setIsManualLocationMode(true);
     scrollToMap();
   }, [scrollToMap]);
 
   const handleLocationSelect = useCallback((location: SelectedLocation) => {
     setIsLocationPromptOpen(false);
+    setSelectedLocation(location);
+    setIsModalOpen(true);
+  }, []);
+
+  const handleSearchedLocationSelect = useCallback((location: SelectedLocation) => {
+    setIsLocationPromptOpen(false);
+    mapRef.current?.focusLocation(location);
     setSelectedLocation(location);
     setIsModalOpen(true);
   }, []);
@@ -257,7 +270,11 @@ export function PublicViewPage() {
         <section id="hazard-map" className="min-h-[calc(100vh-4rem)] scroll-mt-16">
           <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-white">
             <div className="relative flex-1 w-full h-full min-h-0">
-              {!isModalOpen && (
+              {isManualLocationMode ? (
+                <div className="absolute left-14 right-4 top-4 z-[1100] md:right-auto md:w-80">
+                  <LocationSearch onSelect={handleSearchedLocationSelect} />
+                </div>
+              ) : !isModalOpen && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-xs bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-4">
                   <div className="text-sm font-semibold text-slate-900">
                     Report a flood hazard
@@ -294,16 +311,16 @@ export function PublicViewPage() {
           </div>
         </section>
 
-        <section id="about" className="bg-canvas-grey scroll-mt-16">
+        <section id="about" className="bg-gakit-maroon scroll-mt-16">
           <div className="w-full max-w-5xl mx-auto px-6 py-16">
             <div className="max-w-3xl">
-              <div className="text-sm font-semibold text-gakit-maroon mb-3">
+              <div className="text-sm font-semibold text-maroon-200 mb-3">
                 About Project GAKIT
               </div>
-              <h2 className="text-3xl font-bold text-slate-900">
+              <h2 className="text-3xl font-bold text-white">
                 Community flood reports help others make safer decisions.
               </h2>
-              <p className="text-slate-600 mt-4">
+              <p className="text-maroon-100 mt-4">
                 Use the public map to mark a flooded location, share your current location, and submit the observed flood depth.
               </p>
             </div>
@@ -316,6 +333,7 @@ export function PublicViewPage() {
         onClose={() => setIsLocationPromptOpen(false)}
         onUseCurrentLocation={handleUseCurrentLocation}
         onChooseLocation={handleChooseLocation}
+        onSearchLocationSelect={handleSearchedLocationSelect}
       />
 
       <SuccessModal
@@ -373,16 +391,137 @@ function SectionJumpControls({
   );
 }
 
+function LocationSearch({
+  onSelect,
+}: {
+  onSelect: (location: SelectedLocation) => void;
+}) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => searchAbortRef.current?.abort();
+  }, []);
+
+  const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const query = searchQuery.trim();
+    if (query.length < 2) {
+      setSearchError('Enter at least 2 characters.');
+      return;
+    }
+
+    searchAbortRef.current?.abort();
+    const controller = new AbortController();
+    searchAbortRef.current = controller;
+    setIsSearching(true);
+    setSearchError(null);
+    setSearchResults([]);
+
+    try {
+      const results = await searchLocations(query, controller.signal);
+      if (controller.signal.aborted) return;
+
+      setSearchResults(results);
+      if (results.length === 0) {
+        setSearchError('No matching locations found within Iligan City.');
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      setSearchError(
+        error instanceof Error
+          ? error.message
+          : 'Unable to search for that location.'
+      );
+    } finally {
+      if (searchAbortRef.current === controller) {
+        setIsSearching(false);
+      }
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-canvas-grey bg-white/95 p-2 shadow-lg">
+      <form onSubmit={handleSearch} className="space-y-2">
+        <div className="flex gap-2">
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 focus-within:border-gakit-maroon">
+            <Search className="h-4 w-4 shrink-0 text-slate-400" />
+            <input
+              value={searchQuery}
+              onChange={(event) => {
+                setSearchQuery(event.target.value);
+                setSearchResults([]);
+                setSearchError(null);
+              }}
+              placeholder="Street, barangay, or landmark"
+              className="min-w-0 flex-1 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+              aria-label="Search for a location in Iligan City"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={isSearching}
+            className="flex w-11 shrink-0 items-center justify-center rounded-lg bg-gakit-maroon text-white hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Search location"
+          >
+            {isSearching ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Search className="h-5 w-5" />
+            )}
+          </button>
+        </div>
+
+        {searchError && (
+          <p className="px-1 text-xs text-red-600" role="status">
+            {searchError}
+          </p>
+        )}
+
+        {searchResults.length > 0 && (
+          <div className="max-h-48 overflow-y-auto rounded-lg border border-canvas-grey bg-white divide-y divide-canvas-grey">
+            {searchResults.map((result) => (
+              <button
+                key={`${result.lat}-${result.lng}`}
+                type="button"
+                onClick={() =>
+                  onSelect({
+                    lat: result.lat,
+                    lng: result.lng,
+                    address: result.displayName,
+                  })
+                }
+                className="flex w-full items-start gap-2 px-3 py-3 text-left hover:bg-maroon-50"
+              >
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gakit-maroon" />
+                <span className="text-sm text-slate-700">
+                  {result.displayName}
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </form>
+    </div>
+  );
+}
+
 function LocationPromptModal({
   isOpen,
   onClose,
   onUseCurrentLocation,
   onChooseLocation,
+  onSearchLocationSelect,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onUseCurrentLocation: () => void;
   onChooseLocation: () => void;
+  onSearchLocationSelect: (location: SelectedLocation) => void;
 }) {
   if (!isOpen) return null;
 
@@ -397,6 +536,21 @@ function LocationPromptModal({
         </div> */}
 
         <div className="p-5 space-y-3">
+          <div>
+            <div className="mb-2 text-sm font-semibold text-slate-900">
+              Search for a location
+            </div>
+            <LocationSearch onSelect={onSearchLocationSelect} />
+          </div>
+
+          <div className="flex items-center gap-3 py-1">
+            <div className="h-px flex-1 bg-canvas-grey" />
+            <span className="text-xs font-medium text-slate-500">
+              or choose another way
+            </span>
+            <div className="h-px flex-1 bg-canvas-grey" />
+          </div>
+
           <button
             onClick={onUseCurrentLocation}
             className="w-full p-4 rounded-lg border-2 border-gakit-maroon bg-maroon-50 text-left hover:bg-maroon-100 transition-colors"
