@@ -11,7 +11,7 @@ export function PublicHeader() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-[1200] bg-white shadow-md border-b border-canvas-grey">
+    <header className="fixed top-0 left-0 right-0 z-[1200] isolate bg-white opacity-100 shadow-md border-b border-canvas-grey">
       <div className="mx-auto flex h-16 items-center justify-center px-4 md:px-6">
         <div className="flex items-center justify-center gap-6 lg:gap-10">
           <button

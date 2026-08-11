@@ -269,7 +269,7 @@ export function PublicViewPage() {
       <main className="pt-16 pb-14 md:pb-0">
         <section id="hazard-map" className="min-h-[calc(100vh-4rem)] scroll-mt-16">
           <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-white">
-            <div className="relative flex-1 w-full h-full min-h-0">
+            <div className="relative isolate flex-1 w-full h-full min-h-0">
               {isManualLocationMode ? (
                 <div className="absolute left-14 right-4 top-4 z-[1100] md:right-auto md:w-80">
                   <LocationSearch onSelect={handleSearchedLocationSelect} />
@@ -432,7 +432,7 @@ function SectionJumpControls({
         <button
           type="button"
           onClick={onMoveUp}
-          className="fixed left-1/2 top-4 z-[1250] hidden h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-slate-500/50 bg-slate-700/30 text-white shadow-lg backdrop-blur-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-700/50 md:flex"
+          className="fixed left-1/2 top-20 z-[1100] hidden h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-slate-500/50 bg-slate-700/30 text-white shadow-lg backdrop-blur-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-700/50 md:flex"
           aria-label="Move to previous section"
         >
           <ChevronUp className="h-5 w-5" />
