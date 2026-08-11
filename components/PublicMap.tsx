@@ -7,9 +7,17 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Layers, Navigation } from 'lucide-react';
+import { Layers, MapPin, Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { ILIGAN_BOUNDS, ILIGAN_CENTER, reverseGeocode } from '@/lib/geoUtils';
+import {
+  ILIGAN_REPORT_BOUNDS,
+  MAPTILER_STYLE,
+  REPORT_MARKER_COLORS,
+  REPORT_MARKER_IMAGE_IDS,
+  REPORT_STATUS_LABELS,
+  REPORT_STATUS_LEGEND,
+} from '@/constants/publicMap';
+import { ILIGAN_CENTER, reverseGeocode } from '@/lib/geoUtils';
 import { fetchRainfall, buildRainfallGrid } from '@/lib/rainfall';
 import { queryFloodHazard, type FloodRiskLevel } from '@/lib/floodHazard';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
@@ -18,24 +26,57 @@ import type { RainfallGrid } from '@/types/rainfall';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { fetchMapReports } from '@/app/public-view/actions/public.view';
 
-const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-const MAPTILER_STYLE = MAPTILER_KEY
-  ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-  : 'https://tiles.openfreemap.org/styles/bright';
+const createReportMarkerImage = (color: string): ImageData | null => {
+  const canvas = document.createElement('canvas');
+  canvas.width = 72;
+  canvas.height = 88;
+  const context = canvas.getContext('2d');
+  if (!context) return null;
 
-const ILIGAN_REPORT_BOUNDS = {
-  west: ILIGAN_BOUNDS[0][0],
-  south: ILIGAN_BOUNDS[0][1],
-  east: ILIGAN_BOUNDS[1][0],
-  north: ILIGAN_BOUNDS[1][1],
-  limit: 500,
-};
+  const drawPin = () => {
+    context.beginPath();
+    context.moveTo(36, 82);
+    context.bezierCurveTo(31, 70, 10, 52, 10, 33);
+    context.bezierCurveTo(10, 18.5, 21.5, 7, 36, 7);
+    context.bezierCurveTo(50.5, 7, 62, 18.5, 62, 33);
+    context.bezierCurveTo(62, 52, 41, 70, 36, 82);
+    context.closePath();
+  };
 
-const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
-  UNVERIFIED: 'Pending validation',
-  VERIFIED: 'Verified',
-  ANOMALY: 'Flagged for review',
-  REJECTED: 'Rejected',
+  context.save();
+  context.shadowColor = 'rgba(15, 23, 42, 0.35)';
+  context.shadowBlur = 8;
+  context.shadowOffsetY = 5;
+  drawPin();
+  context.fillStyle = color;
+  context.fill();
+  context.restore();
+
+  drawPin();
+  context.fillStyle = color;
+  context.fill();
+  context.strokeStyle = '#ffffff';
+  context.lineWidth = 4;
+  context.lineJoin = 'round';
+  context.stroke();
+
+  context.beginPath();
+  context.arc(36, 32, 15, 0, Math.PI * 2);
+  context.fillStyle = '#ffffff';
+  context.fill();
+
+  context.strokeStyle = color;
+  context.lineWidth = 3.5;
+  context.lineCap = 'round';
+  [28, 35].forEach((y) => {
+    context.beginPath();
+    context.moveTo(24, y);
+    context.bezierCurveTo(28, y - 3, 32, y + 3, 36, y);
+    context.bezierCurveTo(40, y - 3, 44, y + 3, 48, y);
+    context.stroke();
+  });
+
+  return context.getImageData(0, 0, canvas.width, canvas.height);
 };
 
 const formatDepth = (depth: DepthCategory) =>
@@ -656,6 +697,13 @@ export function PublicMap({
           clusterRadius: 50,
         });
 
+        REPORT_STATUS_LEGEND.forEach(({ status }) => {
+          const imageId = REPORT_MARKER_IMAGE_IDS[status];
+          if (map.hasImage(imageId)) return;
+          const image = createReportMarkerImage(REPORT_MARKER_COLORS[status]);
+          if (image) map.addImage(imageId, image, { pixelRatio: 2 });
+        });
+
         map.addLayer({
           id: 'report-clusters',
           type: 'circle',
@@ -684,21 +732,21 @@ export function PublicMap({
 
         map.addLayer({
           id: 'report-points',
-          type: 'circle',
+          type: 'symbol',
           source: 'reports',
           filter: ['!', ['has', 'point_count']],
-          paint: {
-            'circle-color': [
+          layout: {
+            'icon-image': [
               'match',
               ['get', 'status'],
-              'VERIFIED', '#3B82F6',
-              'ANOMALY', '#EF4444',
-              'REJECTED', '#6B7280',
-              '#F59E0B',
+              'VERIFIED', REPORT_MARKER_IMAGE_IDS.VERIFIED,
+              'ANOMALY', REPORT_MARKER_IMAGE_IDS.ANOMALY,
+              'REJECTED', REPORT_MARKER_IMAGE_IDS.REJECTED,
+              REPORT_MARKER_IMAGE_IDS.UNVERIFIED,
             ],
-            'circle-radius': 7,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#ffffff',
+            'icon-anchor': 'bottom',
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
           },
         });
 
@@ -873,6 +921,28 @@ export function PublicMap({
           Toggle Layers
         </div>
         <div className="space-y-1.5">
+          <div className="mb-2 border-b border-canvas-grey/70 pb-2">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              Flood reports
+            </div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+              {REPORT_STATUS_LEGEND.map(({ status, label }) => (
+                <div key={status} className="flex items-center gap-1.5">
+                  <MapPin
+                    className="h-3.5 w-3.5"
+                    style={{
+                      color: REPORT_MARKER_COLORS[status],
+                      fill: REPORT_MARKER_COLORS[status],
+                    }}
+                    aria-hidden="true"
+                  />
+                  <span className="text-[11px] font-medium text-slate-600">
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
           <LayerToggle
             label="Flood Hazard Zones"
             color="#3B82F6"
