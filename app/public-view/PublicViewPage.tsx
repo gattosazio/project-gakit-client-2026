@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
-import { CheckCircle2, ChevronDown, ChevronUp, Loader2, MapPin, Navigation, Search, X } from 'lucide-react';
+import { Building2, CheckCircle2, ChevronDown, ChevronUp, Handshake, Loader2, Mail, MapPin, Navigation, Search, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createReport, listPublicReports } from './actions/public.view';
 import { reverseGeocode, searchLocations } from '@/lib/geoUtils';
@@ -292,6 +292,14 @@ export function PublicViewPage() {
                   submittedReports={submittedReports}
                 />
               </Suspense>
+
+              <LocationPromptModal
+                isOpen={isLocationPromptOpen}
+                onClose={() => setIsLocationPromptOpen(false)}
+                onUseCurrentLocation={handleUseCurrentLocation}
+                onChooseLocation={handleChooseLocation}
+                onSearchLocationSelect={handleSearchedLocationSelect}
+              />
             </div>
 
             <ReportModal
@@ -312,29 +320,83 @@ export function PublicViewPage() {
         </section>
 
         <section id="about" className="bg-gakit-maroon scroll-mt-16">
-          <div className="w-full max-w-5xl mx-auto px-6 py-16">
-            <div className="max-w-3xl">
-              <div className="text-sm font-semibold text-maroon-200 mb-3">
+          <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
+            <div>
+              <div className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-maroon-200">
                 About Project GAKIT
               </div>
-              <h2 className="text-3xl font-bold text-white">
+              <h2 className="max-w-2xl text-3xl font-bold leading-tight text-white md:text-4xl">
                 Community flood reports help others make safer decisions.
               </h2>
-              <p className="text-maroon-100 mt-4">
-                Use the public map to mark a flooded location, share your current location, and submit the observed flood depth.
+              <p className="mt-5 max-w-2xl text-base leading-7 text-maroon-100">
+                GAKIT combines community observations, geospatial information,
+                and environmental data to support local flood awareness in
+                Iligan City. Public reports help responders and researchers see
+                where flooding is being experienced on the ground.
               </p>
+
+              <div className="mt-8 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-5">
+                  <MapPin className="h-6 w-6 text-maroon-200" />
+                  <h3 className="mt-4 font-semibold text-white">Local reporting</h3>
+                  <p className="mt-2 text-sm leading-6 text-maroon-100">
+                    Residents can mark a flooded location and share the observed
+                    water depth.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/15 bg-white/10 p-5">
+                  <Building2 className="h-6 w-6 text-maroon-200" />
+                  <h3 className="mt-4 font-semibold text-white">Decision support</h3>
+                  <p className="mt-2 text-sm leading-6 text-maroon-100">
+                    Reports complement hazard, rainfall, and terrain data for
+                    safer local decisions.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 lg:pt-7">
+              <div className="rounded-2xl border border-white/20 bg-white p-6 text-slate-900 shadow-xl shadow-black/10">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon">
+                  <Handshake className="h-6 w-6" />
+                </div>
+                <div className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-gakit-maroon">
+                  Academic partnership
+                </div>
+                <h3 className="mt-2 text-xl font-bold">
+                  Mindanao State University–Iligan Institute of Technology
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  Project GAKIT is developed in partnership with MSU-IIT to
+                  strengthen applied geohazard research and community-focused
+                  flood risk information.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-white/15 bg-maroon-800/70 p-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white">
+                    <Mail className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-white">Contact and collaborate</div>
+                    <p className="mt-1 text-sm leading-6 text-maroon-100">
+                      For research, data-sharing, community, or deployment
+                      partnership inquiries.
+                    </p>
+                    <a
+                      href="mailto:support@gakit.ph?subject=Project%20GAKIT%20Inquiry"
+                      className="mt-4 inline-flex rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-gakit-maroon transition-colors hover:bg-maroon-50"
+                    >
+                      support@gakit.ph
+                    </a>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
       </main>
-
-      <LocationPromptModal
-        isOpen={isLocationPromptOpen}
-        onClose={() => setIsLocationPromptOpen(false)}
-        onUseCurrentLocation={handleUseCurrentLocation}
-        onChooseLocation={handleChooseLocation}
-        onSearchLocationSelect={handleSearchedLocationSelect}
-      />
 
       <SuccessModal
         isOpen={isSuccessOpen}
@@ -526,15 +588,8 @@ function LocationPromptModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1300] bg-black/40 flex items-end md:items-center justify-center p-4">
+    <div className="absolute inset-0 z-[1300] bg-black/40 flex items-end md:items-center justify-center p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
-        {/* <div className="flex items-center justify-between p-5 border-b border-canvas-grey">
-          <h2 className="text-lg font-bold text-slate-900">Submit a flood report</h2>
-          <button onClick={onClose} className="p-1 hover:bg-canvas-light rounded-lg">
-            <X className="w-5 h-5 text-slate-500" />
-          </button>
-        </div> */}
-
         <div className="p-5 space-y-3">
           <div>
             <div className="mb-2 text-sm font-semibold text-slate-900">
