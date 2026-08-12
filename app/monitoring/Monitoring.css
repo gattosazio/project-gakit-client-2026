@@ -26,12 +26,12 @@
 .admin-bar {
   width: 100%;
   border-radius: 0.375rem 0.375rem 0.125rem 0.125rem;
-  background: #7A0019;
+  background: linear-gradient(180deg, #A10023 0%, #7A0019 100%);
   transition: background 160ms ease, transform 160ms ease;
 }
 
 .admin-bar:hover {
-  background: #2563eb;
+  background: linear-gradient(180deg, #C4002B 0%, #8A001D 100%);
   transform: translateY(-0.125rem);
 }
 
@@ -39,4 +39,25 @@
   color: #64748b;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .admin-bar-chart {
+    grid-template-columns: repeat(12, minmax(1.25rem, 1fr));
+    gap: 0.4rem;
+    min-height: 13rem;
+  }
+
+  .admin-bar-item {
+    min-width: 0;
+    height: 12rem;
+  }
+
+  .admin-bar-value {
+    font-size: 0.65rem;
+  }
+
+  .admin-bar-label {
+    font-size: 0.65rem;
+  }
 }

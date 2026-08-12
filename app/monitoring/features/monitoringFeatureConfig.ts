@@ -1,6 +1,5 @@
 import {
   LayoutDashboard,
-  Map,
   ShieldAlert,
   Table2,
 } from 'lucide-react';
@@ -9,13 +8,13 @@ import { PortalNavItem } from '@/components/portalTypes';
 export type MonitoringFeatureId =
   | 'dashboard'
   | 'reports'
-  | 'hazard-map'
   | 'review-queue';
 
 export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
   {
     id: 'dashboard',
     label: 'Dashboard',
+    mobileLabel: 'Dashboard',
     title: 'Operations Dashboard',
     description: 'Track live report volume, validation pressure, and current emergency posture.',
     icon: LayoutDashboard,
@@ -29,6 +28,7 @@ export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
   {
     id: 'reports',
     label: 'Report Management',
+    mobileLabel: 'Reports',
     title: 'Report Management',
     description: 'Review all submitted flood reports, filter by state, and inspect details for action.',
     icon: Table2,
@@ -40,21 +40,9 @@ export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
     ],
   },
   {
-    id: 'hazard-map',
-    label: 'Hazard Map',
-    title: 'Hazard Map Operations',
-    description: 'Inspect spatial report patterns and active hazard markers in one operational map view.',
-    icon: Map,
-    contents: [
-      'Operations map with live report markers and status colors',
-      'Filters by depth, time range, and validation state',
-      'Quick marker inspection for report details',
-      'Legend and area-level hazard visibility tools',
-    ],
-  },
-  {
     id: 'review-queue',
     label: 'Review Queue',
+    mobileLabel: 'Review Queue',
     title: 'Review Queue',
     description: 'Handle reports flagged by rules or AI before they affect trusted public views.',
     icon: ShieldAlert,

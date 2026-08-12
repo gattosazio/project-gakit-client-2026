@@ -22,27 +22,46 @@ export function DashboardOverview({ onReviewCritical }: { onReviewCritical?: () 
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<string>(CURRENT_YEAR);
 
+  // Near-real-time refresh: re-fetch on an interval. The server-side cache
+  // (30s, invalidated on write) keeps each poll cheap.
+  const POLL_INTERVAL_MS = 30_000;
+
   useEffect(() => {
     let cancelled = false;
+    let isInitial = true;
 
-    Promise.all([fetchReportStats(), fetchReports({ limit: 5 })])
-      .then(([statsResult, reportsResult]) => {
-        if (!cancelled) {
-          setStats(statsResult);
-          setLatestReports(reportsResult.items);
-        }
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
+    const load = async () => {
+      try {
+        const [statsResult, reportsResult] = await Promise.all([
+          fetchReportStats(),
+          fetchReports({ limit: 5 }),
+        ]);
+        if (cancelled) return;
+        setStats(statsResult);
+        setLatestReports(reportsResult.items);
+        setError(null);
+      } catch (err: unknown) {
+        if (cancelled) return;
+        // Only surface errors on the first load; keep showing existing data
+        // if a background poll transiently fails.
+        if (isInitial) {
           setError(err instanceof Error ? err.message : 'Failed to load reports');
         }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+      } finally {
+        if (cancelled) return;
+        if (isInitial) {
+          setLoading(false);
+          isInitial = false;
+        }
+      }
+    };
+
+    load();
+    const timer = setInterval(load, POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
+      clearInterval(timer);
     };
   }, []);
 
@@ -100,12 +119,12 @@ export function DashboardOverview({ onReviewCritical }: { onReviewCritical?: () 
 
   return (
     <>
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <section className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
         {metrics.map((metric) => {
           const Icon = metric.icon;
 
           return (
-            <div key={metric.label} className="bg-white border border-canvas-grey rounded-lg p-5 shadow-sm">
+            <div key={metric.label} className="bg-white border border-canvas-grey rounded-lg p-4 md:p-5 shadow-sm">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="text-sm font-medium text-slate-500">{metric.label}</div>
@@ -120,7 +139,7 @@ export function DashboardOverview({ onReviewCritical }: { onReviewCritical?: () 
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="xl:col-span-2 bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
+        <div className="hidden xl:block xl:col-span-2 bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
           <div className="p-5 border-b border-canvas-grey flex items-center justify-between">
             <div>
               <h2 className="font-bold text-slate-900">Latest Reports</h2>

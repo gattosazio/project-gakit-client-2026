@@ -181,8 +181,8 @@ export function ReviewQueueTab() {
   return (
     <FeaturePageShell
       toolbar={
-        <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(16rem,1fr)_11rem_11rem_12rem_auto]">
-          <label className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2">
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_11rem_11rem_12rem_auto]">
+          <label className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 col-span-2 xl:col-span-1">
             <Search className="w-4 h-4 text-slate-400" />
             <input
               value={query}

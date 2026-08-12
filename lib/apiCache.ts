@@ -41,3 +41,15 @@ export async function cachedGet<T>(
   cache.set(key, { expiresAt: 0, value: undefined, inFlight: promise });
   return promise;
 }
+
+/**
+ * Remove cached entries whose key starts with `prefix`.
+ * Used to force a fresh fetch after a mutation (e.g. verifying a report).
+ */
+export function invalidateApiCache(prefix: string): void {
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix)) {
+      cache.delete(key);
+    }
+  }
+}

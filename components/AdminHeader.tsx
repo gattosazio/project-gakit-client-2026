@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { Bell, LogOut, Settings, Shield, UserRound } from 'lucide-react';
+import { Bell, LogOut, Settings, Shield, UserRound, type LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, ROLE_ADMIN, type StaffRole } from '@/lib/auth/roles';
 
@@ -11,23 +11,27 @@ interface AdminHeaderProps {
   title: string;
   description: string;
   profileLabel?: string;
+  icon?: LucideIcon;
 }
 
 export function AdminHeader({
   title,
   description,
   profileLabel = 'Admin',
+  icon: Icon,
 }: AdminHeaderProps) {
   const router = useRouter();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [role, setRole] = useState<StaffRole | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       if (cancelled || !data.user) return;
+      if (!cancelled) setEmail(data.user.email ?? null);
       getStaffRole(supabase, data.user.id).then((staffRole) => {
         if (!cancelled) setRole(staffRole);
       });
@@ -48,9 +52,16 @@ export function AdminHeader({
 
   return (
     <header className="h-20 shrink-0 bg-white border-b border-canvas-grey px-4 md:px-6 flex items-center justify-between gap-4">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-slate-900">{title}</h1>
-        <p className="text-sm text-slate-500">{description}</p>
+      <div className="flex items-center gap-3 min-w-0">
+        {Icon && (
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-maroon-50 text-gakit-maroon">
+            <Icon className="w-5 h-5" />
+          </div>
+        )}
+        <div className="min-w-0">
+          <h1 className="text-lg md:text-2xl font-bold text-slate-900 truncate">{title}</h1>
+          <p className="hidden md:block text-sm text-slate-500 truncate">{description}</p>
+        </div>
       </div>
 
       <div className="flex items-center gap-3">
@@ -62,16 +73,20 @@ export function AdminHeader({
         <div className="relative">
           <button
             onClick={() => setIsProfileOpen((isOpen) => !isOpen)}
-            className="flex items-center gap-2 p-2 rounded-lg border border-canvas-grey hover:bg-canvas-light transition-colors"
+            className="flex items-center justify-center p-2 rounded-lg border border-canvas-grey hover:bg-canvas-light transition-colors"
             aria-expanded={isProfileOpen}
             aria-haspopup="menu"
           >
             <UserRound className="w-5 h-5 text-gakit-maroon" />
-            <span className="hidden md:inline text-sm font-semibold text-slate-700">{profileLabel}</span>
           </button>
 
           {isProfileOpen && (
-            <div className="absolute right-0 top-12 z-50 w-52 rounded-lg border border-canvas-grey bg-white p-2 shadow-lg">
+            <div className="absolute right-0 top-12 z-50 w-56 rounded-lg border border-canvas-grey bg-white p-2 shadow-lg">
+              {email && (
+                <div className="px-3 py-2 text-sm font-semibold text-slate-700 border-b border-canvas-grey mb-1 break-all">
+                  {email}
+                </div>
+              )}
               {role === ROLE_ADMIN && (
                 <>
                   <Link

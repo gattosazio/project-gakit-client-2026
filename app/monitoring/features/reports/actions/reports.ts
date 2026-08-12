@@ -1,4 +1,4 @@
-import { cachedGet } from '@/lib/apiCache';
+import { cachedGet, invalidateApiCache } from '@/lib/apiCache';
 import type {
   CreateReportInput,
   FloodDepthCode,
@@ -73,4 +73,22 @@ export async function listReports(
 export async function fetchReportStats(signal?: AbortSignal): Promise<ReportStats> {
   const url = '/api/v1/reports/stats';
   return cachedGet<ReportStats>(url, 30_000, () => request<ReportStats>(url, { signal }));
+}
+
+export async function updateReportStatus(
+  reportId: string,
+  toStatus: ReportStatus,
+  options: { reason?: string | null; actor?: string | null } = {}
+): Promise<Report> {
+  const url = `/api/v1/reports/${reportId}/status`;
+  const report = await request<Report>(url, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status: toStatus,
+      reason: options.reason ?? null,
+      actor: options.actor ?? null,
+    }),
+  });
+  invalidateApiCache('/api/v1/reports');
+  return report;
 }
