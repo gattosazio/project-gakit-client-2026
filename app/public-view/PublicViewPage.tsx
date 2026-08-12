@@ -394,6 +394,17 @@ export function PublicViewPage() {
                 </div>
               </div>
             </div>
+
+            <div className="mt-10 flex lg:justify-start">
+              <button
+                type="button"
+                onClick={scrollToMap}
+                className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-gakit-maroon shadow-lg transition-colors hover:bg-maroon-50"
+              >
+                <MapPin className="h-4 w-4" />
+                Back to hazard map
+              </button>
+            </div>
           </div>
         </section>
       </main>
@@ -432,7 +443,7 @@ function SectionJumpControls({
         <button
           type="button"
           onClick={onMoveUp}
-          className="fixed left-1/2 top-20 z-[1100] hidden h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-slate-500/50 bg-slate-700/30 text-white shadow-lg backdrop-blur-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-700/50 md:flex"
+          className="fixed left-1/2 top-20 z-[1100] flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-slate-500/50 bg-slate-700/30 text-white shadow-lg backdrop-blur-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-700/50"
           aria-label="Move to previous section"
         >
           <ChevronUp className="h-5 w-5" />
@@ -588,7 +599,7 @@ function LocationPromptModal({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute inset-0 z-[1300] bg-black/40 flex items-end md:items-center justify-center p-4">
+    <div className="absolute inset-0 z-[1300] bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
         <div className="p-5 space-y-3">
           <div>

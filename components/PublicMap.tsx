@@ -7,7 +7,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Layers, MapPin, Navigation } from 'lucide-react';
+import { ChevronUp, Layers, MapPin, Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   ILIGAN_REPORT_BOUNDS,
@@ -245,12 +245,23 @@ export interface LocationRiskInfo {
   precipMm: number | null;
 }
 
+export interface MapReportToShow {
+  id: string;
+  lat: number;
+  lng: number;
+  address: string;
+  depthLabel: string;
+  statusLabel: string;
+  createdAt: string;
+}
+
 export interface PublicMapHandle {
   checkLocation: (location: {
     lat: number;
     lng: number;
   }) => Promise<LocationRiskInfo>;
   focusLocation: (location: { lat: number; lng: number }) => void;
+  showReport: (report: MapReportToShow) => void;
 }
 
 interface PublicMapProps {
@@ -264,6 +275,7 @@ interface PublicMapProps {
     submittedAt: string;
   }>;
   mapApiRef?: MutableRefObject<PublicMapHandle | null>;
+  hideShareLocation?: boolean;
 }
 
 export function PublicMap({
@@ -271,24 +283,32 @@ export function PublicMap({
   selectedLocation,
   submittedReports = [],
   mapApiRef,
+  hideShareLocation = false,
 }: PublicMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const backendReportsRef = useRef<MapReportFeature[]>([]);
   const submittedReportsRef = useRef<SubmittedReportProps[]>([]);
   const selectedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const handleLocationSelectRef = useRef<(lat: number, lng: number) => void>(() => {});
   const abortControllerRef = useRef<AbortController | null>(null);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reportPopupRef = useRef<any>(null);
   const selectedMarkerRef = useRef<any>(null);
+  const pendingInspectRef = useRef<MapReportToShow | null>(null);
+  const inspectTargetRef = useRef<MapReportToShow | null>(null);
   const [maplibregl, setMaplibregl] = useState<any>(null);
   const [backendReports, setBackendReports] = useState<MapReportFeature[]>([]);
   const [showRainfall, setShowRainfall] = useState(false);
   const [rainfallObservedAt, setRainfallObservedAt] = useState<string | null>(null);
+  const [mapReady, setMapReady] = useState(false);
 
   // Layer visibility toggles
   const [showFloodHazard, setShowFloodHazard] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true
+  );
   const [visibleRiskLevels, setVisibleRiskLevels] = useState<Record<string, boolean>>({
     high: true,
     medium: true,
@@ -367,14 +387,100 @@ export function PublicMap({
     });
   }, []);
 
+  const showReportPopup = useCallback(
+    (feature: Record<string, any>, lngLat: any) => {
+      if (!maplibregl) return;
+      if (!reportPopupRef.current) {
+        reportPopupRef.current = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          anchor: 'bottom',
+          offset: 10,
+        });
+      }
+      reportPopupRef.current
+        .setLngLat(lngLat)
+        .setHTML(buildReportPopupHtml(feature))
+        .addTo(mapRef.current);
+    },
+    [maplibregl]
+  );
+
+  const hideReportPopup = useCallback(() => {
+    reportPopupRef.current?.remove();
+  }, []);
+
+  // Zooms to a report marker and opens its details popup (depth, status, time).
+  // Re-clicking Inspect on a report the camera is already focused on pulses the
+  // zoom (out, then back in) so repeat clicks still give visible feedback.
+  // If the map is still loading, defers the inspect until it becomes ready.
+  const showReport = useCallback(
+    (report: MapReportToShow) => {
+      if (!mapReady || !mapRef.current) {
+        pendingInspectRef.current = report;
+        return;
+      }
+
+      pendingInspectRef.current = null;
+      inspectTargetRef.current = report;
+      const map = mapRef.current;
+      const target: [number, number] = [report.lng, report.lat];
+
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const alreadyFocused =
+        Math.abs(zoom - 16) < 0.25 &&
+        Math.abs(center.lng - report.lng) < 1e-4 &&
+        Math.abs(center.lat - report.lat) < 1e-4;
+
+      if (alreadyFocused) {
+        map.flyTo({ center: target, zoom: Math.max(zoom - 3, 8), duration: 350 });
+        map.once('moveend', () => {
+          if (map === mapRef.current && inspectTargetRef.current?.id === report.id) {
+            map.easeTo({ center: target, zoom: 16, duration: 500 });
+          }
+        });
+      } else {
+        map.flyTo({ center: target, zoom: 16, duration: 900 });
+      }
+
+      showReportPopup(
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: target,
+          },
+          properties: {
+            kind: 'report',
+            address: report.address,
+            depthLabel: report.depthLabel,
+            statusLabel: report.statusLabel,
+            createdAt: report.createdAt,
+          },
+        },
+        target
+      );
+    },
+    [mapReady, showReportPopup]
+  );
+
   useEffect(() => {
     if (mapApiRef) {
-      mapApiRef.current = { checkLocation, focusLocation };
+      mapApiRef.current = { checkLocation, focusLocation, showReport };
       return () => {
         mapApiRef.current = null;
       };
     }
-  }, [mapApiRef, checkLocation, focusLocation]);
+  }, [mapApiRef, checkLocation, focusLocation, showReport]);
+
+  // Applies an inspect requested before the map finished loading.
+  useEffect(() => {
+    if (!mapReady || !pendingInspectRef.current) return;
+    const report = pendingInspectRef.current;
+    pendingInspectRef.current = null;
+    showReport(report);
+  }, [mapReady, showReport]);
 
   // Dynamically import maplibre-gl on client side only
   useEffect(() => {
@@ -460,28 +566,9 @@ export function PublicMap({
     selectedLocationRef.current = selectedLocation;
   }, [backendReports, submittedReports, selectedLocation]);
 
-  const showReportPopup = useCallback(
-    (feature: Record<string, any>, lngLat: any) => {
-      if (!maplibregl) return;
-      if (!reportPopupRef.current) {
-        reportPopupRef.current = new maplibregl.Popup({
-          closeButton: false,
-          closeOnClick: false,
-          anchor: 'bottom',
-          offset: 10,
-        });
-      }
-      reportPopupRef.current
-        .setLngLat(lngLat)
-        .setHTML(buildReportPopupHtml(feature))
-        .addTo(mapRef.current);
-    },
-    [maplibregl]
-  );
-
-  const hideReportPopup = useCallback(() => {
-    reportPopupRef.current?.remove();
-  }, []);
+  useEffect(() => {
+    handleLocationSelectRef.current = handleLocationSelect;
+  }, [handleLocationSelect]);
 
   const applyReportData = useCallback((map: any) => {
     const reportsSource = map?.getSource?.('reports');
@@ -579,7 +666,14 @@ export function PublicMap({
     });
 
     mapRef.current = map;
+    setMapReady(true);
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
+
+    // Keep the map sized correctly when its container changes (e.g. when the
+    // tab wrapper toggles display, or layout shifts). Prevents a stale/blank
+    // canvas after the map is revealed from a hidden state.
+    const resizeObserver = new ResizeObserver(() => map.resize());
+    if (mapContainer.current) resizeObserver.observe(mapContainer.current);
 
     map.on('load', () => {
       setTimeout(() => map.resize(), 250);
@@ -693,8 +787,8 @@ export function PublicMap({
           type: 'geojson',
           data: { type: 'FeatureCollection', features: [] },
           cluster: true,
-          clusterMaxZoom: 14,
-          clusterRadius: 50,
+          clusterMaxZoom: 12,
+          clusterRadius: 30,
         });
 
         REPORT_STATUS_LEGEND.forEach(({ status }) => {
@@ -711,7 +805,7 @@ export function PublicMap({
           filter: ['has', 'point_count'],
           paint: {
             'circle-color': '#6366f1',
-            'circle-radius': ['step', ['get', 'point_count'], 20, 10, 26, 50, 32],
+            'circle-radius': 22,
             'circle-stroke-width': 2,
             'circle-stroke-color': '#ffffff',
           },
@@ -863,7 +957,7 @@ export function PublicMap({
     });
 
     map.on('click', (e: any) => {
-      handleLocationSelect(e.lngLat.lat, e.lngLat.lng);
+      handleLocationSelectRef.current(e.lngLat.lat, e.lngLat.lng);
     });
 
     map.on('moveend', () => {
@@ -876,15 +970,16 @@ export function PublicMap({
 
     return () => {
       if (moveendTimerRef.current) clearTimeout(moveendTimerRef.current);
+      resizeObserver.disconnect();
       selectedMarkerRef.current?.remove();
       selectedMarkerRef.current = null;
+      setMapReady(false);
       map.remove();
       mapRef.current = null;
     };
   }, [
     applyReportData,
     applySelectedMarker,
-    handleLocationSelect,
     loadMapReports,
     maplibregl,
     showReportPopup,
@@ -915,105 +1010,134 @@ export function PublicMap({
     <div className="relative w-full h-full bg-canvas-grey">
       <div ref={mapContainer} className="w-full h-full" />  
 
-      <div className="absolute bottom-36 md:bottom-20 right-4 md:right-6 z-[1000] bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-900 mb-2">
-          <Layers className="w-3.5 h-3.5" />
-          Toggle Layers
-        </div>
-        <div className="space-y-1.5">
-          <div className="mb-2 border-b border-canvas-grey/70 pb-2">
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-              Flood reports
+      <div
+        className={`absolute right-4 md:right-6 z-[1000] ${
+          hideShareLocation ? 'bottom-6' : 'bottom-36 md:bottom-20'
+        }`}
+      >
+        {layersOpen ? (
+          <div className="bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-3">
+            <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-900 mb-2">
+              <div className="flex items-center gap-2">
+                <Layers className="w-3.5 h-3.5" />
+                Toggle Layers
+              </div>
+              <button
+                onClick={() => setLayersOpen(false)}
+                className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
+                aria-label="Collapse layer controls"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
             </div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-              {REPORT_STATUS_LEGEND.map(({ status, label }) => (
-                <div key={status} className="flex items-center gap-1.5">
-                  <MapPin
-                    className="h-3.5 w-3.5"
-                    style={{
-                      color: REPORT_MARKER_COLORS[status],
-                      fill: REPORT_MARKER_COLORS[status],
-                    }}
-                    aria-hidden="true"
-                  />
-                  <span className="text-[11px] font-medium text-slate-600">
-                    {label}
-                  </span>
+            <div className="space-y-1.5">
+              <div className="mb-2 border-b border-canvas-grey/70 pb-2">
+                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  Flood reports
                 </div>
-              ))}
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                  {REPORT_STATUS_LEGEND.map(({ status, label }) => (
+                    <div key={status} className="flex items-center gap-1.5">
+                      <MapPin
+                        className="h-3.5 w-3.5"
+                        style={{
+                          color: REPORT_MARKER_COLORS[status],
+                          fill: REPORT_MARKER_COLORS[status],
+                        }}
+                        aria-hidden="true"
+                      />
+                      <span className="text-[11px] font-medium text-slate-600">
+                        {label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <LayerToggle
+                label="Flood Hazard Zones"
+                color="#3B82F6"
+                checked={showFloodHazard}
+                onChange={setShowFloodHazard}
+                credit={{
+                  href: 'https://noah.upd.edu.ph/',
+                  label: 'Project NOAH',
+                }}
+              />
+              <LayerToggle
+                label="1-Hour Rainfall (GSMaP_NOW)"
+                color="#0284C7"
+                checked={showRainfall}
+                onChange={setShowRainfall}
+                credit={{
+                  href: 'https://sharaku.eorc.jaxa.jp/GSMaP_NOW/',
+                  label: 'JAXA',
+                }}
+              />
+              {showRainfall && (
+                <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1 flex items-center justify-between gap-2">
+                    <span>Precipitation</span>
+                    {rainfallObservedAt && (
+                      <span className="normal-case tracking-normal font-medium">
+                        {formatRainfallTime(rainfallObservedAt)}
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    className="h-2.5 w-56 rounded-full"
+                    style={{ background: RAINFALL_GRADIENT_CSS }}
+                  />
+                  <div className="flex w-56 justify-between text-[10px] text-slate-500">
+                    {RAINFALL_LEGEND_STOPS.map((stop) => (
+                      <span key={stop.label}>{stop.label}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {showFloodHazard && (
+                <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">
+                    Risk levels
+                  </div>
+                  {FLOOD_HAZARD_LEGEND.map(({ key, label, color }) => (
+                    <LayerToggle
+                      key={key}
+                      label={label}
+                      color={color}
+                      checked={!!visibleRiskLevels[key]}
+                      onChange={(checked) =>
+                        setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
+                      }
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </div>
-          <LayerToggle
-            label="Flood Hazard Zones"
-            color="#3B82F6"
-            checked={showFloodHazard}
-            onChange={setShowFloodHazard}
-            credit={{
-              href: 'https://noah.upd.edu.ph/',
-              label: 'Project NOAH',
-            }}
-          />
-          <LayerToggle
-            label="1-Hour Rainfall (GSMaP_NOW)"
-            color="#0284C7"
-            checked={showRainfall}
-            onChange={setShowRainfall}
-            credit={{
-              href: 'https://sharaku.eorc.jaxa.jp/GSMaP_NOW/',
-              label: 'JAXA',
-            }}
-          />
-          {showRainfall && (
-            <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
-              <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1 flex items-center justify-between gap-2">
-                <span>Precipitation</span>
-                {rainfallObservedAt && (
-                  <span className="normal-case tracking-normal font-medium">
-                    {formatRainfallTime(rainfallObservedAt)}
-                  </span>
-                )}
-              </div>
-              <div
-                className="h-2.5 w-56 rounded-full"
-                style={{ background: RAINFALL_GRADIENT_CSS }}
-              />
-              <div className="flex w-56 justify-between text-[10px] text-slate-500">
-                {RAINFALL_LEGEND_STOPS.map((stop) => (
-                  <span key={stop.label}>{stop.label}</span>
-                ))}
-              </div>
-            </div>
-          )}
-          {showFloodHazard && (
-            <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
-              <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">
-                Risk levels
-              </div>
-              {FLOOD_HAZARD_LEGEND.map(({ key, label, color }) => (
-                <LayerToggle
-                  key={key}
-                  label={label}
-                  color={color}
-                  checked={!!visibleRiskLevels[key]}
-                  onChange={(checked) =>
-                    setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
-                  }
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        ) : (
+          <button
+            onClick={() => setLayersOpen(true)}
+            className="flex items-center gap-2 bg-white/95 border border-canvas-grey rounded-lg px-3 py-3 shadow-lg hover:shadow-xl transition-shadow duration-200"
+            title="Show layer controls"
+            aria-label="Show layer controls"
+          >
+            <Layers className="w-5 h-5 text-gakit-maroon" />
+            <span className="text-sm font-medium text-slate-700">Layers</span>
+          </button>
+        )}
       </div>
 
-      <button
-        onClick={handleShareLocation}
-        className="absolute bottom-20 md:bottom-6 right-4 md:right-6 z-[1000] bg-white flex items-center gap-2 px-3 py-3 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200 border border-canvas-grey"
-        title="Share my location"
-        aria-label="Share my location"
-      >
-        <Navigation className="w-5 h-5 text-gakit-maroon" />
-        <span className="text-sm font-medium text-slate-700">Share location</span>
-      </button>
+      {!hideShareLocation && (
+        <button
+          onClick={handleShareLocation}
+          className="absolute bottom-20 md:bottom-6 right-4 md:right-6 z-[1000] bg-white flex items-center gap-2 px-3 py-3 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200 border border-canvas-grey"
+          title="Share my location"
+          aria-label="Share my location"
+        >
+          <Navigation className="w-5 h-5 text-gakit-maroon" />
+          <span className="text-sm font-medium text-slate-700">Share location</span>
+        </button>
+      )}
     </div>
   );
 }

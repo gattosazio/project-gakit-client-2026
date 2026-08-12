@@ -1,30 +1,28 @@
 'use client';
-
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Map } from 'lucide-react';
 import { AdminHeader } from '@/components/AdminHeader';
 import { SideBar } from '@/components/SideBar';
+import type { PortalNavItem } from '@/components/portalTypes';
 import { DashboardOverview } from './features/dashboard/DashboardOverview';
-import { HazardMapTab } from './features/hazard-map/HazardMapTab';
 import { monitoringFeatureMap, monitoringFeatures, type MonitoringFeatureId } from './features/monitoringFeatureConfig';
 import { ReportsTab } from './features/reports/ReportsTab';
 import { ReviewQueueTab } from './features/review-queue/ReviewQueueTab';
+import { useRouteLoader } from '@/components/RouteLoader';
 import './Monitoring.css';
-
 export function MonitoringShell() {
   const [activeTab, setActiveTab] = useState<MonitoringFeatureId>('dashboard');
   const [criticalReportsOnly, setCriticalReportsOnly] = useState(false);
   const activeFeature = monitoringFeatureMap[activeTab];
-
   const handleTabChange = (tab: MonitoringFeatureId) => {
     setCriticalReportsOnly(false);
     setActiveTab(tab);
   };
-
   const handleReviewCritical = () => {
     setCriticalReportsOnly(true);
     setActiveTab('reports');
   };
-
   return (
     <div className="h-screen bg-canvas-light flex overflow-hidden">
       <SideBar
@@ -33,44 +31,75 @@ export function MonitoringShell() {
         portalSubtitle="Monitoring Portal"
         onTabChange={handleTabChange}
       />
-
       <div className="flex-1 min-w-0 h-screen flex flex-col overflow-hidden">
         <AdminHeader
           title={activeFeature.title}
           description={activeFeature.description}
+          icon={activeFeature.icon}
           profileLabel="Staff"
         />
-
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">
-          <MonitoringTabContent
-            activeTab={activeTab}
-            criticalReportsOnly={criticalReportsOnly}
-            onReviewCritical={handleReviewCritical}
-          />
+        <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 lg:pb-6 space-y-6">
+          {activeTab === 'dashboard' && (
+            <DashboardOverview onReviewCritical={handleReviewCritical} />
+          )}
+          {activeTab === 'review-queue' && <ReviewQueueTab />}
+          <div className={activeTab === 'reports' ? '' : 'hidden'}>
+            <ReportsTab initialCritical={criticalReportsOnly} />
+          </div>
         </main>
       </div>
+      <MobileBottomNav
+        items={monitoringFeatures}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+      />
     </div>
   );
 }
 
-function MonitoringTabContent({
+function MobileBottomNav({
+  items,
   activeTab,
-  criticalReportsOnly,
-  onReviewCritical,
+  onTabChange,
 }: {
+  items: PortalNavItem<MonitoringFeatureId>[];
   activeTab: MonitoringFeatureId;
-  criticalReportsOnly: boolean;
-  onReviewCritical: () => void;
+  onTabChange: (tab: MonitoringFeatureId) => void;
 }) {
-  switch (activeTab) {
-    case 'reports':
-      return <ReportsTab initialCritical={criticalReportsOnly} />;
-    case 'hazard-map':
-      return <HazardMapTab />;
-    case 'review-queue':
-      return <ReviewQueueTab />;
-    case 'dashboard':
-    default:
-      return <DashboardOverview onReviewCritical={onReviewCritical} />;
-  }
+  const { navigate, loadingOverlay } = useRouteLoader();
+  return (
+    <>
+    <nav className="fixed bottom-0 left-0 right-0 z-[1200] border-t border-canvas-grey bg-white shadow-lg lg:hidden">
+      <div className="grid grid-cols-4 gap-1 px-2 py-1.5">
+        <button
+          onClick={() => navigate('/')}
+          className="flex flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
+        >
+          <Map className="w-5 h-5 text-slate-400" />
+          <span className="truncate">Hazard Map</span>
+        </button>
+        {items.map((feature) => {
+          const Icon = feature.icon;
+          const isActive = activeTab === feature.id;
+          return (
+            <button
+              key={feature.id}
+              onClick={() => onTabChange(feature.id)}
+              aria-current={isActive ? 'page' : undefined}
+              className={`flex flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-[11px] font-semibold transition-colors ${
+                isActive
+                  ? 'bg-gakit-maroon text-white'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+            >
+              <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+              <span className="truncate">{feature.mobileLabel ?? feature.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+    {loadingOverlay}
+    </>
+  );
 }
