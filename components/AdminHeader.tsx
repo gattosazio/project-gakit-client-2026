@@ -73,7 +73,11 @@ export function AdminHeader({
         <div className="relative">
           <button
             onClick={() => setIsProfileOpen((isOpen) => !isOpen)}
-            className="flex items-center justify-center p-2 rounded-lg border border-canvas-grey hover:bg-canvas-light transition-colors"
+            className={`flex items-center justify-center p-2 rounded-lg border transition-colors ${
+              isProfileOpen
+                ? 'border-gakit-maroon bg-maroon-50'
+                : 'border-canvas-grey hover:bg-canvas-light'
+            }`}
             aria-expanded={isProfileOpen}
             aria-haspopup="menu"
           >

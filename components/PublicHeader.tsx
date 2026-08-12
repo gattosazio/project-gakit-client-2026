@@ -145,7 +145,11 @@ export function PublicHeader() {
                 <button
                   type="button"
                   onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
-                  className="flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-gakit-maroon transition-colors hover:bg-slate-50"
+                  className={`flex items-center justify-center rounded-lg border p-2 text-gakit-maroon transition-colors ${
+                    isMenuOpen
+                      ? 'border-gakit-maroon bg-maroon-50'
+                      : 'border-canvas-grey hover:bg-slate-50'
+                  }`}
                   aria-expanded={isMenuOpen}
                   aria-haspopup="menu"
                   aria-label="Account menu"
@@ -168,7 +172,11 @@ export function PublicHeader() {
           <button
             type="button"
             onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
-            className="flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-gakit-maroon transition-colors hover:bg-slate-50"
+            className={`flex items-center justify-center rounded-lg border p-2 text-gakit-maroon transition-colors ${
+              isMenuOpen
+                ? 'border-gakit-maroon bg-maroon-50'
+                : 'border-canvas-grey hover:bg-slate-50'
+            }`}
             aria-expanded={isMenuOpen}
             aria-haspopup="menu"
             aria-label="Account menu"
