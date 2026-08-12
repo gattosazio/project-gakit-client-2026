@@ -5,11 +5,11 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import {
   AlertTriangle,
-  CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Clock,
   Eye,
   Filter,
   FileImage,
@@ -19,6 +19,8 @@ import {
   ShieldAlert,
   X,
   XCircle,
+  type LucideIcon,
+  Ruler,
 } from 'lucide-react';
 import { ReportModal } from '@/app/public-view/ReportModal';
 import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
@@ -41,8 +43,19 @@ interface SelectedLocation {
   elevation?: number;
 }
 
-const statusOptions: Array<'All' | ReportStatus> = ['All', 'UNVERIFIED', 'VERIFIED', 'ANOMALY', 'REJECTED'];
 const depthOptions: Array<'All' | FloodDepthCode> = ['All', 'ankle', 'knee', 'waist', 'head', 'overhead'];
+const timeRangeOptions: Array<{ value: string; label: string; hours: number | null }> = [
+  { value: '24h', label: 'Last 24 hours', hours: 24 },
+  { value: '7d', label: 'Last 7 days', hours: 24 * 7 },
+  { value: '30d', label: 'Last 30 days', hours: 24 * 30 },
+  { value: 'all', label: 'All time', hours: null },
+];
+const STATUS_ICONS: Record<ReportStatus, LucideIcon> = {
+  UNVERIFIED: Clock,
+  VERIFIED: CheckCircle2,
+  ANOMALY: AlertTriangle,
+  REJECTED: XCircle,
+};
 const REPORTS_PER_PAGE = 6;
 
 export function ReportsTab({ initialCritical = false }: { initialCritical?: boolean }) {
@@ -54,6 +67,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | ReportStatus>('All');
   const [depthFilter, setDepthFilter] = useState<'All' | FloodDepthCode>('All');
+  const [timeFilter, setTimeFilter] = useState('24h');
   const [criticalFilter, setCriticalFilter] = useState(initialCritical);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -89,6 +103,12 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
       setLoading(true);
       setError(null);
 
+      const selectedRange = timeRangeOptions.find((option) => option.value === timeFilter);
+      const since =
+        selectedRange && selectedRange.hours != null
+          ? new Date(Date.now() - selectedRange.hours * 3600 * 1000).toISOString()
+          : undefined;
+
       fetchReports({
         page: currentPage,
         limit: REPORTS_PER_PAGE,
@@ -96,6 +116,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
         status: statusFilter === 'All' ? undefined : statusFilter,
         depth: depthFilter === 'All' ? undefined : depthFilter,
         critical: criticalFilter || undefined,
+        created_after: since,
       })
         .then((result) => {
           setReports(result.items);
@@ -117,7 +138,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [currentPage, query, statusFilter, depthFilter, criticalFilter, refreshKey]);
+  }, [currentPage, query, statusFilter, depthFilter, timeFilter, criticalFilter, refreshKey]);
 
   const selectedReport =
     reports.find((report) => report.id === selectedReportId) || reports[0] || null;
@@ -126,6 +147,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
     setQuery('');
     setStatusFilter('All');
     setDepthFilter('All');
+    setTimeFilter('24h');
     setCriticalFilter(false);
     setCurrentPage(1);
   };
@@ -219,35 +241,21 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
             />
           </label>
 
-          <select
+          <StatusFilterDropdown
             value={statusFilter}
-            onChange={(event) => {
-              setStatusFilter(event.target.value as 'All' | ReportStatus);
+            onChange={(value) => {
+              setStatusFilter(value);
               setCurrentPage(1);
             }}
-            className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none"
-          >
-            {statusOptions.map((status) => (
-              <option key={status} value={status}>
-                {status === 'All' ? 'All statuses' : STATUS_META[status].label}
-              </option>
-            ))}
-          </select>
+          />
 
-          <select
+          <DepthsFilterDropdown
             value={depthFilter}
-            onChange={(event) => {
-              setDepthFilter(event.target.value as 'All' | FloodDepthCode);
+            onChange={(value) => {
+              setDepthFilter(value);
               setCurrentPage(1);
             }}
-            className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none"
-          >
-            {depthOptions.map((depth) => (
-              <option key={depth} value={depth}>
-                {depth === 'All' ? 'All depths' : DEPTH_LABELS[depth]}
-              </option>
-            ))}
-          </select>
+          />
 
           <button
             onClick={() => {
@@ -265,10 +273,13 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
             Critical
           </button>
 
-          <button className="flex items-center justify-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light">
-            <CalendarDays className="w-4 h-4" />
-            All time
-          </button>
+          <TimeFilterDropdown
+            value={timeFilter}
+            onChange={(value) => {
+              setTimeFilter(value);
+              setCurrentPage(1);
+            }}
+          />
 
           <button
             onClick={resetFilters}
@@ -333,7 +344,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                         return (
                           <tr
                             key={report.id}
-                            className={selectedReport?.id === report.id ? 'bg-maroon-50/60' : 'hover:bg-canvas-light/70'}
+                            className={selectedReport?.id === report.id ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/70'}
                           >
                             <td className="px-5 py-4">
                               <div className="font-mono text-xs font-semibold text-slate-900">
@@ -359,7 +370,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                                 className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
                               >
                                 <Eye className="w-4 h-4" />
-                                Inspect
+                                {selectedReport?.id === report.id ? 'Inspecting' : 'Inspect'}
                               </button>
                             </td>
                           </tr>
@@ -477,6 +488,230 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
         />
       )}
     </>
+  );
+}
+
+function StatusFilterDropdown({
+  value,
+  onChange,
+}: {
+  value: 'All' | ReportStatus;
+  onChange: (value: 'All' | ReportStatus) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [open]);
+
+  const options: Array<'All' | ReportStatus> = ['All', 'UNVERIFIED', 'VERIFIED', 'ANOMALY', 'REJECTED'];
+  const SelectedIcon = value === 'All' ? Filter : STATUS_ICONS[value];
+  const selectedLabel = value === 'All' ? 'All statuses' : STATUS_META[value].label;
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none hover:bg-canvas-light"
+      >
+        <span className="flex items-center gap-2">
+          <SelectedIcon className="w-4 h-4" style={value !== 'All' ? { color: STATUS_META[value].color } : undefined} />
+          {selectedLabel}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 z-30 mt-1 w-48 overflow-hidden rounded-lg border border-canvas-grey bg-white py-1 shadow-lg"
+        >
+          {options.map((option, index) => {
+            const Icon = option === 'All' ? Filter : STATUS_ICONS[option as ReportStatus];
+            const label = option === 'All' ? 'All statuses' : STATUS_META[option as ReportStatus].label;
+            const isSelected = option === value;
+            return (
+              <button
+                key={option}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  onChange(option);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-canvas-light ${index > 0 ? 'border-t border-canvas-grey' : ''} ${isSelected ? 'bg-canvas-light text-gakit-maroon' : 'text-slate-700'}`}
+              >
+                <Icon
+                  className="w-4 h-4 shrink-0"
+                  style={option !== 'All' ? { color: STATUS_META[option as ReportStatus].color } : undefined}
+                />
+                <span className="flex-1 text-left">{label}</span>
+                {isSelected && <CheckCircle2 className="w-4 h-4 shrink-0 text-gakit-maroon" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DepthsFilterDropdown({
+  value,
+  onChange,
+}: {
+  value: 'All' | FloodDepthCode;
+  onChange: (value: 'All' | FloodDepthCode) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [open]);
+
+  const depthOptions: Array<'All' | FloodDepthCode> = ['All', 'ankle', 'knee', 'waist', 'head', 'overhead'];
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex w-full items-center justify-between rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none hover:bg-canvas-light"
+      >
+        <span className="flex items-center gap-2">
+          <Ruler className="w-4 h-4" />
+          {value === 'All' ? 'All depths' : DEPTH_LABELS[value]}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 z-30 mt-1 w-48 overflow-hidden rounded-lg border border-canvas-grey bg-white py-1 shadow-lg"
+        >
+          {depthOptions.map((depth, index) => {
+            const label = depth === 'All' ? 'All depths' : DEPTH_LABELS[depth];
+            const isSelected = depth === value;
+            return (
+              <button
+                key={depth}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  onChange(depth);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-canvas-light ${index > 0 ? 'border-t border-canvas-grey' : ''} ${isSelected ? 'bg-canvas-light text-gakit-maroon' : 'text-slate-700'}`}
+              >
+                {depth === 'All' ? <Ruler className="w-4 h-4 shrink-0" /> : null}
+                <span className="flex-1 text-left">{label}</span>
+                {isSelected && <CheckCircle2 className="w-4 h-4 shrink-0 text-gakit-maroon" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TimeFilterDropdown({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    return () => document.removeEventListener('mousedown', handlePointerDown);
+  }, [open]);
+
+  const timeRangeOptions: Array<{ value: string; label: string; hours: number | null }> = [
+    { value: '24h', label: 'Last 24 hours', hours: 24 },
+    { value: '7d', label: 'Last 7 days', hours: 24 * 7 },
+    { value: '30d', label: 'Last 30 days', hours: 24 * 30 },
+    { value: 'all', label: 'All time', hours: null },
+  ];
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex w-full items-center justify-between rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none hover:bg-canvas-light"
+      >
+        <span className="flex items-center gap-2">
+          <Clock className="w-4 h-4" />
+          {value === 'all' ? 'All time' : value}
+        </span>
+        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute left-0 z-30 mt-1 w-48 overflow-hidden rounded-lg border border-canvas-grey bg-white py-1 shadow-lg"
+        >
+          {timeRangeOptions.map((option, index) => {
+            const label = option.label;
+            const isSelected = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-canvas-light ${index > 0 ? 'border-t border-canvas-grey' : ''} ${isSelected ? 'bg-canvas-light text-gakit-maroon' : 'text-slate-700'}`}
+              >
+                <Clock className="w-4 h-4 shrink-0" />
+                <span className="flex-1 text-left">{label}</span>
+                {isSelected && <CheckCircle2 className="w-4 h-4 shrink-0 text-gakit-maroon" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 

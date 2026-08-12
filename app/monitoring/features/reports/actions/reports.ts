@@ -40,6 +40,7 @@ export interface MonitoringReportListQuery {
   status?: ReportStatus;
   depth?: FloodDepthCode;
   critical?: boolean;
+  created_after?: string;
 }
 
 export async function createReport(
