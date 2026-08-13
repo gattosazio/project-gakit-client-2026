@@ -77,7 +77,6 @@ export function PublicMap({
 }: PublicMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
-  const [isMapInView, setIsMapInView] = useState(true);
   const backendReportsRef = useRef<MapReportFeature[]>([]);
   const submittedReportsRef = useRef<SubmittedReportProps[]>([]);
   const visibleReportStatusesRef = useRef<Record<ReportStatus, boolean>>({
@@ -644,19 +643,6 @@ export function PublicMap({
     };
   }, [loadMapReports, maplibregl, onMapLoad]);
 
-  // Only show the floating map controls while the map is on screen, so they
-  // don't hover over other content when the map is scrolled out of view.
-  useEffect(() => {
-    const container = mapContainer.current;
-    if (!container) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsMapInView(entry.isIntersecting),
-      { threshold: 0 }
-    );
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
-
   // Apply layer visibility + risk-level filters when toggles change
   useEffect(() => {
     const map = mapRef.current;
@@ -687,9 +673,8 @@ export function PublicMap({
         hasMaptiler={HAS_MAPTILER}
       />
 
-      {isMapInView && (
       <div
-        className={`fixed right-4 md:right-6 z-[1000] ${
+        className={`absolute right-4 md:right-6 z-[1000] ${
           hideShareLocation ? 'bottom-10 md:bottom-8' : 'bottom-44 md:bottom-24'
         }`}
       >
@@ -711,11 +696,11 @@ export function PublicMap({
           }
         />
       </div>
-      )}
-      {isMapInView && !hideShareLocation && (
+
+      {!hideShareLocation && (
         <button
           onClick={handleShareLocation}
-          className="fixed bottom-28 md:bottom-10 right-4 md:right-6 z-[1000] flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur transition-shadow duration-200 hover:shadow-2xl"
+          className="absolute bottom-28 md:bottom-10 right-4 md:right-6 z-[1000] flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur transition-shadow duration-200 hover:shadow-2xl"
           title="Share my location"
           aria-label="Share my location"
         >
