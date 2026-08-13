@@ -2,9 +2,11 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useEffect } from 'react';
 import Image from 'next/image';
-import { LogOut, Map } from 'lucide-react';
+import { LogOut, Map, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { getStaffRole, type StaffRole } from '@/lib/auth/roles';
 import { PortalNavItem } from './portalTypes';
 import { useRouteLoader } from './RouteLoader';
 
@@ -15,6 +17,46 @@ interface SideBarProps<T extends string> {
   onTabChange: (tab: T) => void;
 }
 
+export function MobileSignOutButton({ compact = false }: { compact?: boolean }) {
+  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  async function handleSignOut() {
+    setIsSigningOut(true);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push('/login');
+    router.refresh();
+  }
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={handleSignOut}
+        disabled={isSigningOut}
+        title="Sign out"
+        aria-label="Sign out"
+        className="rounded-lg border border-canvas-grey p-2 text-slate-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+      >
+        <LogOut className="h-5 w-5" />
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleSignOut}
+      disabled={isSigningOut}
+      className="flex flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-[11px] font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+    >
+      <LogOut className="h-5 w-5" />
+      <span className="truncate">{isSigningOut ? '...' : 'Sign out'}</span>
+    </button>
+  );
+}
+
 export function SideBar<T extends string>({
   activeTab,
   items,
@@ -23,7 +65,24 @@ export function SideBar<T extends string>({
 }: SideBarProps<T>) {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
+  const [role, setRole] = useState<StaffRole | null>(null);
   const { navigate, loadingOverlay } = useRouteLoader();
+
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (cancelled || !data.user) return;
+      setEmail(data.user.email ?? null);
+      getStaffRole(supabase, data.user.id).then((staffRole) => {
+        if (!cancelled) setRole(staffRole);
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleLogOut() {
     setIsSigningOut(true);
@@ -87,6 +146,17 @@ export function SideBar<T extends string>({
       </nav>
 
       <div className="p-3 border-t border-slate-100">
+        <div className="mb-3 flex items-center gap-2 rounded-xl bg-slate-50 p-3">
+          <UserRound className="h-4 w-4 shrink-0 text-gakit-maroon" />
+          <div className="min-w-0">
+            <div className="truncate text-xs font-semibold text-slate-900">
+              {email || 'Signed-in user'}
+            </div>
+            <div className="text-[11px] capitalize text-slate-500">
+              {role || 'Loading role...'}
+            </div>
+          </div>
+        </div>
         <button
           onClick={handleLogOut}
           disabled={isSigningOut}

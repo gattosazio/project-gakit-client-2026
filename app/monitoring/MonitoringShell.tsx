@@ -43,7 +43,6 @@ export function MonitoringShell() {
           title={activeFeature.title}
           description={activeFeature.description}
           icon={activeFeature.icon}
-          profileLabel="Staff"
         />
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 lg:pb-6 space-y-6">
           {activeTab === 'dashboard' && (
@@ -77,7 +76,7 @@ function MobileBottomNav({
   return (
     <>
     <nav className="fixed bottom-0 left-0 right-0 z-[1200] border-t border-canvas-grey bg-white shadow-lg lg:hidden">
-      <div className="grid grid-cols-4 gap-1 px-2 py-1.5">
+      <div className="grid grid-cols-3 gap-1 px-2 py-1.5 sm:grid-cols-6">
         <button
           onClick={() => navigate('/')}
           className="flex flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 transition-colors"
