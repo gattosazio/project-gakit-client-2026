@@ -77,6 +77,8 @@ export function PublicMap({
 }: PublicMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
+  const controlsSentinelRef = useRef<HTMLDivElement | null>(null);
+  const [controlsVisible, setControlsVisible] = useState(true);
   const backendReportsRef = useRef<MapReportFeature[]>([]);
   const submittedReportsRef = useRef<SubmittedReportProps[]>([]);
   const visibleReportStatusesRef = useRef<Record<ReportStatus, boolean>>({
@@ -643,6 +645,44 @@ export function PublicMap({
     };
   }, [loadMapReports, maplibregl, onMapLoad]);
 
+  // Hide the layer/share controls when they would sit behind the bottom
+  // navbar (e.g. a short map card on a small phone), while keeping them
+  // anchored to the map so they never float over other content. Uses an
+  // IntersectionObserver on a sentinel at the controls' bottom edge so the
+  // check happens asynchronously without forced layout reads on scroll.
+  useEffect(() => {
+    const el = controlsSentinelRef.current;
+    if (!el) return;
+
+    const clearances = { mobile: 96, desktop: 0 };
+    let clearance = window.innerWidth < 768 ? clearances.mobile : clearances.desktop;
+    let observer: IntersectionObserver | null = null;
+
+    const observe = () => {
+      observer = new IntersectionObserver(
+        ([entry]) => setControlsVisible(entry.isIntersecting),
+        { rootMargin: `0px 0px -${clearance}px 0px`, threshold: 0 }
+      );
+      observer.observe(el);
+    };
+
+    observe();
+
+    const onResize = () => {
+      const next = window.innerWidth < 768 ? clearances.mobile : clearances.desktop;
+      if (next === clearance) return;
+      clearance = next;
+      observer?.disconnect();
+      observe();
+    };
+
+    window.addEventListener('resize', onResize);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
   // Apply layer visibility + risk-level filters when toggles change
   useEffect(() => {
     const map = mapRef.current;
@@ -668,15 +708,16 @@ export function PublicMap({
       <div ref={mapContainer} className="w-full h-full" />
 
       <MapModeToggle
+        className="absolute top-4 right-4 md:right-6 z-[1000] hidden md:flex"
         mode={mapMode}
         onModeChange={handleModeChange}
         hasMaptiler={HAS_MAPTILER}
       />
 
       <div
-        className={`absolute right-4 md:right-6 z-[1000] ${
-          hideShareLocation ? 'bottom-10 md:bottom-8' : 'bottom-44 md:bottom-24'
-        }`}
+        className={`absolute right-4 md:right-6 z-[1000] flex flex-col items-end gap-3 transition-opacity duration-200 ${
+          hideShareLocation ? 'bottom-10 md:bottom-8' : 'bottom-28 md:bottom-10'
+        } ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
       >
         <LayerControls
           layersOpen={layersOpen}
@@ -695,19 +736,25 @@ export function PublicMap({
             setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
           }
         />
-      </div>
 
-      {!hideShareLocation && (
-        <button
-          onClick={handleShareLocation}
-          className="absolute bottom-28 md:bottom-10 right-4 md:right-6 z-[1000] flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur transition-shadow duration-200 hover:shadow-2xl"
-          title="Share my location"
-          aria-label="Share my location"
-        >
-          <Navigation className="w-5 h-5 text-gakit-maroon" />
-          <span className="text-sm font-medium text-slate-700">Share location</span>
-        </button>
-      )}
+        {!hideShareLocation && (
+          <button
+            onClick={handleShareLocation}
+            className="flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
+            title="Share my location"
+            aria-label="Share my location"
+          >
+            <Navigation className="w-5 h-5 text-gakit-maroon" />
+            <span className="text-sm font-medium text-slate-700">Share location</span>
+          </button>
+        )}
+
+        <div
+          ref={controlsSentinelRef}
+          aria-hidden
+          className="absolute bottom-0 right-0 h-px w-px"
+        />
+      </div>
     </div>
   );
 }

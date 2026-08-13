@@ -24,13 +24,15 @@ export function MapModeToggle({
   mode,
   onModeChange,
   hasMaptiler,
+  className = '',
 }: {
   mode: MapMode;
   onModeChange: (mode: MapMode) => void;
   hasMaptiler: boolean;
+  className?: string;
 }) {
   return (
-    <div className="absolute top-4 right-4 md:right-6 z-[1000] flex items-center rounded-md bg-white/90 border border-canvas-grey shadow-lg shadow-slate-900/10 p-0.5">
+    <div className={`${className} flex items-center rounded-md bg-white/90 border border-canvas-grey shadow-lg shadow-slate-900/10 p-0.5`}>
       <button
         type="button"
         onClick={() => onModeChange('2d')}
@@ -98,7 +100,7 @@ export function LayerControls({
   return (
     <>
       {layersOpen ? (
-        <div className="rounded-xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur">
+        <div className="rounded-xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
           <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-900 mb-2">
             <div className="flex items-center gap-2">
               <Layers className="w-3.5 h-3.5" />
@@ -191,7 +193,7 @@ export function LayerControls({
       ) : (
         <button
           onClick={() => onToggleLayers(true)}
-          className="flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur transition-shadow duration-200 hover:shadow-2xl"
+          className="flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
           title="Show layer controls"
           aria-label="Show layer controls"
         >
