@@ -106,7 +106,7 @@ export function SideBar<T extends string>({
           />
         </div>
         <div>
-          <div className="font-bold leading-tight">{portalSubtitle}</div>
+          <div className="text-sm font-bold leading-tight text-slate-500">{portalSubtitle}</div>
         </div>
       </div>
 
