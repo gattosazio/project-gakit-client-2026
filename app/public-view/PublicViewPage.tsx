@@ -267,8 +267,8 @@ export function PublicViewPage() {
       />
 
       <main className="pt-16 pb-14 md:pb-0">
-        <section id="hazard-map" className="min-h-[calc(100vh-4rem)] scroll-mt-16">
-          <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-white">
+        <section id="hazard-map" className="min-h-[calc(100dvh-4rem)] scroll-mt-16">
+          <div className="h-[calc(100dvh-4rem)] flex overflow-hidden bg-white">
             <div className="relative isolate flex-1 w-full h-full min-h-0">
               {isManualLocationMode ? (
                 <div className="absolute left-14 right-4 top-4 z-[1100] md:right-auto md:w-80">
