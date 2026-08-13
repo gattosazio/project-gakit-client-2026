@@ -13,6 +13,7 @@ import {
   Eye,
   Filter,
   FileImage,
+  MoreHorizontal,
   PlusCircle,
   RotateCcw,
   Search,
@@ -298,13 +299,21 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                             </td>
                             <td className="px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
                             <td className="px-5 py-4">
-                              <button
-                                onClick={() => handleInspect(report)}
-                                className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
-                              >
-                                <Eye className="w-4 h-4" />
-                                {selectedReport?.id === report.id ? 'Inspecting' : 'Inspect'}
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleInspect(report)}
+                                  className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  {selectedReport?.id === report.id ? 'Inspecting' : 'Inspect'}
+                                </button>
+                                <ReportRowActions
+                                  report={report}
+                                  isUpdating={updatingId === report.id}
+                                  onInspect={() => handleInspect(report)}
+                                  onUpdateStatus={handleUpdateStatus}
+                                />
+                              </div>
                             </td>
                           </tr>
                         );
@@ -324,12 +333,13 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                   {reports.map((report) => {
                     const status = STATUS_META[report.status];
                     return (
-                      <button
-                        key={report.id}
-                        onClick={() => handleInspect(report)}
-                        className="w-full p-4 text-left hover:bg-canvas-light"
-                      >
-                        <div className="flex items-start justify-between gap-3">
+                      <div key={report.id} className="flex items-start gap-2 p-4 hover:bg-canvas-light">
+                        <button
+                          type="button"
+                          onClick={() => handleInspect(report)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="font-mono text-xs font-semibold text-slate-900">
                               {report.id.slice(0, 8)}
@@ -342,8 +352,15 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                           <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
                             {status.label}
                           </span>
-                        </div>
-                      </button>
+                          </div>
+                        </button>
+                        <ReportRowActions
+                          report={report}
+                          isUpdating={updatingId === report.id}
+                          onInspect={() => handleInspect(report)}
+                          onUpdateStatus={handleUpdateStatus}
+                        />
+                      </div>
                     );
                   })}
                 </div>
@@ -768,6 +785,111 @@ function ReportDetails({
         />
       </div>
     </aside>
+  );
+}
+
+function ReportRowActions({
+  report,
+  isUpdating,
+  onInspect,
+  onUpdateStatus,
+}: {
+  report: Report;
+  isUpdating: boolean;
+  onInspect: () => void;
+  onUpdateStatus: (report: Report, toStatus: ReportStatus) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const options: Array<{
+    status: ReportStatus;
+    label: string;
+    className: string;
+    icon: typeof CheckCircle2;
+  }> = [
+    { status: 'VERIFIED', label: 'Verify', className: 'text-hazard-safe', icon: CheckCircle2 },
+    { status: 'ANOMALY', label: 'Flag for review', className: 'text-hazard-critical', icon: AlertTriangle },
+    { status: 'REJECTED', label: 'Reject', className: 'text-slate-600', icon: XCircle },
+  ];
+
+  const toggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) setMenuPos({ top: rect.bottom + 4, left: Math.max(8, rect.right - 176) });
+    setOpen(true);
+  };
+
+  return (
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggle}
+        disabled={isUpdating}
+        aria-label={`Actions for report ${report.id.slice(0, 8)}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon disabled:opacity-50"
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
+
+      {open &&
+        createPortal(
+          <>
+            <button
+              type="button"
+              aria-hidden
+              tabIndex={-1}
+              className="fixed inset-0 z-[1300] cursor-default"
+              onClick={() => setOpen(false)}
+            />
+            <div
+              role="menu"
+              style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: 176 }}
+              className="z-[1400] overflow-hidden rounded-lg border border-canvas-grey bg-white shadow-lg"
+            >
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onInspect();
+                }}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+              >
+                <Eye className="w-4 h-4" />
+                Open on map
+              </button>
+              {options.map((option) => {
+                const isCurrent = report.status === option.status;
+                const Icon = option.icon;
+                return (
+                  <button
+                    key={option.status}
+                    role="menuitem"
+                    disabled={isCurrent}
+                    onClick={() => {
+                      if (option.status === 'REJECTED' && !window.confirm('Reject this report?')) return;
+                      setOpen(false);
+                      onUpdateStatus(report, option.status);
+                    }}
+                    className={`flex w-full items-center gap-3 border-t border-canvas-grey px-4 py-3 text-sm font-semibold hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-50 ${option.className}`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {option.label}
+                    {isCurrent && <span className="ml-auto text-xs font-medium text-slate-400">Current</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </>,
+          document.body
+        )}
+    </>
   );
 }
 
