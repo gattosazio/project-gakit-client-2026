@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminHeader } from '@/components/AdminHeader';
 import { SideBar } from '@/components/SideBar';
 import { adminFeatures, adminFeatureMap, type AdminFeatureId } from './features/adminFeatureConfig';
@@ -12,8 +12,19 @@ import { UsersRolesTab } from './features/users-roles/UsersRolesTab';
 import './Dashboard.css';
 
 export function AdminShell() {
-  const [activeTab, setActiveTab] = useState<AdminFeatureId>('dashboard');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get('tab') as AdminFeatureId | null;
+  const activeTab = requestedTab && adminFeatureMap[requestedTab] ? requestedTab : 'dashboard';
   const activeFeature = adminFeatureMap[activeTab];
+
+  const handleTabChange = (tab: AdminFeatureId) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === 'dashboard') params.delete('tab');
+    else params.set('tab', tab);
+    const query = params.toString();
+    router.replace(query ? `/admin?${query}` : '/admin', { scroll: false });
+  };
 
   return (
     <div className="h-screen bg-canvas-light flex overflow-hidden">
@@ -21,14 +32,13 @@ export function AdminShell() {
         activeTab={activeTab}
         items={adminFeatures}
         portalSubtitle="Admin Portal"
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
       />
 
       <div className="flex-1 min-w-0 h-screen flex flex-col overflow-hidden">
         <AdminHeader
           title={activeFeature.title}
           description={activeFeature.description}
-          profileLabel="Platform Admin"
         />
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6">

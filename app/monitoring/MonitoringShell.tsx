@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Map } from 'lucide-react';
 import { AdminHeader } from '@/components/AdminHeader';
 import { SideBar } from '@/components/SideBar';
@@ -12,16 +12,23 @@ import { ReviewQueueTab } from './features/review-queue/ReviewQueueTab';
 import { useRouteLoader } from '@/components/RouteLoader';
 import './Monitoring.css';
 export function MonitoringShell() {
-  const [activeTab, setActiveTab] = useState<MonitoringFeatureId>('dashboard');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get('tab') as MonitoringFeatureId | null;
+  const activeTab = requestedTab && monitoringFeatureMap[requestedTab] ? requestedTab : 'dashboard';
   const [criticalReportsOnly, setCriticalReportsOnly] = useState(false);
   const activeFeature = monitoringFeatureMap[activeTab];
   const handleTabChange = (tab: MonitoringFeatureId) => {
     setCriticalReportsOnly(false);
-    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === 'dashboard') params.delete('tab');
+    else params.set('tab', tab);
+    const query = params.toString();
+    router.replace(query ? `/monitoring?${query}` : '/monitoring', { scroll: false });
   };
   const handleReviewCritical = () => {
     setCriticalReportsOnly(true);
-    setActiveTab('reports');
+    handleTabChange('reports');
   };
   return (
     <div className="h-screen bg-canvas-light flex overflow-hidden">
@@ -36,7 +43,6 @@ export function MonitoringShell() {
           title={activeFeature.title}
           description={activeFeature.description}
           icon={activeFeature.icon}
-          profileLabel="Staff"
         />
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 lg:pb-6 space-y-6">
           {activeTab === 'dashboard' && (
@@ -70,7 +76,7 @@ function MobileBottomNav({
   return (
     <>
     <nav className="fixed bottom-0 left-0 right-0 z-[1200] border-t border-canvas-grey bg-white shadow-lg lg:hidden">
-      <div className="grid grid-cols-4 gap-1 px-2 py-1.5">
+      <div className="grid grid-cols-3 gap-1 px-2 py-1.5 sm:grid-cols-6">
         <button
           onClick={() => navigate('/')}
           className="flex flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-[11px] font-semibold text-slate-500 hover:bg-slate-100 transition-colors"

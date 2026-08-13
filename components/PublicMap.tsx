@@ -7,7 +7,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { ChevronUp, Layers, MapPin, Navigation } from 'lucide-react';
+import { ChevronUp, Layers, Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
   ILIGAN_REPORT_BOUNDS,
@@ -108,7 +108,8 @@ interface SubmittedReportProps {
 
 const buildReportsGeoJson = (
   backendReports: MapReportFeature[],
-  submittedReports: SubmittedReportProps[]
+  submittedReports: SubmittedReportProps[],
+  visibleStatuses: Record<ReportStatus, boolean>
 ) => {
   // The map's own fetch and the page-level `submittedReports` carry the same
   // API reports, so dedupe by id to avoid double-counting in clusters.
@@ -155,7 +156,10 @@ const buildReportsGeoJson = (
     });
   });
 
-  return { type: 'FeatureCollection', features };
+  return {
+    type: 'FeatureCollection',
+    features: features.filter((feature) => visibleStatuses[feature.properties.status as ReportStatus]),
+  };
 };
 
 const buildSelectedGeoJson = (selectedLocation: { lat: number; lng: number } | null) => {
@@ -289,6 +293,12 @@ export function PublicMap({
   const mapRef = useRef<any>(null);
   const backendReportsRef = useRef<MapReportFeature[]>([]);
   const submittedReportsRef = useRef<SubmittedReportProps[]>([]);
+  const visibleReportStatusesRef = useRef<Record<ReportStatus, boolean>>({
+    UNVERIFIED: true,
+    VERIFIED: true,
+    ANOMALY: true,
+    REJECTED: true,
+  });
   const selectedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
   const handleLocationSelectRef = useRef<(lat: number, lng: number) => void>(() => {});
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -313,6 +323,12 @@ export function PublicMap({
     high: true,
     medium: true,
     low: true,
+  });
+  const [visibleReportStatuses, setVisibleReportStatuses] = useState<Record<ReportStatus, boolean>>({
+    UNVERIFIED: true,
+    VERIFIED: true,
+    ANOMALY: true,
+    REJECTED: true,
   });
   const layersReadyRef = useRef(false);
   const loadingReportsRef = useRef(false);
@@ -563,8 +579,9 @@ export function PublicMap({
   useEffect(() => {
     backendReportsRef.current = backendReports;
     submittedReportsRef.current = submittedReports;
+    visibleReportStatusesRef.current = visibleReportStatuses;
     selectedLocationRef.current = selectedLocation;
-  }, [backendReports, submittedReports, selectedLocation]);
+  }, [backendReports, submittedReports, selectedLocation, visibleReportStatuses]);
 
   useEffect(() => {
     handleLocationSelectRef.current = handleLocationSelect;
@@ -574,7 +591,11 @@ export function PublicMap({
     const reportsSource = map?.getSource?.('reports');
     if (reportsSource) {
       reportsSource.setData(
-        buildReportsGeoJson(backendReportsRef.current, submittedReportsRef.current)
+        buildReportsGeoJson(
+          backendReportsRef.current,
+          submittedReportsRef.current,
+          visibleReportStatusesRef.current
+        )
       );
     }
     const selectedSource = map?.getSource?.('selected-location');
@@ -620,6 +641,7 @@ export function PublicMap({
     backendReports,
     submittedReports,
     selectedLocation,
+    visibleReportStatuses,
     applyReportData,
     applySelectedMarker,
   ]);
@@ -1037,19 +1059,18 @@ export function PublicMap({
                 </div>
                 <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
                   {REPORT_STATUS_LEGEND.map(({ status, label }) => (
-                    <div key={status} className="flex items-center gap-1.5">
-                      <MapPin
-                        className="h-3.5 w-3.5"
-                        style={{
-                          color: REPORT_MARKER_COLORS[status],
-                          fill: REPORT_MARKER_COLORS[status],
-                        }}
-                        aria-hidden="true"
-                      />
-                      <span className="text-[11px] font-medium text-slate-600">
-                        {label}
-                      </span>
-                    </div>
+                    <LayerToggle
+                      key={status}
+                      label={label}
+                      color={REPORT_MARKER_COLORS[status]}
+                      checked={visibleReportStatuses[status]}
+                      onChange={(checked) =>
+                        setVisibleReportStatuses((previous) => ({
+                          ...previous,
+                          [status]: checked,
+                        }))
+                      }
+                    />
                   ))}
                 </div>
               </div>

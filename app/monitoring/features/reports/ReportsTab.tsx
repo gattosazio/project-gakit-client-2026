@@ -12,7 +12,7 @@ import {
   Clock,
   Eye,
   Filter,
-  FileImage,
+  MoreHorizontal,
   PlusCircle,
   RotateCcw,
   Search,
@@ -30,6 +30,7 @@ import { toast } from 'react-toastify';
 import { FeaturePageShell } from '../shared/FeaturePageShell';
 import { createClient } from '@/lib/supabase/client';
 import { createReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
+import { ReportDetail } from './ReportDetail';
 
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
   loading: () => <div className="w-full h-full bg-canvas-grey flex items-center justify-center">Loading map...</div>,
@@ -77,7 +78,6 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
   const [actor, setActor] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [reportsCollapsed, setReportsCollapsed] = useState(false);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const mapSectionRef = useRef<HTMLElement | null>(null);
 
@@ -93,10 +93,6 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
   useEffect(() => {
     setCriticalFilter(initialCritical);
   }, [initialCritical]);
-
-  useEffect(() => {
-    setReportsCollapsed(window.matchMedia('(max-width: 1023px)').matches);
-  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -125,7 +121,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
           setSelectedReportId((currentId) =>
             currentId && result.items.some((report) => report.id === currentId)
               ? currentId
-              : (result.items[0]?.id ?? null)
+              : null
           );
         })
         .catch((err: unknown) => {
@@ -141,7 +137,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
   }, [currentPage, query, statusFilter, depthFilter, timeFilter, criticalFilter, refreshKey]);
 
   const selectedReport =
-    reports.find((report) => report.id === selectedReportId) || reports[0] || null;
+    reports.find((report) => report.id === selectedReportId) || null;
 
   const resetFilters = () => {
     setQuery('');
@@ -190,7 +186,6 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
   const handleNoopLocationSelect = useCallback(() => {}, []);
 
   const handleInspect = (report: Report) => {
-    setSelectedReportId(report.id);
     mapRef.current?.showReport({
       id: report.id,
       lat: report.location.latitude,
@@ -225,104 +220,42 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
 
   return (
     <>
-      <FeaturePageShell
-        toolbar={
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_10rem_auto_auto]">
-          <label className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 col-span-2 xl:col-span-1">
-            <Search className="w-4 h-4 text-slate-400" />
-            <input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Search UUID or address"
-              className="w-full bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
-            />
-          </label>
-
-          <StatusFilterDropdown
-            value={statusFilter}
-            onChange={(value) => {
-              setStatusFilter(value);
-              setCurrentPage(1);
-            }}
-          />
-
-          <DepthsFilterDropdown
-            value={depthFilter}
-            onChange={(value) => {
-              setDepthFilter(value);
-              setCurrentPage(1);
-            }}
-          />
-
-          <button
-            onClick={() => {
-              setCriticalFilter((value) => !value);
-              setCurrentPage(1);
-            }}
-            aria-pressed={criticalFilter}
-            className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
-              criticalFilter
-                ? 'border-gakit-maroon bg-gakit-maroon text-white'
-                : 'border-canvas-grey bg-white text-slate-700 hover:bg-canvas-light'
-            }`}
-          >
-            <ShieldAlert className="w-4 h-4" />
-            Critical
-          </button>
-
-          <TimeFilterDropdown
-            value={timeFilter}
-            onChange={(value) => {
-              setTimeFilter(value);
-              setCurrentPage(1);
-            }}
-          />
-
-          <button
-            onClick={resetFilters}
-            className="flex items-center justify-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Reset
-          </button>
-
-          <button
-            onClick={() => setIsSubmitOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white hover:bg-maroon-800"
-          >
-            <PlusCircle className="w-4 h-4" />
-            Submit Report
-          </button>
-        </div>
-        }
-      >
+      <FeaturePageShell>
         <section className="grid grid-cols-1 gap-4">
             <div className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-canvas-grey flex items-center justify-between">
+              <div className="space-y-4 p-4 border-b border-canvas-grey">
                 <div>
                   <h3 className="font-bold text-slate-900">Reports</h3>
-                  <p className="text-sm text-slate-500">{loading ? 'Loading...' : `${total} reports found`}</p>
+                  {/* <p className="text-sm text-slate-500">{loading ? 'Loading...' : `${total} reports found`}</p> */}
                 </div>
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-                  <span className="hidden sm:inline-flex items-center gap-2">
-                    <Filter className="w-4 h-4" />
-                    Server filters
-                  </span>
-                  <button
-                    onClick={() => setReportsCollapsed((value) => !value)}
-                    aria-expanded={!reportsCollapsed}
-                    aria-label={reportsCollapsed ? 'Show reports' : 'Hide reports'}
-                    className="flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-slate-600 hover:bg-canvas-light"
-                  >
-                    <ChevronDown className={`w-4 h-4 transition-transform ${reportsCollapsed ? '-rotate-90' : ''}`} />
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_10rem_auto_auto]">
+                  <label className="col-span-2 flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 xl:col-span-1">
+                    <Search className="w-4 h-4 text-slate-400" />
+                    <input
+                      value={query}
+                      onChange={(event) => {
+                        setQuery(event.target.value);
+                        setCurrentPage(1);
+                      }}
+                      placeholder="Search UUID or address"
+                      className="w-full bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
+                    />
+                  </label>
+                  <StatusFilterDropdown value={statusFilter} onChange={(value) => { setStatusFilter(value); setCurrentPage(1); }} />
+                  <DepthsFilterDropdown value={depthFilter} onChange={(value) => { setDepthFilter(value); setCurrentPage(1); }} />
+                  <TimeFilterDropdown value={timeFilter} onChange={(value) => { setTimeFilter(value); setCurrentPage(1); }} />
+                  <button onClick={resetFilters} className="flex items-center justify-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light">
+                    <RotateCcw className="w-4 h-4" />
+                    Reset
+                  </button>
+                  <button onClick={() => setIsSubmitOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white hover:bg-maroon-800">
+                    <PlusCircle className="w-4 h-4" />
+                    Submit Report
                   </button>
                 </div>
               </div>
 
-              {!reportsCollapsed && (error ? (
+              {error ? (
                 <div className="p-6 text-sm text-red-700">{error}</div>
               ) : (
                 <>
@@ -365,13 +298,23 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                             </td>
                             <td className="px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
                             <td className="px-5 py-4">
-                              <button
-                                onClick={() => handleInspect(report)}
-                                className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
-                              >
-                                <Eye className="w-4 h-4" />
-                                {selectedReport?.id === report.id ? 'Inspecting' : 'Inspect'}
-                              </button>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleInspect(report)}
+                                  aria-label="Inspect report on map"
+                                  title="Inspect on map"
+                                  className="inline-flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <ReportRowActions
+                                  report={report}
+                                  isUpdating={updatingId === report.id}
+                                  onInspect={() => handleInspect(report)}
+                                  onViewDetails={() => setSelectedReportId(report.id)}
+                                  onUpdateStatus={handleUpdateStatus}
+                                />
+                              </div>
                             </td>
                           </tr>
                         );
@@ -391,12 +334,13 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                   {reports.map((report) => {
                     const status = STATUS_META[report.status];
                     return (
-                      <button
-                        key={report.id}
-                        onClick={() => handleInspect(report)}
-                        className="w-full p-4 text-left hover:bg-canvas-light"
-                      >
-                        <div className="flex items-start justify-between gap-3">
+                      <div key={report.id} className="flex items-start gap-2 p-4 hover:bg-canvas-light">
+                        <button
+                          type="button"
+                          onClick={() => handleInspect(report)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="font-mono text-xs font-semibold text-slate-900">
                               {report.id.slice(0, 8)}
@@ -409,8 +353,16 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                           <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
                             {status.label}
                           </span>
-                        </div>
-                      </button>
+                          </div>
+                        </button>
+                        <ReportRowActions
+                          report={report}
+                          isUpdating={updatingId === report.id}
+                          onInspect={() => handleInspect(report)}
+                          onViewDetails={() => setSelectedReportId(report.id)}
+                          onUpdateStatus={handleUpdateStatus}
+                        />
+                      </div>
                     );
                   })}
                 </div>
@@ -423,14 +375,11 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                   onPageChange={handlePageChange}
                 />
               </>
-              ))}
+              )}
             </div>
         </section>
 
-        <section
-          ref={mapSectionRef}
-          className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_24rem] gap-4 scroll-mt-6"
-        >
+        <section ref={mapSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
           <div className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
             <div className="p-4 border-b border-canvas-grey flex items-center justify-between">
               <div>
@@ -456,18 +405,18 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
             </div>
           </div>
 
-          {selectedReport ? (
-            <ReportDetails
+        </section>
+        {selectedReport && (
+          <div>
+            <ReportDetail
               report={selectedReport}
               onUpdateStatus={handleUpdateStatus}
               isUpdating={updatingId === selectedReport.id}
+              onClose={() => setSelectedReportId(null)}
+              modal
             />
-          ) : (
-            <aside className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
-              <div className="p-5 text-sm text-slate-500">Select a report to view details.</div>
-            </aside>
-          )}
-        </section>
+          </div>
+        )}
       </FeaturePageShell>
 
       {isSubmitOpen && (
@@ -783,58 +732,116 @@ function StaffSubmitReportModal({
   );
 }
 
-function ReportDetails({
+function ReportRowActions({
   report,
-  onUpdateStatus,
   isUpdating,
+  onInspect,
+  onViewDetails,
+  onUpdateStatus,
 }: {
   report: Report;
-  onUpdateStatus: (report: Report, toStatus: ReportStatus) => void;
   isUpdating: boolean;
+  onInspect: () => void;
+  onViewDetails: () => void;
+  onUpdateStatus: (report: Report, toStatus: ReportStatus) => void;
 }) {
-  const status = STATUS_META[report.status];
-  const address =
-    report.location.address ||
-    `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`;
+  const [open, setOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const options: Array<{
+    status: ReportStatus;
+    label: string;
+    className: string;
+  }> = [
+    { status: 'VERIFIED', label: 'Verify', className: 'text-hazard-safe' },
+    { status: 'ANOMALY', label: 'Flag for review', className: 'text-hazard-critical' },
+    { status: 'REJECTED', label: 'Reject', className: 'text-slate-600' },
+  ];
+
+  const toggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) setMenuPos({ top: rect.bottom + 4, left: Math.max(8, rect.right - 176) });
+    setOpen(true);
+  };
 
   return (
-    <aside className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
-      <div className="p-5 border-b border-canvas-grey">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="font-bold text-slate-900">Report Details</h3>
-            <p className="text-sm text-slate-500 mt-1 break-all">{report.id}</p>
-          </div>
-          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
-            {status.label}
-          </span>
-        </div>
-      </div>
+    <>
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggle}
+        disabled={isUpdating}
+        aria-label={`Actions for report ${report.id.slice(0, 8)}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="inline-flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon disabled:opacity-50"
+      >
+        <MoreHorizontal className="h-4 w-4" />
+      </button>
 
-      <div className="p-5 space-y-5">
-        <div className="aspect-video rounded-lg bg-canvas-light border border-canvas-grey flex items-center justify-center">
-          <div className="text-center">
-            <FileImage className="w-8 h-8 text-slate-300 mx-auto" />
-            <div className="text-sm font-semibold text-slate-500 mt-2">No photo submitted</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <DetailItem label="Location" value={address} />
-          <DetailItem label="Depth" value={DEPTH_LABELS[report.depth.code]} />
-          <DetailItem label="Status" value={status.label} />
-          <DetailItem label="Coordinates" value={`${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`} />
-          <DetailItem label="Submitted" value={formatDateTime(report.createdAt)} />
-          <DetailItem label="Observed" value={formatDateTime(report.observedAt)} />
-        </div>
-
-        <StatusActionMenu
-          report={report}
-          isUpdating={isUpdating}
-          onUpdateStatus={onUpdateStatus}
-        />
-      </div>
-    </aside>
+      {open &&
+        createPortal(
+          <>
+            <button
+              type="button"
+              aria-hidden
+              tabIndex={-1}
+              className="fixed inset-0 z-[1300] cursor-default"
+              onClick={() => setOpen(false)}
+            />
+            <div
+              role="menu"
+              style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: 176 }}
+              className="z-[1400] overflow-hidden rounded-lg border border-canvas-grey bg-white shadow-lg"
+            >
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onViewDetails();
+                }}
+                className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+              >
+                View details
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onInspect();
+                }}
+                className="flex w-full items-center gap-3 border-t border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+              >
+                Open on map
+              </button>
+              {options.map((option) => {
+                const isCurrent = report.status === option.status;
+                return (
+                  <button
+                    key={option.status}
+                    role="menuitem"
+                    disabled={isCurrent}
+                    onClick={() => {
+                      if (option.status === 'REJECTED' && !window.confirm('Reject this report?')) return;
+                      setOpen(false);
+                      onUpdateStatus(report, option.status);
+                    }}
+                    className={`flex w-full items-center gap-3 border-t border-canvas-grey px-4 py-3 text-sm font-semibold hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-50 ${option.className}`}
+                  >
+                    {option.label}
+                    {isCurrent && <span className="ml-auto text-xs font-medium text-slate-400">Current</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </>,
+          document.body
+        )}
+    </>
   );
 }
 
