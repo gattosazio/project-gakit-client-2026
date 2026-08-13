@@ -77,7 +77,6 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
   const [actor, setActor] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const [reportsCollapsed, setReportsCollapsed] = useState(false);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const mapSectionRef = useRef<HTMLElement | null>(null);
 
@@ -93,10 +92,6 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
   useEffect(() => {
     setCriticalFilter(initialCritical);
   }, [initialCritical]);
-
-  useEffect(() => {
-    setReportsCollapsed(window.matchMedia('(max-width: 1023px)').matches);
-  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -225,104 +220,42 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
 
   return (
     <>
-      <FeaturePageShell
-        toolbar={
-        <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_10rem_auto_auto]">
-          <label className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 col-span-2 xl:col-span-1">
-            <Search className="w-4 h-4 text-slate-400" />
-            <input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Search UUID or address"
-              className="w-full bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
-            />
-          </label>
-
-          <StatusFilterDropdown
-            value={statusFilter}
-            onChange={(value) => {
-              setStatusFilter(value);
-              setCurrentPage(1);
-            }}
-          />
-
-          <DepthsFilterDropdown
-            value={depthFilter}
-            onChange={(value) => {
-              setDepthFilter(value);
-              setCurrentPage(1);
-            }}
-          />
-
-          <button
-            onClick={() => {
-              setCriticalFilter((value) => !value);
-              setCurrentPage(1);
-            }}
-            aria-pressed={criticalFilter}
-            className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
-              criticalFilter
-                ? 'border-gakit-maroon bg-gakit-maroon text-white'
-                : 'border-canvas-grey bg-white text-slate-700 hover:bg-canvas-light'
-            }`}
-          >
-            <ShieldAlert className="w-4 h-4" />
-            Critical
-          </button>
-
-          <TimeFilterDropdown
-            value={timeFilter}
-            onChange={(value) => {
-              setTimeFilter(value);
-              setCurrentPage(1);
-            }}
-          />
-
-          <button
-            onClick={resetFilters}
-            className="flex items-center justify-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Reset
-          </button>
-
-          <button
-            onClick={() => setIsSubmitOpen(true)}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white hover:bg-maroon-800"
-          >
-            <PlusCircle className="w-4 h-4" />
-            Submit Report
-          </button>
-        </div>
-        }
-      >
+      <FeaturePageShell>
         <section className="grid grid-cols-1 gap-4">
             <div className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
-              <div className="p-4 border-b border-canvas-grey flex items-center justify-between">
+              <div className="space-y-4 p-4 border-b border-canvas-grey">
                 <div>
                   <h3 className="font-bold text-slate-900">Reports</h3>
-                  <p className="text-sm text-slate-500">{loading ? 'Loading...' : `${total} reports found`}</p>
+                  {/* <p className="text-sm text-slate-500">{loading ? 'Loading...' : `${total} reports found`}</p> */}
                 </div>
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-                  <span className="hidden sm:inline-flex items-center gap-2">
-                    <Filter className="w-4 h-4" />
-                    Server filters
-                  </span>
-                  <button
-                    onClick={() => setReportsCollapsed((value) => !value)}
-                    aria-expanded={!reportsCollapsed}
-                    aria-label={reportsCollapsed ? 'Show reports' : 'Hide reports'}
-                    className="flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-slate-600 hover:bg-canvas-light"
-                  >
-                    <ChevronDown className={`w-4 h-4 transition-transform ${reportsCollapsed ? '-rotate-90' : ''}`} />
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_10rem_auto_auto]">
+                  <label className="col-span-2 flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 xl:col-span-1">
+                    <Search className="w-4 h-4 text-slate-400" />
+                    <input
+                      value={query}
+                      onChange={(event) => {
+                        setQuery(event.target.value);
+                        setCurrentPage(1);
+                      }}
+                      placeholder="Search UUID or address"
+                      className="w-full bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
+                    />
+                  </label>
+                  <StatusFilterDropdown value={statusFilter} onChange={(value) => { setStatusFilter(value); setCurrentPage(1); }} />
+                  <DepthsFilterDropdown value={depthFilter} onChange={(value) => { setDepthFilter(value); setCurrentPage(1); }} />
+                  <TimeFilterDropdown value={timeFilter} onChange={(value) => { setTimeFilter(value); setCurrentPage(1); }} />
+                  <button onClick={resetFilters} className="flex items-center justify-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light">
+                    <RotateCcw className="w-4 h-4" />
+                    Reset
+                  </button>
+                  <button onClick={() => setIsSubmitOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white hover:bg-maroon-800">
+                    <PlusCircle className="w-4 h-4" />
+                    Submit Report
                   </button>
                 </div>
               </div>
 
-              {!reportsCollapsed && (error ? (
+              {error ? (
                 <div className="p-6 text-sm text-red-700">{error}</div>
               ) : (
                 <>
@@ -423,7 +356,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                   onPageChange={handlePageChange}
                 />
               </>
-              ))}
+              )}
             </div>
         </section>
 
