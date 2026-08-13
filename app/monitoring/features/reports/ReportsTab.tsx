@@ -12,7 +12,6 @@ import {
   Clock,
   Eye,
   Filter,
-  FileImage,
   MoreHorizontal,
   PlusCircle,
   RotateCcw,
@@ -31,6 +30,7 @@ import { toast } from 'react-toastify';
 import { FeaturePageShell } from '../shared/FeaturePageShell';
 import { createClient } from '@/lib/supabase/client';
 import { createReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
+import { ReportDetail } from './ReportDetail';
 
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
   loading: () => <div className="w-full h-full bg-canvas-grey flex items-center justify-center">Loading map...</div>,
@@ -121,7 +121,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
           setSelectedReportId((currentId) =>
             currentId && result.items.some((report) => report.id === currentId)
               ? currentId
-              : (result.items[0]?.id ?? null)
+              : null
           );
         })
         .catch((err: unknown) => {
@@ -137,7 +137,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
   }, [currentPage, query, statusFilter, depthFilter, timeFilter, criticalFilter, refreshKey]);
 
   const selectedReport =
-    reports.find((report) => report.id === selectedReportId) || reports[0] || null;
+    reports.find((report) => report.id === selectedReportId) || null;
 
   const resetFilters = () => {
     setQuery('');
@@ -186,7 +186,6 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
   const handleNoopLocationSelect = useCallback(() => {}, []);
 
   const handleInspect = (report: Report) => {
-    setSelectedReportId(report.id);
     mapRef.current?.showReport({
       id: report.id,
       lat: report.location.latitude,
@@ -302,15 +301,17 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => handleInspect(report)}
-                                  className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
+                                  aria-label="Inspect report on map"
+                                  title="Inspect on map"
+                                  className="inline-flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
                                 >
-                                  <Eye className="w-4 h-4" />
-                                  {selectedReport?.id === report.id ? 'Inspecting' : 'Inspect'}
+                                  <Eye className="h-4 w-4" />
                                 </button>
                                 <ReportRowActions
                                   report={report}
                                   isUpdating={updatingId === report.id}
                                   onInspect={() => handleInspect(report)}
+                                  onViewDetails={() => setSelectedReportId(report.id)}
                                   onUpdateStatus={handleUpdateStatus}
                                 />
                               </div>
@@ -358,6 +359,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                           report={report}
                           isUpdating={updatingId === report.id}
                           onInspect={() => handleInspect(report)}
+                          onViewDetails={() => setSelectedReportId(report.id)}
                           onUpdateStatus={handleUpdateStatus}
                         />
                       </div>
@@ -377,10 +379,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
             </div>
         </section>
 
-        <section
-          ref={mapSectionRef}
-          className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_24rem] gap-4 scroll-mt-6"
-        >
+        <section ref={mapSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
           <div className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
             <div className="p-4 border-b border-canvas-grey flex items-center justify-between">
               <div>
@@ -406,18 +405,18 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
             </div>
           </div>
 
-          {selectedReport ? (
-            <ReportDetails
+        </section>
+        {selectedReport && (
+          <div>
+            <ReportDetail
               report={selectedReport}
               onUpdateStatus={handleUpdateStatus}
               isUpdating={updatingId === selectedReport.id}
+              onClose={() => setSelectedReportId(null)}
+              modal
             />
-          ) : (
-            <aside className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
-              <div className="p-5 text-sm text-slate-500">Select a report to view details.</div>
-            </aside>
-          )}
-        </section>
+          </div>
+        )}
       </FeaturePageShell>
 
       {isSubmitOpen && (
@@ -733,70 +732,17 @@ function StaffSubmitReportModal({
   );
 }
 
-function ReportDetails({
-  report,
-  onUpdateStatus,
-  isUpdating,
-}: {
-  report: Report;
-  onUpdateStatus: (report: Report, toStatus: ReportStatus) => void;
-  isUpdating: boolean;
-}) {
-  const status = STATUS_META[report.status];
-  const address =
-    report.location.address ||
-    `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`;
-
-  return (
-    <aside className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
-      <div className="p-5 border-b border-canvas-grey">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h3 className="font-bold text-slate-900">Report Details</h3>
-            <p className="text-sm text-slate-500 mt-1 break-all">{report.id}</p>
-          </div>
-          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
-            {status.label}
-          </span>
-        </div>
-      </div>
-
-      <div className="p-5 space-y-5">
-        <div className="aspect-video rounded-lg bg-canvas-light border border-canvas-grey flex items-center justify-center">
-          <div className="text-center">
-            <FileImage className="w-8 h-8 text-slate-300 mx-auto" />
-            <div className="text-sm font-semibold text-slate-500 mt-2">No photo submitted</div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 text-sm">
-          <DetailItem label="Location" value={address} />
-          <DetailItem label="Depth" value={DEPTH_LABELS[report.depth.code]} />
-          <DetailItem label="Status" value={status.label} />
-          <DetailItem label="Coordinates" value={`${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`} />
-          <DetailItem label="Submitted" value={formatDateTime(report.createdAt)} />
-          <DetailItem label="Observed" value={formatDateTime(report.observedAt)} />
-        </div>
-
-        <StatusActionMenu
-          report={report}
-          isUpdating={isUpdating}
-          onUpdateStatus={onUpdateStatus}
-        />
-      </div>
-    </aside>
-  );
-}
-
 function ReportRowActions({
   report,
   isUpdating,
   onInspect,
+  onViewDetails,
   onUpdateStatus,
 }: {
   report: Report;
   isUpdating: boolean;
   onInspect: () => void;
+  onViewDetails: () => void;
   onUpdateStatus: (report: Report, toStatus: ReportStatus) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -806,11 +752,10 @@ function ReportRowActions({
     status: ReportStatus;
     label: string;
     className: string;
-    icon: typeof CheckCircle2;
   }> = [
-    { status: 'VERIFIED', label: 'Verify', className: 'text-hazard-safe', icon: CheckCircle2 },
-    { status: 'ANOMALY', label: 'Flag for review', className: 'text-hazard-critical', icon: AlertTriangle },
-    { status: 'REJECTED', label: 'Reject', className: 'text-slate-600', icon: XCircle },
+    { status: 'VERIFIED', label: 'Verify', className: 'text-hazard-safe' },
+    { status: 'ANOMALY', label: 'Flag for review', className: 'text-hazard-critical' },
+    { status: 'REJECTED', label: 'Reject', className: 'text-slate-600' },
   ];
 
   const toggle = () => {
@@ -835,7 +780,7 @@ function ReportRowActions({
         aria-expanded={open}
         className="inline-flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon disabled:opacity-50"
       >
-        <MoreHorizontal className="w-4 h-4" />
+        <MoreHorizontal className="h-4 w-4" />
       </button>
 
       {open &&
@@ -857,16 +802,24 @@ function ReportRowActions({
                 role="menuitem"
                 onClick={() => {
                   setOpen(false);
-                  onInspect();
+                  onViewDetails();
                 }}
                 className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
               >
-                <Eye className="w-4 h-4" />
+                View details
+              </button>
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onInspect();
+                }}
+                className="flex w-full items-center gap-3 border-t border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+              >
                 Open on map
               </button>
               {options.map((option) => {
                 const isCurrent = report.status === option.status;
-                const Icon = option.icon;
                 return (
                   <button
                     key={option.status}
@@ -879,7 +832,6 @@ function ReportRowActions({
                     }}
                     className={`flex w-full items-center gap-3 border-t border-canvas-grey px-4 py-3 text-sm font-semibold hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-50 ${option.className}`}
                   >
-                    <Icon className="w-4 h-4" />
                     {option.label}
                     {isCurrent && <span className="ml-auto text-xs font-medium text-slate-400">Current</span>}
                   </button>
