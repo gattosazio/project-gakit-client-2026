@@ -3,9 +3,20 @@ import type { ReportStatus } from '@/types/report';
 
 const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
+export const HAS_MAPTILER = Boolean(MAPTILER_KEY);
+
+// Default 2D basemap — OpenFreeMap needs no API key.
+export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/bright';
+
+// Optional 3D-capable basemap (MapTiler). Only usable when a key is present.
 export const MAPTILER_STYLE = MAPTILER_KEY
   ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-  : 'https://tiles.openfreemap.org/styles/bright';
+  : OPENFREEMAP_STYLE;
+
+// Raster elevation source used to enable 3D terrain in the MapTiler view.
+export const MAPTILER_TERRAIN_STYLE = MAPTILER_KEY
+  ? `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${MAPTILER_KEY}`
+  : '';
 
 export const ILIGAN_REPORT_BOUNDS = {
   west: ILIGAN_BOUNDS[0][0],

@@ -3,12 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { LogOut, UserRound } from 'lucide-react';
+import { Info, LogOut, MapPinned, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole, type StaffRole } from '@/lib/auth/roles';
 import { useRouteLoader } from './RouteLoader';
+import { SignOutConfirmDialog } from './SideBar';
 
-export function PublicHeader() {
+export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' | 'about' }) {
   const router = useRouter();
   const { navigate, loadingOverlay } = useRouteLoader();
   const [role, setRole] = useState<StaffRole | null>(null);
@@ -16,6 +17,7 @@ export function PublicHeader() {
   const [email, setEmail] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,7 +90,10 @@ export function PublicHeader() {
       </div>
       <button
         type="button"
-        onClick={handleSignOut}
+        onClick={() => {
+          setIsMenuOpen(false);
+          setShowSignOutConfirm(true);
+        }}
         disabled={isSigningOut}
         className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
       >
@@ -128,7 +133,11 @@ export function PublicHeader() {
           <nav className="hidden items-center gap-3 text-sm font-semibold md:flex">
             <button
               onClick={() => scrollToSection('about')}
-              className="px-4 py-2.5 text-slate-600 hover:text-gakit-maroon hover:bg-slate-50 rounded-lg transition-colors"
+              className={`rounded-lg px-4 py-2.5 transition-colors ${
+                activeSection === 'about'
+                  ? 'bg-maroon-50 text-gakit-maroon'
+                  : 'text-slate-600 hover:bg-slate-50 hover:text-gakit-maroon'
+              }`}
             >
               About
             </button>
@@ -191,25 +200,48 @@ export function PublicHeader() {
         </div>
       )}
 
-      <nav className="fixed bottom-0 left-0 right-0 z-[1200] border-t border-canvas-grey bg-white px-4 py-3 text-xs font-semibold shadow-lg md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-2 gap-3">
+      <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-4 md:hidden">
+        <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white/95 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur">
+          <button
+            onClick={() => scrollToSection('hazard-map')}
+            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors ${
+              activeSection === 'hazard-map'
+                ? 'bg-maroon-50 text-gakit-maroon'
+                : 'text-slate-500 hover:bg-maroon-50 hover:text-gakit-maroon'
+            }`}
+          >
+            <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
+            <span className="text-[10px] font-semibold">Map</span>
+          </button>
           <button
             onClick={() => scrollToSection('about')}
-            className="px-4 py-2.5 text-slate-600 hover:text-gakit-maroon hover:bg-slate-50 rounded-lg transition-colors"
+            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors ${
+              activeSection === 'about'
+                ? 'bg-maroon-50 text-gakit-maroon'
+                : 'text-slate-500 hover:bg-maroon-50 hover:text-gakit-maroon'
+            }`}
           >
-            About
+            <Info className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
+            <span className="text-[10px] font-semibold">About</span>
           </button>
           {!isChecking && (
             <button
               onClick={handleAccountClick}
-              className="rounded-lg border-2 border-gakit-maroon px-6 py-2.5 text-gakit-maroon bg-white transition-colors hover:bg-maroon-50 inline-flex items-center justify-center gap-2"
+              className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-colors hover:bg-maroon-50 hover:text-gakit-maroon"
             >
-              {accountLabel}
+              <UserRound className="h-5 w-5" />
+              <span className="text-[10px] font-semibold">{accountLabel}</span>
             </button>
           )}
         </div>
       </nav>
     </header>
+    <SignOutConfirmDialog
+      isOpen={showSignOutConfirm}
+      isSigningOut={isSigningOut}
+      onConfirm={handleSignOut}
+      onCancel={() => setShowSignOutConfirm(false)}
+    />
     {loadingOverlay}
     </>
   );

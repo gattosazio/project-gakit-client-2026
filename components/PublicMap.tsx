@@ -7,242 +7,32 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { ChevronUp, Layers, Navigation } from 'lucide-react';
+import { Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
 import {
+  HAS_MAPTILER,
   ILIGAN_REPORT_BOUNDS,
   MAPTILER_STYLE,
-  REPORT_MARKER_COLORS,
-  REPORT_MARKER_IMAGE_IDS,
-  REPORT_STATUS_LABELS,
-  REPORT_STATUS_LEGEND,
+  OPENFREEMAP_STYLE,
 } from '@/constants/publicMap';
 import { ILIGAN_CENTER, reverseGeocode } from '@/lib/geoUtils';
 import { fetchRainfall, buildRainfallGrid } from '@/lib/rainfall';
 import { queryFloodHazard, type FloodRiskLevel } from '@/lib/floodHazard';
+import {
+  buildReportPopupHtml,
+  buildReportsGeoJson,
+  buildSelectedGeoJson,
+  riskLevelFilter,
+  setupOverlayLayers,
+  type MapMode,
+  type SubmittedReportProps,
+} from '@/lib/mapLayers';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 import type { RainfallGrid } from '@/types/rainfall';
+import { LayerControls, MapModeToggle } from '@/components/map/MapControls';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { fetchMapReports } from '@/app/public-view/actions/public.view';
-
-const createReportMarkerImage = (color: string): ImageData | null => {
-  const canvas = document.createElement('canvas');
-  canvas.width = 72;
-  canvas.height = 88;
-  const context = canvas.getContext('2d');
-  if (!context) return null;
-
-  const drawPin = () => {
-    context.beginPath();
-    context.moveTo(36, 82);
-    context.bezierCurveTo(31, 70, 10, 52, 10, 33);
-    context.bezierCurveTo(10, 18.5, 21.5, 7, 36, 7);
-    context.bezierCurveTo(50.5, 7, 62, 18.5, 62, 33);
-    context.bezierCurveTo(62, 52, 41, 70, 36, 82);
-    context.closePath();
-  };
-
-  context.save();
-  context.shadowColor = 'rgba(15, 23, 42, 0.35)';
-  context.shadowBlur = 8;
-  context.shadowOffsetY = 5;
-  drawPin();
-  context.fillStyle = color;
-  context.fill();
-  context.restore();
-
-  drawPin();
-  context.fillStyle = color;
-  context.fill();
-  context.strokeStyle = '#ffffff';
-  context.lineWidth = 4;
-  context.lineJoin = 'round';
-  context.stroke();
-
-  context.beginPath();
-  context.arc(36, 32, 15, 0, Math.PI * 2);
-  context.fillStyle = '#ffffff';
-  context.fill();
-
-  context.strokeStyle = color;
-  context.lineWidth = 3.5;
-  context.lineCap = 'round';
-  [28, 35].forEach((y) => {
-    context.beginPath();
-    context.moveTo(24, y);
-    context.bezierCurveTo(28, y - 3, 32, y + 3, 36, y);
-    context.bezierCurveTo(40, y - 3, 44, y + 3, 48, y);
-    context.stroke();
-  });
-
-  return context.getImageData(0, 0, canvas.width, canvas.height);
-};
-
-const formatDepth = (depth: DepthCategory) =>
-  depth.code === 'overhead'
-    ? `${depth.label} (approximately ${depth.approximateCm} cm or deeper)`
-    : `${depth.label} (approximately ${depth.approximateCm} cm)`;
-
-const escapeHtml = (value: string) =>
-  value.replace(
-    /[&<>"']/g,
-    (ch) =>
-      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] || ch
-  );
-
-// GSMaP timestamps are UTC (returned naive); treat them as such when displaying.
-const formatRainfallTime = (isoUtc: string) => {
-  const date = new Date(`${isoUtc}Z`);
-  if (Number.isNaN(date.getTime())) return 'as of unknown time';
-  return `as of ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-};
-
-interface SubmittedReportProps {
-  id: string;
-  location: { lat: number; lng: number; address: string };
-  depth: DepthCategory;
-  status: ReportStatus;
-  submittedAt: string;
-}
-
-const buildReportsGeoJson = (
-  backendReports: MapReportFeature[],
-  submittedReports: SubmittedReportProps[],
-  visibleStatuses: Record<ReportStatus, boolean>
-) => {
-  // The map's own fetch and the page-level `submittedReports` carry the same
-  // API reports, so dedupe by id to avoid double-counting in clusters.
-  const seen = new Set<string>();
-  const features: Array<Record<string, any>> = [];
-
-  const pushReport = (id: string | undefined, feature: Record<string, any>) => {
-    if (!id || seen.has(id)) return;
-    seen.add(id);
-    features.push(feature);
-  };
-
-  backendReports.forEach((feature) => {
-    const props = feature.properties;
-    pushReport(props.id, {
-      type: 'Feature',
-      geometry: feature.geometry,
-      properties: {
-        kind: 'report',
-        status: props.status,
-        address: props.address || 'Flood report',
-        depthLabel: props.depth.label,
-        statusLabel: REPORT_STATUS_LABELS[props.status] || props.status,
-        createdAt: new Date(props.createdAt).toLocaleString(),
-      },
-    });
-  });
-
-  submittedReports.forEach((report) => {
-    pushReport(report.id, {
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [report.location.lng, report.location.lat],
-      },
-      properties: {
-        kind: 'report',
-        status: report.status,
-        address: report.location.address,
-        depthLabel: formatDepth(report.depth),
-        statusLabel: REPORT_STATUS_LABELS[report.status],
-        createdAt: report.submittedAt,
-      },
-    });
-  });
-
-  return {
-    type: 'FeatureCollection',
-    features: features.filter((feature) => visibleStatuses[feature.properties.status as ReportStatus]),
-  };
-};
-
-const buildSelectedGeoJson = (selectedLocation: { lat: number; lng: number } | null) => {
-  if (!selectedLocation) return { type: 'FeatureCollection', features: [] };
-  return {
-    type: 'FeatureCollection',
-    features: [
-      {
-        type: 'Feature',
-        geometry: {
-          type: 'Point',
-          coordinates: [selectedLocation.lng, selectedLocation.lat],
-        },
-        properties: { kind: 'selected' },
-      },
-    ],
-  };
-};
-
-const buildReportPopupHtml = (feature: Record<string, any>): string => {
-  const props = feature.properties ?? {};
-  const coordinates = feature.geometry?.coordinates ?? [0, 0];
-  const [lng, lat] = coordinates;
-  const tooltipStyle = 'font-family: var(--font-inter), system-ui, sans-serif;';
-  const row = (label: string, value: string) => `
-    <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 12px; line-height: 1.6;">
-      <span style="color: #64748b;">${escapeHtml(label)}</span>
-      <span style="color: #0f172a; font-weight: 600;">${escapeHtml(value)}</span>
-    </div>`;
-
-  if (props.kind === 'selected') {
-    return `
-      <div class="gakit-tooltip" style="${tooltipStyle}">
-        <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
-          Selected location
-        </div>
-        ${row('Coordinates', `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
-      </div>`;
-  }
-
-  return `
-    <div class="gakit-tooltip" style="${tooltipStyle}">
-      <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
-        ${escapeHtml(props.address || 'Flood report')}
-      </div>
-      ${props.depthLabel ? row('Depth', props.depthLabel) : ''}
-      ${props.statusLabel ? row('Status', props.statusLabel) : ''}
-      ${props.createdAt ? row('Reported', props.createdAt) : ''}
-    </div>`;
-};
-
-// Flood hazard colors — single source of truth for layers + legend
-const FLOOD_HAZARD_COLORS: Record<string, string> = {
-  high: '#1D4ED8',
-  medium: '#0891B2',
-  low: '#BAE6FD',
-};
-
-const FLOOD_HAZARD_LEGEND: Array<{ key: string; label: string; color: string }> = [
-  { key: 'high', label: 'High hazard', color: FLOOD_HAZARD_COLORS.high },
-  { key: 'medium', label: 'Medium hazard', color: FLOOD_HAZARD_COLORS.medium },
-  { key: 'low', label: 'Low hazard', color: FLOOD_HAZARD_COLORS.low },
-];
-
-// Near real-time rainfall (JAXA GSMaP_NOW) scale, in mm/hour.
-
-const RAINFALL_LEGEND_STOPS: Array<{ label: string; color: string }> = [
-  { label: 'Light', color: 'rgba(33,102,172,0.7)' },
-  { label: 'Moderate', color: 'rgba(103,169,207,0.8)' },
-  { label: 'Heavy', color: 'rgba(254,201,0,0.9)' },
-  { label: 'Intense', color: 'rgba(252,90,13,0.95)' },
-  { label: 'Extreme', color: 'rgba(203,24,29,1)' },
-];
-
-const RAINFALL_GRADIENT_CSS = `linear-gradient(to right, ${RAINFALL_LEGEND_STOPS.map(
-  (stop) => stop.color
-).join(', ')})`;
-
-const riskLevelFilter = (visible: Record<string, boolean>) => [
-  'in',
-  'risk_level',
-  ...Object.keys(FLOOD_HAZARD_COLORS).filter((level) => visible[level]),
-];
 
 export interface LocationRiskInfo {
   hazardLevel: FloodRiskLevel | null;
@@ -271,15 +61,10 @@ export interface PublicMapHandle {
 interface PublicMapProps {
   onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
   selectedLocation: { lat: number; lng: number } | null;
-  submittedReports?: Array<{
-    id: string;
-    location: { lat: number; lng: number; address: string };
-    depth: DepthCategory;
-    status: ReportStatus;
-    submittedAt: string;
-  }>;
+  submittedReports?: SubmittedReportProps[];
   mapApiRef?: MutableRefObject<PublicMapHandle | null>;
   hideShareLocation?: boolean;
+  hideAttribution?: boolean;
 }
 
 export function PublicMap({
@@ -288,6 +73,7 @@ export function PublicMap({
   submittedReports = [],
   mapApiRef,
   hideShareLocation = false,
+  hideAttribution = false,
 }: PublicMapProps) {
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -330,10 +116,29 @@ export function PublicMap({
     ANOMALY: true,
     REJECTED: true,
   });
+  const [mapMode, setMapMode] = useState<MapMode>('2d');
   const layersReadyRef = useRef(false);
   const loadingReportsRef = useRef(false);
   const rainfallSourceRef = useRef<RainfallGrid | null>(null);
   const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Refs mirror toggle state so the style-load handler (which runs on every
+  // basemap switch) can read the latest values without re-creating the map.
+  const mapModeRef = useRef<MapMode>('2d');
+  const showFloodHazardRef = useRef(false);
+  const showRainfallRef = useRef(false);
+  const visibleRiskLevelsRef = useRef<Record<string, boolean>>({
+    high: true,
+    medium: true,
+    low: true,
+  });
+
+  useEffect(() => {
+    mapModeRef.current = mapMode;
+    showFloodHazardRef.current = showFloodHazard;
+    showRainfallRef.current = showRainfall;
+    visibleRiskLevelsRef.current = visibleRiskLevels;
+  }, [mapMode, showFloodHazard, showRainfall, visibleRiskLevels]);
 
   const loadMapReports = useCallback(async () => {
     if (loadingReportsRef.current) return;
@@ -632,6 +437,116 @@ export function PublicMap({
     [maplibregl]
   );
 
+  // Stable layer-event handlers so they can be attached/detached across style
+  // reloads (2D <-> 3D) without duplicate listeners.
+  const handleReportPointsMouseMove = useCallback(
+    (e: any) => {
+      if (e.features?.length) showReportPopup(e.features[0], e.lngLat);
+    },
+    [showReportPopup]
+  );
+  const handleReportPointsMouseLeave = useCallback(() => hideReportPopup(), [hideReportPopup]);
+  const handleReportPointsClick = handleReportPointsMouseMove;
+  const handleReportPointsMouseEnter = useCallback(() => {
+    const map = mapRef.current;
+    if (map) map.getCanvas().style.cursor = 'pointer';
+  }, []);
+  const handleReportPointsCursorLeave = useCallback(() => {
+    const map = mapRef.current;
+    if (map) map.getCanvas().style.cursor = '';
+  }, []);
+  const handleReportClustersClick = useCallback((e: any) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const features = map.queryRenderedFeatures(e.point, { layers: ['report-clusters'] });
+    if (!features.length) return;
+    const clusterId = features[0].properties.cluster_id;
+    map.getSource('reports').getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
+      if (err) return;
+      map.easeTo({ center: features[0].geometry.coordinates, zoom });
+    });
+  }, []);
+
+  const attachLayerEvents = useCallback(
+    (map: any) => {
+      const pairs: Array<{ event: string; layer: string; handler: (e: any) => void }> = [
+        { event: 'mousemove', layer: 'report-points', handler: handleReportPointsMouseMove },
+        { event: 'mouseleave', layer: 'report-points', handler: handleReportPointsMouseLeave },
+        { event: 'click', layer: 'report-points', handler: handleReportPointsClick },
+        { event: 'mouseenter', layer: 'report-points', handler: handleReportPointsMouseEnter },
+        { event: 'mouseleave', layer: 'report-points', handler: handleReportPointsCursorLeave },
+        { event: 'mousemove', layer: 'selected-location', handler: handleReportPointsMouseMove },
+        { event: 'mouseleave', layer: 'selected-location', handler: handleReportPointsMouseLeave },
+        { event: 'click', layer: 'report-clusters', handler: handleReportClustersClick },
+        { event: 'mouseenter', layer: 'report-clusters', handler: handleReportPointsMouseEnter },
+        { event: 'mouseleave', layer: 'report-clusters', handler: handleReportPointsCursorLeave },
+      ];
+      pairs.forEach(({ event, layer, handler }) => {
+        map.off(event, layer, handler);
+        map.on(event, layer, handler);
+      });
+    },
+    [
+      handleReportClustersClick,
+      handleReportPointsClick,
+      handleReportPointsCursorLeave,
+      handleReportPointsMouseEnter,
+      handleReportPointsMouseLeave,
+      handleReportPointsMouseMove,
+    ]
+  );
+
+  // Runs on the style 'load' event: the initial map creation and every basemap
+  // switch (map.setStyle). Re-adds all project sources/layers idempotently and
+  // applies current toggle/terrain state, so the map instance itself is never
+  // destroyed when switching between 2D and 3D.
+  const handleStyleLoad = useCallback(
+    (map: any) => {
+      setTimeout(() => map.resize(), 250);
+
+      void (async () => {
+        await setupOverlayLayers(map, maplibregl, {
+          showFloodHazard: showFloodHazardRef.current,
+          showRainfall: showRainfallRef.current,
+          visibleRiskLevels: visibleRiskLevelsRef.current,
+          mapMode: mapModeRef.current,
+        });
+
+        layersReadyRef.current = true;
+
+        attachLayerEvents(map);
+        applyReportData(map);
+        applySelectedMarker(map);
+
+        // Apply rainfall data that was fetched before the map finished loading.
+        if (rainfallSourceRef.current) {
+          map.getSource('rainfall')?.setData(rainfallSourceRef.current);
+        }
+      })();
+
+      void loadMapReports();
+    },
+    [applyReportData, applySelectedMarker, attachLayerEvents, loadMapReports, maplibregl]
+  );
+
+  const onMapLoad = useCallback(() => {
+    if (mapRef.current) handleStyleLoad(mapRef.current);
+  }, [handleStyleLoad]);
+
+  // Swaps the basemap without tearing the map down: setStyle({ diff: false })
+  // keeps the same maplibre instance (camera, markers, workers), reloading only
+  // the style + project layers (re-added by handleStyleLoad on 'load').
+  const handleModeChange = useCallback(
+    (mode: MapMode) => {
+      const map = mapRef.current;
+      if (!map || mode === mapMode) return;
+      setMapMode(mode);
+      mapModeRef.current = mode;
+      map.setStyle(mode === '3d' ? MAPTILER_STYLE : OPENFREEMAP_STYLE, { diff: false });
+    },
+    [mapMode]
+  );
+
   useEffect(() => {
     if (mapRef.current) {
       applyReportData(mapRef.current);
@@ -679,12 +594,15 @@ export function PublicMap({
     // worker from /public and point maplibre at it explicitly.
     maplibregl.setWorkerUrl('/maplibre-gl-worker.mjs');
 
+    // Start with the 2D OpenFreeMap basemap (no API key required). The 3D
+    // MapTiler view is applied later via map.setStyle in handleModeChange.
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: MAPTILER_STYLE,
+      style: OPENFREEMAP_STYLE,
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 12,
       minZoom: 4,
+      attributionControl: !hideAttribution,
     });
 
     mapRef.current = map;
@@ -697,286 +615,10 @@ export function PublicMap({
     const resizeObserver = new ResizeObserver(() => map.resize());
     if (mapContainer.current) resizeObserver.observe(mapContainer.current);
 
-    map.on('load', () => {
-      setTimeout(() => map.resize(), 250);
-
-      void (async () => {
-        try {
-          // Load PMTiles protocol handler
-          const pmtiles = await import('pmtiles');
-          const protocol = new pmtiles.Protocol();
-          maplibregl.addProtocol('pmtiles', protocol.tile);
-
-          // --- Flood hazard vector tile layer (PMTiles) ---
-          map.addSource('flood-hazard', {
-            type: 'vector',
-            url: 'pmtiles:///data/flood-zones.pmtiles',
-            attribution:
-              'Flood data: <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">Project NOAH</a> (ODbL)',
-          });
-
-          map.addLayer({
-            id: 'flood-hazard-fill',
-            type: 'fill',
-            source: 'flood-hazard',
-            'source-layer': 'flood-zones',
-            paint: {
-              'fill-color': [
-                'match',
-                ['get', 'risk_level'],
-                'high',    FLOOD_HAZARD_COLORS.high,
-                'medium',  FLOOD_HAZARD_COLORS.medium,
-                'low',     FLOOD_HAZARD_COLORS.low,
-                'rgba(0,0,0,0.15)',
-              ],
-              'fill-opacity': 0.25,
-            },
-          });
-
-          map.addLayer({
-            id: 'flood-hazard-outline',
-            type: 'line',
-            source: 'flood-hazard',
-            'source-layer': 'flood-zones',
-            paint: {
-              'line-color': [
-                'match',
-                ['get', 'risk_level'],
-                'high',    FLOOD_HAZARD_COLORS.high,
-                'medium',  FLOOD_HAZARD_COLORS.medium,
-                'low',     FLOOD_HAZARD_COLORS.low,
-                '#999999',
-              ],
-              'line-width': 1.5,
-              'line-opacity': 0.6,
-            },
-          });
-
-          // --- Near real-time rainfall grid (JAXA GSMaP_NOW) ---
-          map.addSource('rainfall', {
-            type: 'geojson',
-            data: { type: 'FeatureCollection', features: [] },
-            attribution:
-              'Rainfall: <a href="https://sharaku.eorc.jaxa.jp/GSMaP_NOW/" target="_blank" rel="noopener">JAXA GSMaP_NOW</a>',
-          });
-
-          map.addLayer({
-            id: 'rainfall-grid',
-            type: 'fill',
-            source: 'rainfall',
-            maxzoom: 0,
-            paint: {
-              'fill-color': [
-                'interpolate',
-                ['linear'],
-                ['get', 'precip_mm'],
-                0, 'rgba(33,102,172,0)',
-                0.5, 'rgba(33,102,172,0.7)',
-                5, 'rgba(103,169,207,0.9)',
-                15, 'rgba(254,201,0,0.95)',
-                30, 'rgba(252,90,13,1)',
-                50, 'rgba(203,24,29,1)',
-              ],
-              'fill-opacity': 0.8,
-            },
-          });
-        } catch (error) {
-          console.error('Failed to load PMTiles flood hazard data', error);
-          toast.error('Flood hazard map data could not be loaded.', {
-            position: 'top-right',
-            autoClose: 4000,
-          });
-        }
-
-        layersReadyRef.current = true;
-
-        // Apply current toggle state (handles case where user toggled before load)
-        const initialLayers: Array<[string, boolean]> = [
-          ['flood-hazard-fill', showFloodHazard],
-          ['flood-hazard-outline', showFloodHazard],
-          ['rainfall-grid', showRainfall],
-        ];
-        initialLayers.forEach(([id, visible]) => {
-          map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
-        });
-
-        const initialFilter = riskLevelFilter(visibleRiskLevels);
-        map.setFilter('flood-hazard-fill', initialFilter);
-        map.setFilter('flood-hazard-outline', initialFilter);
-
-        // --- Report markers as clustered GeoJSON (GPU-rendered, no DOM churn) ---
-        map.addSource('reports', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] },
-          cluster: true,
-          clusterMaxZoom: 12,
-          clusterRadius: 30,
-        });
-
-        REPORT_STATUS_LEGEND.forEach(({ status }) => {
-          const imageId = REPORT_MARKER_IMAGE_IDS[status];
-          if (map.hasImage(imageId)) return;
-          const image = createReportMarkerImage(REPORT_MARKER_COLORS[status]);
-          if (image) map.addImage(imageId, image, { pixelRatio: 2 });
-        });
-
-        map.addLayer({
-          id: 'report-clusters',
-          type: 'circle',
-          source: 'reports',
-          filter: ['has', 'point_count'],
-          paint: {
-            'circle-color': '#6366f1',
-            'circle-radius': 22,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#ffffff',
-          },
-        });
-
-        map.addLayer({
-          id: 'report-cluster-count',
-          type: 'symbol',
-          source: 'reports',
-          filter: ['has', 'point_count'],
-          layout: {
-            'text-field': '{point_count_abbreviated}',
-            'text-size': 12,
-            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-          },
-          paint: { 'text-color': '#ffffff' },
-        });
-
-        map.addLayer({
-          id: 'report-points',
-          type: 'symbol',
-          source: 'reports',
-          filter: ['!', ['has', 'point_count']],
-          layout: {
-            'icon-image': [
-              'match',
-              ['get', 'status'],
-              'VERIFIED', REPORT_MARKER_IMAGE_IDS.VERIFIED,
-              'ANOMALY', REPORT_MARKER_IMAGE_IDS.ANOMALY,
-              'REJECTED', REPORT_MARKER_IMAGE_IDS.REJECTED,
-              REPORT_MARKER_IMAGE_IDS.UNVERIFIED,
-            ],
-            'icon-anchor': 'bottom',
-            'icon-allow-overlap': true,
-            'icon-ignore-placement': true,
-          },
-        });
-
-        map.addSource('selected-location', {
-          type: 'geojson',
-          data: { type: 'FeatureCollection', features: [] },
-        });
-
-        map.addLayer({
-          id: 'selected-location-shadow',
-          type: 'circle',
-          source: 'selected-location',
-          paint: {
-            'circle-color': '#260008',
-            'circle-opacity': 0.32,
-            'circle-radius': 23,
-            'circle-blur': 0.7,
-            'circle-translate': [0, 7],
-          },
-        });
-
-        map.addLayer({
-          id: 'selected-location',
-          type: 'circle',
-          source: 'selected-location',
-          paint: {
-            'circle-color': '#7A0019',
-            'circle-opacity': 0.24,
-            'circle-radius': 21,
-            'circle-stroke-width': 2,
-            'circle-stroke-color': '#7A0019',
-            'circle-stroke-opacity': 0.55,
-          },
-        });
-
-        map.addLayer({
-          id: 'selected-location-highlight',
-          type: 'circle',
-          source: 'selected-location',
-          paint: {
-            'circle-color': '#ffffff',
-            'circle-opacity': 0.18,
-            'circle-radius': 13,
-            'circle-blur': 0.45,
-            'circle-translate': [-4, -4],
-          },
-        });
-
-        map.addLayer({
-          id: 'selected-location-label',
-          type: 'symbol',
-          source: 'selected-location',
-          layout: {
-            'text-field': 'Selected location',
-            'text-size': 12,
-            'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-            'text-offset': [0, 1.9],
-            'text-anchor': 'top',
-            'text-allow-overlap': true,
-            'text-ignore-placement': true,
-          },
-          paint: {
-            'text-color': '#7A0019',
-            'text-halo-color': '#ffffff',
-            'text-halo-width': 2,
-          },
-        });
-
-        map.on('mousemove', 'report-points', (e: any) => {
-          if (e.features?.length) showReportPopup(e.features[0], e.lngLat);
-        });
-        map.on('mouseleave', 'report-points', () => hideReportPopup());
-        map.on('click', 'report-points', (e: any) => {
-          if (e.features?.length) showReportPopup(e.features[0], e.lngLat);
-        });
-        map.on('mouseenter', 'report-points', () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', 'report-points', () => {
-          map.getCanvas().style.cursor = '';
-        });
-
-        map.on('mousemove', 'selected-location', (e: any) => {
-          if (e.features?.length) showReportPopup(e.features[0], e.lngLat);
-        });
-        map.on('mouseleave', 'selected-location', () => hideReportPopup());
-
-        map.on('click', 'report-clusters', (e: any) => {
-          const features = map.queryRenderedFeatures(e.point, { layers: ['report-clusters'] });
-          if (!features.length) return;
-          const clusterId = features[0].properties.cluster_id;
-          map.getSource('reports').getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
-            if (err) return;
-            map.easeTo({ center: features[0].geometry.coordinates, zoom });
-          });
-        });
-        map.on('mouseenter', 'report-clusters', () => {
-          map.getCanvas().style.cursor = 'pointer';
-        });
-        map.on('mouseleave', 'report-clusters', () => {
-          map.getCanvas().style.cursor = '';
-        });
-
-        applyReportData(map);
-        applySelectedMarker(map);
-
-        // Apply rainfall data that was fetched before the map finished loading.
-        if (rainfallSourceRef.current) {
-          map.getSource('rainfall')?.setData(rainfallSourceRef.current);
-        }
-      })();
-
-      void loadMapReports();
-    });
+    // 'style.load' fires on initial style load and again after every basemap
+    // switch (map.setStyle), unlike 'load' which only fires once. The handler
+    // re-adds project layers + terrain so the map instance persists.
+    map.on('style.load', onMapLoad);
 
     map.on('click', (e: any) => {
       handleLocationSelectRef.current(e.lngLat.lat, e.lngLat.lng);
@@ -999,14 +641,7 @@ export function PublicMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [
-    applyReportData,
-    applySelectedMarker,
-    loadMapReports,
-    maplibregl,
-    showReportPopup,
-    hideReportPopup,
-  ]);
+  }, [loadMapReports, maplibregl, onMapLoad]);
 
   // Apply layer visibility + risk-level filters when toggles change
   useEffect(() => {
@@ -1030,128 +665,42 @@ export function PublicMap({
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
-      <div ref={mapContainer} className="w-full h-full" />  
+      <div ref={mapContainer} className="w-full h-full" />
+
+      <MapModeToggle
+        mode={mapMode}
+        onModeChange={handleModeChange}
+        hasMaptiler={HAS_MAPTILER}
+      />
 
       <div
         className={`absolute right-4 md:right-6 z-[1000] ${
-          hideShareLocation ? 'bottom-6' : 'bottom-36 md:bottom-20'
+          hideShareLocation ? 'bottom-10' : 'bottom-40 md:bottom-24'
         }`}
       >
-        {layersOpen ? (
-          <div className="bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-3">
-            <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-900 mb-2">
-              <div className="flex items-center gap-2">
-                <Layers className="w-3.5 h-3.5" />
-                Toggle Layers
-              </div>
-              <button
-                onClick={() => setLayersOpen(false)}
-                className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
-                aria-label="Collapse layer controls"
-              >
-                <ChevronUp className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="space-y-1.5">
-              <div className="mb-2 border-b border-canvas-grey/70 pb-2">
-                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                  Flood reports
-                </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                  {REPORT_STATUS_LEGEND.map(({ status, label }) => (
-                    <LayerToggle
-                      key={status}
-                      label={label}
-                      color={REPORT_MARKER_COLORS[status]}
-                      checked={visibleReportStatuses[status]}
-                      onChange={(checked) =>
-                        setVisibleReportStatuses((previous) => ({
-                          ...previous,
-                          [status]: checked,
-                        }))
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-              <LayerToggle
-                label="Flood Hazard Zones"
-                color="#3B82F6"
-                checked={showFloodHazard}
-                onChange={setShowFloodHazard}
-                credit={{
-                  href: 'https://noah.upd.edu.ph/',
-                  label: 'Project NOAH',
-                }}
-              />
-              <LayerToggle
-                label="1-Hour Rainfall (GSMaP_NOW)"
-                color="#0284C7"
-                checked={showRainfall}
-                onChange={setShowRainfall}
-                credit={{
-                  href: 'https://sharaku.eorc.jaxa.jp/GSMaP_NOW/',
-                  label: 'JAXA',
-                }}
-              />
-              {showRainfall && (
-                <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1 flex items-center justify-between gap-2">
-                    <span>Precipitation</span>
-                    {rainfallObservedAt && (
-                      <span className="normal-case tracking-normal font-medium">
-                        {formatRainfallTime(rainfallObservedAt)}
-                      </span>
-                    )}
-                  </div>
-                  <div
-                    className="h-2.5 w-56 rounded-full"
-                    style={{ background: RAINFALL_GRADIENT_CSS }}
-                  />
-                  <div className="flex w-56 justify-between text-[10px] text-slate-500">
-                    {RAINFALL_LEGEND_STOPS.map((stop) => (
-                      <span key={stop.label}>{stop.label}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {showFloodHazard && (
-                <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">
-                    Risk levels
-                  </div>
-                  {FLOOD_HAZARD_LEGEND.map(({ key, label, color }) => (
-                    <LayerToggle
-                      key={key}
-                      label={label}
-                      color={color}
-                      checked={!!visibleRiskLevels[key]}
-                      onChange={(checked) =>
-                        setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
-                      }
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setLayersOpen(true)}
-            className="flex items-center gap-2 bg-white/95 border border-canvas-grey rounded-lg px-3 py-3 shadow-lg hover:shadow-xl transition-shadow duration-200"
-            title="Show layer controls"
-            aria-label="Show layer controls"
-          >
-            <Layers className="w-5 h-5 text-gakit-maroon" />
-            <span className="text-sm font-medium text-slate-700">Layers</span>
-          </button>
-        )}
+        <LayerControls
+          layersOpen={layersOpen}
+          onToggleLayers={setLayersOpen}
+          visibleReportStatuses={visibleReportStatuses}
+          onReportStatusChange={(status, checked) =>
+            setVisibleReportStatuses((previous) => ({ ...previous, [status]: checked }))
+          }
+          showFloodHazard={showFloodHazard}
+          onShowFloodHazardChange={setShowFloodHazard}
+          showRainfall={showRainfall}
+          onShowRainfallChange={setShowRainfall}
+          rainfallObservedAt={rainfallObservedAt}
+          visibleRiskLevels={visibleRiskLevels}
+          onRiskLevelChange={(key, checked) =>
+            setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
+          }
+        />
       </div>
 
       {!hideShareLocation && (
         <button
           onClick={handleShareLocation}
-          className="absolute bottom-20 md:bottom-6 right-4 md:right-6 z-[1000] bg-white flex items-center gap-2 px-3 py-3 rounded-lg shadow-lg hover:shadow-xl transition-shadow duration-200 border border-canvas-grey"
+          className="absolute bottom-24 md:bottom-10 right-4 md:right-6 z-[1000] flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur transition-shadow duration-200 hover:shadow-2xl"
           title="Share my location"
           aria-label="Share my location"
         >
@@ -1160,58 +709,5 @@ export function PublicMap({
         </button>
       )}
     </div>
-  );
-}
-
-function LayerToggle({
-  label,
-  color,
-  checked,
-  onChange,
-  credit,
-}: {
-  label: string;
-  color: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  credit?: { href: string; label: string };
-}) {
-  return (
-    <label className="flex items-center gap-2 cursor-pointer select-none group">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="sr-only"
-      />
-      <span
-        className="flex h-3.5 w-3.5 items-center justify-center rounded-sm border transition-colors"
-        style={{
-          borderColor: checked ? color : '#cbd5e1',
-          backgroundColor: checked ? color : 'transparent',
-        }}
-      >
-        {checked && (
-          <svg className="h-2.5 w-2.5 text-white" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M2 6l3 3 5-5" />
-          </svg>
-        )}
-      </span>
-      <span className="text-xs text-slate-700 font-medium group-hover:text-slate-900">
-        {label}
-      </span>
-      {credit && (
-        <a
-          href={credit.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="ml-auto text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline"
-          title={`Data source: ${credit.label}`}
-        >
-          {credit.label}
-        </a>
-      )}
-    </label>
   );
 }
