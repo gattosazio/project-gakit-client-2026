@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Map } from 'lucide-react';
 import { AdminHeader } from '@/components/AdminHeader';
 import { SideBar } from '@/components/SideBar';
@@ -12,16 +12,23 @@ import { ReviewQueueTab } from './features/review-queue/ReviewQueueTab';
 import { useRouteLoader } from '@/components/RouteLoader';
 import './Monitoring.css';
 export function MonitoringShell() {
-  const [activeTab, setActiveTab] = useState<MonitoringFeatureId>('dashboard');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get('tab') as MonitoringFeatureId | null;
+  const activeTab = requestedTab && monitoringFeatureMap[requestedTab] ? requestedTab : 'dashboard';
   const [criticalReportsOnly, setCriticalReportsOnly] = useState(false);
   const activeFeature = monitoringFeatureMap[activeTab];
   const handleTabChange = (tab: MonitoringFeatureId) => {
     setCriticalReportsOnly(false);
-    setActiveTab(tab);
+    const params = new URLSearchParams(searchParams.toString());
+    if (tab === 'dashboard') params.delete('tab');
+    else params.set('tab', tab);
+    const query = params.toString();
+    router.replace(query ? `/monitoring?${query}` : '/monitoring', { scroll: false });
   };
   const handleReviewCritical = () => {
     setCriticalReportsOnly(true);
-    setActiveTab('reports');
+    handleTabChange('reports');
   };
   return (
     <div className="h-screen bg-canvas-light flex overflow-hidden">
