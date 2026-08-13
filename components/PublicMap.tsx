@@ -674,8 +674,8 @@ export function PublicMap({
       />
 
       <div
-        className={`absolute right-4 md:right-6 z-[1000] ${
-          hideShareLocation ? 'bottom-10' : 'bottom-40 md:bottom-24'
+        className={`fixed right-4 md:right-6 z-[1000] ${
+          hideShareLocation ? 'bottom-10 md:bottom-8' : 'bottom-44 md:bottom-24'
         }`}
       >
         <LayerControls
@@ -700,7 +700,7 @@ export function PublicMap({
       {!hideShareLocation && (
         <button
           onClick={handleShareLocation}
-          className="absolute bottom-24 md:bottom-10 right-4 md:right-6 z-[1000] flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur transition-shadow duration-200 hover:shadow-2xl"
+          className="fixed bottom-28 md:bottom-10 right-4 md:right-6 z-[1000] flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur transition-shadow duration-200 hover:shadow-2xl"
           title="Share my location"
           aria-label="Share my location"
         >
