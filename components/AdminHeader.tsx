@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, type LucideIcon } from 'lucide-react';
+import { Bell, Settings, type LucideIcon } from 'lucide-react';
 import { MobileSignOutButton } from './SideBar';
 
 interface AdminHeaderProps {
@@ -31,6 +31,14 @@ export function AdminHeader({
         <button className="relative p-2 rounded-lg border border-canvas-grey hover:bg-canvas-light transition-colors">
           <Bell className="w-5 h-5 text-slate-600" />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-hazard-critical" />
+        </button>
+        <button
+          type="button"
+          aria-label="Settings"
+          title="Settings"
+          className="rounded-lg border border-canvas-grey p-2 text-slate-600 transition-colors hover:bg-canvas-light hover:text-gakit-maroon"
+        >
+          <Settings className="h-5 w-5" />
         </button>
         <div className="lg:hidden">
           <MobileSignOutButton compact />

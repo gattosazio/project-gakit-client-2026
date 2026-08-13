@@ -1,14 +1,12 @@
 import {
   LayoutDashboard,
-  ShieldAlert,
   Table2,
 } from 'lucide-react';
 import { PortalNavItem } from '@/components/portalTypes';
 
 export type MonitoringFeatureId =
   | 'dashboard'
-  | 'reports'
-  | 'review-queue';
+  | 'reports';
 
 export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
   {
@@ -37,20 +35,6 @@ export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
       'Filters for pending, verified, anomaly, and critical reports',
       'Report detail panel with photo, coordinates, and audit status',
       'Manual actions to verify, reject, or escalate a report',
-    ],
-  },
-  {
-    id: 'review-queue',
-    label: 'Review Queue',
-    mobileLabel: 'Review Queue',
-    title: 'Review Queue',
-    description: 'Handle reports flagged by rules or AI before they affect trusted public views.',
-    icon: ShieldAlert,
-    contents: [
-      'Flagged report list with confidence and anomaly reasons',
-      'Validation evidence summary from terrain, rainfall, and nearby reports',
-      'Override, approve, reject, or defer actions',
-      'Reviewer notes and resolution status tracking',
     ],
   },
 ];

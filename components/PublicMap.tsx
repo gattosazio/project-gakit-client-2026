@@ -213,9 +213,9 @@ const buildReportPopupHtml = (feature: Record<string, any>): string => {
 
 // Flood hazard colors — single source of truth for layers + legend
 const FLOOD_HAZARD_COLORS: Record<string, string> = {
-  high: '#DC2626',
-  medium: '#F59E0B',
-  low: '#FDE047',
+  high: '#1D4ED8',
+  medium: '#0891B2',
+  low: '#BAE6FD',
 };
 
 const FLOOD_HAZARD_LEGEND: Array<{ key: string; label: string; color: string }> = [
