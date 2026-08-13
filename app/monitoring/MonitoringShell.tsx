@@ -8,7 +8,6 @@ import type { PortalNavItem } from '@/components/portalTypes';
 import { DashboardOverview } from './features/dashboard/DashboardOverview';
 import { monitoringFeatureMap, monitoringFeatures, type MonitoringFeatureId } from './features/monitoringFeatureConfig';
 import { ReportsTab } from './features/reports/ReportsTab';
-import { ReviewQueueTab } from './features/review-queue/ReviewQueueTab';
 import { useRouteLoader } from '@/components/RouteLoader';
 import './Monitoring.css';
 export function MonitoringShell() {
@@ -48,7 +47,6 @@ export function MonitoringShell() {
           {activeTab === 'dashboard' && (
             <DashboardOverview onReviewCritical={handleReviewCritical} />
           )}
-          {activeTab === 'review-queue' && <ReviewQueueTab />}
           <div className={activeTab === 'reports' ? '' : 'hidden'}>
             <ReportsTab initialCritical={criticalReportsOnly} />
           </div>

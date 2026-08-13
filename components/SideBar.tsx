@@ -113,7 +113,7 @@ export function SideBar<T extends string>({
       <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
         <button
           onClick={() => navigate('/')}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
         >
           <Map className="w-4 h-4 text-gakit-maroon" />
           Public Hazard Map
@@ -130,7 +130,7 @@ export function SideBar<T extends string>({
             <button
               key={feature.id}
               onClick={() => onTabChange(feature.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
                 isActive
                   ? 'bg-gakit-maroon text-white shadow-sm'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -146,7 +146,7 @@ export function SideBar<T extends string>({
       </nav>
 
       <div className="p-3 border-t border-slate-100">
-        <div className="mb-3 flex items-center gap-2 rounded-xl bg-slate-50 p-3">
+        <div className="mb-3 flex items-center gap-2 rounded-lg bg-slate-50 p-3">
           <UserRound className="h-4 w-4 shrink-0 text-gakit-maroon" />
           <div className="min-w-0">
             <div className="truncate text-xs font-semibold text-slate-900">
@@ -160,7 +160,7 @@ export function SideBar<T extends string>({
         <button
           onClick={handleLogOut}
           disabled={isSigningOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
         >
           <LogOut className="w-4 h-4" />
           {isSigningOut ? 'Signing out...' : 'Sign Out'}
