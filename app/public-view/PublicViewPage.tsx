@@ -187,7 +187,7 @@ export function PublicViewPage() {
 
     setIsLocationPromptOpen(false);
     setIsManualLocationMode(false);
-    navigator.geolocation.getCurrentPosition(async (position) => {
+    navigator.geolocation.getCurrentPosition((position) => {
       const { latitude, longitude } = position.coords;
       const fallbackLocation = {
         lat: latitude,
@@ -197,7 +197,7 @@ export function PublicViewPage() {
 
       setSelectedLocation(fallbackLocation);
       setIsModalOpen(true);
-      setSelectedLocation(await resolveLocation(latitude, longitude));
+      void resolveLocation(latitude, longitude).then(setSelectedLocation);
     }, () => {
       toast.error('Unable to get your location. Please allow location access.', {
         position: 'top-right',
@@ -224,6 +224,15 @@ export function PublicViewPage() {
     setSelectedLocation(location);
     setIsModalOpen(true);
   }, []);
+
+  // Stable identity so the ReportModal hazard-check effect doesn't re-run on
+  // every parent re-render while the modal is open.
+  const handleCheckLocation = useCallback(
+    (location: { lat: number; lng: number }) =>
+      mapRef.current?.checkLocation(location) ??
+      Promise.resolve({ hazardLevel: null, precipMm: null }),
+    []
+  );
 
   const handleReportSubmit = async (data: {
     location: { lat: number; lng: number };
@@ -313,10 +322,7 @@ export function PublicViewPage() {
               selectedLocation={selectedLocation}
               onSubmit={handleReportSubmit}
               onSuccess={() => setIsSuccessOpen(true)}
-              onCheckLocation={(location) =>
-                mapRef.current?.checkLocation(location) ??
-                Promise.resolve({ hazardLevel: null, precipMm: null })
-              }
+              onCheckLocation={handleCheckLocation}
             />
           </div>
         </section>

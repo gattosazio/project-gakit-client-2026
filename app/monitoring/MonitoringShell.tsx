@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Map } from 'lucide-react';
 import { AdminHeader } from '@/components/AdminHeader';
@@ -15,11 +15,22 @@ export function MonitoringShell() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get('tab') as MonitoringFeatureId | null;
-  const activeTab = requestedTab && monitoringFeatureMap[requestedTab] ? requestedTab : 'dashboard';
+  const tabFromParams =
+    requestedTab && monitoringFeatureMap[requestedTab] ? requestedTab : 'dashboard';
+  const [activeTab, setActiveTab] = useState<MonitoringFeatureId>(tabFromParams);
   const [criticalReportsOnly, setCriticalReportsOnly] = useState(false);
   const [highlightedReportId, setHighlightedReportId] = useState<string | null>(null);
   const activeFeature = monitoringFeatureMap[activeTab];
+
+  // Keep the active tab in sync with URL changes made outside this component
+  // (notification bell, browser back/forward). Our handlers set state first,
+  // so this is a no-op for tab switches we initiated ourselves.
+  useEffect(() => {
+    setActiveTab(tabFromParams);
+  }, [tabFromParams]);
+
   const handleTabChange = (tab: MonitoringFeatureId) => {
+    setActiveTab(tab);
     setCriticalReportsOnly(false);
     setHighlightedReportId(null);
     const params = new URLSearchParams(searchParams.toString());
@@ -32,16 +43,19 @@ export function MonitoringShell() {
   const handleReviewCritical = () => {
     setCriticalReportsOnly(true);
     setHighlightedReportId(null);
+    setActiveTab('reports');
     router.replace('/monitoring?tab=reports', { scroll: false });
   };
   const handleOpenReport = (reportId?: string) => {
     setCriticalReportsOnly(false);
     setHighlightedReportId(reportId ?? null);
+    setActiveTab('reports');
     router.replace('/monitoring?tab=reports', { scroll: false });
   };
   const handleOpenNotification = (notificationId: string) => {
     setCriticalReportsOnly(false);
     setHighlightedReportId(null);
+    setActiveTab('alerts');
     router.replace(`/monitoring?tab=alerts&notification=${encodeURIComponent(notificationId)}`, { scroll: false });
   };
   return (
@@ -60,12 +74,18 @@ export function MonitoringShell() {
           onNotificationClick={handleOpenNotification}
         />
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 lg:pb-6 space-y-6">
-          {activeTab === 'dashboard' && (
-            <DashboardOverview onReviewCritical={handleReviewCritical} />
-          )}
-          {activeTab === 'alerts' && <AlertsTab onOpenReports={handleOpenReport} />}
+          <div className={activeTab === 'dashboard' ? '' : 'hidden'}>
+            <DashboardOverview active={activeTab === 'dashboard'} onReviewCritical={handleReviewCritical} />
+          </div>
+          <div className={activeTab === 'alerts' ? '' : 'hidden'}>
+            <AlertsTab active={activeTab === 'alerts'} onOpenReports={handleOpenReport} />
+          </div>
           <div className={activeTab === 'reports' ? '' : 'hidden'}>
-            <ReportsTab initialCritical={criticalReportsOnly} highlightedReportId={highlightedReportId} />
+            <ReportsTab
+              active={activeTab === 'reports'}
+              initialCritical={criticalReportsOnly}
+              highlightedReportId={highlightedReportId}
+            />
           </div>
         </main>
       </div>

@@ -47,11 +47,13 @@ export async function createReport(
   input: CreateReportInput,
   signal?: AbortSignal
 ): Promise<Report> {
-  return request<Report>('/api/v1/reports', {
+  const report = await request<Report>('/api/v1/reports', {
     method: 'POST',
     body: JSON.stringify(input),
     signal,
   });
+  invalidateApiCache('/api/v1/reports');
+  return report;
 }
 
 export async function listReports(
