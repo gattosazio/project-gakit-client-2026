@@ -5,6 +5,18 @@ import { PMTiles } from 'pmtiles';
 const FLOOD_TILES_URL = '/data/flood-zones.pmtiles';
 const FLOOD_SOURCE_LAYER = 'flood-zones';
 
+// Bounded result cache: repeated checks at the same spot (modal re-opens,
+// parent re-renders) skip the archive read + decode entirely.
+const RESULT_CACHE_MAX = 256;
+const resultCache = new Map<string, FloodRiskLevel | null>();
+
+// The archive header is immutable; read it once instead of on every call.
+let archiveHeader: { maxZoom: number } | null = null;
+
+// Keep the last decoded tile around so nearby checks reuse the same layer.
+let lastTileKey = '';
+let lastTileLayer: { length: number; feature(i: number): any } | null = null;
+
 let archive: PMTiles | null = null;
 
 function getArchive(): PMTiles {
@@ -13,6 +25,14 @@ function getArchive(): PMTiles {
   }
   return archive;
 }
+
+const cacheResult = (key: string, level: FloodRiskLevel | null) => {
+  resultCache.set(key, level);
+  if (resultCache.size > RESULT_CACHE_MAX) {
+    const oldest = resultCache.keys().next().value;
+    if (oldest != null) resultCache.delete(oldest);
+  }
+};
 
 function tileIndex(lng: number, lat: number, zoom: number) {
   const n = 2 ** zoom;
@@ -47,19 +67,37 @@ export async function queryFloodHazard(
   lat: number,
   lng: number
 ): Promise<FloodRiskLevel | null> {
+  const resultKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  if (resultCache.has(resultKey)) return resultCache.get(resultKey) ?? null;
+
   try {
     const tiles = getArchive();
-    const header = await tiles.getHeader();
-    const { x, y } = tileIndex(lng, lat, header.maxZoom);
-    const tile = await tiles.getZxy(header.maxZoom, x, y);
-    if (!tile) return null;
+    if (!archiveHeader) {
+      const header = await tiles.getHeader();
+      archiveHeader = { maxZoom: header.maxZoom };
+    }
+    const maxZoom = archiveHeader.maxZoom;
+    const { x, y } = tileIndex(lng, lat, maxZoom);
 
-    const decoded = new VectorTile(new PbfReader(new Uint8Array(tile.data)));
-    const layer = decoded.layers[FLOOD_SOURCE_LAYER];
-    if (!layer) return null;
+    const tileKey = `${maxZoom}/${x}/${y}`;
+    if (lastTileKey !== tileKey) {
+      const tile = await tiles.getZxy(maxZoom, x, y);
+      if (!tile) {
+        cacheResult(resultKey, null);
+        return null;
+      }
+      const decoded = new VectorTile(new PbfReader(new Uint8Array(tile.data)));
+      lastTileKey = tileKey;
+      lastTileLayer = decoded.layers[FLOOD_SOURCE_LAYER] ?? null;
+    }
+    const layer = lastTileLayer;
+    if (!layer) {
+      cacheResult(resultKey, null);
+      return null;
+    }
 
     // Convert the coordinate into the tile's local 0..4096 space.
-    const n = 2 ** header.maxZoom;
+    const n = 2 ** maxZoom;
     const px = ((lng + 180) / 360) * n - x;
     const latRad = (lat * Math.PI) / 180;
     const yf = Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI;
@@ -67,20 +105,25 @@ export async function queryFloodHazard(
     const pointX = px * 4096;
     const pointY = py * 4096;
 
+    let level: FloodRiskLevel | null = null;
     for (let i = 0; i < layer.length; i++) {
       const feature = layer.feature(i);
       for (const ring of feature.loadGeometry()) {
         if (pointInRing(pointX, pointY, ring)) {
-          const level = feature.properties?.risk_level;
-          if (level === 'high' || level === 'medium' || level === 'low') {
-            return level;
+          const risk = feature.properties?.risk_level;
+          if (risk === 'high' || risk === 'medium' || risk === 'low') {
+            level = risk;
+            break;
           }
         }
       }
+      if (level) break;
     }
-    return null;
+    cacheResult(resultKey, level);
+    return level;
   } catch (error) {
     console.error('Failed to query flood hazard tiles', error);
+    cacheResult(resultKey, null);
     return null;
   }
 }

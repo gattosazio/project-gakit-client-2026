@@ -101,19 +101,26 @@ export const buildReportsGeoJson = (
   visibleStatuses: Record<ReportStatus, boolean>
 ) => {
   // The map's own fetch and the page-level `submittedReports` carry the same
-  // API reports, so dedupe by id to avoid double-counting in clusters.
+  // API reports, so dedupe by id to avoid double-counting in clusters. Skip
+  // hidden statuses up front so we don't build props for features that won't
+  // be rendered.
   const seen = new Set<string>();
   const features: Array<Record<string, any>> = [];
 
-  const pushReport = (id: string | undefined, feature: Record<string, any>) => {
+  const pushReport = (
+    id: string | undefined,
+    status: ReportStatus,
+    feature: Record<string, any>
+  ) => {
     if (!id || seen.has(id)) return;
+    if (!visibleStatuses[status]) return;
     seen.add(id);
     features.push(feature);
   };
 
   backendReports.forEach((feature) => {
     const props = feature.properties;
-    pushReport(props.id, {
+    pushReport(props.id, props.status, {
       type: 'Feature',
       geometry: feature.geometry,
       properties: {
@@ -128,7 +135,7 @@ export const buildReportsGeoJson = (
   });
 
   submittedReports.forEach((report) => {
-    pushReport(report.id, {
+    pushReport(report.id, report.status, {
       type: 'Feature',
       geometry: {
         type: 'Point',
@@ -147,7 +154,7 @@ export const buildReportsGeoJson = (
 
   return {
     type: 'FeatureCollection',
-    features: features.filter((feature) => visibleStatuses[feature.properties.status as ReportStatus]),
+    features,
   };
 };
 

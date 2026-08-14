@@ -67,6 +67,7 @@ interface PublicMapProps {
   hideAttribution?: boolean;
   reportStatusToggleStatuses?: ReportStatus[];
   defaultVisibleReportStatuses?: Partial<Record<ReportStatus, boolean>>;
+  enableAddressLookup?: boolean;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -85,6 +86,7 @@ export function PublicMap({
   hideAttribution = false,
   reportStatusToggleStatuses,
   defaultVisibleReportStatuses,
+  enableAddressLookup = true,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -132,6 +134,7 @@ export function PublicMap({
   const loadingReportsRef = useRef(false);
   const rainfallSourceRef = useRef<RainfallGrid | null>(null);
   const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const rainfallCellsRef = useRef<Map<string, number>>(new Map());
 
   // Refs mirror toggle state so the style-load handler (which runs on every
   // basemap switch) can read the latest values without re-creating the map.
@@ -170,6 +173,18 @@ export function PublicMap({
       const rainfall = await fetchRainfall();
       const grid = buildRainfallGrid(rainfall);
       rainfallSourceRef.current = grid;
+
+      // Index cells by their 0.1-degree center so checkLocation can do an
+      // O(1) lookup instead of scanning every grid feature.
+      const cells = new Map<string, number>();
+      for (const feature of grid.features) {
+        const ring = feature.geometry.coordinates[0];
+        const cellLng = Math.round(((ring[0][0] + ring[2][0]) / 2) * 10) / 10;
+        const cellLat = Math.round(((ring[0][1] + ring[2][1]) / 2) * 10) / 10;
+        cells.set(`${cellLng},${cellLat}`, feature.properties.precip_mm);
+      }
+      rainfallCellsRef.current = cells;
+
       const map = mapRef.current;
       const source = map?.getSource?.('rainfall');
       if (source) source.setData(grid);
@@ -187,20 +202,28 @@ export function PublicMap({
       const { lat, lng } = location;
 
       let precipMm: number | null = null;
-      const grid = rainfallSourceRef.current;
-      if (grid && grid.features.length > 0) {
+      const cells = rainfallCellsRef.current;
+      if (cells.size > 0) {
+        // Cells sit on a regular 0.1-degree grid, so the nearest center to any
+        // point is always inside the 9-cell block around its rounded key.
+        const baseLng = Math.round(lng * 10) / 10;
+        const baseLat = Math.round(lat * 10) / 10;
         let bestValue: number | null = null;
         let bestDistSq = Infinity;
-        for (const feature of grid.features) {
-          const ring = feature.geometry.coordinates[0];
-          const cellLng = (ring[0][0] + ring[2][0]) / 2;
-          const cellLat = (ring[0][1] + ring[2][1]) / 2;
-          const dLng = cellLng - lng;
-          const dLat = cellLat - lat;
-          const distSq = dLng * dLng + dLat * dLat;
-          if (distSq < bestDistSq) {
-            bestDistSq = distSq;
-            bestValue = feature.properties.precip_mm;
+        for (const dLng of [-0.1, 0, 0.1]) {
+          for (const dLat of [-0.1, 0, 0.1]) {
+            const key = `${Math.round((baseLng + dLng) * 10) / 10},${Math.round(
+              (baseLat + dLat) * 10
+            ) / 10}`;
+            const value = cells.get(key);
+            if (value == null) continue;
+            const distSq =
+              (baseLng + dLng - lng) * (baseLng + dLng - lng) +
+              (baseLat + dLat - lat) * (baseLat + dLat - lat);
+            if (distSq < bestDistSq) {
+              bestDistSq = distSq;
+              bestValue = value;
+            }
           }
         }
         precipMm = bestValue;
@@ -230,10 +253,10 @@ export function PublicMap({
           offset: 10,
         });
       }
-      reportPopupRef.current
-        .setLngLat(lngLat)
-        .setHTML(buildReportPopupHtml(feature))
-        .addTo(mapRef.current);
+      reportPopupRef.current.setLngLat(lngLat).setHTML(buildReportPopupHtml(feature));
+      if (!reportPopupRef.current.isOpen()) {
+        reportPopupRef.current.addTo(mapRef.current);
+      }
     },
     [maplibregl]
   );
@@ -356,6 +379,8 @@ export function PublicMap({
         address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
       });
 
+      if (!enableAddressLookup) return;
+
       // Debounce reverse-geocoding so rapid clicks only send one request to
       // OSM Nominatim (which rate-limits aggressively).
       if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
@@ -364,7 +389,7 @@ export function PublicMap({
         void reverseGeocodeWithAbort(lat, lng);
       }, 500);
     },
-    [onLocationSelect, reverseGeocodeWithAbort]
+    [onLocationSelect, reverseGeocodeWithAbort, enableAddressLookup]
   );
 
   const handleShareLocation = useCallback(() => {
@@ -403,6 +428,19 @@ export function PublicMap({
     handleLocationSelectRef.current = handleLocationSelect;
   }, [handleLocationSelect]);
 
+  // When the parent dismisses the selected location (e.g. the report modal is
+  // closed), cancel any pending reverse-geocode so a stale address callback
+  // doesn't re-open the modal with an outdated selection.
+  useEffect(() => {
+    if (selectedLocation !== null) return;
+    if (geocodeTimerRef.current) {
+      clearTimeout(geocodeTimerRef.current);
+      geocodeTimerRef.current = null;
+    }
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  }, [selectedLocation]);
+
   const applyReportData = useCallback((map: any) => {
     const reportsSource = map?.getSource?.('reports');
     if (reportsSource) {
@@ -414,14 +452,15 @@ export function PublicMap({
         )
       );
     }
-    const selectedSource = map?.getSource?.('selected-location');
-    if (selectedSource) {
-      selectedSource.setData(buildSelectedGeoJson(selectedLocationRef.current));
-    }
   }, []);
 
   const applySelectedMarker = useCallback(
     (map: any) => {
+      const selectedSource = map?.getSource?.('selected-location');
+      if (selectedSource) {
+        selectedSource.setData(buildSelectedGeoJson(selectedLocationRef.current));
+      }
+
       const location = selectedLocationRef.current;
       if (!location || !maplibregl) {
         selectedMarkerRef.current?.remove();
@@ -472,7 +511,9 @@ export function PublicMap({
     const features = map.queryRenderedFeatures(e.point, { layers: ['report-clusters'] });
     if (!features.length) return;
     const clusterId = features[0].properties.cluster_id;
-    map.getSource('reports').getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
+    const source = map.getSource('reports');
+    if (!source) return;
+    source.getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
       if (err) return;
       map.easeTo({ center: features[0].geometry.coordinates, zoom });
     });
@@ -553,6 +594,11 @@ export function PublicMap({
       if (!map || mode === mapMode) return;
       setMapMode(mode);
       mapModeRef.current = mode;
+      // maplibre keeps terrain across setStyle; while the new style is loading
+      // its projection is undefined, so the depth pass would crash in
+      // useProgram. Clear terrain first — it's re-added on the new style's
+      // 'load' event when 3D is active.
+      if (map.isStyleLoaded()) map.setTerrain(null);
       map.setStyle(mode === '3d' ? MAPTILER_STYLE : OPENFREEMAP_STYLE, { diff: false });
     },
     [mapMode]
@@ -561,16 +607,19 @@ export function PublicMap({
   useEffect(() => {
     if (mapRef.current) {
       applyReportData(mapRef.current);
-      applySelectedMarker(mapRef.current);
     }
   }, [
     backendReports,
     submittedReports,
-    selectedLocation,
     visibleReportStatuses,
     applyReportData,
-    applySelectedMarker,
   ]);
+
+  useEffect(() => {
+    if (mapRef.current) {
+      applySelectedMarker(mapRef.current);
+    }
+  }, [selectedLocation, applySelectedMarker]);
 
   // Fetch near real-time rainfall when the layer is enabled, then refresh on the
   // same cadence as the server-side cache (10 minutes).
@@ -631,6 +680,26 @@ export function PublicMap({
     // re-adds project layers + terrain so the map instance persists.
     map.on('style.load', onMapLoad);
 
+    // Pre-fetch near real-time rainfall so the report-modal hazard check always
+    // has precipitation data, even if the rainfall layer stays off. The GSMaP
+    // payload covers all of the Philippines and can be large, so defer it until
+    // the map's initial load is done and the browser is idle rather than
+    // competing with basemap/tile fetching at startup.
+    map.once('load', () => {
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        window.requestIdleCallback(
+          () => {
+            if (mapRef.current === map) void loadRainfall();
+          },
+          { timeout: 5000 }
+        );
+      } else {
+        setTimeout(() => {
+          if (mapRef.current === map) void loadRainfall();
+        }, 1000);
+      }
+    });
+
     map.on('click', (e: any) => {
       handleLocationSelectRef.current(e.lngLat.lat, e.lngLat.lng);
     });
@@ -652,7 +721,7 @@ export function PublicMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [loadMapReports, maplibregl, onMapLoad]);
+  }, [loadMapReports, loadRainfall, maplibregl, onMapLoad]);
 
   // Hide the layer/share controls when they would sit behind the bottom
   // navbar (e.g. a short map card on a small phone), while keeping them
