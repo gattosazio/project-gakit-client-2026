@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useEffect } from 'react';
 import Image from 'next/image';
-import { LogOut, Map, UserRound } from 'lucide-react';
+import { Loader2, LogOut, Map, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, type StaffRole } from '@/lib/auth/roles';
 import { PortalNavItem } from './portalTypes';
@@ -17,9 +17,71 @@ interface SideBarProps<T extends string> {
   onTabChange: (tab: T) => void;
 }
 
+export function SignOutConfirmDialog({
+  isOpen,
+  isSigningOut,
+  onConfirm,
+  onCancel,
+}: {
+  isOpen: boolean;
+  isSigningOut: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  if (!isOpen) return null;
+  return (
+    <div
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      onClick={onCancel}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Confirm sign out"
+    >
+      <div
+        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50">
+            <LogOut className="h-5 w-5 text-red-600" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Sign out</h2>
+            <p className="text-sm text-slate-500">End your portal session</p>
+          </div>
+        </div>
+        <p className="mt-4 text-sm text-slate-600">
+          Are you sure you want to sign out? You will need to sign in again to
+          access the portal.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isSigningOut}
+            className="rounded-lg border border-canvas-grey px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isSigningOut}
+            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {isSigningOut && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSigningOut ? 'Signing out…' : 'Sign out'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function MobileSignOutButton({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -29,31 +91,39 @@ export function MobileSignOutButton({ compact = false }: { compact?: boolean }) 
     router.refresh();
   }
 
-  if (compact) {
-    return (
-      <button
-        type="button"
-        onClick={handleSignOut}
-        disabled={isSigningOut}
-        title="Sign out"
-        aria-label="Sign out"
-        className="rounded-lg border border-canvas-grey p-2 text-slate-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-      >
-        <LogOut className="h-5 w-5" />
-      </button>
-    );
-  }
-
-  return (
+  const trigger = compact ? (
     <button
       type="button"
-      onClick={handleSignOut}
+      onClick={() => setShowConfirm(true)}
+      disabled={isSigningOut}
+      title="Sign out"
+      aria-label="Sign out"
+      className="rounded-lg border border-canvas-grey p-2 text-slate-600 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+    >
+      <LogOut className="h-5 w-5" />
+    </button>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setShowConfirm(true)}
       disabled={isSigningOut}
       className="flex flex-col items-center justify-center gap-1 rounded-lg px-1.5 py-2 text-[11px] font-semibold text-slate-500 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
     >
       <LogOut className="h-5 w-5" />
       <span className="truncate">{isSigningOut ? '...' : 'Sign out'}</span>
     </button>
+  );
+
+  return (
+    <>
+      {trigger}
+      <SignOutConfirmDialog
+        isOpen={showConfirm}
+        isSigningOut={isSigningOut}
+        onConfirm={handleSignOut}
+        onCancel={() => setShowConfirm(false)}
+      />
+    </>
   );
 }
 
@@ -65,6 +135,7 @@ export function SideBar<T extends string>({
 }: SideBarProps<T>) {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [role, setRole] = useState<StaffRole | null>(null);
   const { navigate, loadingOverlay } = useRouteLoader();
@@ -158,7 +229,7 @@ export function SideBar<T extends string>({
           </div>
         </div>
         <button
-          onClick={handleLogOut}
+          onClick={() => setShowConfirm(true)}
           disabled={isSigningOut}
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
         >
@@ -167,6 +238,12 @@ export function SideBar<T extends string>({
         </button>
       </div>
     </aside>
+    <SignOutConfirmDialog
+      isOpen={showConfirm}
+      isSigningOut={isSigningOut}
+      onConfirm={handleLogOut}
+      onCancel={() => setShowConfirm(false)}
+    />
     {loadingOverlay}
     </>
   );

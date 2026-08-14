@@ -258,7 +258,7 @@ export function PublicViewPage() {
 
   return (
     <div className="min-h-screen bg-canvas-grey">
-      <PublicHeader />
+      <PublicHeader activeSection={activeSection} />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
         showDown={activeSection !== 'about'}
@@ -267,8 +267,8 @@ export function PublicViewPage() {
       />
 
       <main className="pt-16 pb-14 md:pb-0">
-        <section id="hazard-map" className="min-h-[calc(100vh-4rem)] scroll-mt-16">
-          <div className="h-[calc(100vh-4rem)] flex overflow-hidden bg-white">
+        <section id="hazard-map" className="min-h-[calc(100dvh-4rem)] scroll-mt-16">
+          <div className="h-[calc(100dvh-4rem)] flex overflow-hidden bg-white">
             <div className="relative isolate flex-1 w-full h-full min-h-0">
               {isManualLocationMode ? (
                 <div className="absolute left-14 right-4 top-4 z-[1100] md:right-auto md:w-80">
@@ -518,67 +518,62 @@ function LocationSearch({
   };
 
   return (
-    <div className="rounded-lg border border-canvas-grey bg-white/95 p-2 shadow-lg">
-      <form onSubmit={handleSearch} className="space-y-2">
-        <div className="flex gap-2">
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 focus-within:border-gakit-maroon">
-            <Search className="h-4 w-4 shrink-0 text-slate-400" />
-            <input
-              value={searchQuery}
-              onChange={(event) => {
-                setSearchQuery(event.target.value);
-                setSearchResults([]);
-                setSearchError(null);
-              }}
-              placeholder="Street, barangay, or landmark"
-              className="min-w-0 flex-1 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-              aria-label="Search for a location in Iligan City"
-            />
-          </label>
-          <button
-            type="submit"
-            disabled={isSearching}
-            className="flex w-11 shrink-0 items-center justify-center rounded-lg bg-gakit-maroon text-white hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-60"
-            aria-label="Search location"
-          >
-            {isSearching ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Search className="h-5 w-5" />
-            )}
-          </button>
-        </div>
-
-        {searchError && (
-          <p className="px-1 text-xs text-red-600" role="status">
-            {searchError}
-          </p>
-        )}
-
-        {searchResults.length > 0 && (
-          <div className="max-h-48 overflow-y-auto rounded-lg border border-canvas-grey bg-white divide-y divide-canvas-grey">
-            {searchResults.map((result) => (
-              <button
-                key={`${result.lat}-${result.lng}`}
-                type="button"
-                onClick={() =>
-                  onSelect({
-                    lat: result.lat,
-                    lng: result.lng,
-                    address: result.displayName,
-                  })
-                }
-                className="flex w-full items-start gap-2 px-3 py-3 text-left hover:bg-maroon-50"
-              >
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gakit-maroon" />
-                <span className="text-sm text-slate-700">
-                  {result.displayName}
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
+    <div className="rounded-xl bg-white/90 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur-sm">
+      <form onSubmit={handleSearch} className="flex items-center gap-1.5">
+        <label className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 transition-shadow focus-within:ring-2 focus-within:ring-gakit-maroon/40">
+          <Search className="h-4 w-4 shrink-0 text-slate-400" />
+          <input
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setSearchResults([]);
+              setSearchError(null);
+            }}
+            placeholder="Search street, barangay, or landmark"
+            className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+            aria-label="Search for a location in Iligan City"
+          />
+          {isSearching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gakit-maroon" />}
+        </label>
+        <button
+          type="submit"
+          disabled={isSearching}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gakit-maroon text-white shadow-sm transition-colors hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-60"
+          aria-label="Search location"
+        >
+          <Search className="h-4 w-4" />
+        </button>
       </form>
+
+      {searchError && (
+        <p className="px-3 pb-1 pt-1.5 text-xs text-red-600" role="status">
+          {searchError}
+        </p>
+      )}
+
+      {searchResults.length > 0 && (
+        <div className="mt-1.5 max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+          {searchResults.map((result) => (
+            <button
+              key={`${result.lat}-${result.lng}`}
+              type="button"
+              onClick={() =>
+                onSelect({
+                  lat: result.lat,
+                  lng: result.lng,
+                  address: result.displayName,
+                })
+              }
+              className="flex w-full items-start gap-2.5 px-3 py-3 text-left transition-colors hover:bg-maroon-50"
+            >
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gakit-maroon" />
+              <span className="text-sm text-slate-700">
+                {result.displayName}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
