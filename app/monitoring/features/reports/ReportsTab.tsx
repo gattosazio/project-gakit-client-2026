@@ -60,7 +60,13 @@ const STATUS_ICONS: Record<ReportStatus, LucideIcon> = {
 };
 const REPORTS_PER_PAGE = 6;
 
-export function ReportsTab({ initialCritical = false }: { initialCritical?: boolean }) {
+export function ReportsTab({
+  initialCritical = false,
+  highlightedReportId = null,
+}: {
+  initialCritical?: boolean;
+  highlightedReportId?: string | null;
+}) {
   const [reports, setReports] = useState<Report[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
@@ -94,6 +100,13 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
   useEffect(() => {
     setCriticalFilter(initialCritical);
   }, [initialCritical]);
+
+  useEffect(() => {
+    if (!highlightedReportId) return;
+    setQuery(highlightedReportId);
+    setTimeFilter('all');
+    setCurrentPage(1);
+  }, [highlightedReportId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -278,7 +291,7 @@ export function ReportsTab({ initialCritical = false }: { initialCritical?: bool
                         return (
                           <tr
                             key={report.id}
-                            className={selectedReport?.id === report.id ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/70'}
+                            className={highlightedReportId === report.id || selectedReport?.id === report.id ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/70'}
                           >
                             <td className="px-5 py-4">
                               <div className="font-mono text-xs font-semibold text-slate-900">

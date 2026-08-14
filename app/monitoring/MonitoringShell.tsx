@@ -17,10 +17,13 @@ export function MonitoringShell() {
   const requestedTab = searchParams.get('tab') as MonitoringFeatureId | null;
   const activeTab = requestedTab && monitoringFeatureMap[requestedTab] ? requestedTab : 'dashboard';
   const [criticalReportsOnly, setCriticalReportsOnly] = useState(false);
+  const [highlightedReportId, setHighlightedReportId] = useState<string | null>(null);
   const activeFeature = monitoringFeatureMap[activeTab];
   const handleTabChange = (tab: MonitoringFeatureId) => {
     setCriticalReportsOnly(false);
+    setHighlightedReportId(null);
     const params = new URLSearchParams(searchParams.toString());
+    params.delete('notification');
     if (tab === 'dashboard') params.delete('tab');
     else params.set('tab', tab);
     const query = params.toString();
@@ -28,7 +31,18 @@ export function MonitoringShell() {
   };
   const handleReviewCritical = () => {
     setCriticalReportsOnly(true);
-    handleTabChange('reports');
+    setHighlightedReportId(null);
+    router.replace('/monitoring?tab=reports', { scroll: false });
+  };
+  const handleOpenReport = (reportId?: string) => {
+    setCriticalReportsOnly(false);
+    setHighlightedReportId(reportId ?? null);
+    router.replace('/monitoring?tab=reports', { scroll: false });
+  };
+  const handleOpenNotification = (notificationId: string) => {
+    setCriticalReportsOnly(false);
+    setHighlightedReportId(null);
+    router.replace(`/monitoring?tab=alerts&notification=${encodeURIComponent(notificationId)}`, { scroll: false });
   };
   return (
     <div className="h-screen bg-canvas-light flex overflow-hidden">
@@ -43,14 +57,15 @@ export function MonitoringShell() {
           title={activeFeature.title}
           description={activeFeature.description}
           icon={activeFeature.icon}
+          onNotificationClick={handleOpenNotification}
         />
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 lg:pb-6 space-y-6">
           {activeTab === 'dashboard' && (
             <DashboardOverview onReviewCritical={handleReviewCritical} />
           )}
-          {activeTab === 'alerts' && <AlertsTab onOpenReports={() => handleTabChange('reports')} />}
+          {activeTab === 'alerts' && <AlertsTab onOpenReports={handleOpenReport} />}
           <div className={activeTab === 'reports' ? '' : 'hidden'}>
-            <ReportsTab initialCritical={criticalReportsOnly} />
+            <ReportsTab initialCritical={criticalReportsOnly} highlightedReportId={highlightedReportId} />
           </div>
         </main>
       </div>
