@@ -290,6 +290,8 @@ export function PublicViewPage() {
                   onLocationSelect={handleLocationSelect}
                   selectedLocation={selectedLocation}
                   submittedReports={submittedReports}
+                  reportStatusToggleStatuses={['UNVERIFIED', 'VERIFIED']}
+                  defaultVisibleReportStatuses={{ ANOMALY: false, REJECTED: false }}
                 />
               </Suspense>
 

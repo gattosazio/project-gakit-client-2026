@@ -65,7 +65,16 @@ interface PublicMapProps {
   mapApiRef?: MutableRefObject<PublicMapHandle | null>;
   hideShareLocation?: boolean;
   hideAttribution?: boolean;
+  reportStatusToggleStatuses?: ReportStatus[];
+  defaultVisibleReportStatuses?: Partial<Record<ReportStatus, boolean>>;
 }
+
+const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
+  UNVERIFIED: true,
+  VERIFIED: true,
+  ANOMALY: true,
+  REJECTED: true,
+};
 
 export function PublicMap({
   onLocationSelect,
@@ -74,19 +83,22 @@ export function PublicMap({
   mapApiRef,
   hideShareLocation = false,
   hideAttribution = false,
+  reportStatusToggleStatuses,
+  defaultVisibleReportStatuses,
 }: PublicMapProps) {
+  const initialVisibleReportStatuses = {
+    ...DEFAULT_VISIBLE_REPORT_STATUSES,
+    ...defaultVisibleReportStatuses,
+  };
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const controlsSentinelRef = useRef<HTMLDivElement | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
   const backendReportsRef = useRef<MapReportFeature[]>([]);
   const submittedReportsRef = useRef<SubmittedReportProps[]>([]);
-  const visibleReportStatusesRef = useRef<Record<ReportStatus, boolean>>({
-    UNVERIFIED: true,
-    VERIFIED: true,
-    ANOMALY: true,
-    REJECTED: true,
-  });
+  const visibleReportStatusesRef = useRef<Record<ReportStatus, boolean>>(
+    initialVisibleReportStatuses
+  );
   const selectedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
   const handleLocationSelectRef = useRef<(lat: number, lng: number) => void>(() => {});
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -112,12 +124,9 @@ export function PublicMap({
     medium: true,
     low: true,
   });
-  const [visibleReportStatuses, setVisibleReportStatuses] = useState<Record<ReportStatus, boolean>>({
-    UNVERIFIED: true,
-    VERIFIED: true,
-    ANOMALY: true,
-    REJECTED: true,
-  });
+  const [visibleReportStatuses, setVisibleReportStatuses] = useState<Record<ReportStatus, boolean>>(
+    initialVisibleReportStatuses
+  );
   const [mapMode, setMapMode] = useState<MapMode>('2d');
   const layersReadyRef = useRef(false);
   const loadingReportsRef = useRef(false);
@@ -735,6 +744,7 @@ export function PublicMap({
           onRiskLevelChange={(key, checked) =>
             setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
           }
+          reportStatusToggleStatuses={reportStatusToggleStatuses}
         />
 
         {!hideShareLocation && (
