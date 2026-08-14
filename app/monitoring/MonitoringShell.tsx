@@ -6,6 +6,7 @@ import { AdminHeader } from '@/components/AdminHeader';
 import { SideBar } from '@/components/SideBar';
 import type { PortalNavItem } from '@/components/portalTypes';
 import { DashboardOverview } from './features/dashboard/DashboardOverview';
+import { AlertsTab } from './features/alerts/AlertsTab';
 import { monitoringFeatureMap, monitoringFeatures, type MonitoringFeatureId } from './features/monitoringFeatureConfig';
 import { ReportsTab } from './features/reports/ReportsTab';
 import { useRouteLoader } from '@/components/RouteLoader';
@@ -47,6 +48,7 @@ export function MonitoringShell() {
           {activeTab === 'dashboard' && (
             <DashboardOverview onReviewCritical={handleReviewCritical} />
           )}
+          {activeTab === 'alerts' && <AlertsTab onOpenReports={() => handleTabChange('reports')} />}
           <div className={activeTab === 'reports' ? '' : 'hidden'}>
             <ReportsTab initialCritical={criticalReportsOnly} />
           </div>
