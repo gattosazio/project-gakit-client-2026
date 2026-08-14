@@ -1,4 +1,5 @@
 import {
+  BellRing,
   LayoutDashboard,
   Table2,
 } from 'lucide-react';
@@ -6,6 +7,7 @@ import { PortalNavItem } from '@/components/portalTypes';
 
 export type MonitoringFeatureId =
   | 'dashboard'
+  | 'alerts'
   | 'reports';
 
 export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
@@ -21,6 +23,19 @@ export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
       'Report activity heatmap over time',
       'Latest public reports table',
       'Emergency status summary with quick action entry point',
+    ],
+  },
+  {
+    id: 'alerts',
+    label: 'Alerts & Notifications',
+    mobileLabel: 'Alerts',
+    title: 'Alerts & Notifications',
+    description: 'Monitor new, flagged, and critical reports requiring staff attention.',
+    icon: BellRing,
+    contents: [
+      'Critical reports awaiting validation',
+      'Flagged reports requiring review',
+      'New reports awaiting validation',
     ],
   },
   {
