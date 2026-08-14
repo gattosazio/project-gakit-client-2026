@@ -43,7 +43,11 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  const role = await getStaffRole(supabase, user.id);
+  // Only look up the staff role when it can affect the response: protected
+  // routes and /login (authenticated users get redirected to their home).
+  // This avoids a DB query on every public request.
+  const needsRole = isProtected || pathname.startsWith('/login');
+  const role = needsRole ? await getStaffRole(supabase, user.id) : null;
   const home = homePathForRole(role);
 
   if (isProtected && !canAccessPath(pathname, role)) {

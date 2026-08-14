@@ -165,8 +165,10 @@ function createNotifications(reports: Report[]): Notification[] {
 }
 
 export function AlertsTab({
+  active = true,
   onOpenReports,
 }: {
+  active?: boolean;
   onOpenReports: (reportId?: string) => void;
 }) {
   const searchParams = useSearchParams();
@@ -198,8 +200,9 @@ export function AlertsTab({
   }, []);
 
   useEffect(() => {
+    if (!active) return;
     void loadNotifications();
-  }, [loadNotifications]);
+  }, [active, loadNotifications]);
 
   const notifications = useMemo(
     () => [...createNotifications(reports), ...STATIC_NOTIFICATIONS],

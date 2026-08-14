@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -15,20 +15,28 @@ import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormattin
 
 const CURRENT_YEAR = String(new Date().getFullYear());
 
-export function DashboardOverview({ onReviewCritical }: { onReviewCritical?: () => void }) {
+export function DashboardOverview({
+  active = true,
+  onReviewCritical,
+}: {
+  active?: boolean;
+  onReviewCritical?: () => void;
+}) {
   const [stats, setStats] = useState<ReportStats | null>(null);
   const [latestReports, setLatestReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedYear, setSelectedYear] = useState<string>(CURRENT_YEAR);
+  const hasLoadedRef = useRef(false);
 
   // Near-real-time refresh: re-fetch on an interval. The server-side cache
   // (30s, invalidated on write) keeps each poll cheap.
   const POLL_INTERVAL_MS = 30_000;
 
   useEffect(() => {
+    if (!active) return;
     let cancelled = false;
-    let isInitial = true;
+    let timer: ReturnType<typeof setInterval> | null = null;
 
     const load = async () => {
       try {
@@ -37,33 +45,55 @@ export function DashboardOverview({ onReviewCritical }: { onReviewCritical?: () 
           fetchReports({ limit: 5 }),
         ]);
         if (cancelled) return;
+        hasLoadedRef.current = true;
         setStats(statsResult);
         setLatestReports(reportsResult.items);
         setError(null);
+        setLoading(false);
       } catch (err: unknown) {
         if (cancelled) return;
-        // Only surface errors on the first load; keep showing existing data
-        // if a background poll transiently fails.
-        if (isInitial) {
+        // Only surface errors before the first successful load; keep showing
+        // existing data if a background refresh transiently fails.
+        if (!hasLoadedRef.current) {
           setError(err instanceof Error ? err.message : 'Failed to load reports');
-        }
-      } finally {
-        if (cancelled) return;
-        if (isInitial) {
           setLoading(false);
-          isInitial = false;
         }
       }
     };
 
-    load();
-    const timer = setInterval(load, POLL_INTERVAL_MS);
+    const isVisible = () => document.visibilityState === 'visible';
+
+    const startPolling = () => {
+      if (timer != null) return;
+      timer = setInterval(() => void load(), POLL_INTERVAL_MS);
+    };
+
+    const stopPolling = () => {
+      if (timer != null) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const handleVisibility = () => {
+      if (isVisible()) {
+        void load();
+        startPolling();
+      } else {
+        stopPolling();
+      }
+    };
+
+    void load();
+    startPolling();
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
       cancelled = true;
-      clearInterval(timer);
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, []);
+  }, [active]);
 
   const years = useMemo(() => {
     const yearSet = new Set(stats?.years.map(String) ?? []);

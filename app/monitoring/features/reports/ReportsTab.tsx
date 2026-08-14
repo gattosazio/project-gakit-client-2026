@@ -63,9 +63,11 @@ const REPORTS_PER_PAGE = 6;
 export function ReportsTab({
   initialCritical = false,
   highlightedReportId = null,
+  active = true,
 }: {
   initialCritical?: boolean;
   highlightedReportId?: string | null;
+  active?: boolean;
 }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [total, setTotal] = useState(0);
@@ -87,6 +89,7 @@ export function ReportsTab({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const mapSectionRef = useRef<HTMLElement | null>(null);
+  const requestSeqRef = useRef(0);
 
   useEffect(() => {
     const supabase = createClient();
@@ -109,14 +112,19 @@ export function ReportsTab({
   }, [highlightedReportId]);
 
   useEffect(() => {
+    if (!active) return;
     const timer = setTimeout(() => {
+      const seq = requestSeqRef.current + 1;
+      requestSeqRef.current = seq;
       setLoading(true);
       setError(null);
 
       const selectedRange = timeRangeOptions.find((option) => option.value === timeFilter);
       const since =
         selectedRange && selectedRange.hours != null
-          ? new Date(Date.now() - selectedRange.hours * 3600 * 1000).toISOString()
+          ? new Date(
+              Math.floor((Date.now() - selectedRange.hours * 3600 * 1000) / 60_000) * 60_000
+            ).toISOString()
           : undefined;
 
       fetchReports({
@@ -129,6 +137,7 @@ export function ReportsTab({
         created_after: since,
       })
         .then((result) => {
+          if (seq !== requestSeqRef.current) return;
           setReports(result.items);
           setTotal(result.total);
           setTotalPages(result.totalPages);
@@ -139,16 +148,28 @@ export function ReportsTab({
           );
         })
         .catch((err: unknown) => {
+          if (seq !== requestSeqRef.current) return;
           setError(err instanceof Error ? err.message : 'Failed to load reports');
           setReports([]);
           setTotal(0);
           setTotalPages(1);
         })
-        .finally(() => setLoading(false));
+        .finally(() => {
+          if (seq === requestSeqRef.current) setLoading(false);
+        });
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [currentPage, query, statusFilter, depthFilter, timeFilter, criticalFilter, refreshKey]);
+  }, [active, currentPage, query, statusFilter, depthFilter, timeFilter, criticalFilter, refreshKey]);
+
+  useEffect(() => {
+    if (!active) return;
+    const isVisible = () => document.visibilityState === 'visible';
+    const timer = setInterval(() => {
+      if (isVisible()) setRefreshKey((key) => key + 1);
+    }, 30_000);
+    return () => clearInterval(timer);
+  }, [active]);
 
   const selectedReport =
     reports.find((report) => report.id === selectedReportId) || null;
@@ -396,13 +417,20 @@ export function ReportsTab({
             </div>
 
             <div className="h-[20rem] md:h-[26rem] relative">
-              <PublicMap
-                mapApiRef={mapRef}
-                onLocationSelect={handleNoopLocationSelect}
-                selectedLocation={null}
-                hideShareLocation
-                hideAttribution
-              />
+              {active ? (
+                <PublicMap
+                  mapApiRef={mapRef}
+                  onLocationSelect={handleNoopLocationSelect}
+                  selectedLocation={null}
+                  hideShareLocation
+                  hideAttribution
+                  enableAddressLookup={false}
+                />
+              ) : (
+                <div className="w-full h-full bg-canvas-grey flex items-center justify-center">
+                  <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+                </div>
+              )}
             </div>
 
             <div className="border-t border-canvas-grey px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -834,139 +862,6 @@ function ReportActions({
             document.body
           )}
       </div>
-    </div>
-  );
-}
-
-function StatusActionMenu({
-  report,
-  isUpdating,
-  onUpdateStatus,
-}: {
-  report: Report;
-  isUpdating: boolean;
-  onUpdateStatus: (report: Report, toStatus: ReportStatus) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ bottom: number; left: number; width: number }>({
-    bottom: 0,
-    left: 0,
-    width: 0,
-  });
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-
-  const options: Array<{
-    status: ReportStatus;
-    label: string;
-    className: string;
-    icon: typeof CheckCircle2;
-  }> = [
-    {
-      status: 'VERIFIED',
-      label: 'Verify',
-      className: 'text-hazard-safe',
-      icon: CheckCircle2,
-    },
-    {
-      status: 'ANOMALY',
-      label: 'Mark Anomaly',
-      className: 'text-hazard-critical',
-      icon: AlertTriangle,
-    },
-    {
-      status: 'REJECTED',
-      label: 'Reject',
-      className: 'text-slate-600',
-      icon: XCircle,
-    },
-  ];
-
-  const toggle = () => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) {
-      setMenuPos({
-        bottom: window.innerHeight - rect.top + 4,
-        left: rect.left,
-        width: rect.width,
-      });
-    }
-    setOpen(true);
-  };
-
-  return (
-    <>
-      <button
-        ref={buttonRef}
-        onClick={toggle}
-        disabled={isUpdating}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="flex w-full items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        {isUpdating ? 'Updating…' : 'Update Status'}
-        <ChevronDown className={`w-4 h-4 transition-transform ${open ? '' : 'rotate-180'}`} />
-      </button>
-
-      {open &&
-        createPortal(
-          <>
-            <button
-              type="button"
-              aria-hidden
-              tabIndex={-1}
-              className="fixed inset-0 z-[1300] cursor-default"
-              onClick={() => setOpen(false)}
-            />
-            <div
-              role="menu"
-              style={{
-                position: 'fixed',
-                top: 'auto',
-                bottom: menuPos.bottom,
-                left: menuPos.left,
-                width: menuPos.width,
-              }}
-              className="z-[1400] overflow-hidden rounded-lg border border-canvas-grey bg-white shadow-lg"
-            >
-              {options.map((option, index) => {
-                const isCurrent = report.status === option.status;
-                const Icon = option.icon;
-                return (
-                  <button
-                    key={option.status}
-                    role="menuitem"
-                    disabled={isCurrent}
-                    onClick={() => {
-                      setOpen(false);
-                      onUpdateStatus(report, option.status);
-                    }}
-                    className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-50 ${index > 0 ? 'border-t border-canvas-grey' : ''} ${option.className}`}
-                  >
-                    <Icon className="w-4 h-4 shrink-0" />
-                    <span className="flex-1 text-left">{option.label}</span>
-                    {isCurrent && (
-                      <span className="text-xs font-medium text-slate-400">Current</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </>,
-          document.body
-        )}
-    </>
-  );
-}
-
-function DetailItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="text-xs font-semibold text-slate-500">{label}</div>
-      <div className="font-medium text-slate-900 mt-1">{value}</div>
     </div>
   );
 }
