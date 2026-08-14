@@ -82,6 +82,7 @@ interface LayerControlsProps {
   rainfallObservedAt: string | null;
   visibleRiskLevels: Record<string, boolean>;
   onRiskLevelChange: (key: string, checked: boolean) => void;
+  reportStatusToggleStatuses?: ReportStatus[];
 }
 
 export function LayerControls({
@@ -96,6 +97,7 @@ export function LayerControls({
   rainfallObservedAt,
   visibleRiskLevels,
   onRiskLevelChange,
+  reportStatusToggleStatuses,
 }: LayerControlsProps) {
   return (
     <>
@@ -115,22 +117,31 @@ export function LayerControls({
             </button>
           </div>
           <div className="space-y-1.5">
-            <div className="mb-2 border-b border-canvas-grey/70 pb-2">
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                Flood reports
-              </div>
-              <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
-                {REPORT_STATUS_LEGEND.map(({ status, label }) => (
-                  <LayerToggle
-                    key={status}
-                    label={label}
-                    color={REPORT_MARKER_COLORS[status]}
-                    checked={visibleReportStatuses[status]}
-                    onChange={(checked) => onReportStatusChange(status, checked)}
-                  />
-                ))}
-              </div>
-            </div>
+            {(() => {
+              const legend =
+                reportStatusToggleStatuses ??
+                REPORT_STATUS_LEGEND.map(({ status }) => status);
+              return (
+                <div className="mb-2 border-b border-canvas-grey/70 pb-2">
+                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                    Flood reports
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+                    {REPORT_STATUS_LEGEND.filter(({ status }) =>
+                      legend.includes(status)
+                    ).map(({ status, label }) => (
+                      <LayerToggle
+                        key={status}
+                        label={label}
+                        color={REPORT_MARKER_COLORS[status]}
+                        checked={visibleReportStatuses[status]}
+                        onChange={(checked) => onReportStatusChange(status, checked)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
             <LayerToggle
               label="Flood Hazard Zones"
               color="#3B82F6"

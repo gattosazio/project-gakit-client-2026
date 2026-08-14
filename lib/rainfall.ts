@@ -6,6 +6,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 // The server caches GSMaP results for 10 minutes, so mirror that TTL here.
 const RAINFALL_TTL_MS = 10 * 60 * 1000;
 
+// A cold server cache triggers a fresh JAXA FTP download that can take a while;
+// give the request a generous timeout, then retry so a dropped connection (which
+// Firefox reports as "NetworkError when attempting to fetch resource") self-heals
+// once the server-side cache is warm.
+const RAINFALL_REQUEST_TIMEOUT_MS = 90_000;
+const RAINFALL_MAX_RETRIES = 3;
+const RAINFALL_RETRY_BASE_DELAY_MS = 1_500;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -29,11 +39,35 @@ async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   return body as T;
 }
 
+async function fetchRainfallOnce(): Promise<RainfallResponse> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), RAINFALL_REQUEST_TIMEOUT_MS);
+  try {
+    return await request<RainfallResponse>('/api/v1/rainfall/gsmap', controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function fetchRainfall(signal?: AbortSignal): Promise<RainfallResponse> {
   const url = '/api/v1/rainfall/gsmap';
-  return cachedGet<RainfallResponse>(url, RAINFALL_TTL_MS, () =>
-    request<RainfallResponse>(url, signal)
-  );
+  return cachedGet<RainfallResponse>(url, RAINFALL_TTL_MS, async () => {
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= RAINFALL_MAX_RETRIES; attempt += 1) {
+      try {
+        return await fetchRainfallOnce();
+      } catch (error) {
+        lastError = error;
+        if (signal?.aborted) throw error;
+        const retryable =
+          error instanceof TypeError ||
+          (error instanceof DOMException && error.name === 'AbortError');
+        if (!retryable || attempt === RAINFALL_MAX_RETRIES) throw error;
+        await sleep(RAINFALL_RETRY_BASE_DELAY_MS * 2 ** attempt);
+      }
+    }
+    throw lastError;
+  });
 }
 
 // GSMaP cells are 0.1 degrees on a side. Render each point as a solid square
