@@ -9,6 +9,14 @@ import {
 } from 'react';
 import { Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
+import * as maplibregl from 'maplibre-gl';
+import { MapStatusChip } from '@/components/map/MapStatusChip';
+import {
+  getBackendStatus,
+  subscribeBackendStatus,
+  type BackendStatus,
+} from '@/lib/backendStatus';
+import { readCachedReports, writeCachedReports } from '@/lib/reportCache';
 import {
   HAS_MAPTILER,
   ILIGAN_REPORT_BOUNDS,
@@ -75,6 +83,7 @@ interface PublicMapProps {
   reportStatusToggleStatuses?: ReportStatus[];
   defaultVisibleReportStatuses?: Partial<Record<ReportStatus, boolean>>;
   enableAddressLookup?: boolean;
+  onReady?: () => void;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -94,6 +103,7 @@ export function PublicMap({
   reportStatusToggleStatuses,
   defaultVisibleReportStatuses,
   enableAddressLookup = true,
+  onReady,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -117,7 +127,6 @@ export function PublicMap({
   const selectedMarkerRef = useRef<any>(null);
   const pendingInspectRef = useRef<MapReportToShow | null>(null);
   const inspectTargetRef = useRef<MapReportToShow | null>(null);
-  const [maplibregl, setMaplibregl] = useState<any>(null);
   const [backendReports, setBackendReports] = useState<MapReportFeature[]>([]);
   const [showRainfall, setShowRainfall] = useState(false);
   const [rainfallObservedAt, setRainfallObservedAt] = useState<string | null>(null);
@@ -141,6 +150,12 @@ export function PublicMap({
   const [mapMode, setMapMode] = useState<MapMode>('2d');
   const layersReadyRef = useRef(false);
   const loadingReportsRef = useRef(false);
+  const hasLoadedReportsRef = useRef(false);
+  const onReadyFiredRef = useRef(false);
+  const [hasLoadedReports, setHasLoadedReports] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<BackendStatus>(() =>
+    getBackendStatus()
+  );
   const rainfallSourceRef = useRef<RainfallGrid | null>(null);
   const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rainfallCellsRef = useRef<Map<string, number>>(new Map());
@@ -165,13 +180,31 @@ export function PublicMap({
     rainfallHoursRef.current = rainfallHours;
   }, [mapMode, showFloodHazard, showRainfall, visibleRiskLevels, rainfallHours]);
 
+  useEffect(() => {
+    return subscribeBackendStatus(() => setBackendStatus(getBackendStatus()));
+  }, []);
+
   const loadMapReports = useCallback(async () => {
     if (loadingReportsRef.current) return;
+
+    // Seed pins from the last-known cache immediately so a cold-starting
+    // backend never leaves the map blank; refresh in the background below.
+    if (!hasLoadedReportsRef.current) {
+      const cached = readCachedReports();
+      if (cached?.length) {
+        setBackendReports(cached);
+        hasLoadedReportsRef.current = true;
+        setHasLoadedReports(true);
+      }
+    }
 
     loadingReportsRef.current = true;
     try {
       const reports = await fetchMapReports(ILIGAN_REPORT_BOUNDS);
       setBackendReports(reports.features);
+      hasLoadedReportsRef.current = true;
+      setHasLoadedReports(true);
+      writeCachedReports(reports.features);
     } catch (error) {
       console.error('Failed to load reports from backend', error);
     } finally {
@@ -253,12 +286,12 @@ export function PublicMap({
           offset: 10,
         });
       }
-      reportPopupRef.current.setLngLat(lngLat).setHTML(buildReportPopupHtml(feature));
+        reportPopupRef.current.setLngLat(lngLat).setHTML(buildReportPopupHtml(feature));
       if (!reportPopupRef.current.isOpen()) {
         reportPopupRef.current.addTo(mapRef.current);
       }
     },
-    [maplibregl]
+    []
   );
 
   const hideReportPopup = useCallback(() => {
@@ -342,13 +375,7 @@ export function PublicMap({
     showReport(report);
   }, [mapReady, showReport]);
 
-  // Dynamically import maplibre-gl on client side only
-  useEffect(() => {
-    import('maplibre-gl').then((module) => {
-      setMaplibregl(module);
-    });
-  }, []);
-
+  // Clean up timers/abort on unmount.
   useEffect(() => {
     return () => {
       if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
@@ -489,7 +516,7 @@ export function PublicMap({
 
       selectedMarkerRef.current.setLngLat([location.lng, location.lat]);
     },
-    [maplibregl]
+    []
   );
 
   // Stable layer-event handlers so they can be attached/detached across style
@@ -576,6 +603,14 @@ export function PublicMap({
         applyReportData(map);
         applySelectedMarker(map);
 
+        // Signal the parent that the basemap + project layers are ready so the
+        // location prompt never covers a still-loading map. Fires once on the
+        // initial style load (not on 2D <-> 3D switches).
+        if (!onReadyFiredRef.current) {
+          onReadyFiredRef.current = true;
+          onReady?.();
+        }
+
         // Apply rainfall data that was fetched before the map finished loading.
         if (rainfallSourceRef.current) {
           map.getSource('rainfall')?.setData(rainfallSourceRef.current);
@@ -585,7 +620,7 @@ export function PublicMap({
 
       void loadMapReports();
     },
-    [applyReportData, applySelectedMarker, attachLayerEvents, loadMapReports, maplibregl]
+    [applyReportData, applySelectedMarker, attachLayerEvents, loadMapReports, onReady]
   );
 
   const onMapLoad = useCallback(() => {
@@ -677,7 +712,10 @@ export function PublicMap({
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 12,
       minZoom: 4,
-      attributionControl: !hideAttribution,
+      // Tiles pop in instead of slowly cross-fading, which reads much better on
+      // a slow network where the initial tiles arrive late.
+      fadeDuration: 0,
+      attributionControl: hideAttribution ? false : undefined,
     });
 
     mapRef.current = map;
@@ -723,7 +761,9 @@ export function PublicMap({
       if (moveendTimerRef.current) clearTimeout(moveendTimerRef.current);
       moveendTimerRef.current = setTimeout(() => {
         moveendTimerRef.current = null;
-        void loadMapReports();
+        // Skip refetches while the backend is warming up so pans don't restart
+        // a retry cycle; the pins shown come from cache/state meanwhile.
+        if (getBackendStatus() !== 'warming') void loadMapReports();
       }, 300);
     });
 
@@ -736,7 +776,7 @@ export function PublicMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [loadMapReports, loadRainfall, maplibregl, onMapLoad]);
+  }, [loadMapReports, loadRainfall, onMapLoad]);
 
   // Hide the layer/share controls when they would sit behind the bottom
   // navbar (e.g. a short map card on a small phone), while keeping them
@@ -852,6 +892,15 @@ export function PublicMap({
           className="absolute bottom-0 right-0 h-px w-px"
         />
       </div>
+
+      <MapStatusChip
+        backendStatus={backendStatus}
+        showEmptyState={
+          hasLoadedReports &&
+          backendReports.length === 0 &&
+          submittedReports.length === 0
+        }
+      />
     </div>
   );
 }
