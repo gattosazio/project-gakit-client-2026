@@ -1,4 +1,5 @@
 import { cachedGet } from '@/lib/apiCache';
+import { markBackendOnline, markBackendWarming } from '@/lib/backendStatus';
 import { ILIGAN_BOUNDS } from '@/lib/geoUtils';
 import type {
   CreateReportInput,
@@ -12,27 +13,81 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
+// A free-tier server that has spun down cold-starts slowly (30-60s), so give
+// requests a generous timeout and retry with backoff so a cold start or a
+// dropped connection self-heals instead of surfacing a network error.
+const REQUEST_TIMEOUT_MS = 90_000;
+const REQUEST_MAX_RETRIES = 3;
+const REQUEST_RETRY_BASE_DELAY_MS = 1_500;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  });
+  const externalSignal = options?.signal;
 
-  const body = await response.json().catch(() => null);
-
-  if (!response.ok) {
-    const detail =
-      body && typeof body === 'object' && 'detail' in body
-        ? String(body.detail)
-        : null;
-
-    throw new Error(
-      detail ||
-        `Request to ${path} failed with status ${response.status} ${response.statusText}`
+  const retryableError = (error: unknown, status?: number): boolean => {
+    if (status !== undefined) return status === 502 || status === 503 || status === 504;
+    return (
+      error instanceof TypeError ||
+      (error instanceof DOMException && error.name === 'AbortError')
     );
-  }
+  };
 
-  return body as T;
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= REQUEST_MAX_RETRIES; attempt += 1) {
+    const controller = new AbortController();
+    const onAbort = () => controller.abort();
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort();
+      } else {
+        externalSignal.addEventListener('abort', onAbort, { once: true });
+      }
+    }
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    let status: number | undefined;
+    try {
+      const response = await fetch(`${API_URL}${path}`, {
+        headers: { 'Content-Type': 'application/json' },
+        ...options,
+        signal: controller.signal,
+      });
+      status = response.status;
+
+      const body = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const detail =
+          body && typeof body === 'object' && 'detail' in body
+            ? String(body.detail)
+            : null;
+
+        throw new Error(
+          detail ||
+            `Request to ${path} failed with status ${response.status} ${response.statusText}`
+        );
+      }
+
+      markBackendOnline();
+      return body as T;
+    } catch (error) {
+      lastError = error;
+      if (externalSignal?.aborted) throw error;
+      const abortedByTimeout =
+        error instanceof DOMException &&
+        error.name === 'AbortError' &&
+        status === undefined;
+      const retryable = retryableError(error, status) || abortedByTimeout;
+      if (!retryable || attempt === REQUEST_MAX_RETRIES) throw error;
+      markBackendWarming();
+      await sleep(REQUEST_RETRY_BASE_DELAY_MS * 2 ** attempt);
+    } finally {
+      clearTimeout(timer);
+      externalSignal?.removeEventListener('abort', onAbort);
+    }
+  }
+  throw lastError;
 }
 
 export type FloodDepth = CreateReportInput['depth'];
@@ -91,4 +146,12 @@ export async function listDepthCategories(signal?: AbortSignal): Promise<FloodDe
   return cachedGet<FloodDepthCategory[]>(url, 3_600_000, () =>
     request<FloodDepthCategory[]>(url, { signal })
   );
+}
+
+// Keep-alive probe used while a page is open so the free-tier instance stays
+// warm during active dev sessions (opt-in via NEXT_PUBLIC_KEEPALIVE=1). Hits
+// /health/ready (not /health) so each ping also touches the database, keeping
+// the Supabase project from ever reaching its 7-day inactivity pause.
+export async function pingHealth(): Promise<void> {
+  await request('/health/ready');
 }

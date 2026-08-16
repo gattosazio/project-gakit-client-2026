@@ -5,9 +5,9 @@ import type { FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
-import { Building2, CheckCircle2, ChevronDown, ChevronUp, Handshake, Loader2, Mail, MapPin, Navigation, Search, X } from 'lucide-react';
+import { Building2, CheckCircle2, ChevronDown, ChevronUp, Handshake, Loader2, Mail, MapPin, Navigation, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createReport, listPublicReports } from './actions/public.view';
+import { createReport, listPublicReports, pingHealth } from './actions/public.view';
 import { reverseGeocode, searchLocations } from '@/lib/geoUtils';
 import type { LocationSearchResult } from '@/lib/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
@@ -126,7 +126,6 @@ export function PublicViewPage() {
     window.addEventListener('scroll', updateActiveSection, { passive: true });
     window.addEventListener('resize', updateActiveSection);
 
-    setIsLocationPromptOpen(true);
     scrollToMap();
 
     return () => {
@@ -134,6 +133,19 @@ export function PublicViewPage() {
       window.removeEventListener('resize', updateActiveSection);
     };
   }, [getSectionFromScroll, scrollToMap]);
+
+  // Keep the free-tier backend warm while this page is open (opt-in).
+  // Only active during a dev session, so it never burns idle instance-hours.
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_KEEPALIVE !== '1') return;
+
+    void pingHealth().catch(() => {});
+    const timer = setInterval(() => {
+      void pingHealth().catch(() => {});
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -211,6 +223,12 @@ export function PublicViewPage() {
     setIsManualLocationMode(true);
     scrollToMap();
   }, [scrollToMap]);
+
+  // Open the location prompt only once the basemap + overlay layers are ready,
+  // so it never appears over a still-loading (blank) map.
+  const handleMapReady = useCallback(() => {
+    setIsLocationPromptOpen(true);
+  }, []);
 
   const handleLocationSelect = useCallback((location: SelectedLocation) => {
     setIsLocationPromptOpen(false);
@@ -296,6 +314,7 @@ export function PublicViewPage() {
               <Suspense fallback={<div className="w-full h-full bg-canvas-grey" />}>
                 <PublicMap
                   mapApiRef={mapRef}
+                  onReady={handleMapReady}
                   onLocationSelect={handleLocationSelect}
                   selectedLocation={selectedLocation}
                   submittedReports={submittedReports}
