@@ -323,6 +323,7 @@ export function PublicViewPage() {
               onSubmit={handleReportSubmit}
               onSuccess={() => setIsSuccessOpen(true)}
               onCheckLocation={handleCheckLocation}
+              rainfallHours={mapRef.current?.getRainfallHours?.() ?? 1}
             />
           </div>
         </section>

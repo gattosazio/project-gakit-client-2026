@@ -189,7 +189,7 @@ export function AdminHeader({
           </button>
 
           {isOpen && (
-            <div className="absolute right-0 z-[1300] mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-canvas-grey bg-white shadow-xl">
+            <div className="fixed inset-x-4 top-20 z-[1300] w-auto overflow-hidden rounded-xl border border-canvas-grey bg-white shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-2 md:w-[22rem]">
               <div className="flex items-center justify-between border-b border-canvas-grey px-4 py-3">
                 <div>
                   <p className="font-semibold text-slate-900">Notifications</p>
