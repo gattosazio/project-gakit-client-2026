@@ -8,6 +8,7 @@ import { ReportModal } from './ReportModal';
 import { Building2, CheckCircle2, ChevronDown, ChevronUp, Handshake, Loader2, Mail, MapPin, Navigation, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createReport, listPublicReports, pingHealth } from './actions/public.view';
+import { getBackendStatus } from '@/lib/backendStatus';
 import { reverseGeocode, searchLocations } from '@/lib/geoUtils';
 import type { LocationSearchResult } from '@/lib/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
@@ -156,6 +157,10 @@ export function PublicViewPage() {
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') return;
+        // While the backend is waking up the map chip already explains what's
+        // happening and the request layer keeps retrying; don't stack a late
+        // error toast on top of it.
+        if (getBackendStatus() === 'warming') return;
         toast.error(
           error instanceof Error
             ? error.message
@@ -182,6 +187,8 @@ export function PublicViewPage() {
     return { lat, lng, address };
   };
 
+  // Open the location prompt only on explicit intent (the "Report a flood
+  // hazard" button); never auto-open it over a map that may still be loading.
   const handleStartReport = useCallback(() => {
     scrollToMap();
     setIsManualLocationMode(false);
@@ -223,12 +230,6 @@ export function PublicViewPage() {
     setIsManualLocationMode(true);
     scrollToMap();
   }, [scrollToMap]);
-
-  // Open the location prompt only once the basemap + overlay layers are ready,
-  // so it never appears over a still-loading (blank) map.
-  const handleMapReady = useCallback(() => {
-    setIsLocationPromptOpen(true);
-  }, []);
 
   const handleLocationSelect = useCallback((location: SelectedLocation) => {
     setIsLocationPromptOpen(false);
@@ -302,19 +303,23 @@ export function PublicViewPage() {
                   <LocationSearch onSelect={handleSearchedLocationSelect} />
                 </div>
               ) : !isModalOpen && (
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-xs bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-4">
-                  <div className="text-sm font-semibold text-slate-900">
+                <button
+                  type="button"
+                  onClick={handleStartReport}
+                  className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-xs rounded-lg bg-gakit-maroon px-5 py-3 text-left shadow-lg transition-colors hover:bg-maroon-800"
+                >
+                  <span className="flex items-center gap-2 text-sm font-semibold text-white">
+                    <MapPin className="h-4 w-4 shrink-0" />
                     Report a flood hazard
-                  </div>
-                  <div className="text-xs text-slate-600 mt-1">
-                    Tap the map or use the location button, then choose the flood depth.
-                  </div>
-                </div>
+                  </span>
+                  <span className="mt-0.5 block text-xs text-maroon-100">
+                    Tap to search or choose your location
+                  </span>
+                </button>
               )}
               <Suspense fallback={<div className="w-full h-full bg-canvas-grey" />}>
                 <PublicMap
                   mapApiRef={mapRef}
-                  onReady={handleMapReady}
                   onLocationSelect={handleLocationSelect}
                   selectedLocation={selectedLocation}
                   submittedReports={submittedReports}

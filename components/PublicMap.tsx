@@ -153,6 +153,7 @@ export function PublicMap({
   const hasLoadedReportsRef = useRef(false);
   const onReadyFiredRef = useRef(false);
   const [hasLoadedReports, setHasLoadedReports] = useState(false);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [backendStatus, setBackendStatus] = useState<BackendStatus>(() =>
     getBackendStatus()
   );
@@ -199,6 +200,7 @@ export function PublicMap({
     }
 
     loadingReportsRef.current = true;
+    setIsLoadingReports(true);
     try {
       const reports = await fetchMapReports(ILIGAN_REPORT_BOUNDS);
       setBackendReports(reports.features);
@@ -209,6 +211,7 @@ export function PublicMap({
       console.error('Failed to load reports from backend', error);
     } finally {
       loadingReportsRef.current = false;
+      setIsLoadingReports(false);
     }
   }, []);
 
@@ -895,6 +898,7 @@ export function PublicMap({
 
       <MapStatusChip
         backendStatus={backendStatus}
+        showLoading={isLoadingReports && !hasLoadedReports}
         showEmptyState={
           hasLoadedReports &&
           backendReports.length === 0 &&

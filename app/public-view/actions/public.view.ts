@@ -16,14 +16,22 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 // A free-tier server that has spun down cold-starts slowly (30-60s), so give
 // requests a generous timeout and retry with backoff so a cold start or a
-// dropped connection self-heals instead of surfacing a network error.
+// dropped connection self-heals instead of surfacing a network error. Reports
+// have no slow server-side step (unlike rainfall's JAXA download), so they use
+// a shorter timeout so the "warming up" state surfaces sooner during a cold
+// start instead of holding the request silently for the full duration.
 const REQUEST_TIMEOUT_MS = 90_000;
+const REQUEST_TIMEOUT_MS_REPORTS = 45_000;
 const REQUEST_MAX_RETRIES = 3;
 const REQUEST_RETRY_BASE_DELAY_MS = 1_500;
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  options?: RequestInit,
+  timeoutMs: number = REQUEST_TIMEOUT_MS
+): Promise<T> {
   const externalSignal = options?.signal;
 
   const retryableError = (error: unknown, status?: number): boolean => {
@@ -45,7 +53,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
         externalSignal.addEventListener('abort', onAbort, { once: true });
       }
     }
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
 
     let status: number | undefined;
     try {
@@ -138,7 +146,7 @@ export async function fetchMapReports(
 
   const url = `/api/v1/reports/map?${params}`;
   return cachedGet<MapReportsResponse>(url, 30_000, () =>
-    request<MapReportsResponse>(url, { signal })
+    request<MapReportsResponse>(url, { signal }, REQUEST_TIMEOUT_MS_REPORTS)
   );
 }
 
