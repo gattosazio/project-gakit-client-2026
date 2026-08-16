@@ -57,6 +57,7 @@ interface ReportModalProps {
     lat: number;
     lng: number;
   }) => Promise<LocationRiskInfo>;
+  rainfallHours?: number;
 }
 
 const HAZARD_META: Record<
@@ -76,6 +77,7 @@ export function ReportModal({
   selectedLocation,
   onSubmit,
   onCheckLocation,
+  rainfallHours,
 }: ReportModalProps) {
   const [step, setStep] = useState<ReportStep>('confirm');
   const [selectedDepth, setSelectedDepth] = useState<FloodDepth | null>(null);
@@ -247,7 +249,7 @@ export function ReportModal({
 
                   <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
                     <div className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
-                      Precipitation
+                      Precipitation (accumulation)
                     </div>
                     {isCheckingLocation ? (
                       <div className="flex items-center gap-2 text-sm text-slate-500">
@@ -257,8 +259,13 @@ export function ReportModal({
                     ) : (
                       <div className="text-sm font-bold text-slate-900">
                         {locationRisk?.precipMm != null
-                          ? `${locationRisk.precipMm.toFixed(1)} mm/hr`
+                          ? `${locationRisk.precipMm.toFixed(2)} mm`
                           : 'No data'}
+                      </div>
+                    )}
+                    {rainfallHours && locationRisk?.precipMm != null && (
+                      <div className="text-[10px] text-slate-500 mt-1">
+                        {rainfallHours}h accumulation
                       </div>
                     )}
                   </div>

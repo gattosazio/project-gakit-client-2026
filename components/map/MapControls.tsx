@@ -6,9 +6,14 @@ import {
   REPORT_STATUS_LEGEND,
 } from '@/constants/publicMap';
 import {
+  RAINFALL_ACCUMULATION_HOURS,
+  type RainfallAccumulationHours,
+} from '@/lib/rainfall';
+import {
   FLOOD_HAZARD_LEGEND,
   RAINFALL_GRADIENT_CSS,
   RAINFALL_LEGEND_STOPS,
+  rainfallBandValues,
   type MapMode,
 } from '@/lib/mapLayers';
 import type { ReportStatus } from '@/types/report';
@@ -19,6 +24,10 @@ const formatRainfallTime = (isoUtc: string) => {
   if (Number.isNaN(date.getTime())) return 'as of unknown time';
   return `as of ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 };
+
+// Legend numbers under the gradient, e.g. "0.5+", "5+", "50+".
+const formatRainfallBand = (mm: number) =>
+  `${Number.isInteger(mm) ? mm.toString() : mm.toFixed(1)}+`;
 
 export function MapModeToggle({
   mode,
@@ -80,6 +89,9 @@ interface LayerControlsProps {
   showRainfall: boolean;
   onShowRainfallChange: (checked: boolean) => void;
   rainfallObservedAt: string | null;
+  rainfallSource: string | null;
+  rainfallHours: RainfallAccumulationHours;
+  onRainfallHoursChange: (hours: RainfallAccumulationHours) => void;
   visibleRiskLevels: Record<string, boolean>;
   onRiskLevelChange: (key: string, checked: boolean) => void;
   reportStatusToggleStatuses?: ReportStatus[];
@@ -95,6 +107,9 @@ export function LayerControls({
   showRainfall,
   onShowRainfallChange,
   rainfallObservedAt,
+  rainfallSource,
+  rainfallHours,
+  onRainfallHoursChange,
   visibleRiskLevels,
   onRiskLevelChange,
   reportStatusToggleStatuses,
@@ -153,19 +168,21 @@ export function LayerControls({
               }}
             />
             <LayerToggle
-              label="1-Hour Rainfall (GSMaP_NOW)"
+              label="Rainfall Accumulation"
               color="#0284C7"
               checked={showRainfall}
               onChange={onShowRainfallChange}
               credit={{
-                href: 'https://sharaku.eorc.jaxa.jp/GSMaP_NOW/',
-                label: 'JAXA',
+                href: (rainfallSource ?? '').includes('NRT')
+                  ? 'https://sharaku.eorc.jaxa.jp/GSMaP/'
+                  : 'https://sharaku.eorc.jaxa.jp/GSMaP_NOW/',
+                label: rainfallSource ?? 'JAXA GSMaP_NOW',
               }}
             />
             {showRainfall && (
-              <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1">
+              <div className="pt-2 mt-2 border-t border-canvas-grey/70 space-y-1.5">
                 <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1 flex items-center justify-between gap-2">
-                  <span>Precipitation</span>
+                  <span>Accumulation window</span>
                   {rainfallObservedAt && (
                     <span className="normal-case tracking-normal font-medium">
                       {formatRainfallTime(rainfallObservedAt)}
@@ -173,13 +190,54 @@ export function LayerControls({
                   )}
                 </div>
                 <div
-                  className="h-2.5 w-56 rounded-full"
-                  style={{ background: RAINFALL_GRADIENT_CSS }}
-                />
-                <div className="flex w-56 justify-between text-[10px] text-slate-500">
-                  {RAINFALL_LEGEND_STOPS.map((stop) => (
-                    <span key={stop.label}>{stop.label}</span>
+                  className="grid grid-cols-5 gap-1"
+                  role="group"
+                  aria-label="Rainfall accumulation window"
+                >
+                  {RAINFALL_ACCUMULATION_HOURS.map((hours) => (
+                    <button
+                      key={hours}
+                      type="button"
+                      onClick={() => onRainfallHoursChange(hours)}
+                      aria-pressed={rainfallHours === hours}
+                      className={`rounded-md border py-1 text-xs font-bold transition-colors ${
+                        rainfallHours === hours
+                          ? 'bg-gakit-maroon border-gakit-maroon text-white shadow-sm'
+                          : 'bg-white border-slate-200 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon'
+                      }`}
+                    >
+                      {hours}h
+                    </button>
                   ))}
+                </div>
+{rainfallSource && (
+                  <div className="pt-1 text-[10px] leading-snug text-slate-400">
+{rainfallHours === 1
+                      ? 'Provisional nowcast — values may be revised'
+                      : 'Raw NRT v6 — about 4 hours behind live'}
+                  </div>
+                )}
+                <div className="pt-1">
+                  <div className="flex items-center gap-1.5">
+                    <div
+                      className="h-2.5 w-56 rounded-full"
+                      style={{ background: RAINFALL_GRADIENT_CSS[rainfallHours] }}
+                    />
+                    <span className="text-[10px] font-semibold text-slate-500">mm</span>
+                  </div>
+                  <div className="flex w-56 justify-between text-[10px] text-slate-500 mt-1">
+                    {RAINFALL_LEGEND_STOPS[rainfallHours].map((stop, index) => (
+                      <span
+                        key={stop.label}
+                        className="flex flex-col items-center gap-0.5"
+                      >
+                        <span>{stop.label}</span>
+                        <span className="font-semibold text-slate-600">
+                          {formatRainfallBand(rainfallBandValues(rainfallHours)[index])}
+                        </span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

@@ -16,9 +16,15 @@ import {
   OPENFREEMAP_STYLE,
 } from '@/constants/publicMap';
 import { ILIGAN_CENTER, reverseGeocode } from '@/lib/geoUtils';
-import { fetchRainfall, buildRainfallGrid } from '@/lib/rainfall';
+import {
+  fetchRainfall,
+  buildRainfallGrid,
+  rainfallCellCenterFor,
+  type RainfallAccumulationHours,
+} from '@/lib/rainfall';
 import { queryFloodHazard, type FloodRiskLevel } from '@/lib/floodHazard';
 import {
+  applyRainfallPaint,
   buildReportPopupHtml,
   buildReportsGeoJson,
   buildSelectedGeoJson,
@@ -56,6 +62,7 @@ export interface PublicMapHandle {
   }) => Promise<LocationRiskInfo>;
   focusLocation: (location: { lat: number; lng: number }) => void;
   showReport: (report: MapReportToShow) => void;
+  getRainfallHours: () => number;
 }
 
 interface PublicMapProps {
@@ -114,6 +121,8 @@ export function PublicMap({
   const [backendReports, setBackendReports] = useState<MapReportFeature[]>([]);
   const [showRainfall, setShowRainfall] = useState(false);
   const [rainfallObservedAt, setRainfallObservedAt] = useState<string | null>(null);
+  const [rainfallSource, setRainfallSource] = useState<string | null>(null);
+  const [rainfallHours, setRainfallHours] = useState<RainfallAccumulationHours>(1);
   const [mapReady, setMapReady] = useState(false);
 
   // Layer visibility toggles
@@ -146,13 +155,15 @@ export function PublicMap({
     medium: true,
     low: true,
   });
+  const rainfallHoursRef = useRef<RainfallAccumulationHours>(1);
 
   useEffect(() => {
     mapModeRef.current = mapMode;
     showFloodHazardRef.current = showFloodHazard;
     showRainfallRef.current = showRainfall;
     visibleRiskLevelsRef.current = visibleRiskLevels;
-  }, [mapMode, showFloodHazard, showRainfall, visibleRiskLevels]);
+    rainfallHoursRef.current = rainfallHours;
+  }, [mapMode, showFloodHazard, showRainfall, visibleRiskLevels, rainfallHours]);
 
   const loadMapReports = useCallback(async () => {
     if (loadingReportsRef.current) return;
@@ -168,19 +179,21 @@ export function PublicMap({
     }
   }, []);
 
-  const loadRainfall = useCallback(async () => {
+  const loadRainfall = useCallback(async (hours: RainfallAccumulationHours) => {
     try {
-      const rainfall = await fetchRainfall();
+      const rainfall = await fetchRainfall(hours);
+      // Drop stale responses if the user switched windows mid-request.
+      if (hours !== rainfallHoursRef.current) return;
       const grid = buildRainfallGrid(rainfall);
       rainfallSourceRef.current = grid;
 
-      // Index cells by their 0.1-degree center so checkLocation can do an
+      // Index cells by their exact 0.1-degree center so checkLocation can do an
       // O(1) lookup instead of scanning every grid feature.
       const cells = new Map<string, number>();
       for (const feature of grid.features) {
         const ring = feature.geometry.coordinates[0];
-        const cellLng = Math.round(((ring[0][0] + ring[2][0]) / 2) * 10) / 10;
-        const cellLat = Math.round(((ring[0][1] + ring[2][1]) / 2) * 10) / 10;
+        const cellLng = Math.round(((ring[0][0] + ring[2][0]) / 2) * 100) / 100;
+        const cellLat = Math.round(((ring[0][1] + ring[2][1]) / 2) * 100) / 100;
         cells.set(`${cellLng},${cellLat}`, feature.properties.precip_mm);
       }
       rainfallCellsRef.current = cells;
@@ -188,7 +201,9 @@ export function PublicMap({
       const map = mapRef.current;
       const source = map?.getSource?.('rainfall');
       if (source) source.setData(grid);
+      applyRainfallPaint(map, hours);
       setRainfallObservedAt(rainfall.properties.observedAt);
+      setRainfallSource(rainfall.properties.source ?? null);
     } catch (error) {
       console.error('Failed to load near real-time rainfall', error);
     }
@@ -196,7 +211,8 @@ export function PublicMap({
 
   // Looks up the flood hazard level and precipitation at a coordinate. Hazard
   // comes from the PMTiles archive directly (viewport-independent); rain comes
-  // from the in-memory GSMaP grid, reported as mm/hr (1-hour accumulation).
+  // from the in-memory GSMaP grid, reported as mm over the selected
+  // accumulation window.
   const checkLocation = useCallback(
     async (location: { lat: number; lng: number }): Promise<LocationRiskInfo> => {
       const { lat, lng } = location;
@@ -204,29 +220,13 @@ export function PublicMap({
       let precipMm: number | null = null;
       const cells = rainfallCellsRef.current;
       if (cells.size > 0) {
-        // Cells sit on a regular 0.1-degree grid, so the nearest center to any
-        // point is always inside the 9-cell block around its rounded key.
-        const baseLng = Math.round(lng * 10) / 10;
-        const baseLat = Math.round(lat * 10) / 10;
-        let bestValue: number | null = null;
-        let bestDistSq = Infinity;
-        for (const dLng of [-0.1, 0, 0.1]) {
-          for (const dLat of [-0.1, 0, 0.1]) {
-            const key = `${Math.round((baseLng + dLng) * 10) / 10},${Math.round(
-              (baseLat + dLat) * 10
-            ) / 10}`;
-            const value = cells.get(key);
-            if (value == null) continue;
-            const distSq =
-              (baseLng + dLng - lng) * (baseLng + dLng - lng) +
-              (baseLat + dLat - lat) * (baseLat + dLat - lat);
-            if (distSq < bestDistSq) {
-              bestDistSq = distSq;
-              bestValue = value;
-            }
-          }
-        }
-        precipMm = bestValue;
+        // Cells sit on a regular 0.1-degree grid centered at *.05 offsets, so
+        // the cell containing the point is found by rounding to its center.
+        // Report only that cell's value so the modal always matches what is
+        // painted on the map (dry cells are absent and show "No data").
+        const cellLng = Math.round(rainfallCellCenterFor(lng) * 100) / 100;
+        const cellLat = Math.round(rainfallCellCenterFor(lat) * 100) / 100;
+        precipMm = cells.get(`${cellLng},${cellLat}`) ?? null;
       }
 
       const hazardLevel = await queryFloodHazard(lat, lng);
@@ -322,12 +322,17 @@ export function PublicMap({
 
   useEffect(() => {
     if (mapApiRef) {
-      mapApiRef.current = { checkLocation, focusLocation, showReport };
+      mapApiRef.current = {
+        checkLocation,
+        focusLocation,
+        showReport,
+        getRainfallHours: () => rainfallHours,
+      };
       return () => {
         mapApiRef.current = null;
       };
     }
-  }, [mapApiRef, checkLocation, focusLocation, showReport]);
+  }, [mapApiRef, checkLocation, focusLocation, showReport, rainfallHours]);
 
   // Applies an inspect requested before the map finished loading.
   useEffect(() => {
@@ -562,6 +567,7 @@ export function PublicMap({
           showRainfall: showRainfallRef.current,
           visibleRiskLevels: visibleRiskLevelsRef.current,
           mapMode: mapModeRef.current,
+          rainfallHours: rainfallHoursRef.current,
         });
 
         layersReadyRef.current = true;
@@ -573,6 +579,7 @@ export function PublicMap({
         // Apply rainfall data that was fetched before the map finished loading.
         if (rainfallSourceRef.current) {
           map.getSource('rainfall')?.setData(rainfallSourceRef.current);
+          applyRainfallPaint(map, rainfallHoursRef.current);
         }
       })();
 
@@ -622,7 +629,8 @@ export function PublicMap({
   }, [selectedLocation, applySelectedMarker]);
 
   // Fetch near real-time rainfall when the layer is enabled, then refresh on the
-  // same cadence as the server-side cache (10 minutes).
+  // same cadence as the server-side cache (10 minutes). Re-runs when the
+  // accumulation window changes so the grid reflects the selected window.
   useEffect(() => {
     if (!showRainfall) {
       if (rainfallTimerRef.current) {
@@ -632,9 +640,9 @@ export function PublicMap({
       return;
     }
 
-    void loadRainfall();
+    void loadRainfall(rainfallHours);
     rainfallTimerRef.current = setInterval(() => {
-      void loadRainfall();
+      void loadRainfall(rainfallHours);
     }, 10 * 60 * 1000);
 
     return () => {
@@ -643,7 +651,14 @@ export function PublicMap({
         rainfallTimerRef.current = null;
       }
     };
-  }, [showRainfall, loadRainfall]);
+  }, [showRainfall, rainfallHours, loadRainfall]);
+
+  // Keep the hazard-check precipitation data current for the selected window
+  // even while the rainfall layer is hidden.
+  useEffect(() => {
+    if (showRainfall) return;
+    void loadRainfall(rainfallHours);
+  }, [showRainfall, rainfallHours, loadRainfall]);
 
   useEffect(() => {
     if (!mapContainer.current || !maplibregl) return;
@@ -689,13 +704,13 @@ export function PublicMap({
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
         window.requestIdleCallback(
           () => {
-            if (mapRef.current === map) void loadRainfall();
+            if (mapRef.current === map) void loadRainfall(rainfallHoursRef.current);
           },
           { timeout: 5000 }
         );
       } else {
         setTimeout(() => {
-          if (mapRef.current === map) void loadRainfall();
+          if (mapRef.current === map) void loadRainfall(rainfallHoursRef.current);
         }, 1000);
       }
     });
@@ -809,6 +824,9 @@ export function PublicMap({
           showRainfall={showRainfall}
           onShowRainfallChange={setShowRainfall}
           rainfallObservedAt={rainfallObservedAt}
+          rainfallSource={rainfallSource}
+          rainfallHours={rainfallHours}
+          onRainfallHoursChange={setRainfallHours}
           visibleRiskLevels={visibleRiskLevels}
           onRiskLevelChange={(key, checked) =>
             setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))

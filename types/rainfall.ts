@@ -14,6 +14,7 @@ export interface RainfallResponse {
   properties: {
     source: string;
     observedAt: string;
+    accumulationHours: number;
   };
   features: RainfallFeature[];
 }
