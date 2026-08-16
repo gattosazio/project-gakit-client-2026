@@ -1,4 +1,5 @@
 import { cachedGet, invalidateApiCache } from '@/lib/apiCache';
+import { RateLimitedError } from '@/lib/apiErrors';
 import type {
   CreateReportInput,
   FloodDepthCode,
@@ -24,6 +25,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
         ? String(body.detail)
         : null;
 
+    if (response.status === 429) {
+      throw new RateLimitedError(
+        "You're sending requests too quickly. Please wait a moment and try again."
+      );
+    }
+
     throw new Error(
       detail ||
         `Request to ${path} failed with status ${response.status} ${response.statusText}`
@@ -47,11 +54,21 @@ export async function createReport(
   input: CreateReportInput,
   signal?: AbortSignal
 ): Promise<Report> {
-  const report = await request<Report>('/api/v1/reports', {
-    method: 'POST',
-    body: JSON.stringify(input),
-    signal,
-  });
+  let report: Report;
+  try {
+    report = await request<Report>('/api/v1/reports', {
+      method: 'POST',
+      body: JSON.stringify(input),
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof RateLimitedError) {
+      throw new Error(
+        'Flood reports are limited to 1 per minute. Please wait and try again.'
+      );
+    }
+    throw error;
+  }
   invalidateApiCache('/api/v1/reports');
   return report;
 }
