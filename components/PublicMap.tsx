@@ -13,6 +13,7 @@ import * as maplibregl from 'maplibre-gl';
 import {
   getBackendStatus,
 } from '@/lib/backendStatus';
+import { getElevation } from '@/lib/elevation';
 import {
   HAS_MAPTILER,
   ILIGAN_REPORT_BOUNDS,
@@ -265,7 +266,8 @@ export function PublicMap({
           closeButton: false,
           closeOnClick: false,
           anchor: 'bottom',
-          offset: 10,
+          offset: 20,
+          maxWidth: '240px',
         });
       }
         reportPopupRef.current.setLngLat(lngLat).setHTML(buildReportPopupHtml(feature));
@@ -314,23 +316,27 @@ export function PublicMap({
         map.flyTo({ center: target, zoom: 16, duration: 900 });
       }
 
-      showReportPopup(
-        {
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: target,
+      void getElevation(report.lat, report.lng).then((elevation) => {
+        if (inspectTargetRef.current?.id !== report.id) return;
+        showReportPopup(
+          {
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: target,
+            },
+            properties: {
+              kind: 'report',
+              address: report.address,
+              depthLabel: report.depthLabel,
+              statusLabel: report.statusLabel,
+              elevation,
+              createdAt: report.createdAt,
+            },
           },
-          properties: {
-            kind: 'report',
-            address: report.address,
-            depthLabel: report.depthLabel,
-            statusLabel: report.statusLabel,
-            createdAt: report.createdAt,
-          },
-        },
-        target
-      );
+          target
+        );
+      });
     },
     [mapReady, showReportPopup]
   );

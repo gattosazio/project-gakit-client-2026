@@ -216,10 +216,10 @@ export function LayerControls({
                       ? (
                         <>
                           <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
-                          <span>Provisional nowcast — values may be revised</span>
+                          <span>GSMaP_NOW: Realtime satellite estimate</span>
                         </>
                       )
-                      : 'Raw NRT v6 — about 4 hours behind live'}
+                      : 'GSMaP_NRT v6 — about 4 hours behind live'}
                   </div>
                 )}
                 <div className="pt-1">

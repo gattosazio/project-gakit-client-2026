@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, CloudRain, Loader2, MapPin, Mountain, X } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { listDepthCategories } from './actions/public.view';
+import { getElevation } from '@/lib/elevation';
 import type { FloodDepth, FloodDepthCategory } from './actions/public.view';
 import type { LocationRiskInfo } from '@/components/PublicMap';
 
@@ -85,10 +86,40 @@ export function ReportModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
   const [locationRisk, setLocationRisk] = useState<LocationRiskInfo | null>(null);
+  const [elevation, setElevation] = useState<number | null>(null);
+  const [isCheckingElevation, setIsCheckingElevation] = useState(false);
+  const lastElevationKey = useRef('');
 
   useEffect(() => {
     if (isOpen) setStep('confirm');
   }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || step !== 'confirm' || !selectedLocation) return;
+    const key = `${selectedLocation.lat},${selectedLocation.lng}`;
+    if (key === lastElevationKey.current) return;
+    lastElevationKey.current = key;
+
+    let cancelled = false;
+    setIsCheckingElevation(true);
+
+    const abort = new AbortController();
+    void getElevation(selectedLocation.lat, selectedLocation.lng, abort.signal)
+      .then((elev) => {
+        if (!cancelled) setElevation(elev);
+      })
+      .catch(() => {
+        if (!cancelled) setElevation(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsCheckingElevation(false);
+      });
+
+    return () => {
+      cancelled = true;
+      abort.abort();
+    };
+  }, [isOpen, step, selectedLocation]);
 
   useEffect(() => {
     if (!isOpen || step !== 'confirm' || !selectedLocation || !onCheckLocation) {
@@ -137,6 +168,7 @@ export function ReportModal({
   const resetForm = () => {
     setStep('confirm');
     setSelectedDepth(null);
+    lastElevationKey.current = '';
   };
 
   const handleSubmit = async () => {
@@ -201,7 +233,8 @@ export function ReportModal({
           {step === 'confirm' && (
             <div className="space-y-4">
               <div className="bg-maroon-50 rounded-lg p-4 border border-gakit-maroon/20">
-                <div className="text-sm font-medium text-slate-600 mb-1">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-1">
+                  <MapPin className="w-4 h-4 text-gakit-maroon" />
                   Selected Location
                 </div>
                 <div className="text-sm font-semibold text-slate-900">
@@ -216,7 +249,57 @@ export function ReportModal({
               </div>
 
               {selectedLocation && (
-                <div className="grid grid-cols-2 gap-3">
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
+                        <Mountain className="w-3 h-3" />
+                        Elevation
+                      </div>
+                      {isCheckingElevation ? (
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Checking...
+                        </div>
+                      ) : (
+                        <div className="text-sm font-bold text-slate-900">
+                          {elevation != null
+                            ? `${elevation.toFixed(1)} m`
+                            : 'No data'}
+                        </div>
+                      )}
+                      {elevation != null && (
+                        <div className="text-[10px] text-slate-500 mt-1">
+                          SRTM 30m
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
+                      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
+                        <CloudRain className="w-3 h-3" />
+                        Precipitation
+                      </div>
+                      {isCheckingLocation ? (
+                        <div className="flex items-center gap-2 text-sm text-slate-500">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Checking...
+                        </div>
+                      ) : (
+                        <div className="text-sm font-bold text-slate-900">
+                          {locationRisk?.precipMm != null
+                            ? `${locationRisk.precipMm.toFixed(2)} mm`
+                            : 'No data'}
+                        </div>
+                      )}
+                      {rainfallHours && locationRisk?.precipMm != null && (
+                        <div className="text-[10px] text-slate-500 mt-1">
+                          {rainfallHours}h accumulation
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div
                     className={`rounded-lg border p-3 ${
                       locationRisk?.hazardLevel
@@ -224,7 +307,8 @@ export function ReportModal({
                         : 'bg-slate-50 border-slate-200'
                     }`}
                   >
-                    <div className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
+                    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
+                      <AlertTriangle className="w-3 h-3" />
                       Flood Hazard
                     </div>
                     {isCheckingLocation ? (
@@ -246,30 +330,7 @@ export function ReportModal({
                       </div>
                     )}
                   </div>
-
-                  <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
-                    <div className="text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
-                      Precipitation (accumulation)
-                    </div>
-                    {isCheckingLocation ? (
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Checking...
-                      </div>
-                    ) : (
-                      <div className="text-sm font-bold text-slate-900">
-                        {locationRisk?.precipMm != null
-                          ? `${locationRisk.precipMm.toFixed(2)} mm`
-                          : 'No data'}
-                      </div>
-                    )}
-                    {rainfallHours && locationRisk?.precipMm != null && (
-                      <div className="text-[10px] text-slate-500 mt-1">
-                        {rainfallHours}h accumulation
-                      </div>
-                    )}
-                  </div>
-                </div>
+                </>
               )}
 
               <p className="text-sm text-slate-600">
