@@ -181,7 +181,7 @@ export const buildReportPopupHtml = (feature: Record<string, any>): string => {
   const [lng, lat] = coordinates;
   const tooltipStyle = 'font-family: var(--font-inter), system-ui, sans-serif;';
   const row = (label: string, value: string) => `
-    <div style="display: flex; justify-content: space-between; gap: 16px; font-size: 12px; line-height: 1.6;">
+    <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 11px; line-height: 1.5;">
       <span style="color: #64748b;">${escapeHtml(label)}</span>
       <span style="color: #0f172a; font-weight: 600;">${escapeHtml(value)}</span>
     </div>`;
@@ -189,7 +189,7 @@ export const buildReportPopupHtml = (feature: Record<string, any>): string => {
   if (props.kind === 'selected') {
     return `
       <div class="gakit-tooltip" style="${tooltipStyle}">
-        <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
+        <div style="font-weight: 700; font-size: 12px; color: #0f172a; margin-bottom: 2px;">
           Selected location
         </div>
         ${row('Coordinates', `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
@@ -198,11 +198,12 @@ export const buildReportPopupHtml = (feature: Record<string, any>): string => {
 
   return `
     <div class="gakit-tooltip" style="${tooltipStyle}">
-      <div style="font-weight: 700; font-size: 13px; color: #0f172a; margin-bottom: 4px;">
+      <div style="font-weight: 700; font-size: 12px; color: #0f172a; margin-bottom: 2px;">
         ${escapeHtml(props.address || 'Flood report')}
       </div>
       ${props.depthLabel ? row('Depth', props.depthLabel) : ''}
       ${props.statusLabel ? row('Status', props.statusLabel) : ''}
+      ${props.elevation != null ? row('Elevation', `${Number(props.elevation).toFixed(1)} m`) : ''}
       ${props.createdAt ? row('Reported', props.createdAt) : ''}
     </div>`;
 };

@@ -89,6 +89,7 @@ export function PublicViewPage() {
   );
   const [submittedReports, setSubmittedReports] = useState<SubmittedReport[]>([]);
   const [lastSubmittedReport, setLastSubmittedReport] = useState<SubmittedReport | null>(null);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
   const mapRef = useRef<PublicMapHandle | null>(null);
 
   const scrollToMap = useCallback(() => {
@@ -187,13 +188,17 @@ export function PublicViewPage() {
     return { lat, lng, address };
   };
 
-  // Open the location prompt only on explicit intent (the "Report a flood
-  // hazard" button); never auto-open it over a map that may still be loading.
   const handleStartReport = useCallback(() => {
     scrollToMap();
     setIsManualLocationMode(false);
     setIsLocationPromptOpen(true);
   }, [scrollToMap]);
+
+  // Open the location prompt only once the basemap + overlay layers are ready,
+  // so it never appears over a still-loading (blank) map.
+  const handleMapReady = useCallback(() => {
+    setIsLocationPromptOpen(true);
+  }, []);
 
   const handleUseCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
@@ -303,23 +308,20 @@ export function PublicViewPage() {
                   <LocationSearch onSelect={handleSearchedLocationSelect} />
                 </div>
               ) : !isModalOpen && (
-                <button
-                  type="button"
-                  onClick={handleStartReport}
-                  className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-xs rounded-lg bg-gakit-maroon px-5 py-3 text-left shadow-lg transition-colors hover:bg-maroon-800"
-                >
-                  <span className="flex items-center gap-2 text-sm font-semibold text-white">
-                    <MapPin className="h-4 w-4 shrink-0" />
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] max-w-xs bg-white/95 border border-canvas-grey rounded-lg shadow-lg p-4">
+                  <div className="text-sm font-semibold text-slate-900">
                     Report a flood hazard
-                  </span>
-                  <span className="mt-0.5 block text-xs text-maroon-100">
-                    Tap to search or choose your location
-                  </span>
-                </button>
+                  </div>
+                  <div className="text-xs text-slate-600 mt-1">
+                    Tap the map or use the location button, then choose the flood depth.
+                  </div>
+                </div>
               )}
               <Suspense fallback={<div className="w-full h-full bg-canvas-grey" />}>
                 <PublicMap
                   mapApiRef={mapRef}
+                  onReady={handleMapReady}
+                  onLoadingChange={setIsLoadingReports}
                   onLocationSelect={handleLocationSelect}
                   selectedLocation={selectedLocation}
                   submittedReports={submittedReports}
@@ -334,6 +336,8 @@ export function PublicViewPage() {
                 onUseCurrentLocation={handleUseCurrentLocation}
                 onChooseLocation={handleChooseLocation}
                 onSearchLocationSelect={handleSearchedLocationSelect}
+                isLoadingReports={isLoadingReports}
+                backendStatus={getBackendStatus()}
               />
             </div>
 
@@ -617,12 +621,16 @@ function LocationPromptModal({
   onUseCurrentLocation,
   onChooseLocation,
   onSearchLocationSelect,
+  isLoadingReports,
+  backendStatus,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onUseCurrentLocation: () => void;
   onChooseLocation: () => void;
   onSearchLocationSelect: (location: SelectedLocation) => void;
+  isLoadingReports: boolean;
+  backendStatus: 'online' | 'warming';
 }) {
   if (!isOpen) return null;
 
@@ -630,6 +638,23 @@ function LocationPromptModal({
     <div className="absolute inset-0 z-[1300] bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
         <div className="p-5 space-y-3">
+          {isLoadingReports && (
+            <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium ${
+              backendStatus === 'warming'
+                ? 'bg-amber-50 text-amber-900'
+                : 'bg-slate-100 text-slate-600'
+            }`}>
+              <Loader2 className={`h-3.5 w-3.5 shrink-0 animate-spin ${
+                backendStatus === 'warming' ? 'text-amber-600' : 'text-slate-500'
+              }`} />
+              <span>
+                {backendStatus === 'warming'
+                  ? 'Server is waking up — retrying…'
+                  : 'Loading flood reports…'}
+              </span>
+            </div>
+          )}
+
           <div>
             <div className="mb-2 text-sm font-semibold text-slate-900">
               Search for a location

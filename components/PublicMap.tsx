@@ -10,13 +10,10 @@ import {
 import { Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
 import * as maplibregl from 'maplibre-gl';
-import { MapStatusChip } from '@/components/map/MapStatusChip';
 import {
   getBackendStatus,
-  subscribeBackendStatus,
-  type BackendStatus,
 } from '@/lib/backendStatus';
-import { readCachedReports, writeCachedReports } from '@/lib/reportCache';
+import { getElevation } from '@/lib/elevation';
 import {
   HAS_MAPTILER,
   ILIGAN_REPORT_BOUNDS,
@@ -84,6 +81,7 @@ interface PublicMapProps {
   defaultVisibleReportStatuses?: Partial<Record<ReportStatus, boolean>>;
   enableAddressLookup?: boolean;
   onReady?: () => void;
+  onLoadingChange?: (loading: boolean) => void;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -104,6 +102,7 @@ export function PublicMap({
   defaultVisibleReportStatuses,
   enableAddressLookup = true,
   onReady,
+  onLoadingChange,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -150,13 +149,8 @@ export function PublicMap({
   const [mapMode, setMapMode] = useState<MapMode>('2d');
   const layersReadyRef = useRef(false);
   const loadingReportsRef = useRef(false);
-  const hasLoadedReportsRef = useRef(false);
   const onReadyFiredRef = useRef(false);
-  const [hasLoadedReports, setHasLoadedReports] = useState(false);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<BackendStatus>(() =>
-    getBackendStatus()
-  );
   const rainfallSourceRef = useRef<RainfallGrid | null>(null);
   const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rainfallCellsRef = useRef<Map<string, number>>(new Map());
@@ -182,31 +176,17 @@ export function PublicMap({
   }, [mapMode, showFloodHazard, showRainfall, visibleRiskLevels, rainfallHours]);
 
   useEffect(() => {
-    return subscribeBackendStatus(() => setBackendStatus(getBackendStatus()));
-  }, []);
+    onLoadingChange?.(isLoadingReports);
+  }, [isLoadingReports, onLoadingChange]);
 
   const loadMapReports = useCallback(async () => {
     if (loadingReportsRef.current) return;
-
-    // Seed pins from the last-known cache immediately so a cold-starting
-    // backend never leaves the map blank; refresh in the background below.
-    if (!hasLoadedReportsRef.current) {
-      const cached = readCachedReports();
-      if (cached?.length) {
-        setBackendReports(cached);
-        hasLoadedReportsRef.current = true;
-        setHasLoadedReports(true);
-      }
-    }
 
     loadingReportsRef.current = true;
     setIsLoadingReports(true);
     try {
       const reports = await fetchMapReports(ILIGAN_REPORT_BOUNDS);
       setBackendReports(reports.features);
-      hasLoadedReportsRef.current = true;
-      setHasLoadedReports(true);
-      writeCachedReports(reports.features);
     } catch (error) {
       console.error('Failed to load reports from backend', error);
     } finally {
@@ -286,7 +266,8 @@ export function PublicMap({
           closeButton: false,
           closeOnClick: false,
           anchor: 'bottom',
-          offset: 10,
+          offset: 20,
+          maxWidth: '240px',
         });
       }
         reportPopupRef.current.setLngLat(lngLat).setHTML(buildReportPopupHtml(feature));
@@ -335,23 +316,27 @@ export function PublicMap({
         map.flyTo({ center: target, zoom: 16, duration: 900 });
       }
 
-      showReportPopup(
-        {
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: target,
+      void getElevation(report.lat, report.lng).then((elevation) => {
+        if (inspectTargetRef.current?.id !== report.id) return;
+        showReportPopup(
+          {
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: target,
+            },
+            properties: {
+              kind: 'report',
+              address: report.address,
+              depthLabel: report.depthLabel,
+              statusLabel: report.statusLabel,
+              elevation,
+              createdAt: report.createdAt,
+            },
           },
-          properties: {
-            kind: 'report',
-            address: report.address,
-            depthLabel: report.depthLabel,
-            statusLabel: report.statusLabel,
-            createdAt: report.createdAt,
-          },
-        },
-        target
-      );
+          target
+        );
+      });
     },
     [mapReady, showReportPopup]
   );
@@ -895,16 +880,6 @@ export function PublicMap({
           className="absolute bottom-0 right-0 h-px w-px"
         />
       </div>
-
-      <MapStatusChip
-        backendStatus={backendStatus}
-        showLoading={isLoadingReports && !hasLoadedReports}
-        showEmptyState={
-          hasLoadedReports &&
-          backendReports.length === 0 &&
-          submittedReports.length === 0
-        }
-      />
     </div>
   );
 }

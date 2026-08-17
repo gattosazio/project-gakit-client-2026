@@ -40,6 +40,27 @@ body {
   flex-direction: column;
 }
 
+/* MapLibre popup — matches map control styling */
+.maplibregl-popup {
+  background: transparent !important;
+  border: none !important;
+}
+
+.maplibregl-popup-content {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px -1px rgba(15, 23, 42, 0.1) !important;
+  padding: 8px 10px !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  font-family: var(--font-inter), system-ui, sans-serif !important;
+}
+
+.maplibregl-popup-tip {
+  display: none;
+}
+
 /* Leaflet map styles */
 .leaflet-container {
   width: 100%;

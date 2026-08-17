@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronUp, Layers } from 'lucide-react';
+import { AlertTriangle, ChevronUp, Layers } from 'lucide-react';
 import {
   REPORT_MARKER_COLORS,
   REPORT_STATUS_LEGEND,
@@ -211,10 +211,15 @@ export function LayerControls({
                   ))}
                 </div>
 {rainfallSource && (
-                  <div className="pt-1 text-[10px] leading-snug text-slate-400">
+                  <div className="flex items-center gap-1 pt-1 text-[10px] leading-snug text-slate-400">
 {rainfallHours === 1
-                      ? 'Provisional nowcast — values may be revised'
-                      : 'Raw NRT v6 — about 4 hours behind live'}
+                      ? (
+                        <>
+                          <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
+                          <span>GSMaP_NOW: Realtime satellite estimate</span>
+                        </>
+                      )
+                      : 'GSMaP_NRT v6 — about 4 hours behind live'}
                   </div>
                 )}
                 <div className="pt-1">
