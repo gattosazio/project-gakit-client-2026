@@ -68,7 +68,7 @@ const HAZARD_META: Record<
   high: { label: 'High hazard', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
   medium: { label: 'Medium hazard', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
   low: { label: 'Low hazard', color: 'text-lime-700', bg: 'bg-lime-50 border-lime-200' },
-  none: { label: 'Not in mapped flood zone', color: 'text-slate-600', bg: 'bg-slate-50 border-slate-200' },
+  none: { label: 'No hazard mapped', color: 'text-slate-600', bg: 'bg-slate-50 border-slate-200' },
 };
 
 export function ReportModal({
@@ -95,7 +95,10 @@ export function ReportModal({
   }, [isOpen]);
 
   useEffect(() => {
-    if (!isOpen || step !== 'confirm' || !selectedLocation) return;
+    if (!isOpen || step !== 'confirm' || !selectedLocation) {
+      setIsCheckingElevation(false);
+      return;
+    }
     const key = `${selectedLocation.lat},${selectedLocation.lng}`;
     if (key === lastElevationKey.current) return;
     lastElevationKey.current = key;
@@ -112,7 +115,7 @@ export function ReportModal({
         if (!cancelled) setElevation(null);
       })
       .finally(() => {
-        if (!cancelled) setIsCheckingElevation(false);
+        setIsCheckingElevation(false);
       });
 
     return () => {
@@ -232,9 +235,9 @@ export function ReportModal({
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           {step === 'confirm' && (
             <div className="space-y-4">
-              <div className="bg-maroon-50 rounded-lg p-4 border border-gakit-maroon/20">
+              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
                 <div className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-1">
-                  <MapPin className="w-4 h-4 text-gakit-maroon" />
+                  <MapPin className="w-4 h-4 text-slate-500" />
                   Selected Location
                 </div>
                 <div className="text-sm font-semibold text-slate-900">
@@ -381,16 +384,23 @@ export function ReportModal({
                     depth: '164+ cm (5′4″+)',
                     waterLevel: 1.0,
                   },
-                ].map((depth) => (
+                ].map((depth) => {
+                  const DEPTH_COLORS: Record<string, { selected: string; unselected: string }> = {
+                    ankle: { selected: 'border-sky-500 bg-sky-50', unselected: 'border-canvas-grey hover:border-sky-300 bg-white' },
+                    knee: { selected: 'border-cyan-500 bg-cyan-50', unselected: 'border-canvas-grey hover:border-cyan-300 bg-white' },
+                    waist: { selected: 'border-amber-500 bg-amber-50', unselected: 'border-canvas-grey hover:border-amber-300 bg-white' },
+                    head: { selected: 'border-orange-500 bg-orange-50', unselected: 'border-canvas-grey hover:border-orange-300 bg-white' },
+                    overhead: { selected: 'border-red-600 bg-red-50', unselected: 'border-canvas-grey hover:border-red-300 bg-white' },
+                  };
+                  const colors = DEPTH_COLORS[depth.id];
+                  return (
                   <button
                     key={depth.id}
                     onClick={() => setSelectedDepth(depth.id as FloodDepth)}
                     className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
                       selectedDepth === depth.id
-                        ? depth.id === 'overhead'
-                          ? 'border-hazard-critical bg-red-50'
-                          : 'border-gakit-maroon bg-slate-50'
-                        : 'border-canvas-grey hover:border-canvas-grey/70 bg-white'
+                        ? colors.selected
+                        : colors.unselected
                     }`}
                   >
                     <div className="flex items-center gap-4">
@@ -423,13 +433,20 @@ export function ReportModal({
                         <div className="text-xs text-slate-600 mt-1">
                           {depth.description}
                         </div>
-                        <div className={`text-xs font-bold mt-1 ${depth.id === 'overhead' ? 'text-red-600' : 'text-gakit-maroon'}`}>
+                        <div className={`text-xs font-bold mt-1 ${
+                          depth.id === 'ankle' ? 'text-sky-600'
+                          : depth.id === 'knee' ? 'text-cyan-600'
+                          : depth.id === 'waist' ? 'text-amber-600'
+                          : depth.id === 'head' ? 'text-orange-600'
+                          : 'text-red-600'
+                        }`}>
                           {depth.depth}
                         </div>
                       </div>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
