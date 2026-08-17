@@ -319,7 +319,7 @@ export function PublicViewPage() {
                 </div>
               )}
               {isLoadingReports && (
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 border border-canvas-grey rounded-lg shadow-lg px-4 py-3 flex items-center gap-2">
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 border border-canvas-grey rounded-lg shadow-lg px-4 py-3 flex items-center gap-2">
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
                   <span className="text-sm font-medium text-slate-700">Fetching reports…</span>
                 </div>
