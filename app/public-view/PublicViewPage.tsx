@@ -89,6 +89,7 @@ export function PublicViewPage() {
   );
   const [submittedReports, setSubmittedReports] = useState<SubmittedReport[]>([]);
   const [lastSubmittedReport, setLastSubmittedReport] = useState<SubmittedReport | null>(null);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
   const mapRef = useRef<PublicMapHandle | null>(null);
 
   const scrollToMap = useCallback(() => {
@@ -320,6 +321,7 @@ export function PublicViewPage() {
                 <PublicMap
                   mapApiRef={mapRef}
                   onReady={handleMapReady}
+                  onLoadingChange={setIsLoadingReports}
                   onLocationSelect={handleLocationSelect}
                   selectedLocation={selectedLocation}
                   submittedReports={submittedReports}
@@ -334,6 +336,8 @@ export function PublicViewPage() {
                 onUseCurrentLocation={handleUseCurrentLocation}
                 onChooseLocation={handleChooseLocation}
                 onSearchLocationSelect={handleSearchedLocationSelect}
+                isLoadingReports={isLoadingReports}
+                backendStatus={getBackendStatus()}
               />
             </div>
 
@@ -617,12 +621,16 @@ function LocationPromptModal({
   onUseCurrentLocation,
   onChooseLocation,
   onSearchLocationSelect,
+  isLoadingReports,
+  backendStatus,
 }: {
   isOpen: boolean;
   onClose: () => void;
   onUseCurrentLocation: () => void;
   onChooseLocation: () => void;
   onSearchLocationSelect: (location: SelectedLocation) => void;
+  isLoadingReports: boolean;
+  backendStatus: 'online' | 'warming';
 }) {
   if (!isOpen) return null;
 
@@ -630,6 +638,23 @@ function LocationPromptModal({
     <div className="absolute inset-0 z-[1300] bg-black/40 flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
         <div className="p-5 space-y-3">
+          {isLoadingReports && (
+            <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium ${
+              backendStatus === 'warming'
+                ? 'bg-amber-50 text-amber-900'
+                : 'bg-slate-100 text-slate-600'
+            }`}>
+              <Loader2 className={`h-3.5 w-3.5 shrink-0 animate-spin ${
+                backendStatus === 'warming' ? 'text-amber-600' : 'text-slate-500'
+              }`} />
+              <span>
+                {backendStatus === 'warming'
+                  ? 'Server is waking up — retrying…'
+                  : 'Loading flood reports…'}
+              </span>
+            </div>
+          )}
+
           <div>
             <div className="mb-2 text-sm font-semibold text-slate-900">
               Search for a location
