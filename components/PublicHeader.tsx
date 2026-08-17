@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Info, LogOut, MapPinned, UserRound } from 'lucide-react';
+import { Info, LogOut, MapPinned, UserRound, BookOpen } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole, type StaffRole } from '@/lib/auth/roles';
 import { useRouteLoader } from './RouteLoader';
@@ -16,6 +16,7 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
   const [isChecking, setIsChecking] = useState(true);
   const [email, setEmail] = useState<string | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMobileInfoOpen, setIsMobileInfoOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
@@ -172,12 +173,26 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
                 )}
               </div>
             )}
+            <div className="group relative">
+              <button
+                type="button"
+                className="rounded-lg p-2.5 text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon transition-colors"
+              >
+                <Info className="h-5 w-5" />
+              </button>
+              <div className="hidden group-hover:block absolute right-0 top-12 w-56 z-[1201]">
+                <div className="bg-white border border-canvas-grey rounded-lg shadow-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
+                  <div className="font-semibold text-slate-900 mb-1">How to report a flood hazard</div>
+                  1. Set your location (search, tap, or use GPS).<br />2. Select the flood depth.<br />3. Attach image (optional).<br />4. Submit report.
+                </div>
+              </div>
+            </div>
           </nav>
         </div>
       </div>
 
       {email && (
-        <div className="absolute right-4 top-3 z-[1201] md:hidden">
+        <div className="absolute right-4 top-3 z-[1201] md:hidden flex items-center gap-2">
           <button
             type="button"
             onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
@@ -197,6 +212,27 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
               {userMenuContent}
             </div>
           )}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => { setIsMobileInfoOpen((v) => !v); setIsMenuOpen(false); }}
+              className={`flex items-center justify-center rounded-lg border p-2 transition-colors ${
+                isMobileInfoOpen
+                  ? 'border-gakit-maroon bg-maroon-50 text-gakit-maroon'
+                  : 'border-canvas-grey text-slate-500 hover:bg-slate-50'
+              }`}
+            >
+              <Info className="h-5 w-5" />
+            </button>
+            {isMobileInfoOpen && (
+              <div className="absolute right-0 top-12 w-56 z-[1201]">
+                <div className="bg-white border border-canvas-grey rounded-lg shadow-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
+                  <div className="font-semibold text-slate-900 mb-1">How to report a flood hazard</div>
+                  1. Set your location (search, tap, or use GPS).<br />2. Select the flood depth.<br />3. Attach image (optional).<br />4. Submit report.
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -221,7 +257,7 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
                 : 'text-slate-500 hover:bg-maroon-50 hover:text-gakit-maroon'
             }`}
           >
-            <Info className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
+            <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
             <span className="text-[10px] font-semibold">About</span>
           </button>
           {!isChecking && (
