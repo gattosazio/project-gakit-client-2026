@@ -24,25 +24,25 @@ const registerPmtilesProtocol = async (maplibregl: any) => {
 
 export const createReportMarkerImage = (color: string): ImageData | null => {
   const canvas = document.createElement('canvas');
-  canvas.width = 72;
-  canvas.height = 88;
+  canvas.width = 54;
+  canvas.height = 66;
   const context = canvas.getContext('2d');
   if (!context) return null;
 
   const drawPin = () => {
     context.beginPath();
-    context.moveTo(36, 82);
-    context.bezierCurveTo(31, 70, 10, 52, 10, 33);  
-    context.bezierCurveTo(10, 18.5, 21.5, 7, 36, 7);
-    context.bezierCurveTo(50.5, 7, 62, 18.5, 62, 33);
-    context.bezierCurveTo(62, 52, 41, 70, 36, 82);
+    context.moveTo(27, 61.5);
+    context.bezierCurveTo(23.25, 52.5, 7.5, 39, 7.5, 24.75);  
+    context.bezierCurveTo(7.5, 13.875, 16.125, 5.25, 27, 5.25);
+    context.bezierCurveTo(37.875, 5.25, 46.5, 13.875, 46.5, 24.75);
+    context.bezierCurveTo(46.5, 39, 30.75, 52.5, 27, 61.5);
     context.closePath();
   };
 
   context.save();
   context.shadowColor = 'rgba(15, 23, 42, 0.35)';
-  context.shadowBlur = 8;
-  context.shadowOffsetY = 5;
+  context.shadowBlur = 6;
+  context.shadowOffsetY = 3.75;
   drawPin();
   context.fillStyle = color;
   context.fill();
@@ -52,23 +52,23 @@ export const createReportMarkerImage = (color: string): ImageData | null => {
   context.fillStyle = color;
   context.fill();
   context.strokeStyle = '#ffffff';
-  context.lineWidth = 4;
+  context.lineWidth = 3;
   context.lineJoin = 'round';
   context.stroke();
 
   context.beginPath();
-  context.arc(36, 32, 15, 0, Math.PI * 2);
+  context.arc(27, 24, 11.25, 0, Math.PI * 2);
   context.fillStyle = '#ffffff';
   context.fill();
 
   context.strokeStyle = color;
-  context.lineWidth = 3.5;
+  context.lineWidth = 2.625;
   context.lineCap = 'round';
-  [28, 35].forEach((y) => {
+  [21, 26.25].forEach((y) => {
     context.beginPath();
-    context.moveTo(24, y);
-    context.bezierCurveTo(28, y - 3, 32, y + 3, 36, y);
-    context.bezierCurveTo(40, y - 3, 44, y + 3, 48, y);
+    context.moveTo(18, y);
+    context.bezierCurveTo(21, y - 2.25, 24, y + 2.25, 27, y);
+    context.bezierCurveTo(30, y - 2.25, 33, y + 2.25, 36, y);
     context.stroke();
   });
 
@@ -97,13 +97,8 @@ export interface SubmittedReportProps {
 
 export const buildReportsGeoJson = (
   backendReports: MapReportFeature[],
-  submittedReports: SubmittedReportProps[],
   visibleStatuses: Record<ReportStatus, boolean>
 ) => {
-  // The map's own fetch and the page-level `submittedReports` carry the same
-  // API reports, so dedupe by id to avoid double-counting in clusters. Skip
-  // hidden statuses up front so we don't build props for features that won't
-  // be rendered.
   const seen = new Set<string>();
   const features: Array<Record<string, any>> = [];
 
@@ -130,24 +125,6 @@ export const buildReportsGeoJson = (
         depthLabel: props.depth.label,
         statusLabel: REPORT_STATUS_LABELS[props.status] || props.status,
         createdAt: new Date(props.createdAt).toLocaleString(),
-      },
-    });
-  });
-
-  submittedReports.forEach((report) => {
-    pushReport(report.id, report.status, {
-      type: 'Feature',
-      geometry: {
-        type: 'Point',
-        coordinates: [report.location.lng, report.location.lat],
-      },
-      properties: {
-        kind: 'report',
-        status: report.status,
-        address: report.location.address,
-        depthLabel: formatDepth(report.depth),
-        statusLabel: REPORT_STATUS_LABELS[report.status],
-        createdAt: report.submittedAt,
       },
     });
   });
@@ -528,8 +505,8 @@ export const setupOverlayLayers = async (
       type: 'geojson',
       data: { type: 'FeatureCollection', features: [] },
       cluster: true,
-      clusterMaxZoom: 12,
-      clusterRadius: 30,
+      clusterMaxZoom: 13,
+      clusterRadius: 40,
     });
 
     REPORT_STATUS_LEGEND.forEach(({ status }) => {

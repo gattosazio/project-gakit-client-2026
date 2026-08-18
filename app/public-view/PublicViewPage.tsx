@@ -7,13 +7,12 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from './ReportModal';
 import { Building2, CheckCircle2, ChevronDown, ChevronUp, Handshake, Loader2, Mail, MapPin, Navigation, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createReport, listPublicReports, pingHealth } from './actions/public.view';
+import { createReport, pingHealth } from './actions/public.view';
 import { getBackendStatus } from '@/lib/backendStatus';
-import { invalidateApiCache } from '@/lib/apiCache';
 import { reverseGeocode, searchLocations } from '@/lib/geoUtils';
 import type { LocationSearchResult } from '@/lib/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
-import type { CreateReportInput, DepthCategory, MapReportFeature, Report, ReportStatus } from '@/types/report';
+import type { CreateReportInput, DepthCategory, Report, ReportStatus } from '@/types/report';
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
@@ -60,20 +59,6 @@ const toSubmittedReport = (report: Report): SubmittedReport => ({
   submittedAt: new Date(report.createdAt).toLocaleString(),
 });
 
-const featureToSubmittedReport = (feature: MapReportFeature): SubmittedReport => ({
-  id: feature.properties.id,
-  location: {
-    lat: feature.geometry.coordinates[1],
-    lng: feature.geometry.coordinates[0],
-    address:
-      feature.properties.address ??
-      `${feature.geometry.coordinates[1].toFixed(4)}, ${feature.geometry.coordinates[0].toFixed(4)}`,
-  },
-  depth: feature.properties.depth,
-  status: feature.properties.status,
-  submittedAt: new Date(feature.properties.createdAt).toLocaleString(),
-});
-
 // Home comes first in the DOM, but the map is scrolled to on load so it opens first
 const SECTION_ORDER = ['hazard-map', 'about'] as const;
 type SectionId = (typeof SECTION_ORDER)[number];
@@ -87,7 +72,6 @@ export function PublicViewPage() {
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(
     null
   );
-  const [submittedReports, setSubmittedReports] = useState<SubmittedReport[]>([]);
   const [lastSubmittedReport, setLastSubmittedReport] = useState<SubmittedReport | null>(null);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const mapRef = useRef<PublicMapHandle | null>(null);
@@ -147,30 +131,6 @@ export function PublicViewPage() {
     }, 10 * 60 * 1000);
 
     return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const abortController = new AbortController();
-
-    void listPublicReports(abortController.signal)
-      .then((features) => {
-        setSubmittedReports(features.map(featureToSubmittedReport));
-      })
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        // While the backend is waking up the map chip already explains what's
-        // happening and the request layer keeps retrying; don't stack a late
-        // error toast on top of it.
-        if (getBackendStatus() === 'warming') return;
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : 'Unable to load saved flood reports.',
-          { position: 'top-right', autoClose: 3000 }
-        );
-      });
-
-    return () => abortController.abort();
   }, []);
 
   const navigateSections = useCallback((direction: 'previous' | 'next') => {
@@ -275,8 +235,6 @@ export function PublicViewPage() {
       depth: data.depth,
     });
 
-    invalidateApiCache('/api/v1/reports/map');
-
     const submittedReport: SubmittedReport = {
       id: report.id,
       location: {
@@ -290,7 +248,7 @@ export function PublicViewPage() {
     };
 
     setLastSubmittedReport(submittedReport);
-    setSubmittedReports((currentReports) => [submittedReport, ...currentReports]);
+    mapRef.current?.refreshReports();
   };
 
   return (
@@ -324,7 +282,6 @@ export function PublicViewPage() {
                 onLoadingChange={setIsLoadingReports}
                 onLocationSelect={handleLocationSelect}
                 selectedLocation={selectedLocation}
-                submittedReports={submittedReports}
                 reportStatusToggleStatuses={['UNVERIFIED', 'VERIFIED']}
                 defaultVisibleReportStatuses={{ ANOMALY: false, REJECTED: false }}
               />

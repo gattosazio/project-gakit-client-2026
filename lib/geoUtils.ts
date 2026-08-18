@@ -1,6 +1,9 @@
 const NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
 const NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
 
+const GEOCODE_CACHE_MAX = 64;
+const geocodeCache = new Map<string, string>();
+
 export const ILIGAN_CENTER = { lat: 8.2312, lng: 124.2470 };
 
 export const ILIGAN_BOUNDS: [[number, number], [number, number]] = [
@@ -37,6 +40,10 @@ export async function reverseGeocode(
   lng: number,
   signal?: AbortSignal
 ): Promise<string> {
+  const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  const cached = geocodeCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
   try {
     const url = new URL(NOMINATIM_URL);
     url.searchParams.set('format', 'json');
@@ -56,7 +63,13 @@ export async function reverseGeocode(
     }
 
     const addressData = await response.json();
-    return parseNominatimAddress(addressData, lat, lng).trim();
+    const address = parseNominatimAddress(addressData, lat, lng).trim();
+    geocodeCache.set(cacheKey, address);
+    if (geocodeCache.size > GEOCODE_CACHE_MAX) {
+      const oldest = geocodeCache.keys().next().value;
+      if (oldest != null) geocodeCache.delete(oldest);
+    }
+    return address;
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') throw error;
     return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
