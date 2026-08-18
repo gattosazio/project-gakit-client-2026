@@ -9,6 +9,7 @@ import { Building2, CheckCircle2, ChevronDown, ChevronUp, Handshake, Loader2, Ma
 import { toast } from 'react-toastify';
 import { createReport, listPublicReports, pingHealth } from './actions/public.view';
 import { getBackendStatus } from '@/lib/backendStatus';
+import { invalidateApiCache } from '@/lib/apiCache';
 import { reverseGeocode, searchLocations } from '@/lib/geoUtils';
 import type { LocationSearchResult } from '@/lib/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
@@ -273,6 +274,8 @@ export function PublicViewPage() {
       },
       depth: data.depth,
     });
+
+    invalidateApiCache('/api/v1/reports/map');
 
     const submittedReport: SubmittedReport = {
       id: report.id,

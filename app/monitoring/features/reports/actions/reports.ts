@@ -70,6 +70,7 @@ export async function createReport(
     throw error;
   }
   invalidateApiCache('/api/v1/reports');
+  invalidateApiCache('/api/v1/reports/map');
   return report;
 }
 
@@ -110,5 +111,6 @@ export async function updateReportStatus(
     }),
   });
   invalidateApiCache('/api/v1/reports');
+  invalidateApiCache('/api/v1/reports/map');
   return report;
 }
