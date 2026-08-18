@@ -15,6 +15,7 @@ import * as maplibregl from 'maplibre-gl';
 import {
   getBackendStatus,
 } from '@/lib/backendStatus';
+import { invalidateApiCache } from '@/lib/apiCache';
 import { getElevation } from '@/lib/elevation';
 import {
   HAS_MAPTILER,
@@ -38,7 +39,6 @@ import {
   riskLevelFilter,
   setupOverlayLayers,
   type MapMode,
-  type SubmittedReportProps,
 } from '@/lib/mapLayers';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 import type { RainfallGrid } from '@/types/rainfall';
@@ -70,12 +70,12 @@ export interface PublicMapHandle {
   focusLocation: (location: { lat: number; lng: number }) => void;
   showReport: (report: MapReportToShow) => void;
   getRainfallHours: () => number;
+  refreshReports: () => void;
 }
 
 interface PublicMapProps {
   onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
   selectedLocation: { lat: number; lng: number } | null;
-  submittedReports?: SubmittedReportProps[];
   mapApiRef?: MutableRefObject<PublicMapHandle | null>;
   hideShareLocation?: boolean;
   hideAttribution?: boolean;
@@ -96,7 +96,6 @@ const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
 export function PublicMap({
   onLocationSelect,
   selectedLocation,
-  submittedReports = [],
   mapApiRef,
   hideShareLocation = false,
   hideAttribution = false,
@@ -115,7 +114,6 @@ export function PublicMap({
   const controlsSentinelRef = useRef<HTMLDivElement | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
   const backendReportsRef = useRef<MapReportFeature[]>([]);
-  const submittedReportsRef = useRef<SubmittedReportProps[]>([]);
   const visibleReportStatusesRef = useRef<Record<ReportStatus, boolean>>(
     initialVisibleReportStatuses
   );
@@ -231,13 +229,18 @@ export function PublicMap({
   // Looks up the flood hazard level and precipitation at a coordinate. Hazard
   // comes from the PMTiles archive directly (viewport-independent); rain comes
   // from the in-memory GSMaP grid, reported as mm over the selected
-  // accumulation window.
+  // accumulation window. Fetches rainfall on-demand if the grid is empty
+  // (e.g. the rainfall layer was never enabled).
   const checkLocation = useCallback(
     async (location: { lat: number; lng: number }): Promise<LocationRiskInfo> => {
       const { lat, lng } = location;
 
       let precipMm: number | null = null;
-      const cells = rainfallCellsRef.current;
+      let cells = rainfallCellsRef.current;
+      if (cells.size === 0) {
+        await loadRainfall(rainfallHoursRef.current);
+        cells = rainfallCellsRef.current;
+      }
       if (cells.size > 0) {
         // Cells sit on a regular 0.1-degree grid centered at *.05 offsets, so
         // the cell containing the point is found by rounding to its center.
@@ -251,7 +254,7 @@ export function PublicMap({
       const hazardLevel = await queryFloodHazard(lat, lng);
       return { hazardLevel, precipMm };
     },
-    []
+    [loadRainfall]
   );
 
   const focusLocation = useCallback((location: { lat: number; lng: number }) => {
@@ -351,12 +354,16 @@ export function PublicMap({
         focusLocation,
         showReport,
         getRainfallHours: () => rainfallHours,
+        refreshReports: () => {
+          invalidateApiCache('/api/v1/reports/map');
+          void loadMapReports();
+        },
       };
       return () => {
         mapApiRef.current = null;
       };
     }
-  }, [mapApiRef, checkLocation, focusLocation, showReport, rainfallHours]);
+  }, [mapApiRef, checkLocation, focusLocation, showReport, rainfallHours, loadMapReports]);
 
   // Applies an inspect requested before the map finished loading.
   useEffect(() => {
@@ -442,10 +449,9 @@ export function PublicMap({
   // forcing the map-setup effect to re-run.
   useEffect(() => {
     backendReportsRef.current = backendReports;
-    submittedReportsRef.current = submittedReports;
     visibleReportStatusesRef.current = visibleReportStatuses;
     selectedLocationRef.current = selectedLocation;
-  }, [backendReports, submittedReports, selectedLocation, visibleReportStatuses]);
+  }, [backendReports, selectedLocation, visibleReportStatuses]);
 
   useEffect(() => {
     handleLocationSelectRef.current = handleLocationSelect;
@@ -470,7 +476,6 @@ export function PublicMap({
       reportsSource.setData(
         buildReportsGeoJson(
           backendReportsRef.current,
-          submittedReportsRef.current,
           visibleReportStatusesRef.current
         )
       );
@@ -577,8 +582,6 @@ export function PublicMap({
   // destroyed when switching between 2D and 3D.
   const handleStyleLoad = useCallback(
     (map: any) => {
-      setTimeout(() => map.resize(), 250);
-
       void (async () => {
         await setupOverlayLayers(map, maplibregl, {
           showFloodHazard: showFloodHazardRef.current,
@@ -589,6 +592,7 @@ export function PublicMap({
         });
 
         layersReadyRef.current = true;
+        setMapReady(true);
 
         attachLayerEvents(map);
         applyReportData(map);
@@ -643,7 +647,6 @@ export function PublicMap({
     }
   }, [
     backendReports,
-    submittedReports,
     visibleReportStatuses,
     applyReportData,
   ]);
@@ -677,13 +680,6 @@ export function PublicMap({
         rainfallTimerRef.current = null;
       }
     };
-  }, [showRainfall, rainfallHours, loadRainfall]);
-
-  // Keep the hazard-check precipitation data current for the selected window
-  // even while the rainfall layer is hidden.
-  useEffect(() => {
-    if (showRainfall) return;
-    void loadRainfall(rainfallHours);
   }, [showRainfall, rainfallHours, loadRainfall]);
 
   // Periodically refresh map pins so new reports appear even when the user is
@@ -734,6 +730,8 @@ export function PublicMap({
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 12,
       minZoom: 4,
+      maxZoom: 18,
+      renderWorldCopies: false,
       // Tiles pop in instead of slowly cross-fading, which reads much better on
       // a slow network where the initial tiles arrive late.
       fadeDuration: 0,
@@ -741,7 +739,6 @@ export function PublicMap({
     });
 
     mapRef.current = map;
-    setMapReady(true);
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
 
     // Keep the map sized correctly when its container changes (e.g. when the
