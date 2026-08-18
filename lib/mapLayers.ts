@@ -32,7 +32,7 @@ export const createReportMarkerImage = (color: string): ImageData | null => {
   const drawPin = () => {
     context.beginPath();
     context.moveTo(36, 82);
-    context.bezierCurveTo(31, 70, 10, 52, 10, 33);
+    context.bezierCurveTo(31, 70, 10, 52, 10, 33);  
     context.bezierCurveTo(10, 18.5, 21.5, 7, 36, 7);
     context.bezierCurveTo(50.5, 7, 62, 18.5, 62, 33);
     context.bezierCurveTo(62, 52, 41, 70, 36, 82);

@@ -145,7 +145,7 @@ export async function fetchMapReports(
   });
 
   const url = `/api/v1/reports/map?${params}`;
-  return cachedGet<MapReportsResponse>(url, 30_000, () =>
+  return cachedGet<MapReportsResponse>(url, 5_000, () =>
     request<MapReportsResponse>(url, { signal }, REQUEST_TIMEOUT_MS_REPORTS)
   );
 }

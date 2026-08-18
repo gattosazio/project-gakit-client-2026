@@ -9,6 +9,8 @@ import {
 } from 'react';
 import { Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
+
+const REPORT_POLL_INTERVAL_MS = 15_000;
 import * as maplibregl from 'maplibre-gl';
 import {
   getBackendStatus,
@@ -153,6 +155,7 @@ export function PublicMap({
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const rainfallSourceRef = useRef<RainfallGrid | null>(null);
   const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const reportPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rainfallCellsRef = useRef<Map<string, number>>(new Map());
 
   // Refs mirror toggle state so the style-load handler (which runs on every
@@ -682,6 +685,37 @@ export function PublicMap({
     if (showRainfall) return;
     void loadRainfall(rainfallHours);
   }, [showRainfall, rainfallHours, loadRainfall]);
+
+  // Periodically refresh map pins so new reports appear even when the user is
+  // not panning/zooming. Pauses when the tab is hidden to avoid wasted requests.
+  useEffect(() => {
+    if (!mapReady) return;
+
+    const poll = () => {
+      if (getBackendStatus() !== 'warming') void loadMapReports();
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        poll();
+        reportPollTimerRef.current = setInterval(poll, REPORT_POLL_INTERVAL_MS);
+      } else if (reportPollTimerRef.current) {
+        clearInterval(reportPollTimerRef.current);
+        reportPollTimerRef.current = null;
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    onVisibilityChange();
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (reportPollTimerRef.current) {
+        clearInterval(reportPollTimerRef.current);
+        reportPollTimerRef.current = null;
+      }
+    };
+  }, [mapReady, loadMapReports]);
 
   useEffect(() => {
     if (!mapContainer.current || !maplibregl) return;
