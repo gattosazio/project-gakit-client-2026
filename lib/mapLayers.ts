@@ -6,6 +6,7 @@ import {
   REPORT_STATUS_LABELS,
   REPORT_STATUS_LEGEND,
 } from '@/constants/publicMap';
+import { HIMAWARI_COORDINATES, himawariFrameURL } from '@/lib/himawari';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 
 export type MapMode = '2d' | '3d';
@@ -387,6 +388,7 @@ export const riskLevelFilter = (visible: Record<string, boolean>) => [
 export interface OverlayLayerState {
   showFloodHazard: boolean;
   showRainfall: boolean;
+  showHimawariIR: boolean;
   visibleRiskLevels: Record<string, boolean>;
   mapMode: MapMode;
   rainfallHours: number;
@@ -505,8 +507,8 @@ export const setupOverlayLayers = async (
       type: 'geojson',
       data: { type: 'FeatureCollection', features: [] },
       cluster: true,
-      clusterMaxZoom: 13,
-      clusterRadius: 40,
+      clusterMaxZoom: 11,
+      clusterRadius: 25,
     });
 
     REPORT_STATUS_LEGEND.forEach(({ status }) => {
@@ -628,6 +630,32 @@ export const setupOverlayLayers = async (
         'text-halo-width': 2,
       },
     });
+  }
+
+  // --- Himawari IR satellite imagery (JMA) ---
+  if (!map.getSource('himawari-ir')) {
+    const initialTime = (() => {
+      const now = new Date();
+      now.setUTCMinutes(Math.floor(now.getUTCMinutes() / 10) * 10, 0, 0);
+      return `${String(now.getUTCHours()).padStart(2, '0')}${String(now.getUTCMinutes()).padStart(2, '0')}`;
+    })();
+
+    map.addSource('himawari-ir', {
+      type: 'image',
+      url: himawariFrameURL(initialTime),
+      coordinates: HIMAWARI_COORDINATES,
+    });
+
+    map.addLayer({
+      id: 'himawari-ir-layer',
+      type: 'raster',
+      source: 'himawari-ir',
+      paint: {
+        'raster-opacity': 0.5,
+      },
+    }, 'report-clusters');
+
+    map.setLayoutProperty('himawari-ir-layer', 'visibility', state.showHimawariIR ? 'visible' : 'none');
   }
 
   // --- 3D terrain (MapTiler view) ---

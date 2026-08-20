@@ -74,7 +74,17 @@ export function PublicViewPage() {
   );
   const [lastSubmittedReport, setLastSubmittedReport] = useState<SubmittedReport | null>(null);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState('Fetching reports…');
   const mapRef = useRef<PublicMapHandle | null>(null);
+
+  useEffect(() => {
+    if (!isLoadingReports) {
+      setLoadingMessage('Fetching reports…');
+      return;
+    }
+    const timer = setTimeout(() => setLoadingMessage('Server is starting…'), 5000);
+    return () => clearTimeout(timer);
+  }, [isLoadingReports]);
 
   const scrollToMap = useCallback(() => {
     document
@@ -271,9 +281,9 @@ export function PublicViewPage() {
                 </div>
               )}
               {isLoadingReports && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1000] bg-white/95 border border-canvas-grey rounded-lg shadow-lg px-4 py-3 flex items-center gap-2">
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 md:top-4 z-[1000] bg-white/95 border border-canvas-grey rounded-lg shadow-lg px-4 py-3 flex items-center gap-2">
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
-                  <span className="text-sm font-medium text-slate-700">Fetching reports…</span>
+                  <span className="text-sm font-medium text-slate-700">{loadingMessage}</span>
                 </div>
               )}
               <PublicMap

@@ -30,6 +30,7 @@ import {
   rainfallCellCenterFor,
   type RainfallAccumulationHours,
 } from '@/lib/rainfall';
+import { himawariFrameTimes, fetchHimawariFrame, himawariFrameURL, HIMAWARI_COORDINATES } from '@/lib/himawari';
 import { queryFloodHazard, type FloodRiskLevel } from '@/lib/floodHazard';
 import {
   applyRainfallPaint,
@@ -42,7 +43,7 @@ import {
 } from '@/lib/mapLayers';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 import type { RainfallGrid } from '@/types/rainfall';
-import { LayerControls, MapModeToggle } from '@/components/map/MapControls';
+import { ReportControls, DataLayerControls, MapModeToggle } from '@/components/map/MapControls';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { fetchMapReports } from '@/app/public-view/actions/public.view';
@@ -135,7 +136,12 @@ export function PublicMap({
 
   // Layer visibility toggles
   const [showFloodHazard, setShowFloodHazard] = useState(false);
+  const [showHimawariIR, setShowHimawariIR] = useState(false);
+  const [himawariOpacity, setHimawariOpacity] = useState(0.5);
   const [layersOpen, setLayersOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true
+  );
+  const [reportsOpen, setReportsOpen] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
   );
   const [visibleRiskLevels, setVisibleRiskLevels] = useState<Record<string, boolean>>({
@@ -155,6 +161,8 @@ export function PublicMap({
   const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const reportPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const rainfallCellsRef = useRef<Map<string, number>>(new Map());
+  const himawariTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const himawariFrameIndexRef = useRef(0);
 
   // Refs mirror toggle state so the style-load handler (which runs on every
   // basemap switch) can read the latest values without re-creating the map.
@@ -167,14 +175,16 @@ export function PublicMap({
     low: true,
   });
   const rainfallHoursRef = useRef<RainfallAccumulationHours>(1);
+  const showHimawariIRRef = useRef(false);
 
   useEffect(() => {
     mapModeRef.current = mapMode;
     showFloodHazardRef.current = showFloodHazard;
     showRainfallRef.current = showRainfall;
+    showHimawariIRRef.current = showHimawariIR;
     visibleRiskLevelsRef.current = visibleRiskLevels;
     rainfallHoursRef.current = rainfallHours;
-  }, [mapMode, showFloodHazard, showRainfall, visibleRiskLevels, rainfallHours]);
+  }, [mapMode, showFloodHazard, showRainfall, showHimawariIR, visibleRiskLevels, rainfallHours]);
 
   useEffect(() => {
     onLoadingChange?.(isLoadingReports);
@@ -586,6 +596,7 @@ export function PublicMap({
         await setupOverlayLayers(map, maplibregl, {
           showFloodHazard: showFloodHazardRef.current,
           showRainfall: showRainfallRef.current,
+          showHimawariIR: showHimawariIRRef.current,
           visibleRiskLevels: visibleRiskLevelsRef.current,
           mapMode: mapModeRef.current,
           rainfallHours: rainfallHoursRef.current,
@@ -682,6 +693,47 @@ export function PublicMap({
     };
   }, [showRainfall, rainfallHours, loadRainfall]);
 
+  // Himawari IR satellite loop — cycles through the last 2 hours of IR frames.
+  useEffect(() => {
+    if (!showHimawariIR) {
+      if (himawariTimerRef.current) {
+        clearInterval(himawariTimerRef.current);
+        himawariTimerRef.current = null;
+      }
+      return;
+    }
+
+    const frames = himawariFrameTimes(12);
+    himawariFrameIndexRef.current = 0;
+
+    const advance = async () => {
+      const map = mapRef.current;
+      if (!map) return;
+      const idx = himawariFrameIndexRef.current % frames.length;
+      const time = frames[idx];
+      try {
+        const img = await fetchHimawariFrame(time);
+        const src = map.getSource('himawari-ir') as any;
+        if (src) {
+          src.updateImage({ image: img, coordinates: HIMAWARI_COORDINATES });
+        }
+      } catch {
+        // frame unavailable — skip
+      }
+      himawariFrameIndexRef.current++;
+    };
+
+    void advance();
+    himawariTimerRef.current = setInterval(() => void advance(), 500);
+
+    return () => {
+      if (himawariTimerRef.current) {
+        clearInterval(himawariTimerRef.current);
+        himawariTimerRef.current = null;
+      }
+    };
+  }, [showHimawariIR]);
+
   // Periodically refresh map pins so new reports appear even when the user is
   // not panning/zooming. Pauses when the tab is hidden to avoid wasted requests.
   useEffect(() => {
@@ -731,6 +783,7 @@ export function PublicMap({
       zoom: 12,
       minZoom: 4,
       maxZoom: 18,
+      maxBounds: [100, 0, 145, 25],
       renderWorldCopies: false,
       // Tiles pop in instead of slowly cross-fading, which reads much better on
       // a slow network where the initial tiles arrive late.
@@ -844,16 +897,28 @@ export function PublicMap({
       ['flood-hazard-fill', showFloodHazard],
       ['flood-hazard-outline', showFloodHazard],
       ['rainfall-grid', showRainfall],
+      ['himawari-ir-layer', showHimawariIR],
     ];
 
     layers.forEach(([id, visible]) => {
-      map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+      if (map.getLayer(id)) {
+        map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+      }
     });
 
     const filter = riskLevelFilter(visibleRiskLevels);
     map.setFilter('flood-hazard-fill', filter);
     map.setFilter('flood-hazard-outline', filter);
-  }, [showFloodHazard, showRainfall, visibleRiskLevels]);
+  }, [showFloodHazard, showRainfall, showHimawariIR, visibleRiskLevels]);
+
+  // Update Himawari IR opacity
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !layersReadyRef.current) return;
+    if (map.getLayer('himawari-ir-layer')) {
+      map.setPaintProperty('himawari-ir-layer', 'raster-opacity', himawariOpacity);
+    }
+  }, [himawariOpacity]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
@@ -871,13 +936,19 @@ export function PublicMap({
           hideShareLocation ? 'bottom-10 md:bottom-8' : 'bottom-28 md:bottom-10'
         } ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
       >
-        <LayerControls
-          layersOpen={layersOpen}
-          onToggleLayers={setLayersOpen}
+        <ReportControls
+          open={reportsOpen}
+          onToggle={setReportsOpen}
           visibleReportStatuses={visibleReportStatuses}
           onReportStatusChange={(status, checked) =>
             setVisibleReportStatuses((previous) => ({ ...previous, [status]: checked }))
           }
+          reportStatusToggleStatuses={reportStatusToggleStatuses}
+        />
+
+        <DataLayerControls
+          open={layersOpen}
+          onToggle={setLayersOpen}
           showFloodHazard={showFloodHazard}
           onShowFloodHazardChange={setShowFloodHazard}
           showRainfall={showRainfall}
@@ -886,11 +957,14 @@ export function PublicMap({
           rainfallSource={rainfallSource}
           rainfallHours={rainfallHours}
           onRainfallHoursChange={setRainfallHours}
+          showHimawariIR={showHimawariIR}
+          onShowHimawariIRChange={setShowHimawariIR}
+          himawariOpacity={himawariOpacity}
+          onHimawariOpacityChange={setHimawariOpacity}
           visibleRiskLevels={visibleRiskLevels}
           onRiskLevelChange={(key, checked) =>
             setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
           }
-          reportStatusToggleStatuses={reportStatusToggleStatuses}
         />
 
         {!hideShareLocation && (
