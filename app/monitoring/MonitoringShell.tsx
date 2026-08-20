@@ -74,13 +74,13 @@ export function MonitoringShell() {
           onNotificationClick={handleOpenNotification}
         />
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 lg:pb-6 space-y-6">
-          <div className={activeTab === 'dashboard' ? '' : 'hidden'}>
+          <div className={activeTab === 'dashboard' ? 'space-y-4' : 'hidden'}>
             <DashboardOverview active={activeTab === 'dashboard'} onReviewCritical={handleReviewCritical} />
           </div>
-          <div className={activeTab === 'alerts' ? '' : 'hidden'}>
+          <div className={activeTab === 'alerts' ? 'space-y-4' : 'hidden'}>
             <AlertsTab active={activeTab === 'alerts'} onOpenReports={handleOpenReport} />
           </div>
-          <div className={activeTab === 'reports' ? '' : 'hidden'}>
+          <div className={activeTab === 'reports' ? 'space-y-4' : 'hidden'}>
             <ReportsTab
               active={activeTab === 'reports'}
               initialCritical={criticalReportsOnly}
