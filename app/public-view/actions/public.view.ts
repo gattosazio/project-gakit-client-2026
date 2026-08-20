@@ -1,5 +1,6 @@
 import { cachedGet } from '@/lib/apiCache';
 import { RateLimitedError } from '@/lib/apiErrors';
+import { API_BASE_URL } from '@/lib/apiUrl';
 import { markBackendOnline, markBackendWarming } from '@/lib/backendStatus';
 import { ILIGAN_BOUNDS } from '@/lib/geoUtils';
 import type {
@@ -11,8 +12,6 @@ import type {
   Report,
   ReportStatus,
 } from '@/types/report';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 // A free-tier server that has spun down cold-starts slowly (30-60s), so give
 // requests a generous timeout and retry with backoff so a cold start or a
@@ -57,7 +56,7 @@ async function request<T>(
 
     let status: number | undefined;
     try {
-      const response = await fetch(`${API_URL}${path}`, {
+      const response = await fetch(`${API_BASE_URL}${path}`, {
         headers: { 'Content-Type': 'application/json' },
         ...options,
         signal: controller.signal,
@@ -117,7 +116,7 @@ export async function createReport(
   signal?: AbortSignal
 ): Promise<ReportRecord> {
   try {
-    return await request<ReportRecord>('/api/v1/reports', {
+    return await request<ReportRecord>('/reports', {
       method: 'POST',
       body: JSON.stringify(input),
       signal,
@@ -144,7 +143,7 @@ export async function fetchMapReports(
     ...(bounds.limit != null ? { limit: String(bounds.limit) } : {}),
   });
 
-  const url = `/api/v1/reports/map?${params}`;
+  const url = `/reports/map?${params}`;
   return cachedGet<MapReportsResponse>(url, 30_000, () =>
     request<MapReportsResponse>(url, { signal }, REQUEST_TIMEOUT_MS_REPORTS)
   );
@@ -166,7 +165,7 @@ export async function listPublicReports(signal?: AbortSignal): Promise<MapReport
 }
 
 export async function listDepthCategories(signal?: AbortSignal): Promise<FloodDepthCategory[]> {
-  const url = '/api/v1/reports/depth-categories';
+  const url = '/reports/depth-categories';
   return cachedGet<FloodDepthCategory[]>(url, 3_600_000, () =>
     request<FloodDepthCategory[]>(url, { signal })
   );

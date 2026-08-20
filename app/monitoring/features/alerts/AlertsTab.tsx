@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
@@ -468,12 +469,16 @@ function NotificationActions({
 }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; right: number } | null>(null);
 
   useEffect(() => {
     if (!open) return;
 
     const close = (event: MouseEvent) => {
-      if (!wrapperRef.current?.contains(event.target as Node)) setOpen(false);
+      const target = event.target as Node;
+      if (!wrapperRef.current?.contains(target) && !menuRef.current?.contains(target)) setOpen(false);
     };
 
     window.addEventListener('mousedown', close);
@@ -485,22 +490,38 @@ function NotificationActions({
       ? 'Review report'
       : 'View report';
 
+  const toggleMenu = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      setMenuPosition({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setOpen(true);
+  };
+
   return (
     <div ref={wrapperRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         aria-label={`Actions for ${notification.title}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggleMenu}
         className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
-      {open && (
+      {open && menuPosition && createPortal(
         <div
+          ref={menuRef}
           role="menu"
-          className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-lg border border-canvas-grey bg-white py-1 shadow-lg"
+          style={{ top: menuPosition.top, right: menuPosition.right }}
+          className="fixed z-[100] w-40 overflow-hidden rounded-lg border border-canvas-grey bg-white py-1 shadow-lg"
         >
           <button
             role="menuitem"
@@ -527,6 +548,7 @@ function NotificationActions({
             Dismiss
           </button>
         </div>
+        , document.body
       )}
     </div>
   );

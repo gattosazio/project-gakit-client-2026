@@ -1,5 +1,6 @@
 import { cachedGet, invalidateApiCache } from '@/lib/apiCache';
 import { RateLimitedError } from '@/lib/apiErrors';
+import { API_BASE_URL } from '@/lib/apiUrl';
 import type {
   CreateReportInput,
   FloodDepthCode,
@@ -9,10 +10,8 @@ import type {
   ReportStatus,
 } from '@/types/report';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
-
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   });
@@ -56,7 +55,7 @@ export async function createReport(
 ): Promise<Report> {
   let report: Report;
   try {
-    report = await request<Report>('/api/v1/reports', {
+    report = await request<Report>('/reports', {
       method: 'POST',
       body: JSON.stringify(input),
       signal,
@@ -69,7 +68,7 @@ export async function createReport(
     }
     throw error;
   }
-  invalidateApiCache('/api/v1/reports');
+  invalidateApiCache('/reports');
   return report;
 }
 
@@ -84,14 +83,14 @@ export async function listReports(
   });
 
   const queryString = params.toString();
-  const url = `/api/v1/reports${queryString ? `?${queryString}` : ''}`;
+  const url = `/reports${queryString ? `?${queryString}` : ''}`;
   return cachedGet<PaginatedReports>(url, 30_000, () =>
     request<PaginatedReports>(url, { signal })
   );
 }
 
 export async function fetchReportStats(signal?: AbortSignal): Promise<ReportStats> {
-  const url = '/api/v1/reports/stats';
+  const url = '/reports/stats';
   return cachedGet<ReportStats>(url, 30_000, () => request<ReportStats>(url, { signal }));
 }
 
@@ -100,7 +99,7 @@ export async function updateReportStatus(
   toStatus: ReportStatus,
   options: { reason?: string | null; actor?: string | null } = {}
 ): Promise<Report> {
-  const url = `/api/v1/reports/${reportId}/status`;
+  const url = `/reports/${reportId}/status`;
   const report = await request<Report>(url, {
     method: 'PATCH',
     body: JSON.stringify({
@@ -109,6 +108,6 @@ export async function updateReportStatus(
       actor: options.actor ?? null,
     }),
   });
-  invalidateApiCache('/api/v1/reports');
+  invalidateApiCache('/reports');
   return report;
 }

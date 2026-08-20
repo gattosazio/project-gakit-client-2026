@@ -1,12 +1,11 @@
 import { cachedGet } from '@/lib/apiCache';
+import { API_BASE_URL } from '@/lib/apiUrl';
 import type { RainfallGrid, RainfallResponse } from '@/types/rainfall';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 // The server caches GSMaP results for 10 minutes, so mirror that TTL here.
 const RAINFALL_TTL_MS = 10 * 60 * 1000;
 
-// Accumulation windows supported by the server (/api/v1/rainfall/gsmap?hours=).
+// Accumulation windows supported by the API (/rainfall/gsmap?hours=).
 export const RAINFALL_ACCUMULATION_HOURS = [1, 4, 8, 12, 24] as const;
 export type RainfallAccumulationHours = (typeof RAINFALL_ACCUMULATION_HOURS)[number];
 
@@ -21,7 +20,7 @@ const RAINFALL_RETRY_BASE_DELAY_MS = 1_500;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     signal,
   });
@@ -48,7 +47,7 @@ async function fetchRainfallOnce(hours: RainfallAccumulationHours): Promise<Rain
   const timer = setTimeout(() => controller.abort(), RAINFALL_REQUEST_TIMEOUT_MS);
   try {
     return await request<RainfallResponse>(
-      `/api/v1/rainfall/gsmap?hours=${hours}`,
+      `/rainfall/gsmap?hours=${hours}`,
       controller.signal
     );
   } finally {
@@ -61,7 +60,7 @@ export function fetchRainfall(
   signal?: AbortSignal
 ): Promise<RainfallResponse> {
   // The cache key includes the window so each accumulation is cached separately.
-  const url = `/api/v1/rainfall/gsmap?hours=${hours}`;
+  const url = `/rainfall/gsmap?hours=${hours}`;
   return cachedGet<RainfallResponse>(url, RAINFALL_TTL_MS, async () => {
     let lastError: unknown;
     for (let attempt = 0; attempt <= RAINFALL_MAX_RETRIES; attempt += 1) {
