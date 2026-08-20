@@ -140,7 +140,7 @@ export function ReportsTab({
           if (seq !== requestSeqRef.current) return;
           setReports(result.items);
           setTotal(result.total);
-          setTotalPages(result.totalPages);
+          setTotalPages(Math.max(1, result.totalPages));
           setSelectedReportId((currentId) =>
             currentId && result.items.some((report) => report.id === currentId)
               ? currentId
@@ -904,7 +904,7 @@ function ReportsPagination({
 
         <button
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage === totalPages}
+          disabled={currentPage >= totalPages || totalPages === 0}
           className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-50"
         >
           Next
