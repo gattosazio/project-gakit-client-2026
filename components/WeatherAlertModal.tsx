@@ -41,32 +41,41 @@ const ALERT_TYPE_LABELS: Record<AlertType, string> = {
   daily_digest: 'Daily Forecast',
 };
 
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** "Today", "Tomorrow", or "Sat, Aug 25" */
+function friendlyDay(iso: string): string {
+  const target = new Date(iso);
+  const dayDiff = Math.round((startOfDay(target) - startOfDay(new Date())) / 86_400_000);
+
+  if (dayDiff === 0) return 'Today';
+  if (dayDiff === 1) return 'Tomorrow';
+  if (dayDiff === -1) return 'Yesterday';
+
+  return target.toLocaleDateString('en-PH', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/** Human-friendly period covered by the alert, e.g. "Today – Tomorrow". */
+function friendlyPeriod(validFrom: string, validTo: string): string {
+  const from = friendlyDay(validFrom);
+  const to = friendlyDay(validTo);
+  return from === to ? from : `${from} – ${to}`;
+}
+
 interface WeatherAlertModalProps {
   alert: WeatherAlert;
   onClose: () => void;
-  onDismiss: () => void;
 }
 
-export function WeatherAlertModal({ alert, onClose, onDismiss }: WeatherAlertModalProps) {
+export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
-
-  const formatDate = (iso: string) => {
-    return new Date(iso).toLocaleDateString('en-PH', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  };
-
-  const formatTime = (iso: string) => {
-    return new Date(iso).toLocaleTimeString('en-PH', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
 
   return (
     <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4">
@@ -79,15 +88,13 @@ export function WeatherAlertModal({ alert, onClose, onDismiss }: WeatherAlertMod
             <span className={`rounded-xl p-2.5 ${config.badge}`}>
               <Icon className={`h-5 w-5 ${config.icon}`} />
             </span>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${config.badge}`}>
-                  {ALERT_TYPE_LABELS[alert.alertType]}
-                </span>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${config.badge}`}>
-                  {alert.severity.charAt(0).toUpperCase() + alert.severity.slice(1)}
-                </span>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${config.badge}`}>
+                {ALERT_TYPE_LABELS[alert.alertType]}
+              </span>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${config.badge}`}>
+                {alert.severity.charAt(0).toUpperCase() + alert.severity.slice(1)}
+              </span>
             </div>
           </div>
           <button
@@ -106,26 +113,14 @@ export function WeatherAlertModal({ alert, onClose, onDismiss }: WeatherAlertMod
             {alert.description}
           </p>
 
-          <div className="rounded-lg border border-canvas-grey bg-canvas-light p-3">
-            <div className="flex items-center gap-2 text-sm text-slate-700">
-              <span className="font-medium">Valid from:</span>
-              <span>{formatDate(alert.validFrom)} at {formatTime(alert.validFrom)}</span>
-            </div>
-            <div className="flex items-center gap-2 text-sm text-slate-700 mt-1.5">
-              <span className="font-medium">Valid until:</span>
-              <span>{formatDate(alert.validTo)} at {formatTime(alert.validTo)}</span>
-            </div>
+          <div className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light p-3 text-sm text-slate-700">
+            <span className="font-medium">When:</span>
+            <span>{friendlyPeriod(alert.validFrom, alert.validTo)}</span>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 border-t border-canvas-grey p-4 md:p-5">
-          <button
-            onClick={onDismiss}
-            className="rounded-lg border border-canvas-grey px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light transition-colors"
-          >
-            Dismiss for 24h
-          </button>
+        <div className="flex justify-end border-t border-canvas-grey p-4 md:p-5">
           <button
             onClick={onClose}
             className="rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-maroon-800 transition-colors"

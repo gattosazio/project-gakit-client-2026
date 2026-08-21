@@ -101,7 +101,6 @@ export function MonitoringShell() {
         <WeatherAlertModal
           alert={selectedWeatherAlert}
           onClose={() => setSelectedWeatherAlert(null)}
-          onDismiss={() => setSelectedWeatherAlert(null)}
         />
       )}
     </div>

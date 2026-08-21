@@ -324,7 +324,6 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
       <WeatherAlertModal
         alert={selectedAlert}
         onClose={() => setSelectedAlert(null)}
-        onDismiss={() => setSelectedAlert(null)}
       />
     )}
     {loadingOverlay}
