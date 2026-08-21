@@ -6,6 +6,20 @@ export type AlertType =
 
 export type AlertSeverity = 'info' | 'warning' | 'critical';
 
+export interface WeatherDayData {
+  date: string;
+  tempMax: number;
+  tempMin: number;
+  rainChance: number;
+  rainMm: number;
+  conditionCode: number;
+  windMax: number;
+}
+
+export interface WeatherAlertData {
+  days: WeatherDayData[];
+}
+
 export interface WeatherAlert {
   id: string;
   alertType: AlertType;
@@ -15,6 +29,7 @@ export interface WeatherAlert {
   validFrom: string;
   validTo: string;
   createdAt: string;
+  data?: WeatherAlertData | null;
 }
 
 export interface WeatherAlertHistoryResponse {

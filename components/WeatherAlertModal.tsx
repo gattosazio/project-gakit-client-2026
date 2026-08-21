@@ -1,7 +1,8 @@
 'use client';
 
 import { CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
-import type { WeatherAlert, AlertSeverity, AlertType } from '@/types/weather';
+import type { WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
+import { getWeatherCondition } from '@/lib/weatherCodes';
 
 const SEVERITY_CONFIG: Record<
   AlertSeverity,
@@ -59,6 +60,37 @@ function friendlyDay(iso: string): string {
     month: 'short',
     day: 'numeric',
   });
+}
+
+function DayRow({ day }: { day: WeatherDayData }) {
+  const condition = getWeatherCondition(day.conditionCode);
+  const Icon = condition.icon;
+
+  // Precipitation codes (WMO 51+) read naturally with their probability,
+  // e.g. "24% chance of light drizzle" — never implying rain is certain.
+  const isPrecip = day.conditionCode >= 51;
+  const detail = isPrecip
+    ? `${day.rainChance}% chance of ${condition.label.toLowerCase()}` +
+      (day.rainMm > 0 ? ` (${day.rainMm.toFixed(1)}mm)` : '')
+    : condition.label;
+
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-canvas-grey bg-canvas-light p-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-canvas-grey">
+        <Icon className="h-5 w-5 text-slate-600" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-slate-900">{friendlyDay(`${day.date}T00:00:00+08:00`)}</p>
+        <p className="text-xs text-slate-500">{detail}</p>
+      </div>
+      <p className="shrink-0 text-right text-sm font-semibold text-slate-800">
+        <span className="text-xs font-medium text-slate-400">H </span>
+        {day.tempMax}°
+        <span className="ml-1.5 text-xs font-medium text-slate-400">L </span>
+        {day.tempMin}°
+      </p>
+    </div>
+  );
 }
 
 /** Human-friendly period covered by the alert, e.g. "Today – Tomorrow".
@@ -119,12 +151,21 @@ export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
         {/* Body */}
         <div className="p-4 md:p-5">
           <h3 className="text-base font-bold text-slate-900 mb-2">{alert.title}</h3>
-          <p className="text-sm text-slate-600 leading-relaxed mb-4">
-            {alert.description}
-          </p>
+
+          {alert.data?.days?.length ? (
+            <div className="space-y-2">
+              {alert.data.days.map((day) => (
+                <DayRow key={day.date} day={day} />
+              ))}
+            </div>
+          ) : (
+            <p className="whitespace-pre-line text-sm text-slate-600 leading-relaxed mb-4">
+              {alert.description}
+            </p>
+          )}
 
           {period && (
-            <div className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light p-3 text-sm text-slate-700">
+            <div className="mt-4 flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light p-3 text-sm text-slate-700">
               <span className="font-medium">When:</span>
               <span>{period}</span>
             </div>
