@@ -5,28 +5,25 @@ import type { WeatherAlert, AlertSeverity, AlertType } from '@/types/weather';
 
 const SEVERITY_CONFIG: Record<
   AlertSeverity,
-  { bg: string; border: string; text: string; badge: string; icon: string }
+  { text: string; badge: string; icon: string; dot: string }
 > = {
   critical: {
-    bg: 'bg-red-50',
-    border: 'border-red-200',
-    text: 'text-red-800',
-    badge: 'bg-red-100 text-red-700',
+    text: 'text-red-700',
+    badge: 'bg-red-50 text-red-700',
     icon: 'text-red-500',
+    dot: 'bg-red-500',
   },
   warning: {
-    bg: 'bg-orange-50',
-    border: 'border-orange-200',
-    text: 'text-orange-800',
-    badge: 'bg-orange-100 text-orange-700',
+    text: 'text-orange-700',
+    badge: 'bg-orange-50 text-orange-700',
     icon: 'text-orange-500',
+    dot: 'bg-orange-500',
   },
   info: {
-    bg: 'bg-blue-50',
-    border: 'border-blue-200',
-    text: 'text-blue-800',
-    badge: 'bg-blue-100 text-blue-700',
+    text: 'text-blue-700',
+    badge: 'bg-blue-50 text-blue-700',
     icon: 'text-blue-500',
+    dot: 'bg-blue-500',
   },
 };
 
@@ -54,11 +51,17 @@ export function WeatherAlertModal({ alert, onClose, onDismiss }: WeatherAlertMod
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
 
-  const formatDateTime = (iso: string) => {
-    return new Date(iso).toLocaleString('en-PH', {
+  const formatDate = (iso: string) => {
+    return new Date(iso).toLocaleDateString('en-PH', {
+      weekday: 'short',
       month: 'short',
       day: 'numeric',
       year: 'numeric',
+    });
+  };
+
+  const formatTime = (iso: string) => {
+    return new Date(iso).toLocaleTimeString('en-PH', {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
@@ -66,60 +69,66 @@ export function WeatherAlertModal({ alert, onClose, onDismiss }: WeatherAlertMod
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
+    <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      {/* Modal */}
-      <div
-        className={`relative w-full max-w-md rounded-xl border ${config.border} ${config.bg} shadow-2xl`}
-      >
+      <div className="relative w-full max-w-md rounded-2xl border border-canvas-grey bg-white shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-black/10">
-          <div className="flex items-center gap-2">
-            <Icon className={`w-5 h-5 ${config.icon}`} />
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${config.badge}`}>
-              {ALERT_TYPE_LABELS[alert.alertType]}
+        <div className="flex items-center justify-between border-b border-canvas-grey p-4 md:p-5">
+          <div className="flex items-center gap-3">
+            <span className={`rounded-xl p-2.5 ${config.badge}`}>
+              <Icon className={`h-5 w-5 ${config.icon}`} />
             </span>
-            <span
-              className={`text-xs font-medium px-2 py-0.5 rounded-full ${config.badge}`}
-            >
-              {alert.severity.charAt(0).toUpperCase() + alert.severity.slice(1)}
-            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${config.badge}`}>
+                  {ALERT_TYPE_LABELS[alert.alertType]}
+                </span>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${config.badge}`}>
+                  {alert.severity.charAt(0).toUpperCase() + alert.severity.slice(1)}
+                </span>
+              </div>
+            </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-black/10 text-gray-500"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-canvas-light hover:text-slate-700 transition-colors"
             aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Body */}
-        <div className="p-4">
-          <h3 className={`text-lg font-bold ${config.text} mb-2`}>{alert.title}</h3>
-          <p className={`text-sm ${config.text} opacity-90 leading-relaxed mb-4`}>
+        <div className="p-4 md:p-5">
+          <h3 className="text-base font-bold text-slate-900 mb-2">{alert.title}</h3>
+          <p className="text-sm text-slate-600 leading-relaxed mb-4">
             {alert.description}
           </p>
 
-          <div className="flex items-center gap-4 text-xs text-gray-500">
-            <span>From: {formatDateTime(alert.validFrom)}</span>
-            <span>Until: {formatDateTime(alert.validTo)}</span>
+          <div className="rounded-lg border border-canvas-grey bg-canvas-light p-3">
+            <div className="flex items-center gap-2 text-sm text-slate-700">
+              <span className="font-medium">Valid from:</span>
+              <span>{formatDate(alert.validFrom)} at {formatTime(alert.validFrom)}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-slate-700 mt-1.5">
+              <span className="font-medium">Valid until:</span>
+              <span>{formatDate(alert.validTo)} at {formatTime(alert.validTo)}</span>
+            </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-2 p-4 border-t border-black/10">
+        <div className="flex justify-end gap-2 border-t border-canvas-grey p-4 md:p-5">
           <button
             onClick={onDismiss}
-            className={`px-4 py-2 text-sm font-medium rounded-lg ${config.badge} hover:opacity-80`}
+            className="rounded-lg border border-canvas-grey px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light transition-colors"
           >
             Dismiss for 24h
           </button>
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200"
+            className="rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-maroon-800 transition-colors"
           >
             Close
           </button>

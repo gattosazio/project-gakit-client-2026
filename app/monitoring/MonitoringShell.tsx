@@ -4,6 +4,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Map } from 'lucide-react';
 import { AdminHeader } from '@/components/AdminHeader';
 import { SideBar } from '@/components/SideBar';
+import { WeatherAlertModal } from '@/components/WeatherAlertModal';
+import type { WeatherAlert } from '@/types/weather';
 import type { PortalNavItem } from '@/components/portalTypes';
 import { DashboardOverview } from './features/dashboard/DashboardOverview';
 import { AlertsTab } from './features/alerts/AlertsTab';
@@ -20,6 +22,7 @@ export function MonitoringShell() {
   const [activeTab, setActiveTab] = useState<MonitoringFeatureId>(tabFromParams);
   const [criticalReportsOnly, setCriticalReportsOnly] = useState(false);
   const [highlightedReportId, setHighlightedReportId] = useState<string | null>(null);
+  const [selectedWeatherAlert, setSelectedWeatherAlert] = useState<WeatherAlert | null>(null);
   const activeFeature = monitoringFeatureMap[activeTab];
 
   // Keep the active tab in sync with URL changes made outside this component
@@ -78,7 +81,7 @@ export function MonitoringShell() {
             <DashboardOverview active={activeTab === 'dashboard'} onReviewCritical={handleReviewCritical} />
           </div>
           <div className={activeTab === 'alerts' ? 'space-y-4' : 'hidden'}>
-            <AlertsTab active={activeTab === 'alerts'} onOpenReports={handleOpenReport} />
+            <AlertsTab active={activeTab === 'alerts'} onOpenReports={handleOpenReport} onSelectWeatherAlert={setSelectedWeatherAlert} />
           </div>
           <div className={activeTab === 'reports' ? 'space-y-4' : 'hidden'}>
             <ReportsTab
@@ -94,6 +97,13 @@ export function MonitoringShell() {
         activeTab={activeTab}
         onTabChange={handleTabChange}
       />
+      {selectedWeatherAlert && (
+        <WeatherAlertModal
+          alert={selectedWeatherAlert}
+          onClose={() => setSelectedWeatherAlert(null)}
+          onDismiss={() => setSelectedWeatherAlert(null)}
+        />
+      )}
     </div>
   );
 }

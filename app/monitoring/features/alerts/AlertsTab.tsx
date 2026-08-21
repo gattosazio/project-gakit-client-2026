@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ChevronDown,
   CloudRain,
+  Eye,
   MapPinned,
   MoreHorizontal,
   RefreshCw,
@@ -27,7 +28,7 @@ type NotificationType =
   | 'rejected'
   | 'weather'
   | 'hazard';
-type Severity = 'critical' | 'high' | 'medium' | 'low';
+type Severity = 'critical' | 'warning' | 'info' | 'high' | 'medium' | 'low';
 type SortColumn = 'type' | 'location' | 'severity' | 'depth' | 'sentAt';
 
 interface Notification {
@@ -39,6 +40,7 @@ interface Notification {
   depth?: FloodDepthCode;
   sentAt: string;
   reportId?: string;
+  weatherAlert?: WeatherAlertType;
 }
 
 const TYPE_META: Record<
@@ -79,6 +81,8 @@ const TYPE_META: Record<
 
 const SEVERITY_CLASS: Record<Severity, string> = {
   critical: 'bg-red-50 text-red-700 border-red-200',
+  warning: 'bg-orange-50 text-orange-700 border-orange-200',
+  info: 'bg-blue-50 text-blue-700 border-blue-200',
   high: 'bg-orange-50 text-orange-700 border-orange-200',
   medium: 'bg-amber-50 text-amber-700 border-amber-200',
   low: 'bg-slate-100 text-slate-600 border-slate-200',
@@ -148,27 +152,25 @@ function createNotifications(reports: Report[]): Notification[] {
 }
 
 function mapWeatherAlertToNotification(alert: WeatherAlertType): Notification {
-  const severityMap: Record<string, Severity> = {
-    critical: 'critical',
-    warning: 'high',
-    info: 'medium',
-  };
   return {
     id: `weather-${alert.id}`,
     type: 'weather' as NotificationType,
-    severity: severityMap[alert.severity] ?? 'medium',
+    severity: alert.severity as Severity,
     title: alert.title,
     location: 'Iligan City',
     sentAt: alert.createdAt,
+    weatherAlert: alert,
   };
 }
 
 export function AlertsTab({
   active = true,
   onOpenReports,
+  onSelectWeatherAlert,
 }: {
   active?: boolean;
   onOpenReports: (reportId?: string) => void;
+  onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
 }) {
   const searchParams = useSearchParams();
   const highlightedNotificationId = searchParams.get('notification');
@@ -265,10 +267,10 @@ export function AlertsTab({
 
   return (
     <section className="space-y-5">
-      <div className="overflow-hidden rounded-xl border border-canvas-grey bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-canvas-grey px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
+      <div className="rounded-xl border border-canvas-grey bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-canvas-grey px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <h3 className="font-bold text-slate-900">Notification inbox</h3>
+            <h3 className="font-bold text-slate-900 text-lg">Notification inbox</h3>
             <p className="mt-1 text-sm text-slate-500">
               {loading ? 'Loading notifications...' : `${notifications.length} notifications`}
             </p>
@@ -319,7 +321,7 @@ export function AlertsTab({
           <EmptyNotifications />
         ) : (
           <>
-            <div className="hidden overflow-x-auto md:block">
+            <div className="hidden md:block">
               <table className="w-full min-w-[760px] text-sm">
                 <thead className="bg-canvas-light text-left text-slate-500">
                   <tr>
@@ -333,14 +335,14 @@ export function AlertsTab({
                 </thead>
                 <tbody className="divide-y divide-canvas-grey">
                   {visibleNotifications.map((notification) => (
-                    <NotificationRow key={notification.id} notification={notification} onOpenReports={onOpenReports} highlighted={highlightedNotificationId === notification.id} />
+                    <NotificationRow key={notification.id} notification={notification} onOpenReports={onOpenReports} onSelectWeatherAlert={onSelectWeatherAlert} highlighted={highlightedNotificationId === notification.id} />
                   ))}
                 </tbody>
               </table>
             </div>
             <div className="divide-y divide-canvas-grey md:hidden">
               {visibleNotifications.map((notification) => (
-                <NotificationCard key={notification.id} notification={notification} onOpenReports={onOpenReports} highlighted={highlightedNotificationId === notification.id} />
+                <NotificationCard key={notification.id} notification={notification} onOpenReports={onOpenReports} onSelectWeatherAlert={onSelectWeatherAlert} highlighted={highlightedNotificationId === notification.id} />
               ))}
             </div>
           </>
@@ -362,7 +364,7 @@ function SortableHeader({
   onSort: (column: SortColumn) => void;
 }) {
   return (
-    <th className="px-5 py-3 font-semibold">
+    <th className="px-6 py-3 font-semibold text-left">
       <button
         type="button"
         onClick={() => onSort(column)}
@@ -384,31 +386,33 @@ function SortableHeader({
 function NotificationRow({
   notification,
   onOpenReports,
+  onSelectWeatherAlert,
   highlighted,
 }: {
   notification: Notification;
   onOpenReports: (reportId?: string) => void;
+  onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
   highlighted: boolean;
 }) {
   return (
     <tr className={highlighted ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/60'}>
-      <td className="px-5 py-4">
+      <td className="px-6 py-4">
         <NotificationTypeBadge type={notification.type} />
       </td>
-      <td className="max-w-56 truncate px-5 py-4 text-slate-700">
+      <td className="max-w-56 truncate px-6 py-4 text-slate-700">
         {notification.location}
       </td>
-      <td className="px-5 py-4">
+      <td className="px-6 py-4">
         <SeverityBadge severity={notification.severity} />
       </td>
-      <td className="px-5 py-4 text-slate-600">
+      <td className="px-6 py-4 text-slate-600">
         {notification.depth ? DEPTH_LABELS[notification.depth] : '—'}
       </td>
-      <td className="whitespace-nowrap px-5 py-4 text-slate-600">
+      <td className="whitespace-nowrap px-6 py-4 text-slate-600">
         {formatDateTime(notification.sentAt)}
       </td>
-      <td className="px-5 py-4">
-        <NotificationActions notification={notification} onOpenReports={onOpenReports} />
+      <td className="px-6 py-4">
+        <NotificationActions notification={notification} onOpenReports={onOpenReports} onSelectWeatherAlert={onSelectWeatherAlert} />
       </td>
     </tr>
   );
@@ -417,10 +421,12 @@ function NotificationRow({
 function NotificationCard({
   notification,
   onOpenReports,
+  onSelectWeatherAlert,
   highlighted,
 }: {
   notification: Notification;
   onOpenReports: (reportId?: string) => void;
+  onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
   highlighted: boolean;
 }) {
   return (
@@ -437,7 +443,7 @@ function NotificationCard({
           {formatDateTime(notification.sentAt)}
         </p>
       </div>
-      <NotificationActions notification={notification} onOpenReports={onOpenReports} />
+      <NotificationActions notification={notification} onOpenReports={onOpenReports} onSelectWeatherAlert={onSelectWeatherAlert} />
     </div>
   );
 }
@@ -469,9 +475,11 @@ function SeverityBadge({ severity }: { severity: Severity }) {
 function NotificationActions({
   notification,
   onOpenReports,
+  onSelectWeatherAlert,
 }: {
   notification: Notification;
   onOpenReports: (reportId?: string) => void;
+  onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -487,13 +495,14 @@ function NotificationActions({
     return () => window.removeEventListener('mousedown', close);
   }, [open]);
 
+  const isWeather = notification.type === 'weather';
   const reportAction =
     notification.type === 'flagged' || notification.type === 'needs-review'
       ? 'Review report'
       : 'View report';
 
   return (
-    <div ref={wrapperRef} className="relative">
+    <div ref={wrapperRef} className="relative z-30">
       <button
         type="button"
         aria-label={`Actions for ${notification.title}`}
@@ -507,29 +516,43 @@ function NotificationActions({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-lg border border-canvas-grey bg-white py-1 shadow-lg"
+          className="absolute right-0 z-50 mt-1 w-44 overflow-visible rounded-lg border border-canvas-grey bg-white py-1 shadow-lg"
         >
-          <button
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onOpenReports(notification.reportId);
-            }}
-            className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
-          >
-            {notification.reportId ? reportAction : 'Open map'}
-          </button>
+          {isWeather && onSelectWeatherAlert && notification.weatherAlert ? (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onSelectWeatherAlert(notification.weatherAlert!);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
+            >
+              <Eye className="h-4 w-4 text-slate-400" />
+              View details
+            </button>
+          ) : (
+            <button
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onOpenReports(notification.reportId);
+              }}
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
+            >
+              {notification.reportId ? reportAction : 'Open map'}
+            </button>
+          )}
           <button
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
           >
             Mark as read
           </button>
           <button
             role="menuitem"
             onClick={() => setOpen(false)}
-            className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
           >
             Dismiss
           </button>
