@@ -1,4 +1,4 @@
-import { cachedGet } from '@/lib/apiCache';
+import { cachedGet, invalidateApiCache } from '@/lib/apiCache';
 import { RateLimitedError } from '@/lib/apiErrors';
 import { markBackendOnline, markBackendWarming } from '@/lib/backendStatus';
 import { ILIGAN_BOUNDS } from '@/lib/geoUtils';
@@ -117,11 +117,15 @@ export async function createReport(
   signal?: AbortSignal
 ): Promise<ReportRecord> {
   try {
-    return await request<ReportRecord>('/api/v1/reports', {
+    const report = await request<ReportRecord>('/api/v1/reports', {
       method: 'POST',
       body: JSON.stringify(input),
       signal,
     });
+    // New report exists now — drop cached lists so the monitoring portal
+    // sees it immediately, even on client-side navigation.
+    invalidateApiCache('/api/v1/reports');
+    return report;
   } catch (error) {
     if (error instanceof RateLimitedError) {
       throw new Error(
