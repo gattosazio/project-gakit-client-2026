@@ -15,7 +15,9 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { DEPTH_LABELS, formatDateTime } from '@/lib/reportFormatting';
+import { fetchAlertHistory } from '@/lib/weather';
 import type { FloodDepthCode, Report } from '@/types/report';
+import type { WeatherAlert as WeatherAlertType } from '@/types/weather';
 import { listReports } from '../reports/actions/reports';
 
 type NotificationType =
@@ -164,6 +166,22 @@ function createNotifications(reports: Report[]): Notification[] {
   });
 }
 
+function mapWeatherAlertToNotification(alert: WeatherAlertType): Notification {
+  const severityMap: Record<string, Severity> = {
+    critical: 'critical',
+    warning: 'high',
+    info: 'medium',
+  };
+  return {
+    id: `weather-${alert.id}`,
+    type: 'weather' as NotificationType,
+    severity: severityMap[alert.severity] ?? 'medium',
+    title: alert.title,
+    location: 'Iligan City',
+    sentAt: alert.createdAt,
+  };
+}
+
 export function AlertsTab({
   active = true,
   onOpenReports,
@@ -174,6 +192,7 @@ export function AlertsTab({
   const searchParams = useSearchParams();
   const highlightedNotificationId = searchParams.get('notification');
   const [reports, setReports] = useState<Report[]>([]);
+  const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlertType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | NotificationType>('all');
@@ -188,8 +207,12 @@ export function AlertsTab({
     setError(null);
 
     try {
-      const result = await listReports({ limit: 100 });
-      setReports(result.items);
+      const [reportsResult, weatherResult] = await Promise.all([
+        listReports({ limit: 100 }),
+        fetchAlertHistory(0, 50).catch(() => ({ items: [], total: 0, offset: 0, limit: 50 })),
+      ]);
+      setReports(reportsResult.items);
+      setWeatherAlerts(weatherResult.items);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Unable to load notifications.'
@@ -205,8 +228,12 @@ export function AlertsTab({
   }, [active, loadNotifications]);
 
   const notifications = useMemo(
-    () => [...createNotifications(reports), ...STATIC_NOTIFICATIONS],
-    [reports]
+    () => [
+      ...createNotifications(reports),
+      ...weatherAlerts.map(mapWeatherAlertToNotification),
+      ...STATIC_NOTIFICATIONS,
+    ],
+    [reports, weatherAlerts]
   );
 
   const visibleNotifications = useMemo(() => {

@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
+import { WeatherAlertCards } from '@/components/WeatherAlertCards';
 import { ReportModal } from './ReportModal';
 import { Building2, CheckCircle2, ChevronDown, ChevronUp, Handshake, Loader2, Mail, MapPin, Navigation, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -295,6 +296,8 @@ export function PublicViewPage() {
                 reportStatusToggleStatuses={['UNVERIFIED', 'VERIFIED']}
                 defaultVisibleReportStatuses={{ ANOMALY: false, REJECTED: false }}
               />
+
+              <WeatherAlertCards />
 
               <LocationPromptModal
                 isOpen={isLocationPromptOpen}
