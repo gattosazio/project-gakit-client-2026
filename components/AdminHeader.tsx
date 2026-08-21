@@ -12,6 +12,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { listReports } from '@/app/monitoring/features/reports/actions/reports';
+import { createClient } from '@/lib/supabase/client';
+import {
+  dismissNotifications,
+  fetchNotificationReceipts,
+  markNotificationsRead,
+  subscribeToReceiptChanges,
+} from '@/lib/notificationReceipts';
 import { fetchActiveAlerts } from '@/lib/weather';
 import { formatDateTime } from '@/lib/reportFormatting';
 import type { Report } from '@/types/report';
@@ -32,6 +39,7 @@ interface HeaderNotification {
   createdAt: string;
   icon: typeof Bell;
   iconClass: string;
+  badge?: { label: string; className: string };
 }
 
 const WEATHER_ICONS: Record<string, typeof CloudRain> = {
@@ -41,6 +49,13 @@ const WEATHER_ICONS: Record<string, typeof CloudRain> = {
   daily_digest: Thermometer,
 };
 
+const WEATHER_TYPE_LABELS: Record<string, string> = {
+  thunderstorm: 'Thunderstorm',
+  heavy_rain: 'Heavy Rain',
+  extreme_heat: 'Heat Advisory',
+  daily_digest: 'Daily Forecast',
+};
+
 const SEVERITY_ICON_CLASS: Record<string, string> = {
   critical: 'bg-red-50 text-red-700',
   warning: 'bg-orange-50 text-orange-700',
@@ -48,13 +63,19 @@ const SEVERITY_ICON_CLASS: Record<string, string> = {
 };
 
 function mapWeatherToHeader(alert: WeatherAlert): HeaderNotification {
+  const severityClass =
+    SEVERITY_ICON_CLASS[alert.severity] ?? 'bg-cyan-50 text-cyan-700';
   return {
     id: `weather-${alert.id}`,
     title: alert.title,
     detail: alert.description,
     createdAt: alert.createdAt,
     icon: WEATHER_ICONS[alert.alertType] ?? CloudRain,
-    iconClass: SEVERITY_ICON_CLASS[alert.severity] ?? 'bg-cyan-50 text-cyan-700',
+    iconClass: severityClass,
+    badge: {
+      label: WEATHER_TYPE_LABELS[alert.alertType] ?? 'Weather',
+      className: severityClass,
+    },
   };
 }
 
@@ -110,6 +131,7 @@ export function AdminHeader({
 }: AdminHeaderProps) {
   const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
   const [readIds, setReadIds] = useState<string[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const notificationRef = useRef<HTMLDivElement | null>(null);
 
@@ -127,11 +149,68 @@ export function AdminHeader({
   }, []);
 
   useEffect(() => {
+    // Seed from localStorage for an instant paint; server sync below is the
+    // cross-device source of truth.
     const saved = window.localStorage.getItem('gakit-read-notifications');
-    if (saved) setReadIds(JSON.parse(saved) as string[]);
+    const cachedIds: string[] = saved ? (JSON.parse(saved) as string[]) : [];
+    if (cachedIds.length > 0) setReadIds(cachedIds);
+
     void loadNotifications();
     const interval = setInterval(loadNotifications, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+
+    // Pull receipts from Supabase so read/dismissed state follows the
+    // account, not just this browser.
+    let cancelled = false;
+    void (async () => {
+      const receipts = await fetchNotificationReceipts();
+      if (!receipts || cancelled) return;
+      const mergedReads = [...new Set([...cachedIds, ...receipts.readIds])];
+      if (!cancelled) {
+        setReadIds(mergedReads);
+        setDismissedIds(receipts.dismissedIds);
+      }
+      window.localStorage.setItem('gakit-read-notifications', JSON.stringify(mergedReads));
+    })();
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [loadNotifications]);
+
+  // Keep read/dismissed state in sync with other surfaces (alerts inbox)
+  useEffect(
+    () =>
+      subscribeToReceiptChanges((kind, ids) => {
+        if (kind === 'read') setReadIds((cur) => [...new Set([...cur, ...ids])]);
+        else setDismissedIds((cur) => [...new Set([...cur, ...ids])]);
+      }),
+    []
+  );
+
+  useEffect(() => {
+    // Live updates: refetch when reports change (new submission or status
+    // change). Payloads are ignored; the existing loader is the source of
+    // truth. Debounced to coalesce bursts (bulk status updates etc).
+    const supabase = createClient();
+    let debounce: ReturnType<typeof setTimeout> | null = null;
+
+    const channel = supabase
+      .channel('admin-notifications-feed')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reports' },
+        () => {
+          if (debounce) clearTimeout(debounce);
+          debounce = setTimeout(() => void loadNotifications(), 1500);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (debounce) clearTimeout(debounce);
+      void supabase.removeChannel(channel);
+    };
   }, [loadNotifications]);
 
   useEffect(() => {
@@ -147,16 +226,21 @@ export function AdminHeader({
     return () => window.removeEventListener('mousedown', close);
   }, [isOpen]);
 
-  const recentNotifications = useMemo(
-    () =>
-      [...notifications]
-        .sort(
-          (a, b) =>
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )
-        .slice(0, 5),
-    [notifications]
-  );
+  const recentNotifications = useMemo(() => {
+    // Only show notifications from the last 24 hours, excluding dismissed ones
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    return [...notifications]
+      .filter(
+        (notification) =>
+          !dismissedIds.includes(notification.id) &&
+          new Date(notification.createdAt).getTime() >= cutoff
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+      .slice(0, 5);
+  }, [dismissedIds, notifications]);
   const unreadCount = recentNotifications.filter(
     (notification) => !readIds.includes(notification.id)
   ).length;
@@ -168,17 +252,25 @@ export function AdminHeader({
       window.localStorage.setItem('gakit-read-notifications', JSON.stringify(next));
       return next;
     });
+    void markNotificationsRead([id]);
   };
 
   const markAllAsRead = () => {
-    const next = [
-      ...new Set([
-        ...readIds,
-        ...recentNotifications.map((notification) => notification.id),
-      ]),
-    ];
+    const freshIds = recentNotifications
+      .map((notification) => notification.id)
+      .filter((id) => !readIds.includes(id));
+    const next = [...new Set([...readIds, ...freshIds])];
     setReadIds(next);
     window.localStorage.setItem('gakit-read-notifications', JSON.stringify(next));
+    void markNotificationsRead(freshIds);
+  };
+
+  const dismiss = (id: string) => {
+    setDismissedIds((current) =>
+      current.includes(id) ? current : [...current, id]
+    );
+    setIsOpen(false);
+    void dismissNotifications([id]);
   };
 
   return (
@@ -202,7 +294,11 @@ export function AdminHeader({
             aria-label="Open notifications"
             aria-expanded={isOpen}
             onClick={() => setIsOpen((open) => !open)}
-            className="relative rounded-lg border border-canvas-grey p-2 transition-colors hover:bg-canvas-light"
+            className={`relative rounded-lg border p-2 transition-colors ${
+              isOpen
+                ? 'border-gakit-maroon bg-maroon-50'
+                : 'border-canvas-grey hover:bg-canvas-light'
+            }`}
           >
             <Bell className="h-5 w-5 text-slate-600" />
             {unreadCount > 0 && (
@@ -217,7 +313,7 @@ export function AdminHeader({
               <div className="flex items-center justify-between border-b border-canvas-grey px-4 py-3">
                 <div>
                   <p className="font-semibold text-slate-900">Notifications</p>
-                  <p className="text-xs text-slate-500">Recent activity</p>
+                  <p className="text-xs text-slate-500">Last 24 hours</p>
                 </div>
                 {unreadCount > 0 && (
                   <button
@@ -230,7 +326,12 @@ export function AdminHeader({
                 )}
               </div>
               <div className="max-h-80 divide-y divide-canvas-grey overflow-y-auto">
-                {recentNotifications.map((notification) => {
+                {recentNotifications.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-sm text-slate-400">
+                    No notifications in the last 24 hours
+                  </p>
+                ) : (
+                  recentNotifications.map((notification) => {
                   const NotificationIcon = notification.icon;
                   const isRead = readIds.includes(notification.id);
 
@@ -251,10 +352,19 @@ export function AdminHeader({
                         <NotificationIcon className="h-4 w-4" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-sm font-semibold text-slate-800">
-                          {notification.title}
+                        <span className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-slate-800 line-clamp-1">
+                            {notification.title}
+                          </span>
+                          {notification.badge && (
+                            <span
+                              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${notification.badge.className}`}
+                            >
+                              {notification.badge.label}
+                            </span>
+                          )}
                         </span>
-                        <span className="mt-0.5 block truncate text-xs text-slate-500">
+                        <span className="mt-0.5 block text-xs text-slate-500 line-clamp-2 leading-relaxed">
                           {notification.detail}
                         </span>
                         <span className="mt-1 block text-xs text-slate-400">
@@ -266,7 +376,8 @@ export function AdminHeader({
                       )}
                     </button>
                   );
-                })}
+                  })
+                )}
               </div>
             </div>
           )}

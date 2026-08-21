@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
   BellRing,
-  CalendarDays,
   CheckCircle2,
   ChevronDown,
   CloudRain,
@@ -14,8 +14,15 @@ import {
   MoreHorizontal,
   RefreshCw,
   ShieldAlert,
+  XCircle,
 } from 'lucide-react';
 import { DEPTH_LABELS, formatDateTime } from '@/lib/reportFormatting';
+import {
+  dismissNotifications,
+  fetchNotificationReceipts,
+  markNotificationsRead,
+  subscribeToReceiptChanges,
+} from '@/lib/notificationReceipts';
 import { fetchAlertHistory } from '@/lib/weather';
 import type { FloodDepthCode, Report } from '@/types/report';
 import type { WeatherAlert as WeatherAlertType } from '@/types/weather';
@@ -26,8 +33,7 @@ type NotificationType =
   | 'needs-review'
   | 'flagged'
   | 'rejected'
-  | 'weather'
-  | 'hazard';
+  | 'weather';
 type Severity = 'critical' | 'warning' | 'info' | 'high' | 'medium' | 'low';
 type SortColumn = 'type' | 'location' | 'severity' | 'depth' | 'sentAt';
 
@@ -71,11 +77,6 @@ const TYPE_META: Record<
     label: 'Weather alert',
     icon: CloudRain,
     className: 'bg-cyan-50 text-cyan-700',
-  },
-  hazard: {
-    label: 'Hazard alert',
-    icon: MapPinned,
-    className: 'bg-indigo-50 text-indigo-700',
   },
 };
 
@@ -178,8 +179,10 @@ export function AlertsTab({
   const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlertType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [readIds, setReadIds] = useState<string[]>([]);
+  const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<'all' | NotificationType>('all');
-  const [dateFilter, setDateFilter] = useState<'today' | '7d' | 'all'>('today');
+  const [dateFilter, setDateFilter] = useState<'24h' | '7d' | 'all'>('24h');
   const [sort, setSort] = useState<{
     column: SortColumn;
     direction: 'asc' | 'desc';
@@ -210,6 +213,40 @@ export function AlertsTab({
     void loadNotifications();
   }, [active, loadNotifications]);
 
+  useEffect(() => {
+    if (!active) return;
+    let cancelled = false;
+    void (async () => {
+      const receipts = await fetchNotificationReceipts();
+      if (!receipts || cancelled) return;
+      setReadIds(receipts.readIds);
+      setDismissedIds(receipts.dismissedIds);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
+
+  // Keep inbox in sync with changes made on other surfaces (header bell)
+  useEffect(
+    () =>
+      subscribeToReceiptChanges((kind, ids) => {
+        if (kind === 'read') setReadIds((cur) => [...new Set([...cur, ...ids])]);
+        else setDismissedIds((cur) => [...new Set([...cur, ...ids])]);
+      }),
+    []
+  );
+
+  const markAsRead = useCallback((id: string) => {
+    setReadIds((current) => (current.includes(id) ? current : [...current, id]));
+    void markNotificationsRead([id]);
+  }, []);
+
+  const dismiss = useCallback((id: string) => {
+    setDismissedIds((current) => (current.includes(id) ? current : [...current, id]));
+    void dismissNotifications([id]);
+  }, []);
+
   const notifications = useMemo(
     () => [
       ...createNotifications(reports),
@@ -219,16 +256,19 @@ export function AlertsTab({
   );
 
   const visibleNotifications = useMemo(() => {
+    const notDismissed = notifications.filter(
+      (notification) => !dismissedIds.includes(notification.id)
+    );
     const typeFiltered =
       filter === 'all'
-        ? notifications
-        : notifications.filter((notification) => notification.type === filter);
+        ? notDismissed
+        : notDismissed.filter((notification) => notification.type === filter);
 
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const cutoff = now.getTime() - 24 * 60 * 60 * 1000;
     const dateFiltered = typeFiltered.filter((notification) => {
       if (dateFilter === 'all') return true;
-      if (dateFilter === 'today') return new Date(notification.sentAt) >= startOfToday;
+      if (dateFilter === '24h') return new Date(notification.sentAt).getTime() >= cutoff;
       return new Date(notification.sentAt).getTime() >= now.getTime() - 7 * 24 * 60 * 60 * 1000;
     });
 
@@ -253,7 +293,7 @@ export function AlertsTab({
 
       return sort.direction === 'asc' ? compared : -compared;
     });
-  }, [dateFilter, filter, notifications, sort]);
+  }, [dateFilter, dismissedIds, filter, notifications, sort]);
 
   const toggleSort = (column: SortColumn) => {
     setSort((current) => ({
@@ -282,7 +322,6 @@ export function AlertsTab({
               ['needs-review', 'Needs review'],
               ['flagged', 'Flagged'],
               ['weather', 'Weather'],
-              ['hazard', 'Hazards'],
               ['rejected', 'Rejected'],
             ].map(([value, label]) => (
               <button
@@ -298,20 +337,16 @@ export function AlertsTab({
                 {label}
               </button>
             ))}
-            <div className="relative shrink-0">
-              <CalendarDays className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gakit-maroon" />
-              <select
-                aria-label="Notification date range"
-                value={dateFilter}
-                onChange={(event) => setDateFilter(event.target.value as 'today' | '7d' | 'all')}
-                className="appearance-none rounded-lg border border-canvas-grey bg-white py-2 pl-9 pr-9 text-sm font-semibold text-slate-700 shadow-sm outline-none transition-colors hover:border-gakit-maroon focus:border-gakit-maroon"
-              >
-                <option value="today">Today</option>
-                <option value="7d">Last 7 days</option>
-                <option value="all">All time</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            </div>
+            <select
+              aria-label="Notification date range"
+              value={dateFilter}
+              onChange={(event) => setDateFilter(event.target.value as '24h' | '7d' | 'all')}
+              className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition-colors hover:border-gakit-maroon focus:border-gakit-maroon"
+            >
+              <option value="24h">Last 24 hours</option>
+              <option value="7d">Last 7 days</option>
+              <option value="all">All time</option>
+            </select>
           </div>
         </div>
 
@@ -335,14 +370,32 @@ export function AlertsTab({
                 </thead>
                 <tbody className="divide-y divide-canvas-grey">
                   {visibleNotifications.map((notification) => (
-                    <NotificationRow key={notification.id} notification={notification} onOpenReports={onOpenReports} onSelectWeatherAlert={onSelectWeatherAlert} highlighted={highlightedNotificationId === notification.id} />
+                    <NotificationRow
+                      key={notification.id}
+                      notification={notification}
+                      onOpenReports={onOpenReports}
+                      onSelectWeatherAlert={onSelectWeatherAlert}
+                      onMarkRead={markAsRead}
+                      onDismiss={dismiss}
+                      isRead={readIds.includes(notification.id)}
+                      highlighted={highlightedNotificationId === notification.id}
+                    />
                   ))}
                 </tbody>
               </table>
             </div>
             <div className="divide-y divide-canvas-grey md:hidden">
               {visibleNotifications.map((notification) => (
-                <NotificationCard key={notification.id} notification={notification} onOpenReports={onOpenReports} onSelectWeatherAlert={onSelectWeatherAlert} highlighted={highlightedNotificationId === notification.id} />
+                <NotificationCard
+                  key={notification.id}
+                  notification={notification}
+                  onOpenReports={onOpenReports}
+                  onSelectWeatherAlert={onSelectWeatherAlert}
+                  onMarkRead={markAsRead}
+                  onDismiss={dismiss}
+                  isRead={readIds.includes(notification.id)}
+                  highlighted={highlightedNotificationId === notification.id}
+                />
               ))}
             </div>
           </>
@@ -387,32 +440,53 @@ function NotificationRow({
   notification,
   onOpenReports,
   onSelectWeatherAlert,
+  onMarkRead,
+  onDismiss,
+  isRead,
   highlighted,
 }: {
   notification: Notification;
   onOpenReports: (reportId?: string) => void;
   onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
+  onMarkRead: (id: string) => void;
+  onDismiss: (id: string) => void;
+  isRead: boolean;
   highlighted: boolean;
 }) {
   return (
     <tr className={highlighted ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/60'}>
-      <td className="px-6 py-4">
+      <td className={`px-6 py-4 ${isRead ? 'opacity-60' : ''}`}>
         <NotificationTypeBadge type={notification.type} />
       </td>
-      <td className="max-w-56 truncate px-6 py-4 text-slate-700">
+      <td
+        className={`max-w-56 truncate px-6 py-4 ${
+          isRead ? 'text-slate-400' : 'text-slate-700'
+        }`}
+      >
         {notification.location}
       </td>
-      <td className="px-6 py-4">
+      <td className={`px-6 py-4 ${isRead ? 'opacity-60' : ''}`}>
         <SeverityBadge severity={notification.severity} />
       </td>
-      <td className="px-6 py-4 text-slate-600">
+      <td className={`px-6 py-4 ${isRead ? 'text-slate-400' : 'text-slate-600'}`}>
         {notification.depth ? DEPTH_LABELS[notification.depth] : '—'}
       </td>
-      <td className="whitespace-nowrap px-6 py-4 text-slate-600">
+      <td
+        className={`whitespace-nowrap px-6 py-4 ${
+          isRead ? 'text-slate-400' : 'text-slate-600'
+        }`}
+      >
         {formatDateTime(notification.sentAt)}
       </td>
       <td className="px-6 py-4">
-        <NotificationActions notification={notification} onOpenReports={onOpenReports} onSelectWeatherAlert={onSelectWeatherAlert} />
+        <NotificationActions
+          notification={notification}
+          onOpenReports={onOpenReports}
+          onSelectWeatherAlert={onSelectWeatherAlert}
+          onMarkRead={onMarkRead}
+          onDismiss={onDismiss}
+          isRead={isRead}
+        />
       </td>
     </tr>
   );
@@ -422,16 +496,22 @@ function NotificationCard({
   notification,
   onOpenReports,
   onSelectWeatherAlert,
+  onMarkRead,
+  onDismiss,
+  isRead,
   highlighted,
 }: {
   notification: Notification;
   onOpenReports: (reportId?: string) => void;
   onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
+  onMarkRead: (id: string) => void;
+  onDismiss: (id: string) => void;
+  isRead: boolean;
   highlighted: boolean;
 }) {
   return (
     <div className={`flex gap-3 p-4 ${highlighted ? 'bg-maroon-100/80' : ''}`}>
-      <div className="min-w-0 flex-1">
+      <div className={`min-w-0 flex-1 ${isRead ? 'opacity-60' : ''}`}>
         <div className="flex items-center justify-between gap-2">
           <NotificationTypeBadge type={notification.type} />
           <SeverityBadge severity={notification.severity} />
@@ -443,7 +523,14 @@ function NotificationCard({
           {formatDateTime(notification.sentAt)}
         </p>
       </div>
-      <NotificationActions notification={notification} onOpenReports={onOpenReports} onSelectWeatherAlert={onSelectWeatherAlert} />
+      <NotificationActions
+        notification={notification}
+        onOpenReports={onOpenReports}
+        onSelectWeatherAlert={onSelectWeatherAlert}
+        onMarkRead={onMarkRead}
+        onDismiss={onDismiss}
+        isRead={isRead}
+      />
     </div>
   );
 }
@@ -476,23 +563,51 @@ function NotificationActions({
   notification,
   onOpenReports,
   onSelectWeatherAlert,
+  onMarkRead,
+  onDismiss,
+  isRead,
 }: {
   notification: Notification;
   onOpenReports: (reportId?: string) => void;
   onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
+  onMarkRead: (id: string) => void;
+  onDismiss: (id: string) => void;
+  isRead: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+
+  const toggle = () => {
+    if (!open && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPos({
+        top: rect.bottom + 4,
+        left: Math.max(8, rect.right - 176),
+      });
+    }
+    setOpen((value) => !value);
+  };
 
   useEffect(() => {
     if (!open) return;
 
-    const close = (event: MouseEvent) => {
-      if (!wrapperRef.current?.contains(event.target as Node)) setOpen(false);
+    // Outside clicks are handled by the fullscreen backdrop button rendered
+    // with the portal menu (same approach as report management) — a global
+    // mousedown listener here would unmount the menu before item clicks fire.
+    const reposition = () => {
+      if (buttonRef.current) {
+        const rect = buttonRef.current.getBoundingClientRect();
+        setMenuPos({ top: rect.bottom + 4, left: Math.max(8, rect.right - 176) });
+      }
     };
 
-    window.addEventListener('mousedown', close);
-    return () => window.removeEventListener('mousedown', close);
+    window.addEventListener('resize', reposition);
+    window.addEventListener('scroll', reposition, true);
+    return () => {
+      window.removeEventListener('resize', reposition);
+      window.removeEventListener('scroll', reposition, true);
+    };
   }, [open]);
 
   const isWeather = notification.type === 'weather';
@@ -502,62 +617,93 @@ function NotificationActions({
       : 'View report';
 
   return (
-    <div ref={wrapperRef} className="relative z-30">
+    <div>
       <button
+        ref={buttonRef}
         type="button"
         aria-label={`Actions for ${notification.title}`}
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggle}
         className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 z-50 mt-1 w-44 overflow-visible rounded-lg border border-canvas-grey bg-white py-1 shadow-lg"
-        >
-          {isWeather && onSelectWeatherAlert && notification.weatherAlert ? (
+
+      {open &&
+        createPortal(
+          <>
             <button
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onSelectWeatherAlert(notification.weatherAlert!);
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
+              type="button"
+              aria-hidden
+              tabIndex={-1}
+              className="fixed inset-0 z-[1300] cursor-default"
+              onClick={() => setOpen(false)}
+            />
+            <div
+              role="menu"
+              style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: 176 }}
+              className="z-[1400] overflow-hidden rounded-lg border border-canvas-grey bg-white shadow-lg"
             >
-              <Eye className="h-4 w-4 text-slate-400" />
-              View details
-            </button>
-          ) : (
-            <button
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onOpenReports(notification.reportId);
-              }}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
-            >
-              {notification.reportId ? reportAction : 'Open map'}
-            </button>
-          )}
-          <button
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
-          >
-            Mark as read
-          </button>
-          <button
-            role="menuitem"
-            onClick={() => setOpen(false)}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 hover:bg-canvas-light"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
+              {isWeather && onSelectWeatherAlert && notification.weatherAlert ? (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setOpen(false);
+                    onSelectWeatherAlert(notification.weatherAlert!);
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+                >
+                  <Eye className="h-4 w-4 shrink-0 text-slate-400" />
+                  <span className="flex-1 text-left">View details</span>
+                </button>
+              ) : (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setOpen(false);
+                    onOpenReports(notification.reportId);
+                  }}
+                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+                >
+                  {notification.reportId ? (
+                    <Eye className="h-4 w-4 shrink-0 text-slate-400" />
+                  ) : (
+                    <MapPinned className="h-4 w-4 shrink-0 text-slate-400" />
+                  )}
+                  <span className="flex-1 text-left">
+                    {notification.reportId ? reportAction : 'Open map'}
+                  </span>
+                </button>
+              )}
+              {!isRead && (
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setOpen(false);
+                    onMarkRead(notification.id);
+                  }}
+                  className="flex w-full items-center gap-3 border-t border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+                >
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-slate-400" />
+                  <span className="flex-1 text-left">Mark as read</span>
+                </button>
+              )}
+              <button
+                role="menuitem"
+                onClick={() => {
+                  setOpen(false);
+                  onDismiss(notification.id);
+                }}
+                className="flex w-full items-center gap-3 border-t border-canvas-grey px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
+              >
+                <XCircle className="h-4 w-4 shrink-0" />
+                <span className="flex-1 text-left">Dismiss permanently</span>
+              </button>
+            </div>
+          </>,
+          document.body
+        )}
     </div>
   );
 }

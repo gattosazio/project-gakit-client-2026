@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Bell, CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
-import type { WeatherAlert, AlertSeverity, AlertType } from '@/types/weather';
+import type { WeatherAlert, AlertSeverity, AlertType, WeatherAlertData } from '@/types/weather';
 
 const SEVERITY_CONFIG: Record<
   AlertSeverity,
@@ -36,6 +36,7 @@ export interface NotificationItem {
   sentAt: string;
   validFrom?: string;
   validTo?: string;
+  data?: WeatherAlertData | null;
 }
 
 interface NotificationBellProps {
@@ -75,9 +76,15 @@ export function NotificationBell({
 
   const buttonClassName =
     variant === 'header'
-      ? 'relative rounded-lg border border-canvas-grey p-2 transition-colors hover:bg-canvas-light'
+      ? `relative rounded-lg border p-2 transition-colors ${
+          open
+            ? 'border-gakit-maroon bg-maroon-50'
+            : 'border-canvas-grey hover:bg-canvas-light'
+        }`
       : variant === 'mobile-nav'
-        ? 'relative flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-colors hover:bg-maroon-50 hover:text-gakit-maroon'
+        ? `relative flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors ${
+            open ? 'bg-maroon-50 text-gakit-maroon' : 'text-slate-500 hover:bg-maroon-50 hover:text-gakit-maroon'
+          }`
         : 'relative flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur';
 
   const iconClassName =
@@ -114,12 +121,12 @@ export function NotificationBell({
       {open && (
         <div
           ref={panelRef}
-          className={`absolute z-[1300] overflow-hidden rounded-xl border border-canvas-grey bg-white shadow-xl ${
+          className={`z-[1300] overflow-hidden rounded-xl border border-canvas-grey bg-white shadow-xl ${
             variant === 'header'
-              ? 'right-0 top-auto mt-2 w-80'
+              ? 'absolute right-0 top-auto mt-2 w-80'
               : variant === 'mobile-nav'
-                ? 'right-0 bottom-full mb-2 w-80'
-                : 'right-0 top-full mt-2 w-80'
+                ? 'fixed inset-x-4 bottom-24 w-auto md:hidden'
+                : 'absolute right-0 top-full mt-2 w-80'
           }`}
         >
           {/* Header */}
@@ -165,6 +172,7 @@ export function NotificationBell({
                           validFrom: item.validFrom ?? item.sentAt,
                           validTo: item.validTo ?? item.sentAt,
                           createdAt: item.sentAt,
+                          data: item.data ?? null,
                         });
                       }
                       setOpen(false);
