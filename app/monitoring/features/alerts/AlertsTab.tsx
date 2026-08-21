@@ -84,25 +84,6 @@ const SEVERITY_CLASS: Record<Severity, string> = {
   low: 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
-const STATIC_NOTIFICATIONS: Notification[] = [
-  {
-    id: 'weather-rainfall',
-    type: 'weather',
-    severity: 'high',
-    title: 'Heavy rainfall advisory',
-    location: 'Iligan City',
-    sentAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-  },
-  {
-    id: 'hazard-river',
-    type: 'hazard',
-    severity: 'medium',
-    title: 'River level monitoring advisory',
-    location: 'Mandulog River',
-    sentAt: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
-  },
-];
-
 function createNotifications(reports: Report[]): Notification[] {
   return reports.flatMap<Notification>((report) => {
     const location = report.location.address || 'Unknown location';
@@ -231,7 +212,6 @@ export function AlertsTab({
     () => [
       ...createNotifications(reports),
       ...weatherAlerts.map(mapWeatherAlertToNotification),
-      ...STATIC_NOTIFICATIONS,
     ],
     [reports, weatherAlerts]
   );

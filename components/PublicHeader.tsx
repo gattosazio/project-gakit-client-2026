@@ -1,13 +1,18 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Info, LogOut, MapPinned, UserRound, BookOpen } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole, type StaffRole } from '@/lib/auth/roles';
+import { fetchActiveAlerts } from '@/lib/weather';
+import type { WeatherAlert } from '@/types/weather';
 import { useRouteLoader } from './RouteLoader';
 import { SignOutConfirmDialog } from './SideBar';
+import { NotificationBell } from './NotificationBell';
+import type { NotificationItem } from './NotificationBell';
+import { WeatherAlertModal } from './WeatherAlertModal';
 
 export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' | 'about' }) {
   const router = useRouter();
@@ -19,6 +24,31 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
   const [isMobileInfoOpen, setIsMobileInfoOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [weatherNotifications, setWeatherNotifications] = useState<NotificationItem[]>([]);
+  const [selectedAlert, setSelectedAlert] = useState<WeatherAlert | null>(null);
+
+  useEffect(() => {
+    const loadWeather = async () => {
+      try {
+        const alerts = await fetchActiveAlerts();
+        setWeatherNotifications(
+          alerts.map((a) => ({
+            id: a.id,
+            title: a.title,
+            subtitle: a.description,
+            severity: a.severity,
+            alertType: a.alertType,
+            sentAt: a.createdAt,
+          }))
+        );
+      } catch {
+        // Silently fail
+      }
+    };
+    void loadWeather();
+    const interval = setInterval(loadWeather, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,6 +203,11 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
                 )}
               </div>
             )}
+            <NotificationBell
+              notifications={weatherNotifications}
+              onSelectAlert={setSelectedAlert}
+              variant="header"
+            />
             <div className="group relative">
               <button
                 type="button"
@@ -260,6 +295,11 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
             <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
             <span className="text-[10px] font-semibold">About</span>
           </button>
+          <NotificationBell
+            notifications={weatherNotifications}
+            onSelectAlert={setSelectedAlert}
+            variant="mobile-nav"
+          />
           {!isChecking && (
             <button
               onClick={handleAccountClick}
@@ -278,6 +318,13 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
       onConfirm={handleSignOut}
       onCancel={() => setShowSignOutConfirm(false)}
     />
+    {selectedAlert && (
+      <WeatherAlertModal
+        alert={selectedAlert}
+        onClose={() => setSelectedAlert(null)}
+        onDismiss={() => setSelectedAlert(null)}
+      />
+    )}
     {loadingOverlay}
     </>
   );

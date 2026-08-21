@@ -34,17 +34,6 @@ interface HeaderNotification {
   iconClass: string;
 }
 
-const STATIC_NOTIFICATIONS: HeaderNotification[] = [
-  {
-    id: 'weather-rainfall',
-    title: 'Heavy rainfall advisory',
-    detail: 'Iligan City',
-    createdAt: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
-    icon: CloudRain,
-    iconClass: 'bg-cyan-50 text-cyan-700',
-  },
-];
-
 const WEATHER_ICONS: Record<string, typeof CloudRain> = {
   thunderstorm: AlertTriangle,
   heavy_rain: CloudRain,
@@ -119,7 +108,7 @@ export function AdminHeader({
   icon: Icon,
   onNotificationClick,
 }: AdminHeaderProps) {
-  const [notifications, setNotifications] = useState<HeaderNotification[]>(STATIC_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
   const [readIds, setReadIds] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const notificationRef = useRef<HTMLDivElement | null>(null);
@@ -131,9 +120,9 @@ export function AdminHeader({
         fetchActiveAlerts().catch(() => []),
       ]);
       const weatherNotifs = weatherAlerts.map(mapWeatherToHeader);
-      setNotifications([...createNotifications(reportsResult.items), ...weatherNotifs, ...STATIC_NOTIFICATIONS]);
+      setNotifications([...createNotifications(reportsResult.items), ...weatherNotifs]);
     } catch {
-      setNotifications(STATIC_NOTIFICATIONS);
+      setNotifications([]);
     }
   }, []);
 

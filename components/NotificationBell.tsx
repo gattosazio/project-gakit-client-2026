@@ -20,6 +20,13 @@ const ALERT_ICONS: Record<AlertType, typeof CloudRain> = {
   daily_digest: Thermometer,
 };
 
+const ALERT_TYPE_LABELS: Record<AlertType, string> = {
+  thunderstorm: 'Thunderstorm',
+  heavy_rain: 'Heavy Rain',
+  extreme_heat: 'Heat Advisory',
+  daily_digest: 'Daily Forecast',
+};
+
 export interface NotificationItem {
   id: string;
   title: string;
@@ -27,16 +34,21 @@ export interface NotificationItem {
   severity: AlertSeverity;
   alertType?: AlertType;
   sentAt: string;
-  onClick?: () => void;
 }
 
 interface NotificationBellProps {
   notifications: NotificationItem[];
-  onDismiss?: (id: string) => void;
+  onSelectAlert?: (alert: WeatherAlert) => void;
   className?: string;
+  variant?: 'header' | 'map' | 'mobile-nav';
 }
 
-export function NotificationBell({ notifications, onDismiss, className = '' }: NotificationBellProps) {
+export function NotificationBell({
+  notifications,
+  onSelectAlert,
+  className = '',
+  variant = 'header',
+}: NotificationBellProps) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -57,85 +69,129 @@ export function NotificationBell({ notifications, onDismiss, className = '' }: N
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
+  const count = notifications.length;
+
+  const buttonClassName =
+    variant === 'header'
+      ? 'relative rounded-lg border border-canvas-grey p-2 transition-colors hover:bg-canvas-light'
+      : variant === 'mobile-nav'
+        ? 'relative flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-colors hover:bg-maroon-50 hover:text-gakit-maroon'
+        : 'relative flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur';
+
+  const iconClassName =
+    variant === 'mobile-nav' ? 'h-5 w-5' : 'h-5 w-5';
+
   return (
     <div className={`relative ${className}`}>
       <button
         ref={buttonRef}
         onClick={() => setOpen((v) => !v)}
-        className="relative flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
-        title={`${notifications.length} notification${notifications.length !== 1 ? 's' : ''}`}
+        className={buttonClassName}
+        title={`${count} notification${count !== 1 ? 's' : ''}`}
         aria-label="Notifications"
       >
-        <Bell className="w-5 h-5 text-gakit-maroon" />
-        {notifications.length > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm">
-            {notifications.length}
+        <Bell className={`${iconClassName} ${variant === 'header' ? 'text-slate-600' : 'text-gakit-maroon'}`} />
+        {count > 0 && (
+          <span
+            className={`absolute flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ${
+              variant === 'header'
+                ? '-right-1 -top-1'
+                : variant === 'mobile-nav'
+                  ? '-right-0.5 -top-0.5'
+                  : '-top-1.5 -right-1.5 h-5 min-w-[20px]'
+            }`}
+          >
+            {count > 9 ? '9+' : count}
           </span>
+        )}
+        {variant === 'mobile-nav' && (
+          <span className="text-[10px] font-semibold">Alerts</span>
         )}
       </button>
 
       {open && (
         <div
           ref={panelRef}
-          className="absolute top-0 right-0 mt-0 w-80 max-h-[70vh] overflow-hidden rounded-xl bg-white/95 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur z-[1100]"
+          className={`absolute z-[1300] overflow-hidden rounded-xl border border-canvas-grey bg-white shadow-xl ${
+            variant === 'header'
+              ? 'right-0 top-auto mt-2 w-80'
+              : variant === 'mobile-nav'
+                ? 'right-0 bottom-full mb-2 w-80'
+                : 'right-0 top-full mt-2 w-80'
+          }`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between px-3 py-2 border-b border-slate-100">
-            <span className="text-xs font-bold text-slate-900">Notifications</span>
+          <div className="flex items-center justify-between border-b border-canvas-grey px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Notifications</p>
+              <p className="text-xs text-slate-500">
+                {count > 0 ? `${count} active alert${count !== 1 ? 's' : ''}` : 'No alerts'}
+              </p>
+            </div>
             <button
               onClick={() => setOpen(false)}
-              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              className="rounded-md p-1 text-slate-400 hover:bg-canvas-light hover:text-slate-700 transition-colors"
               aria-label="Close notifications"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="h-4 w-4" />
             </button>
           </div>
 
           {/* List */}
-          {notifications.length === 0 ? (
-            <div className="px-3 py-6 text-center text-xs text-slate-400">
+          {count === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-slate-400">
               No notifications
             </div>
           ) : (
-            <div className="overflow-y-auto max-h-[calc(70vh-36px)]">
+            <div className="max-h-80 divide-y divide-canvas-grey overflow-y-auto">
               {notifications.map((item) => {
                 const config = SEVERITY_CONFIG[item.severity];
                 const Icon = item.alertType ? (ALERT_ICONS[item.alertType] ?? CloudRain) : Bell;
+                const typeLabel = item.alertType ? ALERT_TYPE_LABELS[item.alertType] : '';
                 return (
-                  <div
+                  <button
                     key={item.id}
-                    className={`flex items-start gap-2.5 px-3 py-2.5 border-b border-slate-50 cursor-pointer transition-colors hover:bg-slate-50 ${config.bg}`}
+                    type="button"
                     onClick={() => {
-                      item.onClick?.();
+                      if (onSelectAlert) {
+                        onSelectAlert({
+                          id: item.id.replace('weather-', ''),
+                          alertType: (item.alertType ?? 'daily_digest') as AlertType,
+                          severity: item.severity,
+                          title: item.title,
+                          description: item.subtitle,
+                          validFrom: item.sentAt,
+                          validTo: item.sentAt,
+                          createdAt: item.sentAt,
+                        });
+                      }
                       setOpen(false);
                     }}
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas-light"
                   >
-                    <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${config.icon}`} />
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-[11px] font-semibold leading-tight ${config.text} truncate`}>
-                        {item.title}
-                      </p>
-                      <p className={`text-[10px] leading-tight ${config.text} opacity-70 truncate`}>
+                    <span className={`rounded-lg p-2 ${config.bg}`}>
+                      <Icon className={`h-4 w-4 ${config.icon}`} />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-slate-800 line-clamp-1">
+                          {item.title}
+                        </span>
+                        {typeLabel && (
+                          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${config.bg} ${config.text}`}>
+                            {typeLabel}
+                          </span>
+                        )}
+                      </span>
+                      <span className="mt-0.5 block text-xs text-slate-500 line-clamp-2 leading-relaxed">
                         {item.subtitle}
-                      </p>
-                      <p className="text-[9px] text-slate-400 mt-0.5">
+                      </span>
+                      <span className="mt-1 block text-xs text-slate-400">
                         {new Date(item.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                    <span className={`mt-1.5 h-1.5 w-1.5 rounded-full flex-shrink-0 ${config.dot}`} />
-                    {onDismiss && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDismiss(item.id);
-                        }}
-                        className="mt-0.5 p-0.5 rounded text-slate-300 hover:text-slate-500 transition-colors"
-                        aria-label="Dismiss"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    )}
-                  </div>
+                      </span>
+                    </span>
+                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${config.dot}`} />
+                  </button>
                 );
               })}
             </div>
