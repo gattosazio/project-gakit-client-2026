@@ -41,6 +41,7 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
             sentAt: a.createdAt,
             validFrom: a.validFrom,
             validTo: a.validTo,
+            data: a.data ?? null,
           }))
         );
       } catch {
@@ -139,7 +140,7 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
   return (
     <>
     <header className="fixed top-0 left-0 right-0 z-[1200] isolate bg-white opacity-100 shadow-md border-b border-canvas-grey">
-      <div className="mx-auto flex h-16 items-center justify-center px-6 md:px-10">
+      <div className="relative mx-auto flex h-16 items-center justify-center px-6 md:px-10">
         <div className="flex items-center justify-center gap-8 lg:gap-14">
           <button
             type="button"
@@ -182,96 +183,103 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
                 {accountLabel}
               </button>
             )}
-            {email && (
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
-                  className={`flex items-center justify-center rounded-lg border p-2 text-gakit-maroon transition-colors ${
-                    isMenuOpen
-                      ? 'border-gakit-maroon bg-maroon-50'
-                      : 'border-canvas-grey hover:bg-slate-50'
-                  }`}
-                  aria-expanded={isMenuOpen}
-                  aria-haspopup="menu"
-                  aria-label="Account menu"
-                >
-                  <UserRound className="h-5 w-5" />
-                </button>
-                {isMenuOpen && (
-                  <div className="absolute right-0 top-12 z-50 w-56 rounded-lg border border-canvas-grey bg-white p-2 shadow-lg">
-                    {userMenuContent}
-                  </div>
-                )}
-              </div>
-            )}
-            <NotificationBell
-              notifications={weatherNotifications}
-              onSelectAlert={setSelectedAlert}
-              variant="header"
-            />
-            <div className="group relative">
-              <button
-                type="button"
-                className="rounded-lg p-2.5 text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon transition-colors"
-              >
-                <Info className="h-5 w-5" />
-              </button>
-              <div className="hidden group-hover:block absolute right-0 top-12 w-56 z-[1201]">
-                <div className="bg-white border border-canvas-grey rounded-lg shadow-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
-                  <div className="font-semibold text-slate-900 mb-1">How to report a flood hazard</div>
-                  1. Set your location (search, tap, or use GPS).<br />2. Select the flood depth.<br />3. Attach image (optional).<br />4. Submit report.
-                </div>
-              </div>
-            </div>
           </nav>
         </div>
-      </div>
 
-      {email && (
-        <div className="absolute right-4 top-3 z-[1201] md:hidden flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
-            className={`flex items-center justify-center rounded-lg border p-2 text-gakit-maroon transition-colors ${
-              isMenuOpen
-                ? 'border-gakit-maroon bg-maroon-50'
-                : 'border-canvas-grey hover:bg-slate-50'
-            }`}
-            aria-expanded={isMenuOpen}
-            aria-haspopup="menu"
-            aria-label="Account menu"
-          >
-            <UserRound className="h-5 w-5" />
-          </button>
-          {isMenuOpen && (
-            <div className="absolute right-0 top-12 z-50 w-56 rounded-lg border border-canvas-grey bg-white p-2 shadow-lg">
-              {userMenuContent}
-            </div>
-          )}
-          <div className="relative">
+        {/* Right-edge cluster: info, notifications, account */}
+        <div className="absolute right-6 top-1/2 z-[1201] hidden -translate-y-1/2 items-center gap-2 md:flex md:right-10">
+          <div className="group relative">
             <button
               type="button"
-              onClick={() => { setIsMobileInfoOpen((v) => !v); setIsMenuOpen(false); }}
-              className={`flex items-center justify-center rounded-lg border p-2 transition-colors ${
-                isMobileInfoOpen
-                  ? 'border-gakit-maroon bg-maroon-50 text-gakit-maroon'
-                  : 'border-canvas-grey text-slate-500 hover:bg-slate-50'
-              }`}
+              className="rounded-lg p-2.5 text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon transition-colors"
             >
               <Info className="h-5 w-5" />
             </button>
-            {isMobileInfoOpen && (
-              <div className="absolute right-0 top-12 w-56 z-[1201]">
-                <div className="bg-white border border-canvas-grey rounded-lg shadow-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
-                  <div className="font-semibold text-slate-900 mb-1">How to report a flood hazard</div>
-                  1. Set your location (search, tap, or use GPS).<br />2. Select the flood depth.<br />3. Attach image (optional).<br />4. Submit report.
+            <div className="hidden group-hover:block absolute right-0 top-12 w-56 z-[1201]">
+              <div className="bg-white border border-canvas-grey rounded-lg shadow-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
+                <div className="font-semibold text-slate-900 mb-1">How to report a flood hazard</div>
+                1. Set your location (search, tap, or use GPS).<br />2. Select the flood depth.<br />3. Attach image (optional).<br />4. Submit report.
+              </div>
+            </div>
+          </div>
+          <NotificationBell
+            notifications={weatherNotifications}
+            onSelectAlert={setSelectedAlert}
+            variant="header"
+          />
+          {email && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
+                className={`flex items-center justify-center rounded-lg border p-2 text-slate-600 transition-colors ${
+                  isMenuOpen
+                    ? 'border-gakit-maroon bg-maroon-50'
+                    : 'border-canvas-grey hover:bg-slate-50'
+                }`}
+                aria-expanded={isMenuOpen}
+                aria-haspopup="menu"
+                aria-label="Account menu"
+              >
+                <UserRound className="h-5 w-5" />
+              </button>
+              {isMenuOpen && (
+                <div className="absolute right-0 top-12 z-50 w-56 rounded-lg border border-canvas-grey bg-white p-2 shadow-lg">
+                  {userMenuContent}
                 </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Mobile top-right cluster: info > account (alerts live in bottom nav) */}
+      <div className="absolute right-4 top-3 z-[1201] flex items-center gap-2 md:hidden">
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => { setIsMobileInfoOpen((v) => !v); setIsMenuOpen(false); }}
+            className={`flex items-center justify-center rounded-lg border p-2 transition-colors ${
+              isMobileInfoOpen
+                ? 'border-gakit-maroon bg-maroon-50 text-gakit-maroon'
+                : 'border-canvas-grey text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            <Info className="h-5 w-5" />
+          </button>
+          {isMobileInfoOpen && (
+            <div className="absolute right-0 top-12 w-56 z-[1201]">
+              <div className="bg-white border border-canvas-grey rounded-lg shadow-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
+                <div className="font-semibold text-slate-900 mb-1">How to report a flood hazard</div>
+                1. Set your location (search, tap, or use GPS).<br />2. Select the flood depth.<br />3. Attach image (optional).<br />4. Submit report.
+              </div>
+            </div>
+          )}
+        </div>
+        {email && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
+              className={`flex items-center justify-center rounded-lg border p-2 text-slate-600 transition-colors ${
+                isMenuOpen
+                  ? 'border-gakit-maroon bg-maroon-50'
+                  : 'border-canvas-grey hover:bg-slate-50'
+              }`}
+              aria-expanded={isMenuOpen}
+              aria-haspopup="menu"
+              aria-label="Account menu"
+            >
+              <UserRound className="h-5 w-5" />
+            </button>
+            {isMenuOpen && (
+              <div className="absolute right-0 top-12 z-50 w-56 rounded-lg border border-canvas-grey bg-white p-2 shadow-lg">
+                {userMenuContent}
               </div>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-2 md:hidden">
         <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white/95 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">

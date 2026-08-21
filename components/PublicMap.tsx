@@ -44,6 +44,7 @@ import {
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 import type { RainfallGrid } from '@/types/rainfall';
 import { ReportControls, DataLayerControls, MapModeToggle } from '@/components/map/MapControls';
+import { WeatherChip } from '@/components/map/WeatherChip';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { fetchMapReports } from '@/app/public-view/actions/public.view';
@@ -83,6 +84,7 @@ interface PublicMapProps {
   reportStatusToggleStatuses?: ReportStatus[];
   defaultVisibleReportStatuses?: Partial<Record<ReportStatus, boolean>>;
   enableAddressLookup?: boolean;
+  searchOverlayActive?: boolean;
   onReady?: () => void;
   onLoadingChange?: (loading: boolean) => void;
 }
@@ -103,6 +105,7 @@ export function PublicMap({
   reportStatusToggleStatuses,
   defaultVisibleReportStatuses,
   enableAddressLookup = true,
+  searchOverlayActive = false,
   onReady,
   onLoadingChange,
 }: PublicMapProps) {
@@ -929,6 +932,12 @@ export function PublicMap({
         mode={mapMode}
         onModeChange={handleModeChange}
         hasMaptiler={HAS_MAPTILER}
+      />
+
+      <WeatherChip
+        className={`absolute right-4 md:right-6 z-[1000] flex transition-[top] duration-200 ${
+          searchOverlayActive ? 'top-[4.5rem]' : 'top-4'
+        } md:top-[3.25rem]`}
       />
 
       <div

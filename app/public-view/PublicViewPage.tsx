@@ -294,6 +294,7 @@ export function PublicViewPage() {
                 selectedLocation={selectedLocation}
                 reportStatusToggleStatuses={['UNVERIFIED', 'VERIFIED']}
                 defaultVisibleReportStatuses={{ ANOMALY: false, REJECTED: false }}
+                searchOverlayActive={isManualLocationMode}
               />
 
               <LocationPromptModal
