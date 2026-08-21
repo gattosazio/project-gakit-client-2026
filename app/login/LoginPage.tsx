@@ -88,7 +88,7 @@ export function LoginPage() {
             <h1 className="text-3xl font-bold text-slate-900">Staff Sign in</h1>
             <p className="text-sm text-slate-600 mt-2">
               This sign in is for GAKIT staff and responders. Public flood reports are
-              anonymous and don't require an account.
+              anonymous and don&apos;t require an account.
             </p>
           </div>
 
@@ -177,7 +177,7 @@ export function LoginPage() {
           </div>
 
           <div className="mt-8 pt-6 border-t border-canvas-grey text-center text-sm text-slate-600">
-            Don't have an account?{' '}
+            Don&apos;t have an account?{' '}
             <button
               onClick={() => setIsRequestModalOpen(true)}
               className="font-semibold text-gakit-maroon hover:text-maroon-800"
