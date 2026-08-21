@@ -34,6 +34,8 @@ export interface NotificationItem {
   severity: AlertSeverity;
   alertType?: AlertType;
   sentAt: string;
+  validFrom?: string;
+  validTo?: string;
 }
 
 interface NotificationBellProps {
@@ -160,8 +162,8 @@ export function NotificationBell({
                           severity: item.severity,
                           title: item.title,
                           description: item.subtitle,
-                          validFrom: item.sentAt,
-                          validTo: item.sentAt,
+                          validFrom: item.validFrom ?? item.sentAt,
+                          validTo: item.validTo ?? item.sentAt,
                           createdAt: item.sentAt,
                         });
                       }

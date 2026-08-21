@@ -39,6 +39,8 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
             severity: a.severity,
             alertType: a.alertType,
             sentAt: a.createdAt,
+            validFrom: a.validFrom,
+            validTo: a.validTo,
           }))
         );
       } catch {
