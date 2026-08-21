@@ -4,7 +4,8 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
-import { WeatherAlertCards } from '@/components/WeatherAlertCards';
+import { NotificationBell } from '@/components/NotificationBell';
+import type { NotificationItem } from '@/components/NotificationBell';
 import { ReportModal } from './ReportModal';
 import { Building2, CheckCircle2, ChevronDown, ChevronUp, Handshake, Loader2, Mail, MapPin, Navigation, Search } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -76,6 +77,7 @@ export function PublicViewPage() {
   const [lastSubmittedReport, setLastSubmittedReport] = useState<SubmittedReport | null>(null);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Fetching reports…');
+  const [weatherNotifications, setWeatherNotifications] = useState<NotificationItem[]>([]);
   const mapRef = useRef<PublicMapHandle | null>(null);
 
   useEffect(() => {
@@ -86,6 +88,30 @@ export function PublicViewPage() {
     const timer = setTimeout(() => setLoadingMessage('Server is starting…'), 5000);
     return () => clearTimeout(timer);
   }, [isLoadingReports]);
+
+  useEffect(() => {
+    const loadWeather = async () => {
+      try {
+        const { fetchActiveAlerts } = await import('@/lib/weather');
+        const alerts = await fetchActiveAlerts();
+        setWeatherNotifications(
+          alerts.map((a) => ({
+            id: a.id,
+            title: a.title,
+            subtitle: a.description,
+            severity: a.severity,
+            alertType: a.alertType,
+            sentAt: a.createdAt,
+          }))
+        );
+      } catch {
+        // Silently fail
+      }
+    };
+    void loadWeather();
+    const interval = setInterval(loadWeather, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const scrollToMap = useCallback(() => {
     document
@@ -297,7 +323,10 @@ export function PublicViewPage() {
                 defaultVisibleReportStatuses={{ ANOMALY: false, REJECTED: false }}
               />
 
-              <WeatherAlertCards />
+              <NotificationBell
+                notifications={weatherNotifications}
+                className="absolute top-4 left-4 z-[1000]"
+              />
 
               <LocationPromptModal
                 isOpen={isLocationPromptOpen}

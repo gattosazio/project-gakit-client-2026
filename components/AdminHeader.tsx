@@ -4,13 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
   CloudRain,
+  AlertTriangle,
+  Flame,
+  Thermometer,
   Settings,
   ShieldAlert,
   type LucideIcon,
 } from 'lucide-react';
 import { listReports } from '@/app/monitoring/features/reports/actions/reports';
+import { fetchActiveAlerts } from '@/lib/weather';
 import { formatDateTime } from '@/lib/reportFormatting';
 import type { Report } from '@/types/report';
+import type { WeatherAlert } from '@/types/weather';
 import { MobileSignOutButton } from './SideBar';
 
 interface AdminHeaderProps {
@@ -39,6 +44,30 @@ const STATIC_NOTIFICATIONS: HeaderNotification[] = [
     iconClass: 'bg-cyan-50 text-cyan-700',
   },
 ];
+
+const WEATHER_ICONS: Record<string, typeof CloudRain> = {
+  thunderstorm: AlertTriangle,
+  heavy_rain: CloudRain,
+  extreme_heat: Flame,
+  daily_digest: Thermometer,
+};
+
+const SEVERITY_ICON_CLASS: Record<string, string> = {
+  critical: 'bg-red-50 text-red-700',
+  warning: 'bg-orange-50 text-orange-700',
+  info: 'bg-blue-50 text-blue-700',
+};
+
+function mapWeatherToHeader(alert: WeatherAlert): HeaderNotification {
+  return {
+    id: `weather-${alert.id}`,
+    title: alert.title,
+    detail: alert.description,
+    createdAt: alert.createdAt,
+    icon: WEATHER_ICONS[alert.alertType] ?? CloudRain,
+    iconClass: SEVERITY_ICON_CLASS[alert.severity] ?? 'bg-cyan-50 text-cyan-700',
+  };
+}
 
 function createNotifications(reports: Report[]): HeaderNotification[] {
   return reports.flatMap<HeaderNotification>((report) => {
@@ -97,8 +126,12 @@ export function AdminHeader({
 
   const loadNotifications = useCallback(async () => {
     try {
-      const result = await listReports({ limit: 10 });
-      setNotifications([...createNotifications(result.items), ...STATIC_NOTIFICATIONS]);
+      const [reportsResult, weatherAlerts] = await Promise.all([
+        listReports({ limit: 10 }),
+        fetchActiveAlerts().catch(() => []),
+      ]);
+      const weatherNotifs = weatherAlerts.map(mapWeatherToHeader);
+      setNotifications([...createNotifications(reportsResult.items), ...weatherNotifs, ...STATIC_NOTIFICATIONS]);
     } catch {
       setNotifications(STATIC_NOTIFICATIONS);
     }
@@ -108,6 +141,8 @@ export function AdminHeader({
     const saved = window.localStorage.getItem('gakit-read-notifications');
     if (saved) setReadIds(JSON.parse(saved) as string[]);
     void loadNotifications();
+    const interval = setInterval(loadNotifications, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [loadNotifications]);
 
   useEffect(() => {
