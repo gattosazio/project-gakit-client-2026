@@ -61,11 +61,20 @@ function friendlyDay(iso: string): string {
   });
 }
 
-/** Human-friendly period covered by the alert, e.g. "Today – Tomorrow". */
-function friendlyPeriod(validFrom: string, validTo: string): string {
-  const from = friendlyDay(validFrom);
-  const to = friendlyDay(validTo);
-  return from === to ? from : `${from} – ${to}`;
+/** Human-friendly period covered by the alert, e.g. "Today – Tomorrow".
+ *  Returns null when the period is obvious (today through tomorrow). */
+function friendlyPeriod(validFrom: string, validTo: string): string | null {
+  const from = new Date(validFrom);
+  const to = new Date(validTo);
+  const dayDiffFromToday = Math.round((startOfDay(from) - startOfDay(new Date())) / 86_400_000);
+  const spansTwoDays =
+    Math.round((startOfDay(to) - startOfDay(from)) / 86_400_000) === 1;
+
+  // Digest-style window: covered by the title/description already
+  if (dayDiffFromToday === 0 && spansTwoDays) return null;
+
+  const fromLabel = friendlyDay(validFrom);
+  return fromLabel === friendlyDay(validTo) ? fromLabel : `${fromLabel} – ${friendlyDay(validTo)}`;
 }
 
 interface WeatherAlertModalProps {
@@ -76,6 +85,7 @@ interface WeatherAlertModalProps {
 export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
+  const period = friendlyPeriod(alert.validFrom, alert.validTo);
 
   return (
     <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4">
@@ -113,10 +123,12 @@ export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
             {alert.description}
           </p>
 
-          <div className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light p-3 text-sm text-slate-700">
-            <span className="font-medium">When:</span>
-            <span>{friendlyPeriod(alert.validFrom, alert.validTo)}</span>
-          </div>
+          {period && (
+            <div className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light p-3 text-sm text-slate-700">
+              <span className="font-medium">When:</span>
+              <span>{period}</span>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
