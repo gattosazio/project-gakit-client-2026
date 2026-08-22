@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { Info, LogOut, MapPinned, UserRound, BookOpen } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole, type StaffRole } from '@/lib/auth/roles';
-import { fetchActiveAlerts } from '@/lib/weather';
+import { fetchActiveAlerts } from '@/lib/weather/weather';
 import type { WeatherAlert } from '@/types/weather';
 import { useRouteLoader } from './RouteLoader';
 import { SignOutConfirmDialog } from './SideBar';

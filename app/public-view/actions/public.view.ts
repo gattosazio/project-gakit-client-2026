@@ -1,7 +1,7 @@
-import { cachedGet, invalidateApiCache } from '@/lib/apiCache';
-import { RateLimitedError } from '@/lib/apiErrors';
-import { markBackendOnline, markBackendWarming } from '@/lib/backendStatus';
-import { ILIGAN_BOUNDS } from '@/lib/geoUtils';
+import { cachedGet, invalidateApiCache } from '@/lib/backend/apiCache';
+import { RateLimitedError } from '@/lib/backend/apiErrors';
+import { markBackendOnline, markBackendWarming } from '@/lib/backend/backendStatus';
+import { ILIGAN_BOUNDS } from '@/lib/map/geoUtils';
 import type {
   CreateReportInput,
   DepthCategory,

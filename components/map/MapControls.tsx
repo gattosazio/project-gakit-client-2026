@@ -8,14 +8,14 @@ import {
 import {
   RAINFALL_ACCUMULATION_HOURS,
   type RainfallAccumulationHours,
-} from '@/lib/rainfall';
+} from '@/lib/map/rainfall';
 import {
   FLOOD_HAZARD_LEGEND,
   RAINFALL_GRADIENT_CSS,
   RAINFALL_LEGEND_STOPS,
   rainfallBandValues,
-  type MapMode,
-} from '@/lib/mapLayers';
+} from '@/lib/map/colorScales';
+import type { MapMode } from '@/lib/map/overlayLayers';
 import type { ReportStatus } from '@/types/report';
 
 const formatRainfallTime = (isoUtc: string) => {
@@ -381,21 +381,26 @@ export function DataLayerControls({
           }}
         />
         {showHimawariIR && (
-          <div className="pl-9 pt-1 pb-1">
-            <div className="text-[10px] leading-snug text-slate-400 pt-1">
-              Last 2 hours · 10min intervals
+          <div className="pl-9 pt-1 pb-1 space-y-1.5">
+            <div className="text-[10px] leading-snug text-slate-400">
+              Last hour · 10min intervals
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-slate-400 w-4">0%</span>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round(himawariOpacity * 100)}
-                onChange={(e) => onHimawariOpacityChange(Number(e.target.value) / 100)}
-                className="flex-1 h-1 accent-gakit-maroon cursor-pointer"
-              />
-              <span className="text-[10px] text-slate-400 w-7 text-right">{Math.round(himawariOpacity * 100)}%</span>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+                Opacity
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={Math.round(himawariOpacity * 100)}
+                  onChange={(e) => onHimawariOpacityChange(Number(e.target.value) / 100)}
+                  aria-label="Himawari IR layer opacity"
+                  className="flex-1 h-1 accent-gakit-maroon cursor-pointer"
+                />
+                <span className="text-[10px] font-semibold text-slate-600 w-7 text-right">{Math.round(himawariOpacity * 100)}%</span>
+              </div>
             </div>
           </div>
         )}

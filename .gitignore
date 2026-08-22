@@ -29,11 +29,11 @@ yarn-error.log*
 *.local
 tsconfig.tsbuildinfo
 
-# Shapefile source data (large binaries — converted GeoJSON in public/data/ is committed)
+# Shapefile source data (large binaries — flood-zones.pmtiles in public/data/ is committed)
 /data
 
 #python venv
 .venv
 
-#conversion scripts
-.convert-shp-to-geojson.py
+# Graphify knowledge graph output
+graphify-out/

@@ -1,7 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
-import type { BackendStatus } from '@/lib/backendStatus';
+import type { BackendStatus } from '@/lib/backend/backendStatus';
 
 interface MapStatusChipProps {
   backendStatus: BackendStatus;

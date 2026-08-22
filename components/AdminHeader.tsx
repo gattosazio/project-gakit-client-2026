@@ -18,9 +18,9 @@ import {
   fetchNotificationReceipts,
   markNotificationsRead,
   subscribeToReceiptChanges,
-} from '@/lib/notificationReceipts';
-import { fetchActiveAlerts } from '@/lib/weather';
-import { formatDateTime } from '@/lib/reportFormatting';
+} from '@/lib/notifications/receipts';
+import { fetchActiveAlerts } from '@/lib/weather/weather';
+import { formatDateTime } from '@/lib/reports/reportFormatting';
 import type { Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
 import { MobileSignOutButton } from './SideBar';

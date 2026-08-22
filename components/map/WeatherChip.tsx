@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { ChevronUp } from 'lucide-react';
-import { fetchActiveAlerts } from '@/lib/weather';
-import { getWeatherCondition } from '@/lib/weatherCodes';
+import { fetchActiveAlerts } from '@/lib/weather/weather';
+import { getWeatherCondition } from '@/lib/weather/weatherCodes';
 import type { WeatherAlert, WeatherDayData } from '@/types/weather';
 
 function startOfDay(d: Date): number {
@@ -26,17 +26,24 @@ function friendlyDay(iso: string): string {
 
 /**
  * Floating weather-outlook control for the map's desktop control stack.
- * Collapsed by default; expands to the two-day outlook. Hidden entirely
- * when no digest exists (e.g. backend unreachable).
+ * Collapsed by default; `defaultExpanded` opens it on desktop viewports
+ * (≥768px) on mount. Hidden entirely when no digest exists (e.g. backend
+ * unreachable).
  */
-export function WeatherChip({ className = '' }: { className?: string }) {
+export function WeatherChip({
+  className = '',
+  defaultExpanded = false,
+}: {
+  className?: string;
+  defaultExpanded?: boolean;
+}) {
   const [days, setDays] = useState<WeatherDayData[] | null>(null);
-  const [open, setOpen] = useState(false);
-
-  // Expanded by default on desktop (where map controls live); collapsed on mobile
-  useEffect(() => {
-    if (window.matchMedia('(min-width: 768px)').matches) setOpen(true);
-  }, []);
+  const [open, setOpen] = useState(
+    () =>
+      defaultExpanded &&
+      typeof window !== 'undefined' &&
+      window.matchMedia('(min-width: 768px)').matches
+  );
 
   useEffect(() => {
     let cancelled = false;

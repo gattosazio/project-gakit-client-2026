@@ -16,38 +16,28 @@ import {
   ShieldAlert,
   XCircle,
 } from 'lucide-react';
-import { DEPTH_LABELS, formatDateTime } from '@/lib/reportFormatting';
+import { DEPTH_LABELS, formatDateTime } from '@/lib/reports/reportFormatting';
 import {
   dismissNotifications,
   fetchNotificationReceipts,
   markNotificationsRead,
   subscribeToReceiptChanges,
-} from '@/lib/notificationReceipts';
-import { fetchAlertHistory } from '@/lib/weather';
-import type { FloodDepthCode, Report } from '@/types/report';
+} from '@/lib/notifications/receipts';
+import { fetchAlertHistory } from '@/lib/weather/weather';
+import type { Report } from '@/types/report';
 import type { WeatherAlert as WeatherAlertType } from '@/types/weather';
+import {
+  createNotifications,
+  mapWeatherAlertToNotification,
+  type Notification,
+  type NotificationType,
+  type Severity,
+} from '@/lib/notifications';
+import { useSortableTable, type SortState } from '@/hooks/useSortableTable';
+import { SortableHeader } from '@/components/ui/SortableHeader';
 import { listReports } from '../reports/actions/reports';
 
-type NotificationType =
-  | 'new-report'
-  | 'needs-review'
-  | 'flagged'
-  | 'rejected'
-  | 'weather';
-type Severity = 'critical' | 'warning' | 'info' | 'high' | 'medium' | 'low';
 type SortColumn = 'type' | 'location' | 'severity' | 'depth' | 'sentAt';
-
-interface Notification {
-  id: string;
-  type: NotificationType;
-  severity: Severity;
-  title: string;
-  location: string;
-  depth?: FloodDepthCode;
-  sentAt: string;
-  reportId?: string;
-  weatherAlert?: WeatherAlertType;
-}
 
 const TYPE_META: Record<
   NotificationType,
@@ -89,81 +79,6 @@ const SEVERITY_CLASS: Record<Severity, string> = {
   low: 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
-function createNotifications(reports: Report[]): Notification[] {
-  return reports.flatMap<Notification>((report) => {
-    const location = report.location.address || 'Unknown location';
-
-    if (report.status === 'ANOMALY') {
-      return [{
-        id: `flagged-${report.id}`,
-        type: 'flagged',
-        severity: 'high',
-        title: 'Report flagged for review',
-        location,
-        depth: report.depth.code,
-        sentAt: report.updatedAt,
-        reportId: report.id,
-      }];
-    }
-
-    if (report.status === 'REJECTED') {
-      return [{
-        id: `rejected-${report.id}`,
-        type: 'rejected',
-        severity: 'low',
-        title: 'Report was rejected',
-        location,
-        depth: report.depth.code,
-        sentAt: report.updatedAt,
-        reportId: report.id,
-      }];
-    }
-
-    if (
-      report.status === 'UNVERIFIED' &&
-      (report.depth.code === 'head' || report.depth.code === 'overhead')
-    ) {
-      return [{
-        id: `review-${report.id}`,
-        type: 'needs-review',
-        severity: 'critical',
-        title: 'Critical report requires staff review',
-        location,
-        depth: report.depth.code,
-        sentAt: report.createdAt,
-        reportId: report.id,
-      }];
-    }
-
-    if (report.status === 'UNVERIFIED') {
-      return [{
-        id: `new-${report.id}`,
-        type: 'new-report',
-        severity: 'medium',
-        title: 'A user submitted a report',
-        location,
-        depth: report.depth.code,
-        sentAt: report.createdAt,
-        reportId: report.id,
-      }];
-    }
-
-    return [];
-  });
-}
-
-function mapWeatherAlertToNotification(alert: WeatherAlertType): Notification {
-  return {
-    id: `weather-${alert.id}`,
-    type: 'weather' as NotificationType,
-    severity: alert.severity as Severity,
-    title: alert.title,
-    location: 'Iligan City',
-    sentAt: alert.createdAt,
-    weatherAlert: alert,
-  };
-}
-
 export function AlertsTab({
   active = true,
   onOpenReports,
@@ -183,10 +98,10 @@ export function AlertsTab({
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<'all' | NotificationType>('all');
   const [dateFilter, setDateFilter] = useState<'24h' | '7d' | 'all'>('24h');
-  const [sort, setSort] = useState<{
-    column: SortColumn;
-    direction: 'asc' | 'desc';
-  }>({ column: 'sentAt', direction: 'desc' });
+  const { sort, toggleSort } = useSortableTable<SortColumn>({
+    column: 'sentAt',
+    direction: 'desc',
+  });
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
@@ -295,16 +210,6 @@ export function AlertsTab({
     });
   }, [dateFilter, dismissedIds, filter, notifications, sort]);
 
-  const toggleSort = (column: SortColumn) => {
-    setSort((current) => ({
-      column,
-      direction:
-        current.column === column && current.direction === 'desc'
-          ? 'asc'
-          : 'desc',
-    }));
-  };
-
   return (
     <section className="space-y-5">
       <div className="rounded-xl border border-canvas-grey bg-white shadow-sm">
@@ -402,37 +307,6 @@ export function AlertsTab({
         )}
       </div>
     </section>
-  );
-}
-
-function SortableHeader({
-  label,
-  column,
-  sort,
-  onSort,
-}: {
-  label: string;
-  column: SortColumn;
-  sort: { column: SortColumn; direction: 'asc' | 'desc' };
-  onSort: (column: SortColumn) => void;
-}) {
-  return (
-    <th className="px-6 py-3 font-semibold text-left">
-      <button
-        type="button"
-        onClick={() => onSort(column)}
-        className="inline-flex items-center gap-1 hover:text-slate-900"
-      >
-        {label}
-        <ChevronDown
-          className={`h-3.5 w-3.5 transition-transform ${
-            sort.column === column && sort.direction === 'asc'
-              ? 'rotate-180'
-              : ''
-          }`}
-        />
-      </button>
-    </th>
   );
 }
 

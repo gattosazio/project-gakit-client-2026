@@ -1,4 +1,5 @@
-import { ILIGAN_BOUNDS } from '@/lib/geoUtils';
+import { ILIGAN_BOUNDS } from '@/lib/map/geoUtils';
+import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 import type { ReportStatus } from '@/types/report';
 
 const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
@@ -25,6 +26,21 @@ export const ILIGAN_REPORT_BOUNDS = {
   north: ILIGAN_BOUNDS[1][1],
   limit: 500,
 };
+
+// Pan limits derived from the Himawari se2 swath, expanded by one full swath
+// width/height in every direction. MapLibre's maxBounds constrain keeps the
+// viewport edges inside these walls (so the imagery can never clip) and — on
+// wide viewports — caps zoom-out so the viewport width never exceeds the
+// bounds' width. The zoom-out floor itself is computed per-device from the
+// swath fit in PublicMap via cameraForBounds.
+const SWATH = HIMAWARI_IMAGE_BOUNDS;
+const LNG_SPAN = SWATH[1][0] - SWATH[0][0];
+const LAT_SPAN = SWATH[1][1] - SWATH[0][1];
+
+export const MAP_MAX_BOUNDS: [[number, number], [number, number]] = [
+  [SWATH[0][0] - LNG_SPAN, SWATH[0][1] - LAT_SPAN],
+  [SWATH[1][0] + LNG_SPAN, SWATH[1][1] + LAT_SPAN],
+];
 
 export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   UNVERIFIED: 'Pending validation',

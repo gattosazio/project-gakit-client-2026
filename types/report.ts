@@ -72,6 +72,14 @@ export interface ReportListQuery {
   critical?: boolean;
 }
 
+/** A map-picked or geocoded location shared by the report flows. */
+export interface SelectedLocation {
+  lat: number;
+  lng: number;
+  address: string;
+  elevation?: number;
+}
+
 export interface PaginatedReports {
   items: Report[];
   total: number;

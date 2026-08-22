@@ -10,44 +10,45 @@ import {
 import { Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
 
-const REPORT_POLL_INTERVAL_MS = 15_000;
 import * as maplibregl from 'maplibre-gl';
-import {
-  getBackendStatus,
-} from '@/lib/backendStatus';
-import { invalidateApiCache } from '@/lib/apiCache';
-import { getElevation } from '@/lib/elevation';
+
+// Zoom-out floor derived from the Himawari swath: the camera can never go
+// below the zoom at which the full swath fits the current container, so the
+// imagery can never be zoomed past (works on any screen size).
+function setSwathZoomFloor(map: maplibregl.Map) {
+  const fit = map.cameraForBounds(HIMAWARI_IMAGE_BOUNDS);
+  if (fit?.zoom != null) map.setMinZoom(fit.zoom);
+}
+
+import { getBackendStatus } from '@/lib/backend/backendStatus';
+import { getElevation } from '@/lib/map/elevation';
 import {
   HAS_MAPTILER,
-  ILIGAN_REPORT_BOUNDS,
+  MAP_MAX_BOUNDS,
   MAPTILER_STYLE,
   OPENFREEMAP_STYLE,
 } from '@/constants/publicMap';
-import { ILIGAN_CENTER, reverseGeocode } from '@/lib/geoUtils';
+import { ILIGAN_CENTER, reverseGeocode } from '@/lib/map/geoUtils';
+import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
+import { queryFloodHazard, type FloodRiskLevel } from '@/lib/map/floodHazard';
 import {
-  fetchRainfall,
-  buildRainfallGrid,
-  rainfallCellCenterFor,
-  type RainfallAccumulationHours,
-} from '@/lib/rainfall';
-import { himawariFrameTimes, fetchHimawariFrame, himawariFrameURL, HIMAWARI_COORDINATES } from '@/lib/himawari';
-import { queryFloodHazard, type FloodRiskLevel } from '@/lib/floodHazard';
-import {
-  applyRainfallPaint,
-  buildReportPopupHtml,
-  buildReportsGeoJson,
-  buildSelectedGeoJson,
   riskLevelFilter,
   setupOverlayLayers,
   type MapMode,
-} from '@/lib/mapLayers';
-import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
-import type { RainfallGrid } from '@/types/rainfall';
+} from '@/lib/map/overlayLayers';
+import {
+  buildReportPopupHtml,
+  buildReportsGeoJson,
+  buildSelectedGeoJson,
+} from '@/lib/map/reportMarkers';
+import type { DepthCategory, ReportStatus } from '@/types/report';
 import { ReportControls, DataLayerControls, MapModeToggle } from '@/components/map/MapControls';
 import { WeatherChip } from '@/components/map/WeatherChip';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { fetchMapReports } from '@/app/public-view/actions/public.view';
+import { useRainfallLayer } from '@/hooks/useRainfallLayer';
+import { useReportsLayer } from '@/hooks/useReportsLayer';
+import { useHimawariLayer } from '@/hooks/useHimawariLayer';
 
 export interface LocationRiskInfo {
   hazardLevel: FloodRiskLevel | null;
@@ -67,8 +68,7 @@ export interface MapReportToShow {
 export interface PublicMapHandle {
   checkLocation: (location: {
     lat: number;
-    lng: number;
-  }) => Promise<LocationRiskInfo>;
+    lng: number;  }) => Promise<LocationRiskInfo>;
   focusLocation: (location: { lat: number; lng: number }) => void;
   showReport: (report: MapReportToShow) => void;
   getRainfallHours: () => number;
@@ -85,6 +85,7 @@ interface PublicMapProps {
   defaultVisibleReportStatuses?: Partial<Record<ReportStatus, boolean>>;
   enableAddressLookup?: boolean;
   searchOverlayActive?: boolean;
+  weatherExpandedByDefault?: boolean;
   onReady?: () => void;
   onLoadingChange?: (loading: boolean) => void;
 }
@@ -106,6 +107,7 @@ export function PublicMap({
   defaultVisibleReportStatuses,
   enableAddressLookup = true,
   searchOverlayActive = false,
+  weatherExpandedByDefault = false,
   onReady,
   onLoadingChange,
 }: PublicMapProps) {
@@ -117,7 +119,6 @@ export function PublicMap({
   const mapRef = useRef<any>(null);
   const controlsSentinelRef = useRef<HTMLDivElement | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
-  const backendReportsRef = useRef<MapReportFeature[]>([]);
   const visibleReportStatusesRef = useRef<Record<ReportStatus, boolean>>(
     initialVisibleReportStatuses
   );
@@ -130,17 +131,11 @@ export function PublicMap({
   const selectedMarkerRef = useRef<any>(null);
   const pendingInspectRef = useRef<MapReportToShow | null>(null);
   const inspectTargetRef = useRef<MapReportToShow | null>(null);
-  const [backendReports, setBackendReports] = useState<MapReportFeature[]>([]);
-  const [showRainfall, setShowRainfall] = useState(false);
-  const [rainfallObservedAt, setRainfallObservedAt] = useState<string | null>(null);
-  const [rainfallSource, setRainfallSource] = useState<string | null>(null);
-  const [rainfallHours, setRainfallHours] = useState<RainfallAccumulationHours>(1);
   const [mapReady, setMapReady] = useState(false);
 
   // Layer visibility toggles
   const [showFloodHazard, setShowFloodHazard] = useState(false);
-  const [showHimawariIR, setShowHimawariIR] = useState(false);
-  const [himawariOpacity, setHimawariOpacity] = useState(0.5);
+  const [showRainfall, setShowRainfall] = useState(false);
   const [layersOpen, setLayersOpen] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
   );
@@ -157,15 +152,14 @@ export function PublicMap({
   );
   const [mapMode, setMapMode] = useState<MapMode>('2d');
   const layersReadyRef = useRef(false);
-  const loadingReportsRef = useRef(false);
   const onReadyFiredRef = useRef(false);
-  const [isLoadingReports, setIsLoadingReports] = useState(false);
-  const rainfallSourceRef = useRef<RainfallGrid | null>(null);
-  const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const reportPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const rainfallCellsRef = useRef<Map<string, number>>(new Map());
-  const himawariTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const himawariFrameIndexRef = useRef(0);
+
+  // Domain layers (reports / rainfall / Himawari IR) live in dedicated hooks.
+  const reportsLayer = useReportsLayer(mapRef, mapReady);
+  const { backendReports, isLoadingReports, reportsRef, loadMapReports } = reportsLayer;
+  const rainfall = useRainfallLayer(mapRef, showRainfall);
+  const { loadRainfall, lookupPrecip, applyPreloaded, hoursRef } = rainfall;
+  const himawari = useHimawariLayer(mapRef, layersReadyRef);
 
   // Refs mirror toggle state so the style-load handler (which runs on every
   // basemap switch) can read the latest values without re-creating the map.
@@ -177,97 +171,31 @@ export function PublicMap({
     medium: true,
     low: true,
   });
-  const rainfallHoursRef = useRef<RainfallAccumulationHours>(1);
-  const showHimawariIRRef = useRef(false);
 
   useEffect(() => {
     mapModeRef.current = mapMode;
     showFloodHazardRef.current = showFloodHazard;
     showRainfallRef.current = showRainfall;
-    showHimawariIRRef.current = showHimawariIR;
     visibleRiskLevelsRef.current = visibleRiskLevels;
-    rainfallHoursRef.current = rainfallHours;
-  }, [mapMode, showFloodHazard, showRainfall, showHimawariIR, visibleRiskLevels, rainfallHours]);
+  }, [mapMode, showFloodHazard, showRainfall, visibleRiskLevels]);
 
   useEffect(() => {
     onLoadingChange?.(isLoadingReports);
   }, [isLoadingReports, onLoadingChange]);
 
-  const loadMapReports = useCallback(async () => {
-    if (loadingReportsRef.current) return;
-
-    loadingReportsRef.current = true;
-    setIsLoadingReports(true);
-    try {
-      const reports = await fetchMapReports(ILIGAN_REPORT_BOUNDS);
-      setBackendReports(reports.features);
-    } catch (error) {
-      console.error('Failed to load reports from backend', error);
-    } finally {
-      loadingReportsRef.current = false;
-      setIsLoadingReports(false);
-    }
-  }, []);
-
-  const loadRainfall = useCallback(async (hours: RainfallAccumulationHours) => {
-    try {
-      const rainfall = await fetchRainfall(hours);
-      // Drop stale responses if the user switched windows mid-request.
-      if (hours !== rainfallHoursRef.current) return;
-      const grid = buildRainfallGrid(rainfall);
-      rainfallSourceRef.current = grid;
-
-      // Index cells by their exact 0.1-degree center so checkLocation can do an
-      // O(1) lookup instead of scanning every grid feature.
-      const cells = new Map<string, number>();
-      for (const feature of grid.features) {
-        const ring = feature.geometry.coordinates[0];
-        const cellLng = Math.round(((ring[0][0] + ring[2][0]) / 2) * 100) / 100;
-        const cellLat = Math.round(((ring[0][1] + ring[2][1]) / 2) * 100) / 100;
-        cells.set(`${cellLng},${cellLat}`, feature.properties.precip_mm);
-      }
-      rainfallCellsRef.current = cells;
-
-      const map = mapRef.current;
-      const source = map?.getSource?.('rainfall');
-      if (source) source.setData(grid);
-      applyRainfallPaint(map, hours);
-      setRainfallObservedAt(rainfall.properties.observedAt);
-      setRainfallSource(rainfall.properties.source ?? null);
-    } catch (error) {
-      console.error('Failed to load near real-time rainfall', error);
-    }
-  }, []);
-
   // Looks up the flood hazard level and precipitation at a coordinate. Hazard
   // comes from the PMTiles archive directly (viewport-independent); rain comes
-  // from the in-memory GSMaP grid, reported as mm over the selected
-  // accumulation window. Fetches rainfall on-demand if the grid is empty
-  // (e.g. the rainfall layer was never enabled).
+  // from the in-memory GSMaP grid via the rainfall hook (which lazily loads it
+  // if the layer was never enabled).
   const checkLocation = useCallback(
     async (location: { lat: number; lng: number }): Promise<LocationRiskInfo> => {
       const { lat, lng } = location;
 
-      let precipMm: number | null = null;
-      let cells = rainfallCellsRef.current;
-      if (cells.size === 0) {
-        await loadRainfall(rainfallHoursRef.current);
-        cells = rainfallCellsRef.current;
-      }
-      if (cells.size > 0) {
-        // Cells sit on a regular 0.1-degree grid centered at *.05 offsets, so
-        // the cell containing the point is found by rounding to its center.
-        // Report only that cell's value so the modal always matches what is
-        // painted on the map (dry cells are absent and show "No data").
-        const cellLng = Math.round(rainfallCellCenterFor(lng) * 100) / 100;
-        const cellLat = Math.round(rainfallCellCenterFor(lat) * 100) / 100;
-        precipMm = cells.get(`${cellLng},${cellLat}`) ?? null;
-      }
-
+      const precipMm = await lookupPrecip(lat, lng);
       const hazardLevel = await queryFloodHazard(lat, lng);
       return { hazardLevel, precipMm };
     },
-    [loadRainfall]
+    [lookupPrecip]
   );
 
   const focusLocation = useCallback((location: { lat: number; lng: number }) => {
@@ -366,17 +294,14 @@ export function PublicMap({
         checkLocation,
         focusLocation,
         showReport,
-        getRainfallHours: () => rainfallHours,
-        refreshReports: () => {
-          invalidateApiCache('/api/v1/reports/map');
-          void loadMapReports();
-        },
+        getRainfallHours: () => rainfall.rainfallHours,
+        refreshReports: reportsLayer.invalidateAndReload,
       };
       return () => {
         mapApiRef.current = null;
       };
     }
-  }, [mapApiRef, checkLocation, focusLocation, showReport, rainfallHours, loadMapReports]);
+  }, [mapApiRef, checkLocation, focusLocation, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload]);
 
   // Applies an inspect requested before the map finished loading.
   useEffect(() => {
@@ -391,7 +316,6 @@ export function PublicMap({
     return () => {
       if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
       if (moveendTimerRef.current) clearTimeout(moveendTimerRef.current);
-      if (rainfallTimerRef.current) clearInterval(rainfallTimerRef.current);
       abortControllerRef.current?.abort();
     };
   }, []);
@@ -461,10 +385,9 @@ export function PublicMap({
   // Keep refs in sync so stable callbacks can read the latest data without
   // forcing the map-setup effect to re-run.
   useEffect(() => {
-    backendReportsRef.current = backendReports;
     visibleReportStatusesRef.current = visibleReportStatuses;
     selectedLocationRef.current = selectedLocation;
-  }, [backendReports, selectedLocation, visibleReportStatuses]);
+  }, [selectedLocation, visibleReportStatuses]);
 
   useEffect(() => {
     handleLocationSelectRef.current = handleLocationSelect;
@@ -488,12 +411,12 @@ export function PublicMap({
     if (reportsSource) {
       reportsSource.setData(
         buildReportsGeoJson(
-          backendReportsRef.current,
+          reportsRef.current,
           visibleReportStatusesRef.current
         )
       );
     }
-  }, []);
+  }, [reportsRef]);
 
   const applySelectedMarker = useCallback(
     (map: any) => {
@@ -599,10 +522,10 @@ export function PublicMap({
         await setupOverlayLayers(map, maplibregl, {
           showFloodHazard: showFloodHazardRef.current,
           showRainfall: showRainfallRef.current,
-          showHimawariIR: showHimawariIRRef.current,
+          showHimawariIR: himawari.visibleRef.current,
           visibleRiskLevels: visibleRiskLevelsRef.current,
           mapMode: mapModeRef.current,
-          rainfallHours: rainfallHoursRef.current,
+          rainfallHours: hoursRef.current,
         });
 
         layersReadyRef.current = true;
@@ -621,15 +544,12 @@ export function PublicMap({
         }
 
         // Apply rainfall data that was fetched before the map finished loading.
-        if (rainfallSourceRef.current) {
-          map.getSource('rainfall')?.setData(rainfallSourceRef.current);
-          applyRainfallPaint(map, rainfallHoursRef.current);
-        }
+        applyPreloaded(map);
       })();
 
       void loadMapReports();
     },
-    [applyReportData, applySelectedMarker, attachLayerEvents, loadMapReports, onReady]
+    [applyReportData, applySelectedMarker, attachLayerEvents, loadMapReports, onReady, himawari.visibleRef, applyPreloaded, hoursRef]
   );
 
   const onMapLoad = useCallback(() => {
@@ -671,103 +591,6 @@ export function PublicMap({
     }
   }, [selectedLocation, applySelectedMarker]);
 
-  // Fetch near real-time rainfall when the layer is enabled, then refresh on the
-  // same cadence as the server-side cache (10 minutes). Re-runs when the
-  // accumulation window changes so the grid reflects the selected window.
-  useEffect(() => {
-    if (!showRainfall) {
-      if (rainfallTimerRef.current) {
-        clearInterval(rainfallTimerRef.current);
-        rainfallTimerRef.current = null;
-      }
-      return;
-    }
-
-    void loadRainfall(rainfallHours);
-    rainfallTimerRef.current = setInterval(() => {
-      void loadRainfall(rainfallHours);
-    }, 10 * 60 * 1000);
-
-    return () => {
-      if (rainfallTimerRef.current) {
-        clearInterval(rainfallTimerRef.current);
-        rainfallTimerRef.current = null;
-      }
-    };
-  }, [showRainfall, rainfallHours, loadRainfall]);
-
-  // Himawari IR satellite loop — cycles through the last 2 hours of IR frames.
-  useEffect(() => {
-    if (!showHimawariIR) {
-      if (himawariTimerRef.current) {
-        clearInterval(himawariTimerRef.current);
-        himawariTimerRef.current = null;
-      }
-      return;
-    }
-
-    const frames = himawariFrameTimes(12);
-    himawariFrameIndexRef.current = 0;
-
-    const advance = async () => {
-      const map = mapRef.current;
-      if (!map) return;
-      const idx = himawariFrameIndexRef.current % frames.length;
-      const time = frames[idx];
-      try {
-        const img = await fetchHimawariFrame(time);
-        const src = map.getSource('himawari-ir') as any;
-        if (src) {
-          src.updateImage({ image: img, coordinates: HIMAWARI_COORDINATES });
-        }
-      } catch {
-        // frame unavailable — skip
-      }
-      himawariFrameIndexRef.current++;
-    };
-
-    void advance();
-    himawariTimerRef.current = setInterval(() => void advance(), 500);
-
-    return () => {
-      if (himawariTimerRef.current) {
-        clearInterval(himawariTimerRef.current);
-        himawariTimerRef.current = null;
-      }
-    };
-  }, [showHimawariIR]);
-
-  // Periodically refresh map pins so new reports appear even when the user is
-  // not panning/zooming. Pauses when the tab is hidden to avoid wasted requests.
-  useEffect(() => {
-    if (!mapReady) return;
-
-    const poll = () => {
-      if (getBackendStatus() !== 'warming') void loadMapReports();
-    };
-
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        poll();
-        reportPollTimerRef.current = setInterval(poll, REPORT_POLL_INTERVAL_MS);
-      } else if (reportPollTimerRef.current) {
-        clearInterval(reportPollTimerRef.current);
-        reportPollTimerRef.current = null;
-      }
-    };
-
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    onVisibilityChange();
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      if (reportPollTimerRef.current) {
-        clearInterval(reportPollTimerRef.current);
-        reportPollTimerRef.current = null;
-      }
-    };
-  }, [mapReady, loadMapReports]);
-
   useEffect(() => {
     if (!mapContainer.current || !maplibregl) return;
 
@@ -775,7 +598,7 @@ export function PublicMap({
     // to a local file:// path, which breaks maplibre's worker URL resolution and
     // results in a silently failing worker (blank map, no tiles). Serve the
     // worker from /public and point maplibre at it explicitly.
-    maplibregl.setWorkerUrl('/maplibre-gl-worker.mjs');
+    maplibregl.setWorkerUrl('/vendor/maplibre-gl/maplibre-gl-worker.mjs');
 
     // Start with the 2D OpenFreeMap basemap (no API key required). The 3D
     // MapTiler view is applied later via map.setStyle in handleModeChange.
@@ -784,23 +607,27 @@ export function PublicMap({
       style: OPENFREEMAP_STYLE,
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 12,
-      minZoom: 4,
       maxZoom: 18,
-      maxBounds: [100, 0, 145, 25],
+      maxBounds: MAP_MAX_BOUNDS,
       renderWorldCopies: false,
       // Tiles pop in instead of slowly cross-fading, which reads much better on
       // a slow network where the initial tiles arrive late.
       fadeDuration: 0,
       attributionControl: hideAttribution ? false : undefined,
     });
+    setSwathZoomFloor(map);
 
     mapRef.current = map;
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
 
     // Keep the map sized correctly when its container changes (e.g. when the
     // tab wrapper toggles display, or layout shifts). Prevents a stale/blank
-    // canvas after the map is revealed from a hidden state.
-    const resizeObserver = new ResizeObserver(() => map.resize());
+    // canvas after the map is revealed from a hidden state. The swath-derived
+    // zoom floor is recomputed too, since it depends on container size.
+    const resizeObserver = new ResizeObserver(() => {
+      map.resize();
+      setSwathZoomFloor(map);
+    });
     if (mapContainer.current) resizeObserver.observe(mapContainer.current);
 
     // 'style.load' fires on initial style load and again after every basemap
@@ -817,13 +644,13 @@ export function PublicMap({
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
         window.requestIdleCallback(
           () => {
-            if (mapRef.current === map) void loadRainfall(rainfallHoursRef.current);
+            if (mapRef.current === map) void loadRainfall();
           },
           { timeout: 5000 }
         );
       } else {
         setTimeout(() => {
-          if (mapRef.current === map) void loadRainfall(rainfallHoursRef.current);
+          if (mapRef.current === map) void loadRainfall();
         }, 1000);
       }
     });
@@ -900,7 +727,7 @@ export function PublicMap({
       ['flood-hazard-fill', showFloodHazard],
       ['flood-hazard-outline', showFloodHazard],
       ['rainfall-grid', showRainfall],
-      ['himawari-ir-layer', showHimawariIR],
+      ['himawari-ir-layer', himawari.showHimawariIR],
     ];
 
     layers.forEach(([id, visible]) => {
@@ -912,16 +739,7 @@ export function PublicMap({
     const filter = riskLevelFilter(visibleRiskLevels);
     map.setFilter('flood-hazard-fill', filter);
     map.setFilter('flood-hazard-outline', filter);
-  }, [showFloodHazard, showRainfall, showHimawariIR, visibleRiskLevels]);
-
-  // Update Himawari IR opacity
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !layersReadyRef.current) return;
-    if (map.getLayer('himawari-ir-layer')) {
-      map.setPaintProperty('himawari-ir-layer', 'raster-opacity', himawariOpacity);
-    }
-  }, [himawariOpacity]);
+  }, [showFloodHazard, showRainfall, himawari.showHimawariIR, visibleRiskLevels]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
@@ -935,7 +753,8 @@ export function PublicMap({
       />
 
       <WeatherChip
-        className={`absolute right-4 md:right-6 z-[1000] flex transition-[top] duration-200 ${
+        defaultExpanded={weatherExpandedByDefault}
+        className={`absolute right-4 md:right-6 z-[1001] flex transition-[top] duration-200 ${
           searchOverlayActive ? 'top-[4.5rem]' : 'top-4'
         } md:top-[3.25rem]`}
       />
@@ -943,7 +762,7 @@ export function PublicMap({
       <div
         className={`absolute right-4 md:right-6 z-[1000] flex flex-col items-end gap-3 transition-opacity duration-200 ${
           hideShareLocation ? 'bottom-10 md:bottom-8' : 'bottom-28 md:bottom-10'
-        } ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        } ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'} max-h-[62%] overflow-y-auto overscroll-contain pr-0.5`}
       >
         <ReportControls
           open={reportsOpen}
@@ -962,14 +781,14 @@ export function PublicMap({
           onShowFloodHazardChange={setShowFloodHazard}
           showRainfall={showRainfall}
           onShowRainfallChange={setShowRainfall}
-          rainfallObservedAt={rainfallObservedAt}
-          rainfallSource={rainfallSource}
-          rainfallHours={rainfallHours}
-          onRainfallHoursChange={setRainfallHours}
-          showHimawariIR={showHimawariIR}
-          onShowHimawariIRChange={setShowHimawariIR}
-          himawariOpacity={himawariOpacity}
-          onHimawariOpacityChange={setHimawariOpacity}
+          rainfallObservedAt={rainfall.rainfallObservedAt}
+          rainfallSource={rainfall.rainfallSource}
+          rainfallHours={rainfall.rainfallHours}
+          onRainfallHoursChange={rainfall.setRainfallHours}
+          showHimawariIR={himawari.showHimawariIR}
+          onShowHimawariIRChange={himawari.toggleHimawariIR}
+          himawariOpacity={himawari.opacity}
+          onHimawariOpacityChange={himawari.setOpacity}
           visibleRiskLevels={visibleRiskLevels}
           onRiskLevelChange={(key, checked) =>
             setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))

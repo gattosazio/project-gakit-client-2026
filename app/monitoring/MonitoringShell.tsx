@@ -6,7 +6,7 @@ import { AdminHeader } from '@/components/AdminHeader';
 import { SideBar } from '@/components/SideBar';
 import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import type { WeatherAlert } from '@/types/weather';
-import type { PortalNavItem } from '@/components/portalTypes';
+import type { PortalNavItem } from '@/types/portal';
 import { DashboardOverview } from './features/dashboard/DashboardOverview';
 import { AlertsTab } from './features/alerts/AlertsTab';
 import { monitoringFeatureMap, monitoringFeatures, type MonitoringFeatureId } from './features/monitoringFeatureConfig';

@@ -1,4 +1,4 @@
-import { cachedGet } from '@/lib/apiCache';
+import { cachedGet } from '@/lib/backend/apiCache';
 import type { WeatherAlert, WeatherAlertHistoryResponse } from '@/types/weather';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';

@@ -1,62 +1,29 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import type { FormEvent } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
-import { ReportModal } from './ReportModal';
-import { Building2, CheckCircle2, ChevronDown, ChevronUp, Handshake, Loader2, Mail, MapPin, Navigation, Search } from 'lucide-react';
+import { ReportModal } from '@/components/ReportModal';
+import { Building2, Handshake, Loader2, Mail, MapPin } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth } from './actions/public.view';
-import { getBackendStatus } from '@/lib/backendStatus';
-import { reverseGeocode, searchLocations } from '@/lib/geoUtils';
-import type { LocationSearchResult } from '@/lib/geoUtils';
+import { reverseGeocode } from '@/lib/map/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type { CreateReportInput, DepthCategory, Report, ReportStatus } from '@/types/report';
+import { SectionJumpControls } from './components/SectionJumpControls';
+import { LocationSearch } from './components/LocationSearch';
+import {
+  LocationPromptModal,
+  type SelectedLocation,
+} from './components/LocationPromptModal';
+import {
+  SuccessModal,
+  type SubmittedReport,
+} from './components/SuccessModal';
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
   ssr: false,
-});
-
-interface SelectedLocation {
-  lat: number;
-  lng: number;
-  address: string;
-}
-
-interface SubmittedReport {
-  id: string;
-  location: SelectedLocation;
-  depth: DepthCategory;
-  status: ReportStatus;
-  submittedAt: string;
-}
-
-const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
-  UNVERIFIED: 'Pending validation',
-  VERIFIED: 'Verified',
-  ANOMALY: 'Flagged for review',
-  REJECTED: 'Rejected',
-};
-
-const formatApproximateDepth = (depth: DepthCategory) =>
-  depth.code === 'overhead'
-    ? `approximately ${depth.approximateCm} cm or deeper`
-    : `approximately ${depth.approximateCm} cm`;
-
-const toSubmittedReport = (report: Report): SubmittedReport => ({
-  id: report.id,
-  location: {
-    lat: report.location.latitude,
-    lng: report.location.longitude,
-    address:
-      report.location.address ??
-      `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`,
-  },
-  depth: report.depth,
-  status: report.status,
-  submittedAt: new Date(report.createdAt).toLocaleString(),
 });
 
 // Home comes first in the DOM, but the map is scrolled to on load so it opens first
@@ -236,7 +203,7 @@ export function PublicViewPage() {
   }): Promise<void> => {
     const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
 
-    const report = await createReport({
+    const report: Report = await createReport({
       location: {
         latitude: data.location.lat,
         longitude: data.location.lng,
@@ -245,7 +212,7 @@ export function PublicViewPage() {
       depth: data.depth,
     });
 
-    const submittedReport: SubmittedReport = {
+    setLastSubmittedReport({
       id: report.id,
       location: {
         lat: report.location.latitude,
@@ -255,9 +222,8 @@ export function PublicViewPage() {
       depth: report.depth,
       status: report.status,
       submittedAt: new Date(report.createdAt).toLocaleString(),
-    };
+    });
 
-    setLastSubmittedReport(submittedReport);
     mapRef.current?.refreshReports();
   };
 
@@ -295,6 +261,7 @@ export function PublicViewPage() {
                 reportStatusToggleStatuses={['UNVERIFIED', 'VERIFIED']}
                 defaultVisibleReportStatuses={{ ANOMALY: false, REJECTED: false }}
                 searchOverlayActive={isManualLocationMode}
+                weatherExpandedByDefault
               />
 
               <LocationPromptModal
@@ -429,295 +396,5 @@ export function PublicViewPage() {
   );
 }
 
-function SectionJumpControls({
-  showUp,
-  showDown,
-  onMoveUp,
-  onMoveDown,
-}: {
-  showUp: boolean;
-  showDown: boolean;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
-}) {
-  return (
-    <>
-      {showUp && (
-        <button
-          type="button"
-          onClick={onMoveUp}
-          className="fixed left-1/2 top-20 z-[1100] flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-slate-500/50 bg-slate-700/30 text-white shadow-lg backdrop-blur-sm transition-transform hover:-translate-y-0.5 hover:bg-slate-700/50"
-          aria-label="Move to previous section"
-        >
-          <ChevronUp className="h-5 w-5" />
-        </button>
-      )}
-
-      {showDown && (
-        <button
-          type="button"
-          onClick={onMoveDown}
-          className="fixed left-1/2 bottom-4 z-[1250] hidden h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-slate-500/50 bg-slate-700/30 text-white shadow-lg backdrop-blur-sm transition-transform hover:translate-y-0.5 hover:bg-slate-700/50 md:flex"
-          aria-label="Move to next section"
-        >
-          <ChevronDown className="h-5 w-5" />
-        </button>
-      )}
-    </>
-  );
-}
-
-function LocationSearch({
-  onSelect,
-}: {
-  onSelect: (location: SelectedLocation) => void;
-}) {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-  const searchAbortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    return () => searchAbortRef.current?.abort();
-  }, []);
-
-  const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const query = searchQuery.trim();
-    if (query.length < 2) {
-      setSearchError('Enter at least 2 characters.');
-      return;
-    }
-
-    searchAbortRef.current?.abort();
-    const controller = new AbortController();
-    searchAbortRef.current = controller;
-    setIsSearching(true);
-    setSearchError(null);
-    setSearchResults([]);
-
-    try {
-      const results = await searchLocations(query, controller.signal);
-      if (controller.signal.aborted) return;
-
-      setSearchResults(results);
-      if (results.length === 0) {
-        setSearchError('No matching locations found within Iligan City.');
-      }
-    } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') return;
-      setSearchError(
-        error instanceof Error
-          ? error.message
-          : 'Unable to search for that location.'
-      );
-    } finally {
-      if (searchAbortRef.current === controller) {
-        setIsSearching(false);
-      }
-    }
-  };
-
-  return (
-    <div className="rounded-xl bg-white/90 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur-sm">
-      <form onSubmit={handleSearch} className="flex items-center gap-1.5">
-        <label className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 transition-shadow focus-within:ring-2 focus-within:ring-gakit-maroon/40">
-          <Search className="h-4 w-4 shrink-0 text-slate-400" />
-          <input
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.target.value);
-              setSearchResults([]);
-              setSearchError(null);
-            }}
-            placeholder="Search street, barangay, or landmark"
-            className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-            aria-label="Search for a location in Iligan City"
-          />
-          {isSearching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gakit-maroon" />}
-        </label>
-        <button
-          type="submit"
-          disabled={isSearching}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gakit-maroon text-white shadow-sm transition-colors hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-60"
-          aria-label="Search location"
-        >
-          <Search className="h-4 w-4" />
-        </button>
-      </form>
-
-      {searchError && (
-        <p className="px-3 pb-1 pt-1.5 text-xs text-red-600" role="status">
-          {searchError}
-        </p>
-      )}
-
-      {searchResults.length > 0 && (
-        <div className="mt-1.5 max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
-          {searchResults.map((result) => (
-            <button
-              key={`${result.lat}-${result.lng}`}
-              type="button"
-              onClick={() =>
-                onSelect({
-                  lat: result.lat,
-                  lng: result.lng,
-                  address: result.displayName,
-                })
-              }
-              className="flex w-full items-start gap-2.5 px-3 py-3 text-left transition-colors hover:bg-maroon-50"
-            >
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gakit-maroon" />
-              <span className="text-sm text-slate-700">
-                {result.displayName}
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function LocationPromptModal({
-  isOpen,
-  onClose,
-  onUseCurrentLocation,
-  onChooseLocation,
-  onSearchLocationSelect,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  onUseCurrentLocation: () => void;
-  onChooseLocation: () => void;
-  onSearchLocationSelect: (location: SelectedLocation) => void;
-}) {
-  if (!isOpen) return null;
-
-  return (
-    <div className="absolute inset-0 z-[1300] bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
-        <div className="p-5 space-y-3">
-          <div>
-            <div className="mb-2 text-sm font-semibold text-slate-900">
-              Search for a location
-            </div>
-            <LocationSearch onSelect={onSearchLocationSelect} />
-          </div>
-
-          <div className="flex items-center gap-3 py-1">
-            <div className="h-px flex-1 bg-canvas-grey" />
-            <span className="text-xs font-medium text-slate-500">
-              or choose another way
-            </span>
-            <div className="h-px flex-1 bg-canvas-grey" />
-          </div>
-
-          <button
-            onClick={onUseCurrentLocation}
-            className="w-full p-4 rounded-lg border-2 border-gakit-maroon bg-maroon-50 text-left hover:bg-maroon-100 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <Navigation className="w-5 h-5 text-gakit-maroon" />
-              <div>
-                <div className="font-semibold text-slate-900">Use my current location</div>
-                <div className="text-xs text-slate-600">Turn on location access and continue.</div>
-              </div>
-            </div>
-          </button>
-
-          <button
-            onClick={onChooseLocation}
-            className="w-full p-4 rounded-lg border-2 border-canvas-grey text-left hover:border-gakit-maroon hover:bg-maroon-50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-gakit-maroon" />
-              <div>
-                <div className="font-semibold text-slate-900">Choose on the map</div>
-                <div className="text-xs text-slate-600">Tap the flooded location manually.</div>
-              </div>
-            </div>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SuccessModal({
-  isOpen,
-  report,
-  onClose,
-  onViewMap,
-  onSubmitAnother,
-}: {
-  isOpen: boolean;
-  report: SubmittedReport | null;
-  onClose: () => void;
-  onViewMap: () => void;
-  onSubmitAnother: () => void;
-}) {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-[1300] bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center">
-        <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-          <CheckCircle2 className="w-7 h-7 text-green-600" />
-        </div>
-        <h2 className="text-xl font-bold text-slate-900 mt-4">Report submitted</h2>
-        <p className="text-sm text-slate-600 mt-2">
-          Thank you. Your report has been added as unverified and will be reviewed with other flood data.
-        </p>
-
-        {report && (
-          <div className="mt-5 text-left rounded-lg border border-canvas-grey bg-canvas-light p-4 space-y-3">
-            <div>
-              <div className="text-xs font-semibold text-slate-500">Reference ID</div>
-              <div className="text-sm font-semibold text-slate-900">{report.id}</div>
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-slate-500">Location</div>
-              <div className="text-sm text-slate-900">{report.location.address}</div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs font-semibold text-slate-500">Flood depth</div>
-                <div className="text-sm text-slate-900">
-                  {report.depth.label} ({formatApproximateDepth(report.depth)})
-                </div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-slate-500">Status</div>
-                <div className="text-sm font-semibold text-hazard-pending">
-                  {REPORT_STATUS_LABELS[report.status]}
-                </div>
-              </div>
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-slate-500">Submitted</div>
-              <div className="text-sm text-slate-900">{report.submittedAt}</div>
-            </div>
-          </div>
-        )}
-
-        <div className="mt-6 grid grid-cols-2 gap-3">
-          <button
-            onClick={onViewMap}
-            className="py-3 px-4 rounded-lg font-semibold bg-gakit-maroon hover:bg-maroon-800 text-white transition-colors"
-          >
-            View on Map
-          </button>
-          <button
-            onClick={onSubmitAnother}
-            className="py-3 px-4 rounded-lg font-semibold border border-canvas-grey text-slate-700 hover:bg-canvas-light transition-colors"
-          >
-            Submit Another
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// Re-exported for consumers that previously imported these from this module.
+export type { SelectedLocation } from './components/LocationPromptModal';

@@ -7,7 +7,7 @@ import Image from 'next/image';
 import { Loader2, LogOut, Map, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, type StaffRole } from '@/lib/auth/roles';
-import { PortalNavItem } from './portalTypes';
+import { PortalNavItem } from '@/types/portal';
 import { useRouteLoader } from './RouteLoader';
 
 interface SideBarProps<T extends string> {

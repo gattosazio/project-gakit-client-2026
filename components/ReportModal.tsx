@@ -3,42 +3,91 @@
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, CloudRain, Loader2, MapPin, Mountain, X } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { listDepthCategories } from './actions/public.view';
-import { getElevation } from '@/lib/elevation';
-import type { FloodDepth, FloodDepthCategory } from './actions/public.view';
+import { listDepthCategories } from '@/app/public-view/actions/public.view';
+import { getElevation } from '@/lib/map/elevation';
+import type { FloodDepth, FloodDepthCategory } from '@/app/public-view/actions/public.view';
 import type { LocationRiskInfo } from '@/components/PublicMap';
 
 type ReportStep = 'confirm' | 'depth';
 
-const DEPTH_PRESENTATION: Record<
-  FloodDepth,
-  { localLabel: string; description: string; waterLevel: number }
-> = {
-  ankle: {
-    localLabel: 'Abot-bukong-bukong',
+interface DepthChoice {
+  id: FloodDepth;
+  label: string;
+  description: string;
+  range: string;
+  waterLevel: number;
+  selectedColor: string;
+  unselectedHoverColor: string;
+  textClass: string;
+  waterFill: string;
+}
+
+// Single source of truth for the depth picker — labels are bilingual
+// (Filipino + English) and ranges match the server's depth categories.
+const DEPTH_CHOICES: DepthChoice[] = [
+  {
+    id: 'ankle',
+    label: 'Abot-bukong-bukong (Ankle Deep)',
     description: 'Pantay sa bukong-bukong ang tubig.',
+    range: '10–20 cm (0′3″–0′7″)',
     waterLevel: 0.1,
+    selectedColor: 'border-sky-500 bg-sky-50',
+    unselectedHoverColor: 'sky',
+    textClass: 'text-sky-600',
+    waterFill: '#3b82f6',
   },
-  knee: {
-    localLabel: 'Abot-tuhod',
+  {
+    id: 'knee',
+    label: 'Abot-tuhod (Knee Deep)',
     description: 'Pantay sa tuhod ang tubig.',
+    range: '45–55 cm (1′5″–1′8″)',
     waterLevel: 0.33,
+    selectedColor: 'border-cyan-500 bg-cyan-50',
+    unselectedHoverColor: 'cyan',
+    textClass: 'text-cyan-600',
+    waterFill: '#3b82f6',
   },
-  waist: {
-    localLabel: 'Abot-baywang',
+  {
+    id: 'waist',
+    label: 'Abot-baywang (Waist Deep)',
     description: 'Pantay sa baywang ang tubig.',
+    range: '80–100 cm (2′6″–3′3″)',
     waterLevel: 0.58,
+    selectedColor: 'border-amber-500 bg-amber-50',
+    unselectedHoverColor: 'amber',
+    textClass: 'text-amber-600',
+    waterFill: '#3b82f6',
   },
-  head: {
-    localLabel: 'Abot-ulo',
+  {
+    id: 'head',
+    label: 'Abot-ulo (Head Deep)',
     description: 'Pantay sa ulo ang tubig.',
+    range: '155–163 cm (5′1″–5′4″)',
     waterLevel: 0.78,
+    selectedColor: 'border-orange-500 bg-orange-50',
+    unselectedHoverColor: 'orange',
+    textClass: 'text-orange-600',
+    waterFill: '#3b82f6',
   },
-  overhead: {
-    localLabel: 'Lampas-tao',
+  {
+    id: 'overhead',
+    label: 'Lampas-tao (Overhead)',
     description: 'Lampas tao ang tubig.',
-    waterLevel: 1,
+    range: '164+ cm (5′4″+)',
+    waterLevel: 1.0,
+    selectedColor: 'border-red-600 bg-red-50',
+    unselectedHoverColor: 'red',
+    textClass: 'text-red-600',
+    waterFill: '#7f1d1d',
   },
+];
+
+const HOVER_BORDER: Record<string, string> = {
+  sky: 'hover:border-sky-300',
+  cyan: 'hover:border-cyan-300',
+  amber: 'hover:border-amber-300',
+  orange: 'hover:border-orange-300',
+  red: 'hover:border-red-300',
 };
 
 interface ReportModalProps {
@@ -348,59 +397,15 @@ export function ReportModal({
                 Gaano kalalim ang baha sa lokasyong ito?
               </label>
               <div className="space-y-3">
-                {[
-                  {
-                    id: 'ankle',
-                    label: 'Abot-bukong-bukong (Ankle Deep)',
-                    description: 'Pantay sa bukong-bukong ang tubig.',
-                    depth: '10–20 cm (0′3″–0′7″)',
-                    waterLevel: 0.1,
-                  },
-                  {
-                    id: 'knee',
-                    label: 'Abot-tuhod (Knee Deep)',
-                    description: 'Pantay sa tuhod ang tubig.',
-                    depth: '45–55 cm (1′5″–1′8″)',
-                    waterLevel: 0.33,
-                  },
-                  {
-                    id: 'waist',
-                    label: 'Abot-baywang (Waist Deep)',
-                    description: 'Pantay sa baywang ang tubig.',
-                    depth: '80–100 cm (2′6″–3′3″)',
-                    waterLevel: 0.58,
-                  },
-                  {
-                    id: 'head',
-                    label: 'Abot-ulo (Head Deep)',
-                    description: 'Pantay sa ulo ang tubig.',
-                    depth: '155–163 cm (5′1″–5′4″)',
-                    waterLevel: 0.78,
-                  },
-                  {
-                    id: 'overhead',
-                    label: 'Lampas-tao (Overhead)',
-                    description: 'Lampas tao ang tubig.',
-                    depth: '164+ cm (5′4″+)',
-                    waterLevel: 1.0,
-                  },
-                ].map((depth) => {
-                  const DEPTH_COLORS: Record<string, { selected: string; unselected: string }> = {
-                    ankle: { selected: 'border-sky-500 bg-sky-50', unselected: 'border-canvas-grey hover:border-sky-300 bg-white' },
-                    knee: { selected: 'border-cyan-500 bg-cyan-50', unselected: 'border-canvas-grey hover:border-cyan-300 bg-white' },
-                    waist: { selected: 'border-amber-500 bg-amber-50', unselected: 'border-canvas-grey hover:border-amber-300 bg-white' },
-                    head: { selected: 'border-orange-500 bg-orange-50', unselected: 'border-canvas-grey hover:border-orange-300 bg-white' },
-                    overhead: { selected: 'border-red-600 bg-red-50', unselected: 'border-canvas-grey hover:border-red-300 bg-white' },
-                  };
-                  const colors = DEPTH_COLORS[depth.id];
+                {DEPTH_CHOICES.map((depth) => {
                   return (
                   <button
                     key={depth.id}
-                    onClick={() => setSelectedDepth(depth.id as FloodDepth)}
-                    className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                    onClick={() => setSelectedDepth(depth.id)}
+                    className={`w-full p-4 rounded-lg border-2 transition-all text-left bg-white ${
                       selectedDepth === depth.id
-                        ? colors.selected
-                        : colors.unselected
+                        ? depth.selectedColor
+                        : `border-canvas-grey ${HOVER_BORDER[depth.unselectedHoverColor]}`
                     }`}
                   >
                     <div className="flex items-center gap-4">
@@ -420,7 +425,7 @@ export function ReportModal({
                             y="0"
                             width="40"
                             height="64"
-                            fill={depth.id === 'overhead' ? '#7f1d1d' : '#3b82f6'}
+                            fill={depth.waterFill}
                             opacity="0.4"
                             clipPath={`url(#water-${depth.id})`}
                           />
@@ -433,14 +438,8 @@ export function ReportModal({
                         <div className="text-xs text-slate-600 mt-1">
                           {depth.description}
                         </div>
-                        <div className={`text-xs font-bold mt-1 ${
-                          depth.id === 'ankle' ? 'text-sky-600'
-                          : depth.id === 'knee' ? 'text-cyan-600'
-                          : depth.id === 'waist' ? 'text-amber-600'
-                          : depth.id === 'head' ? 'text-orange-600'
-                          : 'text-red-600'
-                        }`}>
-                          {depth.depth}
+                        <div className={`text-xs font-bold mt-1 ${depth.textClass}`}>
+                          {depth.range}
                         </div>
                       </div>
                     </div>
@@ -450,66 +449,6 @@ export function ReportModal({
               </div>
             </div>
           )}
-
-          {/* {step === 'photo' && (
-            <div>
-              <label className="block text-sm font-semibold text-slate-900 mb-3">
-                Photo or Image (Optional)
-              </label>
-
-              {previewUrl ? (
-                <div className="space-y-3">
-                  <div className="relative rounded-lg overflow-hidden bg-canvas-light border-2 border-gakit-maroon">
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="w-full h-auto max-h-48 object-cover"
-                    />
-                  </div>
-                  <button
-                    onClick={removeImage}
-                    className="w-full py-2 px-4 rounded-lg text-sm font-medium text-slate-700 bg-canvas-grey hover:bg-canvas-grey/80 transition-colors"
-                  >
-                    Remove Image
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <button
-                    onClick={() => cameraInputRef.current?.click()}
-                    className="w-full p-4 rounded-lg border-2 border-dashed border-canvas-grey hover:border-gakit-maroon hover:bg-maroon-50 transition-all flex items-center justify-center gap-2 text-slate-600 hover:text-gakit-maroon"
-                  >
-                    <Camera className="w-5 h-5" />
-                    <span className="text-sm font-medium">Take a Photo</span>
-                  </button>
-
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full p-4 rounded-lg border-2 border-dashed border-canvas-grey hover:border-gakit-maroon hover:bg-maroon-50 transition-all flex items-center justify-center gap-2 text-slate-600 hover:text-gakit-maroon"
-                  >
-                    <Upload className="w-5 h-5" />
-                    <span className="text-sm font-medium">Upload Image</span>
-                  </button>
-
-                  <input
-                    ref={cameraInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handleCameraCapture}
-                    className="hidden"
-                  />
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileInputChange}
-                    className="hidden"
-                  />
-                </div>
-              )}
-            </div>
-          )} */}
         </div>
 
         <div className="p-4 md:p-6 border-t border-canvas-grey bg-canvas-light/50">

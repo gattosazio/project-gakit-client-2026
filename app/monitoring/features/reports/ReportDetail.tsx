@@ -2,7 +2,7 @@
 
 import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle2, ChevronDown, FileImage, X, XCircle } from 'lucide-react';
-import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
+import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reports/reportFormatting';
 import type { Report, ReportStatus } from '@/types/report';
 import { useState, useRef } from 'react';
 

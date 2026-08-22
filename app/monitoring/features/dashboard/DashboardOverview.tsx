@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { fetchReportStats, listReports as fetchReports } from '../reports/actions/reports';
 import type { Report, ReportStats } from '@/types/report';
-import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reportFormatting';
+import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reports/reportFormatting';
 
 const CURRENT_YEAR = String(new Date().getFullYear());
 

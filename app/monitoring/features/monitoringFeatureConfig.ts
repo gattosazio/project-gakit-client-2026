@@ -3,7 +3,7 @@ import {
   LayoutDashboard,
   Table2,
 } from 'lucide-react';
-import { PortalNavItem } from '@/components/portalTypes';
+import { PortalNavItem } from '@/types/portal';
 
 export type MonitoringFeatureId =
   | 'dashboard'

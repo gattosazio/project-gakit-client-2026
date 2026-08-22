@@ -1,5 +1,5 @@
-import { cachedGet, invalidateApiCache } from '@/lib/apiCache';
-import { RateLimitedError } from '@/lib/apiErrors';
+import { cachedGet, invalidateApiCache } from '@/lib/backend/apiCache';
+import { RateLimitedError } from '@/lib/backend/apiErrors';
 import type {
   CreateReportInput,
   FloodDepthCode,

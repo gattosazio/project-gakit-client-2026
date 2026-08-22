@@ -2,7 +2,7 @@
 
 import { CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
 import type { WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
-import { getWeatherCondition } from '@/lib/weatherCodes';
+import { getWeatherCondition } from '@/lib/weather/weatherCodes';
 
 const SEVERITY_CONFIG: Record<
   AlertSeverity,
