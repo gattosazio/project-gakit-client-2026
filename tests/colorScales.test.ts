@@ -3,6 +3,7 @@ import {
   buildRainfallPaintExpression,
   FLOOD_HAZARD_COLORS,
   FLOOD_HAZARD_LEGEND,
+  RAINFALL_BAND_COLORS,
   rainfallBandValues,
   RAINFALL_GRADIENT_CSS,
   RAINFALL_LEGEND_STOPS,
@@ -10,6 +11,11 @@ import {
 } from '@/lib/map/colorScales';
 
 const ACCUMULATION_WINDOWS = [1, 4, 8, 12, 24];
+
+// Official JAXA class bounds (console_notes_rain*_e.png).
+const HOURLY_EDGES = [0.1, 0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 15.0, 20.0, 25.0];
+const ACCUM_EDGES = [0.1, 5, 10, 20, 30, 50, 100, 150, 200, 250];
+const TRANSPARENT_FLOOR = 'rgba(0,0,150,0)';
 
 describe('flood hazard scales', () => {
   it('exposes the three risk levels shared by layers and legend', () => {
@@ -34,10 +40,37 @@ describe('rainfall legends', () => {
     for (const hours of ACCUMULATION_WINDOWS) {
       const first = RAINFALL_PAINT_STOPS[hours][0];
       expect(first.mm).toBe(0);
-      // 1-12h use the blue ramp; 24h uses the viridis ramp.
-      const expected =
-        hours === 24 ? 'rgba(68,1,84,0)' : 'rgba(33,102,172,0)';
-      expect(first.color).toBe(expected);
+      expect(first.color).toBe(TRANSPARENT_FLOOR);
+    }
+  });
+
+  it('uses only the exact JAXA legend colors in every ramp', () => {
+    const palette: string[] = [...RAINFALL_BAND_COLORS];
+    for (const hours of ACCUMULATION_WINDOWS) {
+      for (const { color } of RAINFALL_PAINT_STOPS[hours]) {
+        // No viridis, no blended intermediates: every stop is a palette
+        // entry or the transparent floor.
+        expect(color === TRANSPARENT_FLOOR || palette.includes(color)).toBe(true);
+      }
+    }
+  });
+
+  it('renders the official classes as crisp hold/boundary step pairs', () => {
+    for (const hours of ACCUMULATION_WINDOWS) {
+      const edges = rainfallBandValues(hours);
+      const stops = RAINFALL_PAINT_STOPS[hours];
+      // Layout: [floor, first class], then one hold/edge pair per remaining
+      // class boundary: 2 + 2*(n-1) stops total.
+      expect(stops).toHaveLength(2 + 2 * (edges.length - 1));
+      expect(stops[1]).toEqual({ mm: edges[0], color: RAINFALL_BAND_COLORS[0] });
+      for (let i = 1; i < edges.length; i++) {
+        const hold = stops[2 * i];
+        const edge = stops[2 * i + 1];
+        expect(hold.color).toBe(RAINFALL_BAND_COLORS[i - 1]); // previous class held
+        expect(hold.mm).toBeGreaterThan(edges[i - 1]);
+        expect(hold.mm).toBeLessThan(edges[i]);
+        expect(edge).toEqual({ mm: edges[i], color: RAINFALL_BAND_COLORS[i] });
+      }
     }
   });
 
@@ -50,9 +83,11 @@ describe('rainfall legends', () => {
     }
   });
 
-  it('derives band values by dropping the transparent 0 floor', () => {
-    const stops = RAINFALL_PAINT_STOPS[1];
-    expect(rainfallBandValues(1)).toEqual(stops.slice(1).map((stop) => stop.mm));
+  it('uses the official hourly bounds for 1h and shared accumulative bounds for 4-24h', () => {
+    expect(rainfallBandValues(1)).toEqual(HOURLY_EDGES);
+    for (const hours of [4, 8, 12, 24]) {
+      expect(rainfallBandValues(hours)).toEqual(ACCUM_EDGES);
+    }
   });
 
   it('falls back to the 1-hour window for unknown inputs', () => {
@@ -70,19 +105,27 @@ describe('rainfall legends', () => {
     expect(pairs).toBe(RAINFALL_PAINT_STOPS[24].length);
   });
 
-  it('pins the JAXA official thresholds for the 1-hour window', () => {
-    // From rainfall-contour-legend-1hr.png: Cyan 0-2.5, Blue 2.5-7.5,
-    // Dark Blue 7.5-15, Orange 15-<30, Red >30.
+  it('pins the JAXA official thresholds for the hourly window', () => {
+    // From console_notes_rain_e.png: 0.1/0.5/1/2/3/5/10/15/20/25 mm/hr.
     const mms = RAINFALL_PAINT_STOPS[1].map((stop) => stop.mm);
-    [2.5, 7.5, 15, 30].forEach((threshold) => {
+    HOURLY_EDGES.forEach((threshold) => {
       expect(mms).toContain(threshold);
     });
   });
 
-  it('uses the viridis ramp only for the 24-hour window', () => {
-    expect(RAINFALL_GRADIENT_CSS[24]).toContain('rgba(68,1,84');
-    for (const hours of [1, 4, 8, 12]) {
-      expect(RAINFALL_GRADIENT_CSS[hours]).toContain('rgba(33,102,172,0)');
+  it('shares one hard-edged legend gradient across the multi-hour windows', () => {
+    const gradients = [4, 8, 12, 24].map((hours) => RAINFALL_GRADIENT_CSS[hours]);
+    expect(new Set(gradients).size).toBe(1);
+    // All ten official classes appear as hard segments; no viridis anywhere.
+    for (const color of RAINFALL_BAND_COLORS) {
+      expect(gradients[0]).toContain(color);
+    }
+    expect(gradients[0]).not.toContain('rgba(68,1,84');
+    // Legend swatches use the same palette order on every window.
+    const reference = RAINFALL_LEGEND_STOPS[1].map((stop) => stop.color);
+    expect(reference).toEqual([...RAINFALL_BAND_COLORS]);
+    for (const hours of ACCUMULATION_WINDOWS) {
+      expect(RAINFALL_LEGEND_STOPS[hours].map((stop) => stop.color)).toEqual(reference);
     }
   });
 });
