@@ -18,10 +18,8 @@ build
 .git
 .gitignore
 
-# Source data / local tooling
+# Local data / tooling
 data
-scripts
-ml-service
 tsconfig.tsbuildinfo
 
 # Docker
