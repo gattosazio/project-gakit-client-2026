@@ -725,7 +725,6 @@ export function PublicMap({
 
     const layers: Array<[string, boolean]> = [
       ['flood-hazard-fill', showFloodHazard],
-      ['flood-hazard-outline', showFloodHazard],
       ['rainfall-grid', showRainfall],
       ['himawari-ir-layer', himawari.showHimawariIR],
     ];
@@ -738,7 +737,6 @@ export function PublicMap({
 
     const filter = riskLevelFilter(visibleRiskLevels);
     map.setFilter('flood-hazard-fill', filter);
-    map.setFilter('flood-hazard-outline', filter);
   }, [showFloodHazard, showRainfall, himawari.showHimawariIR, visibleRiskLevels]);
 
   return (

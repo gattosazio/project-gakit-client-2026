@@ -81,25 +81,6 @@ export const setupOverlayLayers = async (
           'fill-opacity': 0.25,
         },
       });
-
-      map.addLayer({
-        id: 'flood-hazard-outline',
-        type: 'line',
-        source: 'flood-hazard',
-        'source-layer': 'flood-zones',
-        paint: {
-          'line-color': [
-            'match',
-            ['get', 'risk_level'],
-            'high',    FLOOD_HAZARD_COLORS.high,
-            'medium',  FLOOD_HAZARD_COLORS.medium,
-            'low',     FLOOD_HAZARD_COLORS.low,
-            '#999999',
-          ],
-          'line-width': 1.5,
-          'line-opacity': 0.6,
-        },
-      });
     }
 
     // --- Near real-time rainfall grid (JAXA GSMaP) ---
@@ -117,7 +98,7 @@ export const setupOverlayLayers = async (
         source: 'rainfall',
         paint: {
           'fill-color': buildRainfallPaintExpression(state.rainfallHours),
-          'fill-opacity': 0.8,
+          'fill-opacity': 0.6,
         },
       });
     }
@@ -132,7 +113,6 @@ export const setupOverlayLayers = async (
   // Apply current toggle state (handles case where user toggled before load)
   const initialLayers: Array<[string, boolean]> = [
     ['flood-hazard-fill', state.showFloodHazard],
-    ['flood-hazard-outline', state.showFloodHazard],
     ['rainfall-grid', state.showRainfall],
   ];
   initialLayers.forEach(([id, visible]) => {
@@ -143,7 +123,6 @@ export const setupOverlayLayers = async (
 
   const initialFilter = riskLevelFilter(state.visibleRiskLevels);
   if (map.getLayer('flood-hazard-fill')) map.setFilter('flood-hazard-fill', initialFilter);
-  if (map.getLayer('flood-hazard-outline')) map.setFilter('flood-hazard-outline', initialFilter);
 
   // --- Report markers as clustered GeoJSON (GPU-rendered, no DOM churn) ---
   if (!map.getSource('reports')) {

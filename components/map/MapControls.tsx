@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, ChevronUp, Layers, ListFilter } from 'lucide-react';
+import { AlertTriangle, ChevronUp, Info, Layers, ListFilter } from 'lucide-react';
 import {
   REPORT_MARKER_COLORS,
   REPORT_STATUS_LEGEND,
@@ -18,11 +18,28 @@ import {
 import type { MapMode } from '@/lib/map/overlayLayers';
 import type { ReportStatus } from '@/types/report';
 
+const JAXA_GSMAP_URL = 'https://sharaku.eorc.jaxa.jp/GSMaP/';
+const JAXA_GSMAP_NOW_URL = 'https://sharaku.eorc.jaxa.jp/GSMaP_NOW/';
+
 const formatRainfallTime = (isoUtc: string) => {
   const date = new Date(`${isoUtc}Z`);
   if (Number.isNaN(date.getTime())) return 'as of unknown time';
   return `as of ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 };
+
+/**
+ * Resolves the attribution mode for the current rainfall response.
+ *
+ * The server stitches GSMaP_NOW hours onto GSMaP_NRT v6 for multi-hour
+ * windows, so an NRT-sourced response is actually a blend; a NOW-sourced
+ * multi-hour response means NRT was still cold and the facade fell back.
+ */
+function resolveRainfallAttribution(
+  source: string | null,
+  hours: RainfallAccumulationHours
+): { blended: boolean } {
+  return { blended: !!source?.includes('NRT') && hours > 1 };
+}
 
 const formatRainfallBand = (mm: number) =>
   `${Number.isInteger(mm) ? mm.toString() : mm.toFixed(1)}+`;
@@ -260,6 +277,8 @@ export function DataLayerControls({
   himawariOpacity,
   onHimawariOpacityChange,
 }: DataLayerControlsProps) {
+  const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
+  const isNrt = !!rainfallSource?.includes('NRT');
   return (
     <Card open={open} onToggle={onToggle} icon={Layers} title="Layers">
       <div className="space-y-1.5">
@@ -296,10 +315,12 @@ export function DataLayerControls({
           checked={showRainfall}
           onChange={onShowRainfallChange}
           credit={{
-            href: (rainfallSource ?? '').includes('NRT')
-              ? 'https://sharaku.eorc.jaxa.jp/GSMaP/'
-              : 'https://sharaku.eorc.jaxa.jp/GSMaP_NOW/',
-            label: showRainfall ? (rainfallSource ?? 'JAXA GSMaP') : 'JAXA GSMaP',
+            href: blended || isNrt ? JAXA_GSMAP_URL : JAXA_GSMAP_NOW_URL,
+            label: !showRainfall
+              ? 'JAXA GSMaP'
+              : blended
+                ? 'JAXA GSMaP_NRT v6 + NOW'
+                : (rainfallSource ?? 'JAXA GSMaP'),
           }}
         />
         {showRainfall && (
@@ -335,13 +356,21 @@ export function DataLayerControls({
             </div>
             {rainfallSource && (
               <div className="flex items-center gap-1 pt-1 text-[10px] leading-snug text-slate-400">
-                {rainfallHours === 1 ? (
+                {blended ? (
                   <>
-                    <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
-                    <span>GSMaP_NOW: Realtime satellite estimate</span>
+                    <Info className="h-3 w-3 shrink-0 text-sky-500" />
+                    <span>
+                      GSMaP_NRT v6 + NOW blend · newest hours from realtime data
+                    </span>
                   </>
                 ) : (
-                  'GSMaP_NRT v6 — about 4 hours behind live'
+                  <>
+                    <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
+                    <span>
+                      GSMaP_NOW · realtime satellite estimate
+                      {rainfallHours > 1 ? ' (NRT warming up)' : ''}
+                    </span>
+                  </>
                 )}
               </div>
             )}
@@ -353,13 +382,13 @@ export function DataLayerControls({
                 />
                 <span className="text-[10px] font-semibold text-slate-500">mm</span>
               </div>
-              <div className="flex w-56 justify-between text-[10px] text-slate-500 mt-1">
+              <div className="flex w-56 justify-between text-[9px] text-slate-500 mt-1">
                 {RAINFALL_LEGEND_STOPS[rainfallHours].map((stop, index) => (
                   <span
-                    key={stop.label}
+                    key={stop.label || index}
                     className="flex flex-col items-center gap-0.5"
                   >
-                    <span>{stop.label}</span>
+                    {stop.label && <span>{stop.label}</span>}
                     <span className="font-semibold text-slate-600">
                       {formatRainfallBand(rainfallBandValues(rainfallHours)[index])}
                     </span>
