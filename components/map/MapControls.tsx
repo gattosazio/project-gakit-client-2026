@@ -19,7 +19,6 @@ import type { MapMode } from '@/lib/map/overlayLayers';
 import type { ReportStatus } from '@/types/report';
 
 const JAXA_GSMAP_URL = 'https://sharaku.eorc.jaxa.jp/GSMaP/';
-const JAXA_GSMAP_NOW_URL = 'https://sharaku.eorc.jaxa.jp/GSMaP_NOW/';
 
 const formatRainfallTime = (isoUtc: string) => {
   const date = new Date(`${isoUtc}Z`);
@@ -278,7 +277,6 @@ export function DataLayerControls({
   onHimawariOpacityChange,
 }: DataLayerControlsProps) {
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
-  const isNrt = !!rainfallSource?.includes('NRT');
   return (
     <Card open={open} onToggle={onToggle} icon={Layers} title="Layers">
       <div className="space-y-1.5">
@@ -315,12 +313,8 @@ export function DataLayerControls({
           checked={showRainfall}
           onChange={onShowRainfallChange}
           credit={{
-            href: blended || isNrt ? JAXA_GSMAP_URL : JAXA_GSMAP_NOW_URL,
-            label: !showRainfall
-              ? 'JAXA GSMaP'
-              : blended
-                ? 'JAXA GSMaP_NRT v6 + NOW'
-                : (rainfallSource ?? 'JAXA GSMaP'),
+            href: JAXA_GSMAP_URL,
+            label: 'JAXA GSMaP',
           }}
         />
         {showRainfall && (
@@ -360,14 +354,14 @@ export function DataLayerControls({
                   <>
                     <Info className="h-3 w-3 shrink-0 text-sky-500" />
                     <span>
-                      GSMaP_NRT v6 + NOW blend · newest hours from realtime data
+                      GSMaP_NOW+NRT Hybrid · Hourly
                     </span>
                   </>
                 ) : (
                   <>
                     <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
                     <span>
-                      GSMaP_NOW · realtime satellite estimate
+                      GSMaP_NOW · Hourly
                       {rainfallHours > 1 ? ' (NRT warming up)' : ''}
                     </span>
                   </>
@@ -412,7 +406,7 @@ export function DataLayerControls({
         {showHimawariIR && (
           <div className="pl-9 pt-1 pb-1 space-y-1.5">
             <div className="text-[10px] leading-snug text-slate-400">
-              Last hour · 10min intervals
+              Last 2 hours · 10-min frames
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">

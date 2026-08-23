@@ -15,7 +15,24 @@ import {
  * opacity, and the toggle camera choreography (zoom out to the full se2 swath
  * when enabled, back to Iligan when disabled). The returned `visibleRef` lets
  * stable style-load handlers read current visibility without resubscribing.
+ *
+ * Animation: all 12 frames (the last two hours at Himawari's native 10-minute
+ * cadence) are preloaded into an in-memory cache before playback, then the
+ * loop just calls `updateImage` with cached images — no network work inside
+ * the tick. Frames re-preload every 5 minutes while enabled.
+ *
+ * Performance guards:
+ * - playback pauses while the tab is hidden (`visibilitychange`) and resumes
+ *   with a fresh preload on return, so background tabs burn no cycles and
+ *   stale frames are never replayed;
+ * - frames that fail to load never enter the rotation (no blank flashes).
  */
+const HIMAWARI_FRAME_COUNT = 12;
+// Matches PANaHON's player (playSpeedMs = 1000): one frame per second, so
+// the 2-hour loop plays over ~12 seconds of visible cloud drift.
+const HIMAWARI_FRAME_MS = 1000;
+const HIMAWARI_REFRESH_MS = 5 * 60 * 1000;
+
 export function useHimawariLayer(
   mapRef: MutableRefObject<any>,
   layersReadyRef: MutableRefObject<boolean>
@@ -23,6 +40,8 @@ export function useHimawariLayer(
   const [showHimawariIR, setShowHimawariIR] = useState(false);
   const [himawariOpacity, setHimawariOpacity] = useState(0.5);
   const himawariTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const himawariRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const himawariFramesRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const himawariFrameIndexRef = useRef(0);
   const showHimawariIRRef = useRef(false);
 
@@ -30,46 +49,97 @@ export function useHimawariLayer(
     showHimawariIRRef.current = showHimawariIR;
   }, [showHimawariIR]);
 
-  // Himawari IR satellite loop — cycles through the last hour of IR frames.
+  // Preload every frame before playback; frames that fail to load (JMA lag)
+  // are simply dropped from the rotation instead of flashing blank.
+  const preloadHimawariFrames = useCallback(async () => {
+    const times = himawariFrameTimes(HIMAWARI_FRAME_COUNT);
+    const loaded = await Promise.allSettled(times.map(fetchHimawariFrame));
+    const cache = new Map<string, HTMLImageElement>();
+    times.forEach((time, i) => {
+      const result = loaded[i];
+      if (result.status === 'fulfilled') cache.set(time, result.value);
+    });
+    if (cache.size > 0) himawariFramesRef.current = cache;
+  }, []);
+
+  // Pushes the current cached frame into the map's image source.
+  const drawCurrentFrame = useCallback(() => {
+    const map = mapRef.current;
+    const frames = himawariFramesRef.current;
+    if (!map || frames.size === 0) return;
+    const images = [...frames.values()];
+    const img = images[himawariFrameIndexRef.current % images.length];
+    himawariFrameIndexRef.current++;
+    const src = map.getSource('himawari-ir') as any;
+    src?.updateImage({ image: img, coordinates: HIMAWARI_COORDINATES });
+  }, [mapRef]);
+
+  // Playback pauses while the tab is hidden and resumes with a fresh preload,
+  // so returning to the tab never replays stale frames or burns cycles in the
+  // background.
+  useEffect(() => {
+    if (!showHimawariIR) return;
+
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        if (himawariTimerRef.current) {
+          clearInterval(himawariTimerRef.current);
+          himawariTimerRef.current = null;
+        }
+        return;
+      }
+      void preloadHimawariFrames().then(() => {
+        if (document.hidden || himawariTimerRef.current) return;
+        drawCurrentFrame();
+        himawariTimerRef.current = setInterval(drawCurrentFrame, HIMAWARI_FRAME_MS);
+      });
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [showHimawariIR, preloadHimawariFrames, drawCurrentFrame]);
+
+  // Himawari IR satellite loop — preloads once, then flips cached frames.
   useEffect(() => {
     if (!showHimawariIR) {
       if (himawariTimerRef.current) {
         clearInterval(himawariTimerRef.current);
         himawariTimerRef.current = null;
       }
+      if (himawariRefreshTimerRef.current) {
+        clearInterval(himawariRefreshTimerRef.current);
+        himawariRefreshTimerRef.current = null;
+      }
       return;
     }
 
-    const frames = himawariFrameTimes(6);
-    himawariFrameIndexRef.current = 0;
+    let cancelled = false;
 
-    const advance = async () => {
-      const map = mapRef.current;
-      if (!map) return;
-      const idx = himawariFrameIndexRef.current % frames.length;
-      const time = frames[idx];
-      try {
-        const img = await fetchHimawariFrame(time);
-        const src = map.getSource('himawari-ir') as any;
-        if (src) {
-          src.updateImage({ image: img, coordinates: HIMAWARI_COORDINATES });
-        }
-      } catch {
-        // frame unavailable — skip
-      }
-      himawariFrameIndexRef.current++;
-    };
+    void (async () => {
+      await preloadHimawariFrames();
+      if (cancelled || document.hidden || himawariTimerRef.current) return;
+      drawCurrentFrame();
+      himawariTimerRef.current = setInterval(drawCurrentFrame, HIMAWARI_FRAME_MS);
+    })();
 
-    void advance();
-    himawariTimerRef.current = setInterval(() => void advance(), 500);
+    himawariRefreshTimerRef.current = setInterval(() => {
+      void preloadHimawariFrames();
+    }, HIMAWARI_REFRESH_MS);
 
     return () => {
+      cancelled = true;
       if (himawariTimerRef.current) {
         clearInterval(himawariTimerRef.current);
         himawariTimerRef.current = null;
       }
+      if (himawariRefreshTimerRef.current) {
+        clearInterval(himawariRefreshTimerRef.current);
+        himawariRefreshTimerRef.current = null;
+      }
     };
-  }, [showHimawariIR, mapRef]);
+  }, [showHimawariIR, preloadHimawariFrames, drawCurrentFrame]);
 
   useEffect(() => {
     const map = mapRef.current;

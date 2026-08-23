@@ -21,7 +21,7 @@ export function himawariFrameURL(time: string): string {
   return `${PROXY_BASE}?area=${HIMAWARI_AREA}&band=${HIMAWARI_BAND}&time=${time}`;
 }
 
-export function himawariFrameTimes(frames = 6): string[] {
+export function himawariFrameTimes(frames = 12): string[] {
   const now = new Date();
   now.setUTCMinutes(Math.floor(now.getUTCMinutes() / 10) * 10, 0, 0);
   const times: string[] = [];

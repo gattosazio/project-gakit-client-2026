@@ -5,12 +5,11 @@ import {
   REPORT_MARKER_IMAGE_IDS,
   REPORT_STATUS_LEGEND,
 } from '@/constants/publicMap';
-import { HIMAWARI_COORDINATES, himawariFrameTimes, himawariFrameURL } from '@/lib/map/himawari';
 import { buildRainfallPaintExpression, FLOOD_HAZARD_COLORS } from '@/lib/map/colorScales';
+import { HIMAWARI_COORDINATES, himawariFrameTimes, himawariFrameURL } from '@/lib/map/himawari';
 import { createReportMarkerImage } from '@/lib/map/reportMarkers';
 
 export type MapMode = '2d' | '3d';
-
 // The pmtiles protocol handler must only be registered once per page load;
 // switching styles re-runs style loading, so guard against double registration.
 let pmtilesProtocolRegistered = false;
@@ -261,7 +260,7 @@ export const setupOverlayLayers = async (
     // yet and would leave the layer silently blank until the animation loop
     // replaces it. Start from one frame back (10 minutes), which is always
     // available.
-    const initialTime = himawariFrameTimes(6)[1];
+    const initialTime = himawariFrameTimes(12)[1];
 
     map.addSource('himawari-ir', {
       type: 'image',
