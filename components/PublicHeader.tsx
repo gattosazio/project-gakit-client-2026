@@ -49,8 +49,17 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
       }
     };
     void loadWeather();
-    const interval = setInterval(loadWeather, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') void loadWeather();
+    }, 5 * 60 * 1000);
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') void loadWeather();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   useEffect(() => {

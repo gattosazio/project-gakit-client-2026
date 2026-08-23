@@ -1,5 +1,5 @@
 import { cachedGet } from '@/lib/backend/apiCache';
-import type { WeatherAlert, WeatherAlertHistoryResponse } from '@/types/weather';
+import type { CurrentWeather, WeatherAlert, WeatherAlertHistoryResponse } from '@/types/weather';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
@@ -28,6 +28,16 @@ export async function fetchActiveAlerts(
     'weather:alerts:active',
     WEATHER_TTL_MS,
     () => request<WeatherAlert[]>('/api/v1/weather/alerts/active', signal)
+  );
+}
+
+export async function fetchCurrentWeather(
+  signal?: AbortSignal
+): Promise<CurrentWeather> {
+  return cachedGet<CurrentWeather>(
+    'weather:current',
+    WEATHER_TTL_MS,
+    () => request<CurrentWeather>('/api/v1/weather/current', signal)
   );
 }
 

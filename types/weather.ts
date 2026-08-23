@@ -14,6 +14,15 @@ export interface WeatherDayData {
   rainMm: number;
   conditionCode: number;
   windMax: number;
+  /** Hourly precipitation (mm) across the local day; absent when unavailable. */
+  hours?: number[];
+}
+
+export interface CurrentWeather {
+  observedAt: string;
+  temperature: number;
+  precipitation: number;
+  conditionCode: number;
 }
 
 export interface WeatherAlertData {
