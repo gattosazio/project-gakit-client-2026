@@ -522,7 +522,6 @@ export function PublicMap({
         await setupOverlayLayers(map, maplibregl, {
           showFloodHazard: showFloodHazardRef.current,
           showRainfall: showRainfallRef.current,
-          showHimawariIR: himawari.visibleRef.current,
           visibleRiskLevels: visibleRiskLevelsRef.current,
           mapMode: mapModeRef.current,
           rainfallHours: hoursRef.current,
@@ -545,11 +544,14 @@ export function PublicMap({
 
         // Apply rainfall data that was fetched before the map finished loading.
         applyPreloaded(map);
+
+        // Re-register Himawari frame layers wiped by the style swap.
+        await himawari.revalidate();
       })();
 
       void loadMapReports();
     },
-    [applyReportData, applySelectedMarker, attachLayerEvents, loadMapReports, onReady, himawari.visibleRef, applyPreloaded, hoursRef]
+    [applyReportData, applySelectedMarker, attachLayerEvents, loadMapReports, onReady, himawari.revalidate, applyPreloaded, hoursRef]
   );
 
   const onMapLoad = useCallback(() => {
@@ -726,7 +728,6 @@ export function PublicMap({
     const layers: Array<[string, boolean]> = [
       ['flood-hazard-fill', showFloodHazard],
       ['rainfall-grid', showRainfall],
-      ['himawari-ir-layer', himawari.showHimawariIR],
     ];
 
     layers.forEach(([id, visible]) => {
@@ -737,7 +738,7 @@ export function PublicMap({
 
     const filter = riskLevelFilter(visibleRiskLevels);
     map.setFilter('flood-hazard-fill', filter);
-  }, [showFloodHazard, showRainfall, himawari.showHimawariIR, visibleRiskLevels]);
+  }, [showFloodHazard, showRainfall, visibleRiskLevels]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
