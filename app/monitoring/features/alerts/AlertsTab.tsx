@@ -210,6 +210,21 @@ export function AlertsTab({
     });
   }, [dateFilter, dismissedIds, filter, notifications, sort]);
 
+  const unreadNotifications = useMemo(
+    () =>
+      visibleNotifications.filter(
+        (notification) => !readIds.includes(notification.id)
+      ),
+    [visibleNotifications, readIds]
+  );
+  const readNotifications = useMemo(
+    () =>
+      visibleNotifications.filter((notification) =>
+        readIds.includes(notification.id)
+      ),
+    [visibleNotifications, readIds]
+  );
+
   return (
     <section className="space-y-5">
       <div className="rounded-xl border border-canvas-grey bg-white shadow-sm">
@@ -273,35 +288,99 @@ export function AlertsTab({
                     <th className="px-5 py-3 font-semibold">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-canvas-grey">
-                  {visibleNotifications.map((notification) => (
-                    <NotificationRow
-                      key={notification.id}
-                      notification={notification}
-                      onOpenReports={onOpenReports}
-                      onSelectWeatherAlert={onSelectWeatherAlert}
-                      onMarkRead={markAsRead}
-                      onDismiss={dismiss}
-                      isRead={readIds.includes(notification.id)}
-                      highlighted={highlightedNotificationId === notification.id}
-                    />
-                  ))}
-                </tbody>
+                {unreadNotifications.length > 0 && (
+                  <tbody className="divide-y divide-canvas-grey">
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="bg-canvas-light px-6 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400"
+                      >
+                        Unread
+                      </td>
+                    </tr>
+                    {unreadNotifications.map((notification) => (
+                      <NotificationRow
+                        key={notification.id}
+                        notification={notification}
+                        onOpenReports={onOpenReports}
+                        onSelectWeatherAlert={onSelectWeatherAlert}
+                        onMarkRead={markAsRead}
+                        onDismiss={dismiss}
+                        isRead={false}
+                        highlighted={highlightedNotificationId === notification.id}
+                      />
+                    ))}
+                  </tbody>
+                )}
+                {readNotifications.length > 0 && (
+                  <tbody className={`divide-y divide-canvas-grey ${unreadNotifications.length > 0 ? 'border-t-2 border-canvas-grey' : ''}`}>
+                    <tr>
+                      <td
+                        colSpan={6}
+                        className="bg-canvas-light px-6 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400"
+                      >
+                        Read
+                      </td>
+                    </tr>
+                    {readNotifications.map((notification) => (
+                      <NotificationRow
+                        key={notification.id}
+                        notification={notification}
+                        onOpenReports={onOpenReports}
+                        onSelectWeatherAlert={onSelectWeatherAlert}
+                        onMarkRead={markAsRead}
+                        onDismiss={dismiss}
+                        isRead={true}
+                        highlighted={highlightedNotificationId === notification.id}
+                      />
+                    ))}
+                  </tbody>
+                )}
               </table>
             </div>
-            <div className="divide-y divide-canvas-grey md:hidden">
-              {visibleNotifications.map((notification) => (
-                <NotificationCard
-                  key={notification.id}
-                  notification={notification}
-                  onOpenReports={onOpenReports}
-                  onSelectWeatherAlert={onSelectWeatherAlert}
-                  onMarkRead={markAsRead}
-                  onDismiss={dismiss}
-                  isRead={readIds.includes(notification.id)}
-                  highlighted={highlightedNotificationId === notification.id}
-                />
-              ))}
+            <div className="md:hidden">
+              {unreadNotifications.length > 0 && (
+                <section className="border-b border-canvas-grey">
+                  <p className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Unread
+                  </p>
+                  <div className="divide-y divide-canvas-grey">
+                    {unreadNotifications.map((notification) => (
+                      <NotificationCard
+                        key={notification.id}
+                        notification={notification}
+                        onOpenReports={onOpenReports}
+                        onSelectWeatherAlert={onSelectWeatherAlert}
+                        onMarkRead={markAsRead}
+                        onDismiss={dismiss}
+                        isRead={false}
+                        highlighted={highlightedNotificationId === notification.id}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+              {readNotifications.length > 0 && (
+                <section className={unreadNotifications.length > 0 ? 'border-t border-canvas-grey' : ''}>
+                  <p className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                    Read
+                  </p>
+                  <div className="divide-y divide-canvas-grey">
+                    {readNotifications.map((notification) => (
+                      <NotificationCard
+                        key={notification.id}
+                        notification={notification}
+                        onOpenReports={onOpenReports}
+                        onSelectWeatherAlert={onSelectWeatherAlert}
+                        onMarkRead={markAsRead}
+                        onDismiss={dismiss}
+                        isRead={true}
+                        highlighted={highlightedNotificationId === notification.id}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
             </div>
           </>
         )}
@@ -329,7 +408,7 @@ function NotificationRow({
 }) {
   return (
     <tr className={highlighted ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/60'}>
-      <td className={`px-6 py-4 ${isRead ? 'opacity-60' : ''}`}>
+      <td className="px-6 py-4">
         <NotificationTypeBadge type={notification.type} />
       </td>
       <td
@@ -339,17 +418,13 @@ function NotificationRow({
       >
         {notification.location}
       </td>
-      <td className={`px-6 py-4 ${isRead ? 'opacity-60' : ''}`}>
+      <td className="px-6 py-4">
         <SeverityBadge severity={notification.severity} />
       </td>
-      <td className={`px-6 py-4 ${isRead ? 'text-slate-400' : 'text-slate-600'}`}>
+      <td className="px-6 py-4 text-slate-600">
         {notification.depth ? DEPTH_LABELS[notification.depth] : '—'}
       </td>
-      <td
-        className={`whitespace-nowrap px-6 py-4 ${
-          isRead ? 'text-slate-400' : 'text-slate-600'
-        }`}
-      >
+      <td className="whitespace-nowrap px-6 py-4 text-slate-600">
         {formatDateTime(notification.sentAt)}
       </td>
       <td className="px-6 py-4">
@@ -385,12 +460,18 @@ function NotificationCard({
 }) {
   return (
     <div className={`flex gap-3 p-4 ${highlighted ? 'bg-maroon-100/80' : ''}`}>
-      <div className={`min-w-0 flex-1 ${isRead ? 'opacity-60' : ''}`}>
+      <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <NotificationTypeBadge type={notification.type} />
           <SeverityBadge severity={notification.severity} />
         </div>
-        <p className="mt-3 font-semibold text-slate-900">{notification.title}</p>
+        <p
+          className={`mt-3 font-semibold ${
+            isRead ? 'text-slate-500' : 'text-slate-900'
+          }`}
+        >
+          {notification.title}
+        </p>
         <p className="mt-1 truncate text-sm text-slate-600">{notification.location}</p>
         <p className="mt-2 text-xs text-slate-400">
           {notification.depth ? `${DEPTH_LABELS[notification.depth]} · ` : ''}
