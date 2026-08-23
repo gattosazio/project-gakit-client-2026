@@ -15,7 +15,16 @@ import {
  * opacity, and the toggle camera choreography (zoom out to the full se2 swath
  * when enabled, back to Iligan when disabled). The returned `visibleRef` lets
  * stable style-load handlers read current visibility without resubscribing.
+ *
+ * Animation follows the same recipe as PAGASA's PANaHON viewer: preload all
+ * 12 frames (the last two hours at Himawari's native 10-minute cadence), then
+ * flip between pre-stacked images on a short timer so playback never waits on
+ * the network. Frames re-preload every 5 minutes to stay current.
  */
+const HIMAWARI_FRAME_COUNT = 12;
+const HIMAWARI_FRAME_MS = 250;
+const HIMAWARI_REFRESH_MS = 5 * 60 * 1000;
+
 export function useHimawariLayer(
   mapRef: MutableRefObject<any>,
   layersReadyRef: MutableRefObject<boolean>
@@ -23,53 +32,74 @@ export function useHimawariLayer(
   const [showHimawariIR, setShowHimawariIR] = useState(false);
   const [himawariOpacity, setHimawariOpacity] = useState(0.5);
   const himawariTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const himawariFrameIndexRef = useRef(0);
+  const himawariRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const himawariFramesRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const showHimawariIRRef = useRef(false);
 
   useEffect(() => {
     showHimawariIRRef.current = showHimawariIR;
   }, [showHimawariIR]);
 
-  // Himawari IR satellite loop — cycles through the last hour of IR frames.
+  // Preload every frame before playback; frames that fail to load (JMA lag)
+  // are simply dropped from the loop.
+  const preloadHimawariFrames = useCallback(async () => {
+    const times = himawariFrameTimes(HIMAWARI_FRAME_COUNT);
+    const loaded = await Promise.allSettled(times.map(fetchHimawariFrame));
+    const cache = new Map<string, HTMLImageElement>();
+    times.forEach((time, i) => {
+      const result = loaded[i];
+      if (result.status === 'fulfilled') cache.set(time, result.value);
+    });
+    if (cache.size > 0) himawariFramesRef.current = cache;
+  }, []);
+
+  // Himawari IR satellite loop — flips through preloaded frames only; no
+  // network work happens inside the tick, which is what keeps it smooth.
   useEffect(() => {
     if (!showHimawariIR) {
       if (himawariTimerRef.current) {
         clearInterval(himawariTimerRef.current);
         himawariTimerRef.current = null;
       }
+      if (himawariRefreshTimerRef.current) {
+        clearInterval(himawariRefreshTimerRef.current);
+        himawariRefreshTimerRef.current = null;
+      }
       return;
     }
 
-    const frames = himawariFrameTimes(6);
-    himawariFrameIndexRef.current = 0;
+    let cancelled = false;
+    let frameIndex = 0;
 
-    const advance = async () => {
-      const map = mapRef.current;
-      if (!map) return;
-      const idx = himawariFrameIndexRef.current % frames.length;
-      const time = frames[idx];
-      try {
-        const img = await fetchHimawariFrame(time);
+    void preloadHimawariFrames().then(() => {
+      if (cancelled || himawariTimerRef.current) return;
+      himawariTimerRef.current = setInterval(() => {
+        const map = mapRef.current;
+        const frames = himawariFramesRef.current;
+        if (!map || frames.size === 0) return;
+        const image = [...frames.values()][frameIndex % frames.size];
+        frameIndex++;
         const src = map.getSource('himawari-ir') as any;
-        if (src) {
-          src.updateImage({ image: img, coordinates: HIMAWARI_COORDINATES });
-        }
-      } catch {
-        // frame unavailable — skip
-      }
-      himawariFrameIndexRef.current++;
-    };
+        src?.updateImage({ image, coordinates: HIMAWARI_COORDINATES });
+      }, HIMAWARI_FRAME_MS);
+    });
 
-    void advance();
-    himawariTimerRef.current = setInterval(() => void advance(), 500);
+    himawariRefreshTimerRef.current = setInterval(() => {
+      void preloadHimawariFrames();
+    }, HIMAWARI_REFRESH_MS);
 
     return () => {
+      cancelled = true;
       if (himawariTimerRef.current) {
         clearInterval(himawariTimerRef.current);
         himawariTimerRef.current = null;
       }
+      if (himawariRefreshTimerRef.current) {
+        clearInterval(himawariRefreshTimerRef.current);
+        himawariRefreshTimerRef.current = null;
+      }
     };
-  }, [showHimawariIR, mapRef]);
+  }, [showHimawariIR, mapRef, preloadHimawariFrames]);
 
   useEffect(() => {
     const map = mapRef.current;
