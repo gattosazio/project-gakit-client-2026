@@ -23,7 +23,9 @@ import {
  * current, and `revalidate()` rebuilds them after basemap/style switches.
  */
 const HIMAWARI_FRAME_COUNT = 12;
-const HIMAWARI_FRAME_MS = 250;
+// Matches PANaHON's player (playSpeedMs = 1000): one frame per second, so
+// the 2-hour loop plays over ~12 seconds of visible cloud drift.
+const HIMAWARI_FRAME_MS = 1000;
 const HIMAWARI_REFRESH_MS = 5 * 60 * 1000;
 const LAYER_PREFIX = 'himawari-frame-';
 const SOURCE_PREFIX = 'himawari-frame-src-';
