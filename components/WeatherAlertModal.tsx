@@ -3,6 +3,8 @@
 import { CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
 import type { WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
 import { getWeatherCondition } from '@/lib/weather/weatherCodes';
+import { WeatherAttribution } from './weather/WeatherAttribution';
+import { RainStrip } from './weather/RainStrip';
 
 const SEVERITY_CONFIG: Record<
   AlertSeverity,
@@ -62,7 +64,7 @@ function friendlyDay(iso: string): string {
   });
 }
 
-function DayRow({ day }: { day: WeatherDayData }) {
+function DayRow({ day, highlighted }: { day: WeatherDayData; highlighted?: boolean }) {
   const condition = getWeatherCondition(day.conditionCode);
   const Icon = condition.icon;
 
@@ -75,20 +77,31 @@ function DayRow({ day }: { day: WeatherDayData }) {
     : condition.label;
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-canvas-grey bg-canvas-light p-3">
-      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-canvas-grey">
-        <Icon className="h-5 w-5 text-slate-600" />
+    <div
+      className={`rounded-lg border p-3 ${
+        highlighted
+          ? 'border-gakit-maroon/50 bg-white shadow-sm'
+          : 'border-canvas-grey bg-canvas-light'
+      }`}
+    >
+      <span className="flex items-center gap-3">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-canvas-grey">
+          <Icon className="h-5 w-5 text-slate-600" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-slate-900">{friendlyDay(`${day.date}T00:00:00+08:00`)}</span>
+          <span className="block text-xs text-slate-500">{detail}</span>
+        </span>
+        <span className="shrink-0 text-right text-sm font-semibold text-slate-800">
+          <span className="text-xs font-medium text-slate-400">H </span>
+          {day.tempMax}°
+          <span className="ml-1.5 text-xs font-medium text-slate-400">L </span>
+          {day.tempMin}°
+        </span>
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-slate-900">{friendlyDay(`${day.date}T00:00:00+08:00`)}</p>
-        <p className="text-xs text-slate-500">{detail}</p>
+      <div className="mt-2">
+        <RainStrip hours={day.hours} />
       </div>
-      <p className="shrink-0 text-right text-sm font-semibold text-slate-800">
-        <span className="text-xs font-medium text-slate-400">H </span>
-        {day.tempMax}°
-        <span className="ml-1.5 text-xs font-medium text-slate-400">L </span>
-        {day.tempMin}°
-      </p>
     </div>
   );
 }
@@ -111,10 +124,12 @@ function friendlyPeriod(validFrom: string, validTo: string): string | null {
 
 interface WeatherAlertModalProps {
   alert: WeatherAlert;
+  /** ISO date of the day to emphasize (e.g. the card the user clicked). */
+  highlightDate?: string;
   onClose: () => void;
 }
 
-export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
+export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAlertModalProps) {
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
   const period = friendlyPeriod(alert.validFrom, alert.validTo);
@@ -150,12 +165,19 @@ export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
 
         {/* Body */}
         <div className="p-4 md:p-5">
-          <h3 className="text-base font-bold text-slate-900 mb-2">{alert.title}</h3>
+          <h3 className="text-base font-bold text-slate-900">{alert.title}</h3>
+          <p className="mb-2 text-[10px] text-slate-400">
+            Issued{' '}
+            {new Date(alert.createdAt).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </p>
 
           {alert.data?.days?.length ? (
             <div className="space-y-2">
               {alert.data.days.map((day) => (
-                <DayRow key={day.date} day={day} />
+                <DayRow key={day.date} day={day} highlighted={highlightDate === day.date} />
               ))}
             </div>
           ) : (
@@ -173,7 +195,8 @@ export function WeatherAlertModal({ alert, onClose }: WeatherAlertModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end border-t border-canvas-grey p-4 md:p-5">
+        <div className="flex items-center justify-between gap-3 border-t border-canvas-grey p-4 md:p-5">
+          <WeatherAttribution />
           <button
             onClick={onClose}
             className="rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-maroon-800 transition-colors"

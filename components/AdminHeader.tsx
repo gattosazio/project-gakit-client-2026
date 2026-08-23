@@ -241,9 +241,71 @@ export function AdminHeader({
       )
       .slice(0, 5);
   }, [dismissedIds, notifications]);
-  const unreadCount = recentNotifications.filter(
-    (notification) => !readIds.includes(notification.id)
-  ).length;
+
+  const unreadNotifications = useMemo(
+    () =>
+      recentNotifications.filter(
+        (notification) => !readIds.includes(notification.id)
+      ),
+    [recentNotifications, readIds]
+  );
+  const readNotifications = useMemo(
+    () =>
+      recentNotifications.filter((notification) =>
+        readIds.includes(notification.id)
+      ),
+    [recentNotifications, readIds]
+  );
+  const unreadCount = unreadNotifications.length;
+
+  const renderItem = (notification: HeaderNotification) => {
+    const NotificationIcon = notification.icon;
+    const isRead = readIds.includes(notification.id);
+
+    return (
+      <button
+        key={notification.id}
+        type="button"
+        onClick={() => {
+          markAsRead(notification.id);
+          setIsOpen(false);
+          onNotificationClick?.(notification.id);
+        }}
+        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas-light"
+      >
+        <span className={`rounded-lg p-2 ${notification.iconClass}`}>
+          <NotificationIcon className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-2">
+            <span
+              className={`text-sm font-semibold line-clamp-1 ${
+                isRead ? 'text-slate-500' : 'text-slate-800'
+              }`}
+            >
+              {notification.title}
+            </span>
+            {notification.badge && (
+              <span
+                className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${notification.badge.className}`}
+              >
+                {notification.badge.label}
+              </span>
+            )}
+          </span>
+          <span className="mt-0.5 block text-xs text-slate-500 line-clamp-2 leading-relaxed">
+            {notification.detail}
+          </span>
+          <span className="mt-1 block text-xs text-slate-400">
+            {formatDateTime(notification.createdAt)}
+          </span>
+        </span>
+        {!isRead && (
+          <span className="mt-1.5 h-2 w-2 rounded-full bg-hazard-critical" />
+        )}
+      </button>
+    );
+  };
 
   const markAsRead = (id: string) => {
     setReadIds((current) => {
@@ -325,58 +387,34 @@ export function AdminHeader({
                   </button>
                 )}
               </div>
-              <div className="max-h-80 divide-y divide-canvas-grey overflow-y-auto">
+              <div className="max-h-80 overflow-y-auto">
                 {recentNotifications.length === 0 ? (
                   <p className="px-4 py-8 text-center text-sm text-slate-400">
                     No notifications in the last 24 hours
                   </p>
                 ) : (
-                  recentNotifications.map((notification) => {
-                  const NotificationIcon = notification.icon;
-                  const isRead = readIds.includes(notification.id);
-
-                  return (
-                    <button
-                      key={notification.id}
-                      type="button"
-                      onClick={() => {
-                        markAsRead(notification.id);
-                        setIsOpen(false);
-                        onNotificationClick?.(notification.id);
-                      }}
-                      className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas-light ${
-                        isRead ? 'opacity-60' : ''
-                      }`}
-                    >
-                      <span className={`rounded-lg p-2 ${notification.iconClass}`}>
-                        <NotificationIcon className="h-4 w-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-slate-800 line-clamp-1">
-                            {notification.title}
-                          </span>
-                          {notification.badge && (
-                            <span
-                              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${notification.badge.className}`}
-                            >
-                              {notification.badge.label}
-                            </span>
-                          )}
-                        </span>
-                        <span className="mt-0.5 block text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                          {notification.detail}
-                        </span>
-                        <span className="mt-1 block text-xs text-slate-400">
-                          {formatDateTime(notification.createdAt)}
-                        </span>
-                      </span>
-                      {!isRead && (
-                        <span className="mt-1.5 h-2 w-2 rounded-full bg-hazard-critical" />
-                      )}
-                    </button>
-                  );
-                  })
+                  <>
+                    {unreadNotifications.length > 0 && (
+                      <section>
+                        <p className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Unread
+                        </p>
+                        <div className="divide-y divide-canvas-grey">
+                          {unreadNotifications.map(renderItem)}
+                        </div>
+                      </section>
+                    )}
+                    {readNotifications.length > 0 && (
+                      <section className={unreadNotifications.length > 0 ? 'border-t border-canvas-grey' : ''}>
+                        <p className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Read
+                        </p>
+                        <div className="divide-y divide-canvas-grey">
+                          {readNotifications.map(renderItem)}
+                        </div>
+                      </section>
+                    )}
+                  </>
                 )}
               </div>
             </div>
