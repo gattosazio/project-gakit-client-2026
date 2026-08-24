@@ -62,6 +62,26 @@ export function RainStrip({ hours }: { hours?: number[] }) {
           );
         })}
       </div>
+      {/* Quarter-day ticks; invisible spacers keep each label aligned to its bar. */}
+      <div className="mt-0.5 flex gap-[2px]" aria-hidden>
+        {hours.map((_, hour) => {
+          const showTick = hour % 6 === 0;
+          return (
+            <span
+              key={hour}
+              className={`min-w-[2px] flex-1 text-center text-[9px] font-medium leading-none ${
+                hovered === hour
+                  ? 'text-slate-600'
+                  : showTick
+                    ? 'text-slate-400'
+                    : 'invisible'
+              }`}
+            >
+              {formatHour(hour)}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

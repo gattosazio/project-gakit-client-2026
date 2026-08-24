@@ -118,9 +118,13 @@ export function WeatherChip({
   const liveCondition = current ? getWeatherCondition(current.conditionCode) : null;
   const PillIcon = liveCondition ? liveCondition.icon : TodayIcon;
   const hasLive = current !== null && liveCondition !== null;
-  const pillLabel = hasLive ? `${Math.round(current.temperature)}°` : `${days[0].rainChance}%`;
+  const pillLabel = hasLive
+    ? `${liveCondition.label} · ${Math.round(current.temperature)}°`
+    : `${days[0].rainChance}%`;
   const pillTooltip = hasLive
-    ? `${liveCondition.label}, ${Math.round(current.temperature)}° now`
+    ? `${liveCondition.label}, ${Math.round(current.temperature)}° now · as of ${new Date(
+        current.observedAt
+      ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
     : `Weather outlook — ${todayCondition.label}, ${days[0].rainChance}% chance of rain`;
 
   return (
