@@ -24,7 +24,7 @@ export function FeaturePageShell({
   return (
     <div className="space-y-4">
       {hasHeader && (
-        <section className="bg-white border border-canvas-grey rounded-lg p-5 shadow-sm">
+        <section className="rounded-2xl border border-canvas-grey bg-white p-5 shadow-sm">
           {eyebrow && (
             <div className="text-xs font-semibold uppercase tracking-wide text-gakit-maroon">
               {eyebrow}

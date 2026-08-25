@@ -12,6 +12,7 @@ import {
 import { fetchReportStats, listReports as fetchReports } from '../reports/actions/reports';
 import type { Report, ReportStats } from '@/types/report';
 import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reports/reportFormatting';
+import './DashboardOverview.css';
 
 const CURRENT_YEAR = String(new Date().getFullYear());
 
@@ -124,7 +125,7 @@ export function DashboardOverview({
   const metrics = [
     { label: 'Reports Today', value: String(reportsToday), detail: 'From the public map', icon: FileText, color: 'text-gakit-maroon' },
     { label: 'Pending Validation', value: String(pendingCount), detail: 'Awaiting review', icon: Clock, color: 'text-hazard-pending' },
-    { label: 'Critical Reports', value: String(criticalCount), detail: 'Head-deep or higher', icon: AlertTriangle, color: 'text-hazard-critical' },
+    { label: 'Critical Reports', value: String(criticalCount), detail: 'Head-deep or higher', icon: AlertTriangle, color: 'text-gakit-maroon' },
     { label: 'Verified Reports', value: String(verifiedCount), detail: 'Trusted map pins', icon: CheckCircle2, color: 'text-hazard-safe' },
   ];
 
@@ -133,7 +134,7 @@ export function DashboardOverview({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center rounded-lg border border-canvas-grey bg-white p-10 shadow-sm text-sm text-slate-500">
+      <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-10 text-sm text-slate-500 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
         Loading dashboard data...
       </div>
     );
@@ -141,7 +142,7 @@ export function DashboardOverview({
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-sm text-red-700">
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-700">
         Could not load dashboard data: {error}
       </div>
     );
@@ -149,37 +150,41 @@ export function DashboardOverview({
 
   return (
     <>
-      <section className="grid grid-cols-2 gap-3 md:gap-4 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 md:gap-5 xl:grid-cols-4">
         {metrics.map((metric) => {
           const Icon = metric.icon;
 
           return (
-            <div key={metric.label} className="bg-white border border-canvas-grey rounded-lg p-4 md:p-5 shadow-sm">
+            <div key={metric.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)] md:p-5">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="text-sm font-medium text-slate-500">{metric.label}</div>
-                  <div className="text-3xl font-bold text-slate-900 mt-2">{metric.value}</div>
+                  <div className="mt-2 text-3xl font-bold tracking-[-0.03em] text-slate-900">{metric.value}</div>
                 </div>
-                <Icon className={`w-6 h-6 ${metric.color}`} />
+                <span className="rounded-xl bg-white p-2.5 shadow-sm">
+                  <Icon className={`h-5 w-5 ${metric.color}`} />
+                </span>
               </div>
-              <div className="text-xs text-slate-500 mt-4">{metric.detail}</div>
+              <div className="mt-4 text-xs text-slate-500">{metric.detail}</div>
             </div>
           );
         })}
       </section>
 
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="hidden xl:block xl:col-span-2 bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-canvas-grey flex items-center justify-between">
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)]">
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
+          <div className="flex items-center justify-between border-b border-slate-100 p-5 md:p-6">
             <div>
               <h2 className="font-bold text-slate-900">Latest Reports</h2>
-              <p className="text-sm text-slate-500">Newest flood reports from the public map.</p>
+              <p className="mt-1 text-sm text-slate-500">Newest flood reports from the public map.</p>
             </div>
-            <MapPin className="w-5 h-5 text-gakit-maroon" />
+            <span className="rounded-xl bg-maroon-50 p-2.5">
+              <MapPin className="h-5 w-5 text-gakit-maroon" />
+            </span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-canvas-light text-slate-500">
+              <thead className="bg-slate-50 text-slate-500">
                 <tr>
                   <th className="text-left font-semibold px-5 py-3">ID</th>
                   <th className="text-left font-semibold px-5 py-3">Location</th>
@@ -188,11 +193,11 @@ export function DashboardOverview({
                   <th className="text-left font-semibold px-5 py-3">Time</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-canvas-grey">
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {latestReports.map((report) => {
                   const status = STATUS_META[report.status];
                   return (
-                    <tr key={report.id}>
+                    <tr key={report.id} className="transition-colors hover:bg-slate-50/70">
                       <td className="px-5 py-4 font-mono text-xs font-semibold text-slate-900">
                         {report.id.slice(0, 8)}
                       </td>
@@ -221,31 +226,34 @@ export function DashboardOverview({
           </div>
         </div>
 
-        <div className="bg-gakit-maroon text-white rounded-lg p-5 shadow-sm">
+        <div className="flex min-h-[18rem] flex-col rounded-2xl bg-gakit-maroon p-6 text-white shadow-[0_16px_36px_rgba(122,0,25,0.3)] md:p-7">
           <div className="flex items-center gap-3">
-            <ShieldAlert className="w-6 h-6" />
+            <span className="rounded-xl bg-white/10 p-2.5">
+              <ShieldAlert className="h-5 w-5" />
+            </span>
             <h2 className="font-bold">Emergency Status</h2>
           </div>
-          <div className="text-4xl font-bold mt-6">{emergencyLevel}</div>
-          <p className="text-sm text-white/80 mt-3">
+          <div className="mt-7 text-4xl font-bold tracking-[-0.03em]">{emergencyLevel}</div>
+          <p className="mt-3 text-sm leading-6 text-white/80">
             {criticalCount === 0
               ? 'No head-deep or overhead reports on file. Keep monitoring live submissions.'
               : `${criticalCount} report${criticalCount === 1 ? ' is' : 's are'} marked critical. Prioritize validation and responder review.`}
           </p>
           <button
+            type="button"
             onClick={onReviewCritical}
-            className="mt-6 w-full py-3 rounded-lg bg-white text-gakit-maroon font-semibold hover:bg-white/90 transition-colors"
+            className="mt-auto w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gakit-maroon transition-colors hover:bg-maroon-50"
           >
             Review Critical Reports
           </button>
         </div>
       </section>
 
-      <section className="bg-white border border-canvas-grey rounded-lg p-5 shadow-sm">
-        <div className="flex flex-col gap-4 mb-5 lg:flex-row lg:items-start lg:justify-between">
+      <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] md:p-6">
+        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <h2 className="font-bold text-slate-900">Reports Over Time</h2>
-            <p className="text-sm text-slate-500">
+            <p className="mt-1 text-sm text-slate-500">
               Monthly public report volume for {selectedYear}.
             </p>
           </div>
@@ -253,7 +261,7 @@ export function DashboardOverview({
             <select
               value={selectedYear}
               onChange={(event) => setSelectedYear(event.target.value)}
-              className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-gakit-maroon"
             >
               {years.map((year) => (
                 <option key={year}>{year}</option>
@@ -262,16 +270,16 @@ export function DashboardOverview({
           </div>
         </div>
 
-        <div className="admin-bar-chart">
+        <div className="dashboard-bar-chart">
           {monthlyReports.map((item) => (
-            <div key={item.month} className="admin-bar-item">
-              <div className="admin-bar-value">{item.reports}</div>
+            <div key={item.month} className="dashboard-bar-item">
+              <div className="dashboard-bar-value">{item.reports}</div>
               <div
-                className="admin-bar"
+                className="dashboard-bar"
                 style={{ height: `${Math.max(12, (item.reports / maxMonthlyReports) * 100)}%` }}
                 title={`${item.month} ${selectedYear}: ${item.reports} reports`}
               />
-              <div className="admin-bar-label">{item.month}</div>
+              <div className="dashboard-bar-label">{item.month}</div>
             </div>
           ))}
         </div>
