@@ -200,6 +200,7 @@ export function PublicViewPage() {
   const handleReportSubmit = async (data: {
     location: { lat: number; lng: number };
     depth: CreateReportInput['depth'];
+    reference: { label: string; landmark: string };
   }): Promise<void> => {
     const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
 
@@ -220,6 +221,7 @@ export function PublicViewPage() {
         address: report.location.address || fallbackAddress,
       },
       depth: report.depth,
+      reference: data.reference,
       status: report.status,
       submittedAt: new Date(report.createdAt).toLocaleString(),
     });
