@@ -156,7 +156,8 @@ export function ReportsTab({
 
   const handleStaffReportSubmit = async (data: {
     location: { lat: number; lng: number; elevation?: number };
-    depth: 'ankle' | 'knee' | 'waist' | 'head' | 'overhead';
+    depth: 'ankle' | 'knee' | 'waist' | 'shoulder' | 'head' | 'overhead';
+    depthCm?: number;
     image?: File;
   }): Promise<void> => {
     const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
@@ -168,6 +169,7 @@ export function ReportsTab({
         address: selectedLocation?.address || fallbackAddress,
       },
       depth: data.depth,
+      ...(data.depthCm != null ? { depthCm: data.depthCm } : {}),
     });
 
     toast.success('Staff report submitted successfully.', {

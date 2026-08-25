@@ -14,9 +14,7 @@ export interface SubmittedReport {
 }
 
 const formatApproximateDepth = (depth: DepthCategory) =>
-  depth.code === 'overhead'
-    ? `approximately ${depth.approximateCm} cm or deeper`
-    : `approximately ${depth.approximateCm} cm`;
+  depth.code === 'overhead' ? `~${depth.approximateCm} cm or deeper` : `~${depth.approximateCm} cm`;
 
 export function SuccessModal({
   isOpen,

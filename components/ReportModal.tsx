@@ -6,11 +6,17 @@ import { toast } from 'react-toastify';
 import { listDepthCategories } from '@/app/public-view/actions/public.view';
 import { getElevation } from '@/lib/map/elevation';
 import {
-  FLOOD_REFERENCE_PROFILES,
-  FloodReferenceIllustration,
+  DEPTH_PRESETS,
+  FLOOD_REFERENCE_META,
+  depthCodeFromCm,
+  depthCriticality,
+  fallbackCategoryLabel,
+  type DepthCriticality,
   type FloodReference,
-  type FloodReferenceLevel,
-} from '@/components/reporting/FloodReferenceIllustration';
+} from '@/lib/reports/depthReferences';
+import { FloodReferenceIllustration } from '@/components/reporting/FloodReferenceIllustration';
+import { FloodDepthScale } from '@/components/reporting/FloodDepthScale';
+import { FilterDropdown } from '@/components/ui/FilterDropdown';
 import type { FloodDepth, FloodDepthCategory } from '@/app/public-view/actions/public.view';
 import type { LocationRiskInfo } from '@/components/PublicMap';
 
@@ -25,19 +31,6 @@ const REFERENCE_ICONS: Record<FloodReference, typeof Car> = {
   bus: Bus,
 };
 
-const getClosestLevelIndex = (
-  levels: FloodReferenceLevel[],
-  waterLevel: number
-) =>
-  levels.reduce(
-    (closestIndex, level, index) =>
-      Math.abs(level.waterLevel - waterLevel) <
-      Math.abs(levels[closestIndex].waterLevel - waterLevel)
-        ? index
-        : closestIndex,
-    0
-  );
-
 interface ReportModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -50,6 +43,7 @@ interface ReportModalProps {
   onSubmit: (data: {
     location: { lat: number; lng: number };
     depth: FloodDepth;
+    depthCm: number;
     reference: { label: string; landmark: string };
   }) => Promise<void>;
   onCheckLocation?: (location: {
@@ -69,6 +63,15 @@ const HAZARD_META: Record<
   none: { label: 'No hazard mapped', color: 'text-slate-600', bg: 'bg-slate-50 border-slate-200' },
 };
 
+const PRESET_CHIP_BASE_CLASSES =
+  'border-slate-200 bg-white text-slate-600 hover:bg-slate-100';
+
+const CRITICALITY_CHIP_SELECTED: Record<DepthCriticality, string> = {
+  low: 'border-green-500 bg-green-100 text-green-800',
+  medium: 'border-amber-500 bg-amber-100 text-amber-800',
+  critical: 'border-red-500 bg-red-100 text-red-800',
+};
+
 export function ReportModal({
   isOpen,
   onClose,
@@ -79,9 +82,10 @@ export function ReportModal({
   rainfallHours,
 }: ReportModalProps) {
   const [step, setStep] = useState<ReportStep>('confirm');
-  const [selectedDepth, setSelectedDepth] = useState<FloodDepth | null>(null);
-  const [selectedReference, setSelectedReference] = useState<FloodReference | null>(null);
-  const [hoveredLevelIndex, setHoveredLevelIndex] = useState<number | null>(null);
+  const [selectedCm, setSelectedCm] = useState<number | null>(null);
+  const [customCm, setCustomCm] = useState('');
+  const [hoveredCm, setHoveredCm] = useState<number | null>(null);
+  const [selectedReference, setSelectedReference] = useState<FloodReference>('adult');
   const [depthCategories, setDepthCategories] = useState<FloodDepthCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
@@ -92,7 +96,14 @@ export function ReportModal({
 
   useEffect(() => {
     if (isOpen) setStep('confirm');
+    if (!isOpen) setCustomCm('');
   }, [isOpen]);
+
+  // Keep the exact-centimeter input in step with any selection source
+  // (strips, presets, or typing into the input itself).
+  useEffect(() => {
+    if (selectedCm != null) setCustomCm(String(selectedCm));
+  }, [selectedCm]);
 
   useEffect(() => {
     if (!isOpen || step !== 'confirm' || !selectedLocation) {
@@ -170,40 +181,42 @@ export function ReportModal({
 
   const resetForm = () => {
     setStep('confirm');
-    setSelectedDepth(null);
-    setSelectedReference(null);
-    setHoveredLevelIndex(null);
+    setSelectedCm(null);
+    setSelectedReference('adult');
+    setHoveredCm(null);
     lastElevationKey.current = '';
   };
 
-  const referenceProfile = selectedReference
-    ? FLOOD_REFERENCE_PROFILES.find((profile) => profile.id === selectedReference)
+  const referenceMeta =
+    FLOOD_REFERENCE_META.find((meta) => meta.id === selectedReference) ?? null;
+  const selectedCode = selectedCm != null ? depthCodeFromCm(selectedCm) : null;
+  const selectedDepthCategory = selectedCode
+    ? depthCategories.find((category) => category.code === selectedCode) ?? null
     : null;
-  const selectedLevelIndex = referenceProfile
-    ? referenceProfile.levels.findIndex((level) => level.depth === selectedDepth)
-    : -1;
-  const selectedLevel = referenceProfile?.levels[selectedLevelIndex];
-  const displayedLevel = referenceProfile?.levels[
-    hoveredLevelIndex ?? Math.max(selectedLevelIndex, 0)
-  ];
-  const selectedDepthCategory = depthCategories.find(
-    (category) => category.code === selectedDepth
-  );
 
   const setReference = (reference: FloodReference) => {
     setSelectedReference(reference);
-    setSelectedDepth(null);
-    setHoveredLevelIndex(null);
+    setSelectedCm(null);
+    setHoveredCm(null);
   };
 
-  const selectLevel = (index: number) => {
-    if (!referenceProfile) return;
-    setSelectedDepth(referenceProfile.levels[index].depth);
-    setHoveredLevelIndex(null);
+  const selectDepth = (cm: number) => {
+    setSelectedCm(cm);
+  };
+
+  /** Exact-centimeter input: any depth 1–999 cm; readings past the scale's
+   * 250 cm top clamp the visual but still map to a category on submit. */
+  const handleCustomCmChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = event.target.value;
+    setCustomCm(raw);
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isFinite(parsed) && parsed >= 1) {
+      setSelectedCm(Math.min(parsed, 999));
+    }
   };
 
   const handleSubmit = async () => {
-    if (!selectedLocation || !selectedDepth || !referenceProfile || !selectedLevel) {
+    if (!selectedLocation || selectedCm == null || !referenceMeta || selectedCode == null) {
       toast.error('Please complete the report details.', {
         position: 'top-right',
         autoClose: 3000,
@@ -216,10 +229,11 @@ export function ReportModal({
     try {
       await onSubmit({
         location: selectedLocation,
-        depth: selectedDepth,
+        depth: selectedCode,
+        depthCm: selectedCm,
         reference: {
-          label: referenceProfile.label,
-          landmark: selectedLevel.label,
+          label: referenceMeta.label,
+          landmark: `~${selectedCm} cm`,
         },
       });
       resetForm();
@@ -336,11 +350,10 @@ export function ReportModal({
                   </div>
 
                   <div
-                    className={`rounded-lg border p-3 ${
-                      locationRisk?.hazardLevel
+                    className={`rounded-lg border p-3 ${locationRisk?.hazardLevel
                         ? HAZARD_META[locationRisk.hazardLevel].bg
                         : 'bg-slate-50 border-slate-200'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
                       <AlertTriangle className="w-3 h-3" />
@@ -353,11 +366,10 @@ export function ReportModal({
                       </div>
                     ) : (
                       <div
-                        className={`text-sm font-bold ${
-                          locationRisk?.hazardLevel
+                        className={`text-sm font-bold ${locationRisk?.hazardLevel
                             ? HAZARD_META[locationRisk.hazardLevel].color
                             : 'text-slate-600'
-                        }`}
+                          }`}
                       >
                         {HAZARD_META[
                           locationRisk?.hazardLevel ?? 'none'
@@ -377,115 +389,99 @@ export function ReportModal({
           {step === 'depth' && (
             <div className="space-y-5">
               <div>
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Choose a reference
+                <h3 className="text-sm font-semibold text-slate-900 mb-1">
+                  Choose a reference:
                 </h3>
-                <p className="mt-1 text-xs text-slate-600">
-                  Pick what best matches the flooded area, then set the waterline.
+                <p className="text-xs text-slate-500">
+                  Pick a reference that best matches the flooded area.
                 </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2" role="group" aria-label="Flood-depth reference">
-                {FLOOD_REFERENCE_PROFILES.map((profile) => {
-                  const Icon = REFERENCE_ICONS[profile.id];
-                  const isSelected = selectedReference === profile.id;
-
-                  return (
-                    <button
-                      key={profile.id}
-                      type="button"
-                      onClick={() => setReference(profile.id)}
-                      aria-pressed={isSelected}
-                      className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition-colors ${
-                        isSelected
-                          ? 'border-gakit-maroon bg-maroon-50 text-gakit-maroon'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-maroon-200 hover:bg-maroon-50/50'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span>{profile.label}</span>
-                    </button>
-                  );
+              <FilterDropdown<FloodReference>
+                value={selectedReference}
+                onSelect={(id) => setReference(id)}
+                options={FLOOD_REFERENCE_META.map((meta) => {
+                  const Icon = REFERENCE_ICONS[meta.id];
+                  return {
+                    value: meta.id,
+                    label: meta.label,
+                    icon: <Icon className="h-4 w-4 shrink-0" />,
+                  };
                 })}
+                triggerIcon={(() => {
+                  const Icon = REFERENCE_ICONS[selectedReference];
+                  return <Icon className="h-4 w-4 shrink-0" />;
+                })()}
+                triggerLabel={referenceMeta?.label ?? 'Choose a reference'}
+              />
+              <div>
+              <h3 className="text-sm font-semibold text-slate-900 mb-1">
+                Set the flood depth:
+              </h3>
+              <p className="text-xs text-slate-500">
+                Choose a preset, drag the slider, or input an exact depth.
+              </p>
               </div>
-
-              {referenceProfile && displayedLevel && (
-                <section className="overflow-hidden rounded-2xl border border-sky-200 bg-sky-50/50">
-                  <div
-                    className="relative cursor-crosshair touch-pan-y"
-                    onPointerMove={(event) => {
-                      if (event.pointerType !== 'mouse') return;
-                      const bounds = event.currentTarget.getBoundingClientRect();
-                      const waterLevel = 1 - (event.clientY - bounds.top) / bounds.height;
-                      setHoveredLevelIndex(
-                        getClosestLevelIndex(referenceProfile.levels, waterLevel)
-                      );
-                    }}
-                    onPointerLeave={() => setHoveredLevelIndex(null)}
-                  >
+              {referenceMeta && (
+                <section className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4">
+                  <div className="flex items-stretch gap-1">
                     <FloodReferenceIllustration
-                      reference={referenceProfile.id}
-                      waterLevel={displayedLevel.waterLevel}
-                      label={referenceProfile.label}
+                      reference={referenceMeta.id}
+                      depthCm={hoveredCm ?? selectedCm ?? 0}
+                      label={referenceMeta.label}
+                      className="h-56 min-w-0 flex-1"
                     />
-                    <div className="pointer-events-none absolute inset-x-4 bottom-3 rounded-lg bg-white/90 px-3 py-2 text-center shadow-sm">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-sky-700">
-                        {hoveredLevelIndex != null ? 'Preview' : 'Selected waterline'}
-                      </div>
-                      <div className="text-sm font-bold text-slate-900">{displayedLevel.label}</div>
-                    </div>
+                    <FloodDepthScale
+                      value={selectedCm}
+                      preview={hoveredCm}
+                      onSelect={selectDepth}
+                      onPreview={setHoveredCm}
+                    />
                   </div>
 
-                  <div className="border-t border-sky-200 bg-white p-4">
-                    <label className="block text-xs font-semibold text-slate-700" htmlFor="flood-depth-level">
-                      Drag to estimate the flood depth
-                    </label>
-                    <input
-                      id="flood-depth-level"
-                      type="range"
-                      min="0"
-                      max={referenceProfile.levels.length - 1}
-                      step="1"
-                      value={Math.max(selectedLevelIndex, 0)}
-                      onChange={(event) => selectLevel(Number(event.target.value))}
-                      className="mt-3 h-2 w-full cursor-pointer accent-gakit-maroon"
-                      aria-valuetext={displayedLevel.label}
-                    />
-                    <div className="mt-3 flex justify-between gap-1">
-                      {referenceProfile.levels.map((level, index) => {
-                        const isSelected = selectedLevelIndex === index;
-                        return (
-                          <button
-                            key={level.depth}
-                            type="button"
-                            onClick={() => selectLevel(index)}
-                            aria-label={level.label}
-                            aria-pressed={isSelected}
-                            className={`h-3 w-3 rounded-full ring-2 ring-white transition-colors ${
-                              isSelected ? 'bg-gakit-maroon' : 'bg-sky-200 hover:bg-sky-400'
+                  <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5">
+                    {DEPTH_PRESETS.map((preset) => {
+                      const isSelected = selectedCode === preset.code;
+                      const criticality = depthCriticality(preset.cm);
+
+                      return (
+                        <button
+                          key={preset.code}
+                          type="button"
+                          onClick={() => selectDepth(preset.cm)}
+                          aria-pressed={isSelected}
+                          title={`About ${preset.cm} cm — sets the waterline at ${preset.shortLabel.toLowerCase()} level`}
+                          className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${isSelected ? CRITICALITY_CHIP_SELECTED[criticality] : PRESET_CHIP_BASE_CLASSES
                             }`}
-                          />
-                        );
-                      })}
-                    </div>
-                    {selectedDepthCategory && selectedDepth && (
-                      <p className="mt-3 text-center text-sm font-semibold text-slate-900">
-                        Estimated depth: {selectedDepthCategory.label} ({selectedDepthCategory.approximateCm} cm{selectedDepth === 'overhead' ? '+' : ''})
-                      </p>
-                    )}
-                    {!selectedDepth && (
-                      <p className="mt-3 text-center text-xs text-slate-500">
-                        Drag the control or choose a landmark to continue.
-                      </p>
-                    )}
+                        >
+                          {preset.shortLabel}
+                        </button>
+                      );
+                    })}
+                    <span className="text-xs text-slate-400">or</span>
+                    <label className="flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5">
+                      <input
+                        type="number"
+                        min={1}
+                        max={999}
+                        inputMode="numeric"
+                        value={customCm}
+                        onChange={handleCustomCmChange}
+                        aria-label="Exact water depth in centimeters"
+                        className="w-14 bg-transparent text-xs font-semibold text-slate-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      />
+                      <span className="text-xs text-slate-400">cm</span>
+                    </label>
                   </div>
-                </section>
-              )}
 
-              {!referenceProfile && (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4 text-center text-sm text-slate-500">
-                  Select a person or vehicle reference to estimate the flood depth.
-                </div>
+
+                  {selectedCm != null && selectedCode && (
+                    <p className="mt-3 text-center text-sm font-semibold text-slate-900">
+                      Approx. depth: ~{selectedCm} cm
+                      {selectedDepthCategory ? `  (${selectedDepthCategory.label})` : ` (${fallbackCategoryLabel(selectedCode)})`}
+                    </p>
+                  )}
+                </section>
               )}
             </div>
           )}
@@ -511,7 +507,7 @@ export function ReportModal({
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={!selectedDepth || isSubmitting}
+                disabled={selectedCm == null || isSubmitting}
                 className="py-3 px-6 rounded-lg font-semibold transition-all duration-200 bg-gakit-maroon hover:bg-maroon-800 text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (

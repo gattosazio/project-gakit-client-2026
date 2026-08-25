@@ -1,21 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
   BellRing,
   CheckCircle2,
-  ChevronDown,
+  Clock,
   CloudRain,
   Eye,
-  MapPinned,
-  MoreHorizontal,
-  RefreshCw,
+  Filter,
   ShieldAlert,
   XCircle,
 } from 'lucide-react';
+import { FilterDropdown, type FilterDropdownOption } from '@/components/ui/FilterDropdown';
 import { DEPTH_LABELS, formatDateTime } from '@/lib/reports/reportFormatting';
 import {
   dismissNotifications,
@@ -79,6 +77,12 @@ const SEVERITY_CLASS: Record<Severity, string> = {
   low: 'bg-slate-100 text-slate-600 border-slate-200',
 };
 
+const DATE_FILTER_OPTIONS: FilterDropdownOption<'24h' | '7d' | 'all'>[] = [
+  { value: '24h', label: 'Last 24 hours', icon: <Clock className="h-4 w-4 shrink-0" /> },
+  { value: '7d', label: 'Last 7 days', icon: <Clock className="h-4 w-4 shrink-0" /> },
+  { value: 'all', label: 'All time', icon: <Clock className="h-4 w-4 shrink-0" /> },
+];
+
 export function AlertsTab({
   active = true,
   onOpenReports,
@@ -98,6 +102,7 @@ export function AlertsTab({
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<'all' | NotificationType>('all');
   const [dateFilter, setDateFilter] = useState<'24h' | '7d' | 'all'>('24h');
+  const [dismissConfirmId, setDismissConfirmId] = useState<string | null>(null);
   const { sort, toggleSort } = useSortableTable<SortColumn>({
     column: 'sentAt',
     direction: 'desc',
@@ -225,50 +230,81 @@ export function AlertsTab({
     [visibleNotifications, readIds]
   );
 
+  const dismissTarget = dismissConfirmId
+    ? notifications.find((n) => n.id === dismissConfirmId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (!dismissConfirmId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDismissConfirmId(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [dismissConfirmId]);
+
+  const markAllAsRead = useCallback(() => {
+    const ids = unreadNotifications.map((n) => n.id);
+    if (ids.length === 0) return;
+    setReadIds((cur) => [...new Set([...cur, ...ids])]);
+    void markNotificationsRead(ids);
+  }, [unreadNotifications]);
+
   return (
     <section className="space-y-5">
       <div className="rounded-2xl border border-canvas-grey bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-canvas-grey px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+        <div className="space-y-4 border-b border-canvas-grey p-4">
           <div>
-            <h3 className="font-bold text-slate-900 text-lg">Notification inbox</h3>
+            <h3 className="font-bold text-slate-900">Notification inbox</h3>
             <p className="mt-1 text-sm text-slate-500">
               {loading ? 'Loading notifications...' : `${notifications.length} notifications`}
             </p>
           </div>
-          <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
-            {[
-              ['all', 'All'],
-              ['new-report', 'New reports'],
-              ['needs-review', 'Needs review'],
-              ['flagged', 'Flagged'],
-              ['weather', 'Weather'],
-              ['rejected', 'Rejected'],
-            ].map(([value, label]) => (
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
+            {([
+              ['all', 'All', Filter],
+              ['new-report', 'New reports', BellRing],
+              ['needs-review', 'Needs review', ShieldAlert],
+              ['flagged', 'Flagged', AlertTriangle],
+              ['weather', 'Weather', CloudRain],
+              ['rejected', 'Rejected', CheckCircle2],
+            ] as const).map(([value, label, Icon]) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => setFilter(value as 'all' | NotificationType)}
-                className={`shrink-0 rounded-lg px-3 py-2 text-sm font-semibold ${
+                className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${
                   filter === value
                     ? 'bg-gakit-maroon text-white'
                     : 'bg-canvas-light text-slate-600 hover:bg-slate-100'
                 }`}
               >
+                <Icon className="h-3.5 w-3.5 shrink-0" />
                 {label}
               </button>
             ))}
-            <select
-              aria-label="Notification date range"
+            <FilterDropdown
               value={dateFilter}
-              onChange={(event) => setDateFilter(event.target.value as '24h' | '7d' | 'all')}
-              className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition-colors hover:border-gakit-maroon focus:border-gakit-maroon"
-            >
-              <option value="24h">Last 24 hours</option>
-              <option value="7d">Last 7 days</option>
-              <option value="all">All time</option>
-            </select>
+              onSelect={(v) => setDateFilter(v)}
+              options={DATE_FILTER_OPTIONS}
+              triggerIcon={<Clock className="h-4 w-4" />}
+              triggerLabel={DATE_FILTER_OPTIONS.find((o) => o.value === dateFilter)?.label ?? 'All time'}
+            />
           </div>
         </div>
+
+        {unreadNotifications.length > 0 && !loading && !error && (
+          <div className="flex justify-end border-b border-canvas-grey px-6 py-3">
+            <button
+              type="button"
+              onClick={markAllAsRead}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-canvas-grey bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              Mark all as read
+            </button>
+          </div>
+        )}
 
         {error ? (
           <div className="p-5 text-sm text-red-700">{error}</div>
@@ -293,7 +329,7 @@ export function AlertsTab({
                     <tr>
                       <td
                         colSpan={6}
-                        className="bg-canvas-light px-6 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400"
+                        className="bg-canvas-light px-6 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500"
                       >
                         Unread
                       </td>
@@ -305,7 +341,7 @@ export function AlertsTab({
                         onOpenReports={onOpenReports}
                         onSelectWeatherAlert={onSelectWeatherAlert}
                         onMarkRead={markAsRead}
-                        onDismiss={dismiss}
+                        onDismiss={setDismissConfirmId}
                         isRead={false}
                         highlighted={highlightedNotificationId === notification.id}
                       />
@@ -317,7 +353,7 @@ export function AlertsTab({
                     <tr>
                       <td
                         colSpan={6}
-                        className="bg-canvas-light px-6 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-400"
+                        className="bg-canvas-light px-6 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500"
                       >
                         Read
                       </td>
@@ -329,7 +365,7 @@ export function AlertsTab({
                         onOpenReports={onOpenReports}
                         onSelectWeatherAlert={onSelectWeatherAlert}
                         onMarkRead={markAsRead}
-                        onDismiss={dismiss}
+                        onDismiss={setDismissConfirmId}
                         isRead={true}
                         highlighted={highlightedNotificationId === notification.id}
                       />
@@ -341,7 +377,7 @@ export function AlertsTab({
             <div className="md:hidden">
               {unreadNotifications.length > 0 && (
                 <section className="border-b border-canvas-grey">
-                  <p className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  <p className="bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500">
                     Unread
                   </p>
                   <div className="divide-y divide-canvas-grey">
@@ -352,7 +388,7 @@ export function AlertsTab({
                         onOpenReports={onOpenReports}
                         onSelectWeatherAlert={onSelectWeatherAlert}
                         onMarkRead={markAsRead}
-                        onDismiss={dismiss}
+                        onDismiss={setDismissConfirmId}
                         isRead={false}
                         highlighted={highlightedNotificationId === notification.id}
                       />
@@ -362,7 +398,7 @@ export function AlertsTab({
               )}
               {readNotifications.length > 0 && (
                 <section className={unreadNotifications.length > 0 ? 'border-t border-canvas-grey' : ''}>
-                  <p className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  <p className="bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500">
                     Read
                   </p>
                   <div className="divide-y divide-canvas-grey">
@@ -373,7 +409,7 @@ export function AlertsTab({
                         onOpenReports={onOpenReports}
                         onSelectWeatherAlert={onSelectWeatherAlert}
                         onMarkRead={markAsRead}
-                        onDismiss={dismiss}
+                        onDismiss={setDismissConfirmId}
                         isRead={true}
                         highlighted={highlightedNotificationId === notification.id}
                       />
@@ -385,6 +421,52 @@ export function AlertsTab({
           </>
         )}
       </div>
+      {dismissConfirmId && (
+        <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Close dismiss confirmation"
+            className="absolute inset-0 bg-slate-900/50"
+            onClick={() => setDismissConfirmId(null)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="dismiss-confirm-title"
+            className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+              <XCircle className="h-6 w-6 text-red-600" />
+            </div>
+            <h3 id="dismiss-confirm-title" className="mt-4 text-center text-base font-bold text-slate-900">
+              Dismiss notification?
+            </h3>
+            <p className="mt-2 text-center text-sm text-slate-600">
+              {dismissTarget ? `“${dismissTarget.title}” will be permanently dismissed.` : 'This notification will be permanently dismissed.'}
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDismissConfirmId(null)}
+                className="flex-1 rounded-lg border border-canvas-grey bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (dismissConfirmId) dismiss(dismissConfirmId);
+                  setDismissConfirmId(null);
+                }}
+                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -406,6 +488,15 @@ function NotificationRow({
   isRead: boolean;
   highlighted: boolean;
 }) {
+  const handleView = () => {
+    if (!isRead) onMarkRead(notification.id);
+    if (notification.type === 'weather' && onSelectWeatherAlert && notification.weatherAlert) {
+      onSelectWeatherAlert(notification.weatherAlert);
+    } else {
+      onOpenReports(notification.reportId);
+    }
+  };
+
   return (
     <tr className={highlighted ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/60'}>
       <td className="px-6 py-4">
@@ -428,14 +519,37 @@ function NotificationRow({
         {formatDateTime(notification.sentAt)}
       </td>
       <td className="px-6 py-4">
-        <NotificationActions
-          notification={notification}
-          onOpenReports={onOpenReports}
-          onSelectWeatherAlert={onSelectWeatherAlert}
-          onMarkRead={onMarkRead}
-          onDismiss={onDismiss}
-          isRead={isRead}
-        />
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label={`View ${notification.title}`}
+            onClick={handleView}
+            className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
+            title="View"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          {!isRead && (
+            <button
+              type="button"
+              aria-label={`Mark ${notification.title} as read`}
+              onClick={() => onMarkRead(notification.id)}
+              className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
+              title="Mark as read"
+            >
+              <CheckCircle2 className="h-4 w-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label={`Dismiss ${notification.title}`}
+            onClick={() => onDismiss(notification.id)}
+            className="inline-flex rounded-lg border border-canvas-grey p-2 text-red-600 hover:border-red-200 hover:bg-red-50"
+            title="Dismiss"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -458,8 +572,28 @@ function NotificationCard({
   isRead: boolean;
   highlighted: boolean;
 }) {
+  const handleView = () => {
+    if (!isRead) onMarkRead(notification.id);
+    if (notification.type === 'weather' && onSelectWeatherAlert && notification.weatherAlert) {
+      onSelectWeatherAlert(notification.weatherAlert);
+    } else {
+      onOpenReports(notification.reportId);
+    }
+  };
+
   return (
-    <div className={`flex gap-3 p-4 ${highlighted ? 'bg-maroon-100/80' : ''}`}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleView}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          handleView();
+        }
+      }}
+      className={`flex cursor-pointer gap-3 p-4 active:bg-canvas-light ${highlighted ? 'bg-maroon-100/80' : ''}`}
+    >
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
           <NotificationTypeBadge type={notification.type} />
@@ -478,14 +612,28 @@ function NotificationCard({
           {formatDateTime(notification.sentAt)}
         </p>
       </div>
-      <NotificationActions
-        notification={notification}
-        onOpenReports={onOpenReports}
-        onSelectWeatherAlert={onSelectWeatherAlert}
-        onMarkRead={onMarkRead}
-        onDismiss={onDismiss}
-        isRead={isRead}
-      />
+      <div className="flex shrink-0 items-start gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        {!isRead && (
+          <button
+            type="button"
+            aria-label={`Mark ${notification.title} as read`}
+            onClick={() => onMarkRead(notification.id)}
+            className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
+            title="Mark as read"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+          </button>
+        )}
+        <button
+          type="button"
+          aria-label={`Dismiss ${notification.title}`}
+          onClick={() => onDismiss(notification.id)}
+          className="inline-flex rounded-lg border border-canvas-grey p-2 text-red-600 hover:border-red-200 hover:bg-red-50"
+          title="Dismiss"
+        >
+          <XCircle className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -507,159 +655,10 @@ function NotificationTypeBadge({ type }: { type: NotificationType }) {
 function SeverityBadge({ severity }: { severity: Severity }) {
   return (
     <span
-      className={`inline-flex rounded-md border px-2 py-1 text-xs font-semibold capitalize ${SEVERITY_CLASS[severity]}`}
+      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${SEVERITY_CLASS[severity]}`}
     >
       {severity}
     </span>
-  );
-}
-
-function NotificationActions({
-  notification,
-  onOpenReports,
-  onSelectWeatherAlert,
-  onMarkRead,
-  onDismiss,
-  isRead,
-}: {
-  notification: Notification;
-  onOpenReports: (reportId?: string) => void;
-  onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
-  onMarkRead: (id: string) => void;
-  onDismiss: (id: string) => void;
-  isRead: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
-
-  const toggle = () => {
-    if (!open && buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setMenuPos({
-        top: rect.bottom + 4,
-        left: Math.max(8, rect.right - 176),
-      });
-    }
-    setOpen((value) => !value);
-  };
-
-  useEffect(() => {
-    if (!open) return;
-
-    // Outside clicks are handled by the fullscreen backdrop button rendered
-    // with the portal menu (same approach as report management) — a global
-    // mousedown listener here would unmount the menu before item clicks fire.
-    const reposition = () => {
-      if (buttonRef.current) {
-        const rect = buttonRef.current.getBoundingClientRect();
-        setMenuPos({ top: rect.bottom + 4, left: Math.max(8, rect.right - 176) });
-      }
-    };
-
-    window.addEventListener('resize', reposition);
-    window.addEventListener('scroll', reposition, true);
-    return () => {
-      window.removeEventListener('resize', reposition);
-      window.removeEventListener('scroll', reposition, true);
-    };
-  }, [open]);
-
-  const isWeather = notification.type === 'weather';
-  const reportAction =
-    notification.type === 'flagged' || notification.type === 'needs-review'
-      ? 'Review report'
-      : 'View report';
-
-  return (
-    <div>
-      <button
-        ref={buttonRef}
-        type="button"
-        aria-label={`Actions for ${notification.title}`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={toggle}
-        className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
-      >
-        <MoreHorizontal className="h-4 w-4" />
-      </button>
-
-      {open &&
-        createPortal(
-          <>
-            <button
-              type="button"
-              aria-hidden
-              tabIndex={-1}
-              className="fixed inset-0 z-[1300] cursor-default"
-              onClick={() => setOpen(false)}
-            />
-            <div
-              role="menu"
-              style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: 176 }}
-              className="z-[1400] overflow-hidden rounded-lg border border-canvas-grey bg-white shadow-lg"
-            >
-              {isWeather && onSelectWeatherAlert && notification.weatherAlert ? (
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    setOpen(false);
-                    onSelectWeatherAlert(notification.weatherAlert!);
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
-                >
-                  <Eye className="h-4 w-4 shrink-0 text-slate-400" />
-                  <span className="flex-1 text-left">View details</span>
-                </button>
-              ) : (
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    setOpen(false);
-                    onOpenReports(notification.reportId);
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
-                >
-                  {notification.reportId ? (
-                    <Eye className="h-4 w-4 shrink-0 text-slate-400" />
-                  ) : (
-                    <MapPinned className="h-4 w-4 shrink-0 text-slate-400" />
-                  )}
-                  <span className="flex-1 text-left">
-                    {notification.reportId ? reportAction : 'Open map'}
-                  </span>
-                </button>
-              )}
-              {!isRead && (
-                <button
-                  role="menuitem"
-                  onClick={() => {
-                    setOpen(false);
-                    onMarkRead(notification.id);
-                  }}
-                  className="flex w-full items-center gap-3 border-t border-canvas-grey px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
-                >
-                  <CheckCircle2 className="h-4 w-4 shrink-0 text-slate-400" />
-                  <span className="flex-1 text-left">Mark as read</span>
-                </button>
-              )}
-              <button
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onDismiss(notification.id);
-                }}
-                className="flex w-full items-center gap-3 border-t border-canvas-grey px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
-              >
-                <XCircle className="h-4 w-4 shrink-0" />
-                <span className="flex-1 text-left">Dismiss permanently</span>
-              </button>
-            </div>
-          </>,
-          document.body
-        )}
-    </div>
   );
 }
 

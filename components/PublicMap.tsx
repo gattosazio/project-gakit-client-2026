@@ -207,7 +207,8 @@ export function PublicMap({
 
   const showReportPopup = useCallback(
     (feature: Record<string, any>, lngLat: any) => {
-      if (!maplibregl) return;
+      const map = mapRef.current;
+      if (!maplibregl || !map) return;
       if (!reportPopupRef.current) {
         reportPopupRef.current = new maplibregl.Popup({
           closeButton: false,
@@ -217,9 +218,9 @@ export function PublicMap({
           maxWidth: '240px',
         });
       }
-        reportPopupRef.current.setLngLat(lngLat).setHTML(buildReportPopupHtml(feature));
+      reportPopupRef.current.setLngLat(lngLat).setHTML(buildReportPopupHtml(feature));
       if (!reportPopupRef.current.isOpen()) {
-        reportPopupRef.current.addTo(mapRef.current);
+        reportPopupRef.current.addTo(map);
       }
     },
     []

@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import type { FloodDepthCode, ReportStatus } from '@/types/report';
 
-export const depthOptions: Array<'All' | FloodDepthCode> = ['All', 'ankle', 'knee', 'waist', 'head', 'overhead'];
+export const depthOptions: Array<'All' | FloodDepthCode> = ['All', 'ankle', 'knee', 'waist', 'shoulder', 'head', 'overhead'];
 
 export const timeRangeOptions: Array<{ value: string; label: string; hours: number | null }> = [
   { value: '24h', label: 'Last 24 hours', hours: 24 },
