@@ -4,6 +4,7 @@ export const DEPTH_LABELS: Record<FloodDepthCode, string> = {
   ankle: 'Ankle Deep',
   knee: 'Knee Deep',
   waist: 'Waist Deep',
+  shoulder: 'Shoulder Deep',
   head: 'Head Deep',
   overhead: 'Overhead',
 };

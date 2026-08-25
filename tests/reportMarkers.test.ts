@@ -34,7 +34,7 @@ describe('buildReportsGeoJson', () => {
     expect(feature.properties).toMatchObject({
       kind: 'report',
       address: 'Quezon Ave',
-      depthLabel: 'Knee deep',
+      depthLabel: 'Knee deep (~45 cm)',
       statusLabel: 'Pending validation',
     });
     // The backend id is intentionally not copied onto map features.

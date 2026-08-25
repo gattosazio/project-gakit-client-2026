@@ -54,10 +54,13 @@ export const createReportMarkerImage = (color: string): ImageData | null => {
   return context.getImageData(0, 0, canvas.width, canvas.height);
 };
 
-export const formatDepth = (depth: DepthCategory) =>
-  depth.code === 'overhead'
-    ? `${depth.label} (approximately ${depth.approximateCm} cm or deeper)`
-    : `${depth.label} (approximately ${depth.approximateCm} cm)`;
+export const formatDepth = (depth: DepthCategory, depthCm?: number | null) => {
+  const exact = depthCm != null ? `~${depthCm} cm` : null;
+  if (depth.code === 'overhead') {
+    return exact ? `${depth.label} (${exact} or deeper)` : `${depth.label} (~${depth.approximateCm} cm or deeper)`;
+  }
+  return exact ? `${depth.label} (${exact})` : `${depth.label} (~${depth.approximateCm} cm)`;
+};
 
 const escapeHtml = (value: string) =>
   value.replace(
@@ -94,6 +97,7 @@ export const buildReportsGeoJson = (
 
   backendReports.forEach((feature) => {
     const props = feature.properties;
+    const depthLabel = formatDepth(props.depth, (props as unknown as { depthCm?: number | null }).depthCm);
     pushReport(props.id, props.status, {
       type: 'Feature',
       geometry: feature.geometry,
@@ -101,7 +105,7 @@ export const buildReportsGeoJson = (
         kind: 'report',
         status: props.status,
         address: props.address || 'Flood report',
-        depthLabel: props.depth.label,
+        depthLabel,
         statusLabel: REPORT_STATUS_LABELS[props.status] || props.status,
         createdAt: new Date(props.createdAt).toLocaleString(),
       },

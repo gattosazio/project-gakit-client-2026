@@ -30,6 +30,7 @@ export function StaffSubmitReportModal({
   onSubmit: (data: {
     location: { lat: number; lng: number };
     depth: FloodDepthCode;
+    depthCm?: number;
   }) => Promise<void>;
 }) {
   const mapRef = useRef<PublicMapHandle | null>(null);
