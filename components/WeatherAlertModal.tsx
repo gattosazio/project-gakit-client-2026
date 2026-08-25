@@ -1,9 +1,10 @@
 'use client';
 
 import { CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
-import type { WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
+import type { CurrentWeather, WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
 import { getWeatherCondition } from '@/lib/weather/weatherCodes';
 import { WeatherAttribution } from './weather/WeatherAttribution';
+import { CurrentConditions } from './weather/CurrentConditions';
 import { RainStrip } from './weather/RainStrip';
 
 const SEVERITY_CONFIG: Record<
@@ -80,7 +81,7 @@ function DayRow({ day, highlighted }: { day: WeatherDayData; highlighted?: boole
     <div
       className={`rounded-lg border p-3 ${
         highlighted
-          ? 'border-gakit-maroon/50 bg-white shadow-sm'
+          ? 'border-transparent bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/80'
           : 'border-canvas-grey bg-canvas-light'
       }`}
     >
@@ -126,10 +127,12 @@ interface WeatherAlertModalProps {
   alert: WeatherAlert;
   /** ISO date of the day to emphasize (e.g. the card the user clicked). */
   highlightDate?: string;
+  /** Live conditions snapshot; rendered above the body when provided. */
+  current?: CurrentWeather | null;
   onClose: () => void;
 }
 
-export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAlertModalProps) {
+export function WeatherAlertModal({ alert, highlightDate, current, onClose }: WeatherAlertModalProps) {
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
   const period = friendlyPeriod(alert.validFrom, alert.validTo);
@@ -173,6 +176,12 @@ export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAler
               minute: '2-digit',
             })}
           </p>
+
+          {current && (
+            <div className="mb-2">
+              <CurrentConditions current={current} />
+            </div>
+          )}
 
           {alert.data?.days?.length ? (
             <div className="space-y-2">

@@ -21,7 +21,7 @@ export function himawariFrameURL(time: string): string {
   return `${PROXY_BASE}?area=${HIMAWARI_AREA}&band=${HIMAWARI_BAND}&time=${time}`;
 }
 
-export function himawariFrameTimes(frames = 12): string[] {
+export function himawariFrameTimes(frames = 6): string[] {
   const now = new Date();
   now.setUTCMinutes(Math.floor(now.getUTCMinutes() / 10) * 10, 0, 0);
   const times: string[] = [];
@@ -44,4 +44,29 @@ export async function fetchHimawariFrame(time: string): Promise<HTMLImageElement
     img.onerror = () => reject(new Error(`Failed to load Himawari frame ${time}`));
     img.src = himawariFrameURL(time);
   });
+}
+
+// JMA overwrites each dateless slot URL in place and leaves yesterday's file
+// served (HTTP 200) until a delayed scan publishes, so a 200 alone does not
+// mean the bytes match the requested slot. A frame counts as fresh only when
+// its Last-Modified sits within ±20 minutes of the slot's most recent
+// occurrence — normal publish lag is ~13 minutes, while a stale carry-over
+// from the previous day lands ~24 hours off.
+const HIMAWARI_FRESH_WINDOW_MS = 20 * 60 * 1000;
+
+export function isFrameFresh(lastModified: string | null, slotHHMM: string, now = new Date()): boolean {
+  if (!lastModified) return false;
+  const modified = new Date(lastModified).getTime();
+  if (Number.isNaN(modified)) return false;
+
+  const hh = Number(slotHHMM.slice(0, 2));
+  const mm = Number(slotHHMM.slice(2));
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return false;
+
+  // Most recent occurrence of HHMM relative to `now`, so slots requested just
+  // after a UTC midnight rollover compare against yesterday's publication.
+  let slot = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hh, mm);
+  if (slot > now.getTime()) slot -= 24 * 60 * 60 * 1000;
+
+  return Math.abs(modified - slot) <= HIMAWARI_FRESH_WINDOW_MS;
 }

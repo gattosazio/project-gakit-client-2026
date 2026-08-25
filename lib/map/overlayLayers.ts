@@ -273,7 +273,10 @@ export const setupOverlayLayers = async (
       type: 'raster',
       source: 'himawari-ir',
       paint: {
-        'raster-opacity': 0.5,
+        'raster-opacity': 0.8,
+        // Snap frames instantly (PAGASA-style): MapLibre's 300 ms default fade
+        // never settles at the ~167 ms loop interval and smears every swap.
+        'raster-fade-duration': 0,
       },
     }, 'report-clusters');
 
