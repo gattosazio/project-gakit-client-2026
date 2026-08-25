@@ -207,7 +207,7 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
             <div className="hidden group-hover:block absolute right-0 top-12 w-56 z-[1201]">
               <div className="bg-white border border-canvas-grey rounded-lg shadow-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
                 <div className="font-semibold text-slate-900 mb-1">How to report a flood hazard</div>
-                1. Set your location (search, tap, or use GPS).<br />2. Select the flood depth.<br />3. Attach image (optional).<br />4. Submit report.
+                1. Set your location (search, tap, or use GPS).<br />2. Choose a person or vehicle reference, then estimate the waterline.<br />3. Submit report.
               </div>
             </div>
           </div>
@@ -260,7 +260,7 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
             <div className="absolute right-0 top-12 w-56 z-[1201]">
               <div className="bg-white border border-canvas-grey rounded-lg shadow-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
                 <div className="font-semibold text-slate-900 mb-1">How to report a flood hazard</div>
-                1. Set your location (search, tap, or use GPS).<br />2. Select the flood depth.<br />3. Attach image (optional).<br />4. Submit report.
+                1. Set your location (search, tap, or use GPS).<br />2. Choose a person or vehicle reference, then estimate the waterline.<br />3. Submit report.
               </div>
             </div>
           )}

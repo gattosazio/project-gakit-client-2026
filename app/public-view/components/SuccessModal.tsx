@@ -8,6 +8,7 @@ export interface SubmittedReport {
   id: string;
   location: { lat: number; lng: number; address: string };
   depth: DepthCategory;
+  reference?: { label: string; landmark: string };
   status: ReportStatus;
   submittedAt: string;
 }
@@ -67,6 +68,14 @@ export function SuccessModal({
                 </div>
               </div>
             </div>
+            {report.reference && (
+              <div>
+                <div className="text-xs font-semibold text-slate-500">Reference</div>
+                <div className="text-sm text-slate-900">
+                  {report.reference.label} · {report.reference.landmark}
+                </div>
+              </div>
+            )}
             <div>
               <div className="text-xs font-semibold text-slate-500">Submitted</div>
               <div className="text-sm text-slate-900">{report.submittedAt}</div>
