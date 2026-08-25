@@ -1,0 +1,60 @@
+.dashboard-bar-chart {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(3.25rem, 1fr));
+  align-items: end;
+  gap: 0.875rem;
+  min-height: 18rem;
+  overflow-x: auto;
+  padding-top: 1rem;
+}
+
+.dashboard-bar-item {
+  display: grid;
+  grid-template-rows: 1.5rem 1fr 1.25rem;
+  align-items: end;
+  min-width: 3.25rem;
+  height: 17rem;
+  text-align: center;
+}
+
+.dashboard-bar-value {
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.dashboard-bar {
+  width: 100%;
+  border-radius: 0.5rem 0.5rem 0.125rem 0.125rem;
+  background: linear-gradient(180deg, #a10023 0%, #7a0019 100%);
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.dashboard-bar:hover {
+  background: linear-gradient(180deg, #c4002b 0%, #8a001d 100%);
+  transform: translateY(-0.125rem);
+}
+
+.dashboard-bar-label {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .dashboard-bar-chart {
+    grid-template-columns: repeat(12, minmax(1.25rem, 1fr));
+    gap: 0.4rem;
+    min-height: 13rem;
+  }
+
+  .dashboard-bar-item {
+    min-width: 0;
+    height: 12rem;
+  }
+
+  .dashboard-bar-value,
+  .dashboard-bar-label {
+    font-size: 0.65rem;
+  }
+}

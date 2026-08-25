@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useEffect } from 'react';
 import Image from 'next/image';
-import { Loader2, LogOut, Map, UserRound } from 'lucide-react';
+import { Loader2, LogOut, Map, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, type StaffRole } from '@/lib/auth/roles';
 import { PortalNavItem } from '@/types/portal';
@@ -136,6 +136,7 @@ export function SideBar<T extends string>({
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [role, setRole] = useState<StaffRole | null>(null);
   const { navigate, loadingOverlay } = useRouteLoader();
@@ -165,9 +166,23 @@ export function SideBar<T extends string>({
 
   return (
     <>
-    <aside className="hidden lg:flex w-64 shrink-0 bg-white text-slate-900 h-screen flex-col border-r border-slate-200">
-      <div className="h-20 px-6 flex items-center gap-3 border-b border-slate-100">
-        <div className="flex h-10 w-24 shrink-0 items-center justify-center">
+    <aside
+      className={`relative z-10 hidden h-full shrink-0 flex-col overflow-visible border-r border-slate-200 bg-white text-slate-900 transition-[width] duration-300 lg:flex ${
+        isCollapsed ? 'w-20' : 'w-72'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => setIsCollapsed((collapsed) => !collapsed)}
+        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        className="absolute right-[-1.25rem] top-7 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white text-gakit-maroon shadow-lg ring-4 ring-slate-100 transition-transform hover:scale-105"
+      >
+        {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+      </button>
+
+      <div className={`flex h-24 shrink-0 flex-col justify-center border-b border-slate-100 ${isCollapsed ? 'items-center px-3' : 'items-start px-7'}`}>
+        <div className={`flex h-9 items-center ${isCollapsed ? 'w-9' : 'w-28'}`}>
           <Image
             src="/images/gakit_logo2.svg"
             alt="GAKIT logo"
@@ -176,21 +191,22 @@ export function SideBar<T extends string>({
             className="h-full w-full object-contain"
           />
         </div>
-        <div>
-          <div className="text-sm font-bold leading-tight text-slate-500">{portalSubtitle}</div>
-        </div>
+        <div className={`mt-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 ${isCollapsed ? 'sr-only' : ''}`}>{portalSubtitle}</div>
       </div>
 
-      <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+      <nav className={`flex-1 space-y-1 overflow-y-auto py-6 ${isCollapsed ? 'px-2' : 'px-4'}`}>
         <button
           onClick={() => navigate('/')}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+          title="Public Hazard Map"
+          className={`flex w-full items-center rounded-2xl py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 ${
+            isCollapsed ? 'justify-center px-3' : 'gap-3 px-4'
+          }`}
         >
-          <Map className="w-4 h-4 text-gakit-maroon" />
-          Public Hazard Map
+          <Map className="h-4 w-4 text-gakit-maroon" />
+          <span className={isCollapsed ? 'sr-only' : ''}>Public Hazard Map</span>
         </button>
 
-        <div className="pt-4 px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        <div className={`pb-2 pt-6 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 ${isCollapsed ? 'sr-only' : 'px-4'}`}>
           Menu
         </div>
         {items.map((feature) => {
@@ -201,27 +217,30 @@ export function SideBar<T extends string>({
             <button
               key={feature.id}
               onClick={() => onTabChange(feature.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+              title={feature.label}
+              className={`flex w-full items-center rounded-2xl py-3 text-sm font-semibold transition-colors ${
                 isActive
-                  ? 'bg-gakit-maroon text-white shadow-sm'
+                  ? 'bg-gakit-maroon text-white shadow-[0_10px_24px_rgba(122,0,25,0.35)]'
                   : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+              } ${
+                isCollapsed ? 'justify-center px-3' : 'gap-3 px-4'
               }`}
             >
               <Icon
-                className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`}
+                className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400'}`}
               />
-              {feature.label}
+              <span className={isCollapsed ? 'sr-only' : ''}>{feature.label}</span>
             </button>
           );
         })}
       </nav>
 
-      <div className="p-3 border-t border-slate-100">
-        <div className="mb-3 flex items-center gap-2 rounded-lg bg-slate-50 p-3">
+      <div className={`border-t border-slate-100 ${isCollapsed ? 'p-2' : 'p-4'}`}>
+        <div className={`mb-3 flex items-center rounded-2xl border border-slate-200 bg-slate-50 ${isCollapsed ? 'justify-center p-3' : 'gap-3 p-3'}`}>
           <UserRound className="h-4 w-4 shrink-0 text-gakit-maroon" />
-          <div className="min-w-0">
+          <div className={isCollapsed ? 'hidden' : 'min-w-0'}>
             <div className="truncate text-xs font-semibold text-slate-900">
-              {email || 'Signed-in user'}
+              {email || 'staff_gakit@gmail.com'}
             </div>
             <div className="text-[11px] capitalize text-slate-500">
               {role || 'Loading role...'}
@@ -231,10 +250,13 @@ export function SideBar<T extends string>({
         <button
           onClick={() => setShowConfirm(true)}
           disabled={isSigningOut}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-slate-600 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50"
+          title="Sign Out"
+          className={`flex w-full items-center rounded-2xl py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50 ${
+            isCollapsed ? 'justify-center px-3' : 'gap-3 px-3'
+          }`}
         >
           <LogOut className="w-4 h-4" />
-          {isSigningOut ? 'Signing out...' : 'Sign Out'}
+          <span className={isCollapsed ? 'sr-only' : ''}>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
         </button>
       </div>
     </aside>

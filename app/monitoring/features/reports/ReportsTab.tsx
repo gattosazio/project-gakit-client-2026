@@ -223,7 +223,7 @@ export function ReportsTab({
     <>
       <FeaturePageShell>
         <section className="grid grid-cols-1 gap-4">
-            <div className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
+            <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
               <div className="space-y-4 p-4 border-b border-canvas-grey">
                 <div>
                   <h3 className="font-bold text-slate-900">Reports</h3>
@@ -372,7 +372,7 @@ export function ReportsTab({
         </section>
 
         <section ref={mapSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
-          <div className="bg-white border border-canvas-grey rounded-lg shadow-sm overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
             <div className="p-4 border-b border-canvas-grey flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-slate-900">Map</h3>

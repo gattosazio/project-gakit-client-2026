@@ -62,21 +62,21 @@ export function MonitoringShell() {
     router.replace(`/monitoring?tab=alerts&notification=${encodeURIComponent(notificationId)}`, { scroll: false });
   };
   return (
-    <div className="h-screen bg-canvas-light flex overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-white">
       <SideBar
         activeTab={activeTab}
         items={monitoringFeatures}
         portalSubtitle="Monitoring Portal"
         onTabChange={handleTabChange}
       />
-      <div className="flex-1 min-w-0 h-screen flex flex-col overflow-hidden">
+      <div className="h-full min-w-0 flex-1 flex flex-col overflow-hidden bg-white lg:rounded-[2rem] lg:rounded-l-[2.75rem]">
         <AdminHeader
           title={activeFeature.title}
           description={activeFeature.description}
           icon={activeFeature.icon}
           onNotificationClick={handleOpenNotification}
         />
-        <main className="flex-1 overflow-y-auto p-4 pb-20 md:p-6 lg:pb-6 space-y-6">
+        <main className="flex-1 overflow-y-auto p-4 pb-20 md:px-7 md:py-6 lg:px-8 lg:pb-8 space-y-6">
           <div className={activeTab === 'dashboard' ? 'space-y-4' : 'hidden'}>
             <DashboardOverview active={activeTab === 'dashboard'} onReviewCritical={handleReviewCritical} />
           </div>

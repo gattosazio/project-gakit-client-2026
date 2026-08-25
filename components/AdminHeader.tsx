@@ -336,30 +336,34 @@ export function AdminHeader({
   };
 
   return (
-    <header className="flex h-20 shrink-0 items-center justify-between gap-4 border-b border-canvas-grey bg-white px-4 md:px-6">
-      <div className="flex min-w-0 items-center gap-3">
-        {Icon && <Icon className="h-8 w-8 shrink-0 text-gakit-maroon" />}
+    <header className="flex h-24 shrink-0 items-center justify-between gap-4 border-b border-slate-100 bg-white px-5 py-4 md:px-9">
+      <div className="flex min-w-0 items-center gap-4">
+        {Icon && (
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-maroon-50 text-gakit-maroon">
+            <Icon className="h-6 w-6" />
+          </span>
+        )}
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold text-slate-900 md:text-2xl">
+          <h1 className="truncate text-xl font-bold tracking-[-0.02em] text-slate-900 md:text-[1.75rem]">
             {title}
           </h1>
-          <p className="hidden truncate text-sm text-slate-500 md:block">
+          <p className="mt-1 hidden truncate text-sm text-slate-500 md:block">
             {description}
           </p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         <div ref={notificationRef} className="relative">
           <button
             type="button"
             aria-label="Open notifications"
             aria-expanded={isOpen}
             onClick={() => setIsOpen((open) => !open)}
-            className={`relative rounded-lg border p-2 transition-colors ${
+            className={`relative rounded-full p-2.5 ring-1 transition-colors ${
               isOpen
-                ? 'border-gakit-maroon bg-maroon-50'
-                : 'border-canvas-grey hover:bg-canvas-light'
+                ? 'bg-maroon-50 ring-gakit-maroon'
+                : 'bg-slate-50 ring-slate-200 hover:bg-maroon-50 hover:ring-maroon-200'
             }`}
           >
             <Bell className="h-5 w-5 text-slate-600" />
@@ -371,7 +375,7 @@ export function AdminHeader({
           </button>
 
           {isOpen && (
-            <div className="fixed inset-x-4 top-20 z-[1300] w-auto overflow-hidden rounded-xl border border-canvas-grey bg-white shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-2 md:w-[22rem]">
+            <div className="fixed inset-x-4 top-24 z-[1300] w-auto overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-3 md:w-[22rem]">
               <div className="flex items-center justify-between border-b border-canvas-grey px-4 py-3">
                 <div>
                   <p className="font-semibold text-slate-900">Notifications</p>
@@ -424,7 +428,7 @@ export function AdminHeader({
           type="button"
           aria-label="Settings"
           title="Settings"
-          className="rounded-lg border border-canvas-grey p-2 text-slate-600 transition-colors hover:bg-canvas-light hover:text-gakit-maroon"
+          className="rounded-full bg-slate-50 p-2.5 text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-maroon-50 hover:text-gakit-maroon hover:ring-maroon-200"
         >
           <Settings className="h-5 w-5" />
         </button>

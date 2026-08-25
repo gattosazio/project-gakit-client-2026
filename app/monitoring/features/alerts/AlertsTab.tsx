@@ -227,7 +227,7 @@ export function AlertsTab({
 
   return (
     <section className="space-y-5">
-      <div className="rounded-xl border border-canvas-grey bg-white shadow-sm">
+      <div className="rounded-2xl border border-canvas-grey bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-canvas-grey px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h3 className="font-bold text-slate-900 text-lg">Notification inbox</h3>
