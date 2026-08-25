@@ -167,7 +167,7 @@ export function SideBar<T extends string>({
   return (
     <>
     <aside
-      className={`relative z-10 hidden h-full shrink-0 flex-col overflow-visible border-r border-slate-200 bg-white text-slate-900 transition-[width] duration-300 lg:flex ${
+      className={`relative z-10 hidden h-full shrink-0 flex-col overflow-visible border-r border-slate-200 bg-slate-50 text-slate-900 transition-[width] duration-300 lg:flex ${
         isCollapsed ? 'w-20' : 'w-72'
       }`}
     >
@@ -176,7 +176,7 @@ export function SideBar<T extends string>({
         onClick={() => setIsCollapsed((collapsed) => !collapsed)}
         aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        className="absolute right-[-1.25rem] top-7 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white text-gakit-maroon shadow-lg ring-4 ring-slate-100 transition-transform hover:scale-105"
+        className="absolute right-[-1.25rem] top-7 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-white text-gakit-maroon shadow-lg ring-4 ring-slate-100 transition-all duration-200 hover:scale-105 hover:bg-maroon-50"
       >
         {isCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
       </button>
@@ -198,11 +198,11 @@ export function SideBar<T extends string>({
         <button
           onClick={() => navigate('/')}
           title="Public Hazard Map"
-          className={`flex w-full items-center rounded-2xl py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 ${
+          className={`group flex w-full items-center rounded-2xl py-3 text-sm font-semibold text-slate-600 transition-all duration-200 hover:bg-white hover:text-gakit-maroon hover:shadow-sm ${
             isCollapsed ? 'justify-center px-3' : 'gap-3 px-4'
           }`}
         >
-          <Map className="h-4 w-4 text-gakit-maroon" />
+          <Map className="h-4 w-4 text-slate-400 transition-colors group-hover:text-gakit-maroon" />
           <span className={isCollapsed ? 'sr-only' : ''}>Public Hazard Map</span>
         </button>
 
@@ -218,16 +218,16 @@ export function SideBar<T extends string>({
               key={feature.id}
               onClick={() => onTabChange(feature.id)}
               title={feature.label}
-              className={`flex w-full items-center rounded-2xl py-3 text-sm font-semibold transition-colors ${
+              className={`group flex w-full items-center rounded-2xl py-3 text-sm font-semibold transition-all duration-200 ${
                 isActive
                   ? 'bg-gakit-maroon text-white shadow-[0_10px_24px_rgba(122,0,25,0.35)]'
-                  : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                  : 'text-slate-600 hover:bg-white hover:text-gakit-maroon hover:shadow-sm'
               } ${
                 isCollapsed ? 'justify-center px-3' : 'gap-3 px-4'
               }`}
             >
               <Icon
-                className={`h-4 w-4 ${isActive ? 'text-white' : 'text-slate-400'}`}
+                className={`h-4 w-4 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-gakit-maroon'}`}
               />
               <span className={isCollapsed ? 'sr-only' : ''}>{feature.label}</span>
             </button>
@@ -251,7 +251,7 @@ export function SideBar<T extends string>({
           onClick={() => setShowConfirm(true)}
           disabled={isSigningOut}
           title="Sign Out"
-          className={`flex w-full items-center rounded-2xl py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50 ${
+          className={`flex w-full items-center rounded-2xl py-2.5 text-sm font-semibold text-slate-600 transition-all duration-200 hover:bg-white hover:text-red-600 hover:shadow-sm disabled:opacity-50 ${
             isCollapsed ? 'justify-center px-3' : 'gap-3 px-3'
           }`}
         >

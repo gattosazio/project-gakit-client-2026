@@ -62,7 +62,7 @@ export function MonitoringShell() {
     router.replace(`/monitoring?tab=alerts&notification=${encodeURIComponent(notificationId)}`, { scroll: false });
   };
   return (
-    <div className="flex h-screen overflow-hidden bg-white">
+    <div className="flex h-screen overflow-hidden bg-slate-50/80">
       <SideBar
         activeTab={activeTab}
         items={monitoringFeatures}
