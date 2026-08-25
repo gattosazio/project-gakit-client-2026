@@ -406,7 +406,7 @@ export function DataLayerControls({
         {showHimawariIR && (
           <div className="pl-9 pt-1 pb-1 space-y-1.5">
             <div className="text-[10px] leading-snug text-slate-400">
-              Last 2 hours · 10-min frames
+              Last hour · 10-min frames
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">

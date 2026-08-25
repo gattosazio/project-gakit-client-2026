@@ -6,6 +6,7 @@ import { fetchActiveAlerts, fetchCurrentWeather } from '@/lib/weather/weather';
 import { getWeatherCondition } from '@/lib/weather/weatherCodes';
 import type { CurrentWeather, WeatherAlert } from '@/types/weather';
 import { WeatherAttribution } from '../weather/WeatherAttribution';
+import { CurrentConditions } from '../weather/CurrentConditions';
 import { RainStrip } from '../weather/RainStrip';
 import { WeatherAlertModal } from '../WeatherAlertModal';
 
@@ -32,7 +33,9 @@ function friendlyDay(iso: string): string {
  * Collapsed by default; `defaultExpanded` opens it on desktop viewports
  * (≥768px) on mount. Hidden entirely when no digest exists (e.g. backend
  * unreachable). The collapsed pill prefers live current conditions and
- * silently falls back to today's rain chance when they are unavailable.
+ * silently falls back to today's rain chance when they are unavailable. The
+ * expanded card and day-detail modal lead with the same live snapshot via
+ * `CurrentConditions` when it is available.
  */
 export function WeatherChip({
   className = '',
@@ -153,6 +156,11 @@ export function WeatherChip({
               <ChevronUp className="h-4 w-4" />
             </button>
           </div>
+          {current && (
+            <div className="mb-2">
+              <CurrentConditions current={current} />
+            </div>
+          )}
           <div className="space-y-1">
             {days.map((day) => {
               const condition = getWeatherCondition(day.conditionCode);
@@ -213,6 +221,7 @@ export function WeatherChip({
         <WeatherAlertModal
           alert={digest}
           highlightDate={selectedDayDate}
+          current={current}
           onClose={() => setSelectedDayDate(null)}
         />
       )}

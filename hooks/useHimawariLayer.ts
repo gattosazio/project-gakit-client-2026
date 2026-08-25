@@ -16,7 +16,7 @@ import {
  * when enabled, back to Iligan when disabled). The returned `visibleRef` lets
  * stable style-load handlers read current visibility without resubscribing.
  *
- * Animation: all 12 frames (the last two hours at Himawari's native 10-minute
+ * Animation: all 6 frames (the last hour at Himawari's native 10-minute
  * cadence) are preloaded into an in-memory cache before playback, then the
  * loop just calls `updateImage` with cached images — no network work inside
  * the tick. Frames re-preload every 5 minutes while enabled.
@@ -27,10 +27,14 @@ import {
  *   stale frames are never replayed;
  * - frames that fail to load never enter the rotation (no blank flashes).
  */
-const HIMAWARI_FRAME_COUNT = 12;
-// Matches PANaHON's player (playSpeedMs = 1000): one frame per second, so
-// the 2-hour loop plays over ~12 seconds of visible cloud drift.
-const HIMAWARI_FRAME_MS = 1000;
+const HIMAWARI_FRAME_COUNT = 6;
+// PAGASA PANaHON-style fast loop: the whole hour cycles in ~1 second
+// (1000 ms / 6 frames), so cloud drift reads as a rapid pulse.
+const HIMAWARI_FRAME_MS = Math.round(1000 / HIMAWARI_FRAME_COUNT);
+// Two spare candidate stamps absorb JMA publish gaps — delayed slots are
+// rejected by the proxy's freshness gate, so requesting extras keeps the
+// rotation covering the full hour instead of shrinking with every gap.
+const HIMAWARI_CANDIDATE_COUNT = HIMAWARI_FRAME_COUNT + 2;
 const HIMAWARI_REFRESH_MS = 5 * 60 * 1000;
 
 export function useHimawariLayer(
@@ -38,7 +42,7 @@ export function useHimawariLayer(
   layersReadyRef: MutableRefObject<boolean>
 ) {
   const [showHimawariIR, setShowHimawariIR] = useState(false);
-  const [himawariOpacity, setHimawariOpacity] = useState(0.5);
+  const [himawariOpacity, setHimawariOpacity] = useState(0.8);
   const himawariTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const himawariRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const himawariFramesRef = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -49,16 +53,20 @@ export function useHimawariLayer(
     showHimawariIRRef.current = showHimawariIR;
   }, [showHimawariIR]);
 
-  // Preload every frame before playback; frames that fail to load (JMA lag)
-  // are simply dropped from the rotation instead of flashing blank.
+  // Preload every frame before playback; frames that fail to load (JMA lag,
+  // freshness-gated 404s) are simply dropped from the rotation instead of
+  // flashing blank.
   const preloadHimawariFrames = useCallback(async () => {
-    const times = himawariFrameTimes(HIMAWARI_FRAME_COUNT);
-    const loaded = await Promise.allSettled(times.map(fetchHimawariFrame));
-    const cache = new Map<string, HTMLImageElement>();
-    times.forEach((time, i) => {
+    const candidates = himawariFrameTimes(HIMAWARI_CANDIDATE_COUNT);
+    const loaded = await Promise.allSettled(candidates.map(fetchHimawariFrame));
+    // Candidates are chronological (oldest first); keep at most the newest
+    // FRAME_COUNT that actually loaded so the loop stays forward-in-time.
+    const kept: [string, HTMLImageElement][] = [];
+    candidates.forEach((time, i) => {
       const result = loaded[i];
-      if (result.status === 'fulfilled') cache.set(time, result.value);
+      if (result.status === 'fulfilled') kept.push([time, result.value]);
     });
+    const cache = new Map(kept.slice(-HIMAWARI_FRAME_COUNT));
     if (cache.size > 0) himawariFramesRef.current = cache;
   }, []);
 
