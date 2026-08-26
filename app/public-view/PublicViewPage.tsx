@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from '@/components/ReportModal';
@@ -331,19 +332,26 @@ export function PublicViewPage() {
 
             <div className="space-y-4 lg:pt-7">
               <div className="rounded-2xl border border-white/20 bg-white p-6 text-slate-900 shadow-xl shadow-black/10">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon">
-                  <Handshake className="h-6 w-6" />
+                <div className="flex items-center gap-4">
+                  <Image
+                    src="/images/iit-logo.png"
+                    alt="MSU-IIT Logo"
+                    width={64}
+                    height={64}
+                    className="h-16 w-16 object-contain"
+                  />
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-[0.14em] text-gakit-maroon">
+                      GAKIT is a project of
+                    </div>
+                    <h3 className="mt-1 text-xl font-bold">
+                      Mindanao State University–Iligan Institute of Technology
+                    </h3>
+                  </div>
                 </div>
-                <div className="mt-5 text-xs font-bold uppercase tracking-[0.14em] text-gakit-maroon">
-                  Academic partnership
-                </div>
-                <h3 className="mt-2 text-xl font-bold">
-                  Mindanao State University–Iligan Institute of Technology
-                </h3>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  Project GAKIT is developed in partnership with MSU-IIT to
-                  strengthen applied geohazard research and community-focused
-                  flood risk information.
+                <p className="mt-4 text-sm leading-6 text-slate-600">
+                  GAKIT is an applied geohazard research and community-focused
+                  flood risk information system developed at MSU-IIT.
                 </p>
               </div>
 
@@ -369,16 +377,6 @@ export function PublicViewPage() {
               </div>
             </div>
 
-            <div className="mt-10 flex lg:justify-start">
-              <button
-                type="button"
-                onClick={scrollToMap}
-                className="inline-flex items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-semibold text-gakit-maroon shadow-lg transition-colors hover:bg-maroon-50"
-              >
-                <MapPin className="h-4 w-4" />
-                Back to hazard map
-              </button>
-            </div>
           </div>
         </section>
       </main>
