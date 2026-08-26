@@ -53,6 +53,8 @@ export interface MapBounds {
   east: number;
   north: number;
   limit?: number;
+  /** Only return reports created within the last N hours. */
+  createdAfterHours?: number;
 }
 
 export interface CreateReportInput {

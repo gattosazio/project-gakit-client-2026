@@ -9,6 +9,10 @@ import { ILIGAN_REPORT_BOUNDS } from '@/constants/publicMap';
 import type { MapReportFeature } from '@/types/report';
 
 const REPORT_POLL_INTERVAL_MS = 15_000;
+/** Hard-coded recency window for map pins (hours). Change here to adjust the cutoff. */
+const MAP_REPORT_WINDOW_HOURS = 48;
+/** Full cache key including the time-window so invalidation is precise. */
+const MAP_REPORTS_CACHE_KEY = `/api/v1/reports/map?created_after_hours=${MAP_REPORT_WINDOW_HOURS}`;
 
 /**
  * Owns the backend report feed shown as map pins: fetching, the 15-second
@@ -18,7 +22,8 @@ const REPORT_POLL_INTERVAL_MS = 15_000;
  */
 export function useReportsLayer(
   mapRef: MutableRefObject<any>,
-  mapReady: boolean
+  mapReady: boolean,
+  createdAfterHours: number | null = MAP_REPORT_WINDOW_HOURS
 ) {
   const [backendReports, setBackendReports] = useState<MapReportFeature[]>([]);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
@@ -32,7 +37,10 @@ export function useReportsLayer(
     loadingReportsRef.current = true;
     setIsLoadingReports(true);
     try {
-      const reports = await fetchMapReports(ILIGAN_REPORT_BOUNDS);
+      const reports = await fetchMapReports({
+        ...ILIGAN_REPORT_BOUNDS,
+        ...(createdAfterHours != null ? { createdAfterHours } : {}),
+      });
       setBackendReports(reports.features);
       backendReportsRef.current = reports.features;
     } catch (error) {
@@ -41,7 +49,7 @@ export function useReportsLayer(
       loadingReportsRef.current = false;
       setIsLoadingReports(false);
     }
-  }, []);
+  }, [createdAfterHours]);
 
   // Periodically refresh map pins so new reports appear even when the user is
   // not panning/zooming. Pauses when the tab is hidden to avoid wasted requests.
@@ -80,7 +88,11 @@ export function useReportsLayer(
     reportsRef: backendReportsRef,
     loadMapReports,
     invalidateAndReload: () => {
-      invalidateApiCache('/api/v1/reports/map');
+      const cacheKey =
+        createdAfterHours != null
+          ? `/api/v1/reports/map?created_after_hours=${createdAfterHours}`
+          : '/api/v1/reports/map';
+      invalidateApiCache(cacheKey);
       void loadMapReports();
     },
   };

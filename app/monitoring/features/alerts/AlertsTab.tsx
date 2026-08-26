@@ -93,7 +93,8 @@ export function AlertsTab({
   onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
 }) {
   const searchParams = useSearchParams();
-  const highlightedNotificationId = searchParams.get('notification');
+  const notificationParam = searchParams.get('notification');
+  const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(notificationParam);
   const [reports, setReports] = useState<Report[]>([]);
   const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlertType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +108,25 @@ export function AlertsTab({
     column: 'sentAt',
     direction: 'desc',
   });
+
+  useEffect(() => {
+    setActiveHighlightedId(notificationParam);
+  }, [notificationParam]);
+
+  // Click-away listener: dismisses the maroon highlight when clicking outside the highlighted row/card
+  useEffect(() => {
+    if (!activeHighlightedId) return;
+
+    const handleClickAway = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(`[data-highlighted-notification="${activeHighlightedId}"]`)) {
+        setActiveHighlightedId(null);
+      }
+    };
+
+    window.addEventListener('mousedown', handleClickAway);
+    return () => window.removeEventListener('mousedown', handleClickAway);
+  }, [activeHighlightedId]);
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
@@ -343,7 +363,7 @@ export function AlertsTab({
                         onMarkRead={markAsRead}
                         onDismiss={setDismissConfirmId}
                         isRead={false}
-                        highlighted={highlightedNotificationId === notification.id}
+                        highlighted={activeHighlightedId === notification.id}
                       />
                     ))}
                   </tbody>
@@ -367,7 +387,7 @@ export function AlertsTab({
                         onMarkRead={markAsRead}
                         onDismiss={setDismissConfirmId}
                         isRead={true}
-                        highlighted={highlightedNotificationId === notification.id}
+                        highlighted={activeHighlightedId === notification.id}
                       />
                     ))}
                   </tbody>
@@ -390,7 +410,7 @@ export function AlertsTab({
                         onMarkRead={markAsRead}
                         onDismiss={setDismissConfirmId}
                         isRead={false}
-                        highlighted={highlightedNotificationId === notification.id}
+                        highlighted={activeHighlightedId === notification.id}
                       />
                     ))}
                   </div>
@@ -411,7 +431,7 @@ export function AlertsTab({
                         onMarkRead={markAsRead}
                         onDismiss={setDismissConfirmId}
                         isRead={true}
-                        highlighted={highlightedNotificationId === notification.id}
+                        highlighted={activeHighlightedId === notification.id}
                       />
                     ))}
                   </div>
@@ -498,7 +518,10 @@ function NotificationRow({
   };
 
   return (
-    <tr className={highlighted ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/60'}>
+    <tr
+      data-highlighted-notification={highlighted ? notification.id : undefined}
+      className={`${highlighted ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/60'} transition-colors duration-200`}
+    >
       <td className="px-6 py-4">
         <NotificationTypeBadge type={notification.type} />
       </td>
@@ -585,6 +608,7 @@ function NotificationCard({
     <div
       role="button"
       tabIndex={0}
+      data-highlighted-notification={highlighted ? notification.id : undefined}
       onClick={handleView}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -592,7 +616,9 @@ function NotificationCard({
           handleView();
         }
       }}
-      className={`flex cursor-pointer gap-3 p-4 active:bg-canvas-light ${highlighted ? 'bg-maroon-100/80' : ''}`}
+      className={`flex cursor-pointer gap-3 p-4 active:bg-canvas-light ${
+        highlighted ? 'bg-maroon-100/80' : ''
+      } transition-colors duration-200`}
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">

@@ -199,12 +199,23 @@ export function MapModeToggle({
 
 /* ─── Report controls card ────────────────────────────────────────────── */
 
+export function formatReportWindowSubtitle(hours?: number | null): string {
+  if (hours === null) return 'Showing reports from all time';
+  if (hours === undefined || hours === 48) return 'Showing reports from the last 48 hours';
+  if (hours === 24) return 'Showing reports from the last 24 hours';
+  if (hours % 24 === 0 && hours > 48) {
+    return `Showing reports from the last ${hours / 24} days`;
+  }
+  return `Showing reports from the last ${hours} hours`;
+}
+
 interface ReportControlsProps {
   open: boolean;
   onToggle: (open: boolean) => void;
   visibleReportStatuses: Record<ReportStatus, boolean>;
   onReportStatusChange: (status: ReportStatus, checked: boolean) => void;
   reportStatusToggleStatuses?: ReportStatus[];
+  reportWindowHours?: number | null;
 }
 
 export function ReportControls({
@@ -213,6 +224,7 @@ export function ReportControls({
   visibleReportStatuses,
   onReportStatusChange,
   reportStatusToggleStatuses,
+  reportWindowHours,
 }: ReportControlsProps) {
   const legend =
     reportStatusToggleStatuses ??
@@ -220,6 +232,9 @@ export function ReportControls({
 
   return (
     <Card open={open} onToggle={onToggle} icon={ListFilter} title="Reports">
+      <div className="text-[10px] text-slate-400 font-medium mb-2">
+        {formatReportWindowSubtitle(reportWindowHours)}
+      </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
         {REPORT_STATUS_LEGEND.filter(({ status }) =>
           legend.includes(status)

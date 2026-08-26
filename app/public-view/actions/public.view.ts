@@ -146,6 +146,9 @@ export async function fetchMapReports(
     east: String(bounds.east),
     north: String(bounds.north),
     ...(bounds.limit != null ? { limit: String(bounds.limit) } : {}),
+    ...(bounds.createdAfterHours != null
+      ? { created_after_hours: String(bounds.createdAfterHours) }
+      : {}),
   });
 
   const url = `/api/v1/reports/map?${params}`;

@@ -7,6 +7,17 @@ interface MapStatusChipProps {
   backendStatus: BackendStatus;
   showLoading: boolean;
   showEmptyState: boolean;
+  reportWindowHours?: number | null;
+}
+
+function formatEmptyStateText(hours?: number | null): string {
+  if (hours === null) return 'No flood reports in this area';
+  if (hours === undefined || hours === 48) return 'No flood reports in the last 48 hours';
+  if (hours === 24) return 'No flood reports in the last 24 hours';
+  if (hours % 24 === 0 && hours > 48) {
+    return `No flood reports in the last ${hours / 24} days`;
+  }
+  return `No flood reports in the last ${hours} hours`;
 }
 
 // Non-blocking status chip anchored to the map's bottom-left corner. Shows a
@@ -18,6 +29,7 @@ export function MapStatusChip({
   backendStatus,
   showLoading,
   showEmptyState,
+  reportWindowHours,
 }: MapStatusChipProps) {
   if (backendStatus === 'warming') {
     return (
@@ -40,7 +52,7 @@ export function MapStatusChip({
   if (showEmptyState) {
     return (
       <div className="absolute bottom-8 left-3 z-[1000] rounded-lg bg-white/95 px-3 py-2 text-xs font-medium text-slate-600 shadow-lg ring-1 ring-slate-200">
-        No flood reports in this area
+        {formatEmptyStateText(reportWindowHours)}
       </div>
     );
   }
