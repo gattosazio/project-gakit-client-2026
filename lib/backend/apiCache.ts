@@ -7,6 +7,18 @@ type CacheEntry<T> = {
 const cache = new Map<string, CacheEntry<unknown>>();
 
 /**
+ * Drop entries whose TTL has elapsed and which no request is waiting on.
+ * Without this the module-level map grows once per distinct key ever used.
+ */
+function sweepExpired(now: number): void {
+  for (const [key, entry] of cache) {
+    if (!entry.inFlight && now >= entry.expiresAt) {
+      cache.delete(key);
+    }
+  }
+}
+
+/**
  * Get a value from cache, or fetch it once and share the in-flight request
  * between concurrent callers (dedupe). Entries expire after `ttlMs`.
  */
@@ -16,6 +28,7 @@ export async function cachedGet<T>(
   fetcher: () => Promise<T>
 ): Promise<T> {
   const now = Date.now();
+  sweepExpired(now);
   const existing = cache.get(key) as CacheEntry<T> | undefined;
 
   if (existing) {
@@ -52,4 +65,9 @@ export function invalidateApiCache(prefix: string): void {
       cache.delete(key);
     }
   }
+}
+
+/** Test-only: number of entries currently held (expired or not). */
+export function apiCacheSizeForTests(): number {
+  return cache.size;
 }

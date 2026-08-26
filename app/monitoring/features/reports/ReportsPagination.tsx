@@ -8,12 +8,14 @@ export function ReportsPagination({
   totalItems,
   pageSize,
   onPageChange,
+  itemLabel = 'reports',
 }: {
   currentPage: number;
   totalPages: number;
   totalItems: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  itemLabel?: string;
 }) {
   const startItem = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const endItem = Math.min(currentPage * pageSize, totalItems);
@@ -21,7 +23,7 @@ export function ReportsPagination({
   return (
     <div className="border-t border-canvas-grey px-4 py-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="text-sm text-slate-500">
-        Showing {startItem}-{endItem} of {totalItems} reports
+        Showing {startItem}-{endItem} of {totalItems} {itemLabel}
       </div>
 
       <div className="flex items-center gap-2">

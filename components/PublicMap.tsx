@@ -130,6 +130,7 @@ export function PublicMap({
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reportPopupRef = useRef<any>(null);
+  const popupFrameRef = useRef<number | null>(null);
   const selectedMarkerRef = useRef<any>(null);
   const pendingInspectRef = useRef<MapReportToShow | null>(null);
   const inspectTargetRef = useRef<MapReportToShow | null>(null);
@@ -157,7 +158,7 @@ export function PublicMap({
   const onReadyFiredRef = useRef(false);
 
   // Domain layers (reports / rainfall / Himawari IR) live in dedicated hooks.
-  const reportsLayer = useReportsLayer(mapRef, mapReady, reportWindowHours);
+  const reportsLayer = useReportsLayer(reportWindowHours);
   const { backendReports, isLoadingReports, reportsRef, loadMapReports } = reportsLayer;
   const rainfall = useRainfallLayer(mapRef, showRainfall);
   const { loadRainfall, lookupPrecip, applyPreloaded, hoursRef } = rainfall;
@@ -193,8 +194,12 @@ export function PublicMap({
     async (location: { lat: number; lng: number }): Promise<LocationRiskInfo> => {
       const { lat, lng } = location;
 
-      const precipMm = await lookupPrecip(lat, lng);
-      const hazardLevel = await queryFloodHazard(lat, lng);
+      // Independent lookups run concurrently so a cold rainfall grid download
+      // never delays the local hazard answer.
+      const [precipMm, hazardLevel] = await Promise.all([
+        lookupPrecip(lat, lng),
+        queryFloodHazard(lat, lng),
+      ]);
       return { hazardLevel, precipMm };
     },
     [lookupPrecip]
@@ -229,6 +234,12 @@ export function PublicMap({
   );
 
   const hideReportPopup = useCallback(() => {
+    // Drop any queued popup frame so a stale mousemove can't resurrect the
+    // popup after the cursor already left the layer.
+    if (popupFrameRef.current !== null) {
+      window.cancelAnimationFrame(popupFrameRef.current);
+      popupFrameRef.current = null;
+    }
     reportPopupRef.current?.remove();
   }, []);
 
@@ -454,16 +465,35 @@ export function PublicMap({
     []
   );
 
+  // Mousemove fires far faster than frames; coalesce popup rebuilds to one per
+  // animation frame instead of re-parsing innerHTML on every event.
+  const queueReportPopup = useCallback(
+    (feature: Record<string, any>, lngLat: any) => {
+      if (popupFrameRef.current !== null) return;
+      popupFrameRef.current = window.requestAnimationFrame(() => {
+        popupFrameRef.current = null;
+        showReportPopup(feature, lngLat);
+      });
+    },
+    [showReportPopup]
+  );
+
   // Stable layer-event handlers so they can be attached/detached across style
   // reloads (2D <-> 3D) without duplicate listeners.
   const handleReportPointsMouseMove = useCallback(
     (e: any) => {
+      if (e.features?.length) queueReportPopup(e.features[0], e.lngLat);
+    },
+    [queueReportPopup]
+  );
+  const handleReportPointsMouseLeave = useCallback(() => hideReportPopup(), [hideReportPopup]);
+  const handleReportPointsClick = useCallback(
+    (e: any) => {
+      // Clicks bypass the frame queue so the details popup feels instant.
       if (e.features?.length) showReportPopup(e.features[0], e.lngLat);
     },
     [showReportPopup]
   );
-  const handleReportPointsMouseLeave = useCallback(() => hideReportPopup(), [hideReportPopup]);
-  const handleReportPointsClick = handleReportPointsMouseMove;
   const handleReportPointsMouseEnter = useCallback(() => {
     const map = mapRef.current;
     if (map) map.getCanvas().style.cursor = 'pointer';

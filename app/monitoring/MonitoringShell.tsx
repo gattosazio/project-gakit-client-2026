@@ -1,4 +1,5 @@
 'use client';
+import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Map } from 'lucide-react';
@@ -8,12 +9,24 @@ import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import type { WeatherAlert } from '@/types/weather';
 import type { PortalNavItem } from '@/types/portal';
 import { DashboardOverview } from './features/dashboard/DashboardOverview';
-import { AlertsTab } from './features/alerts/AlertsTab';
 import { monitoringFeatureMap, monitoringFeatures, type MonitoringFeatureId } from './features/monitoringFeatureConfig';
-import { ReportsTab } from './features/reports/ReportsTab';
 import { useRouteLoader } from '@/components/RouteLoader';
+import type { AuthSnapshot } from '@/lib/auth/roles';
 import './Monitoring.css';
-export function MonitoringShell() {
+
+const TabFallback = () => (
+  <div className="flex items-center justify-center py-16 text-sm text-slate-400">Loading…</div>
+);
+
+const AlertsTab = dynamic(
+  () => import('./features/alerts/AlertsTab').then((m) => ({ default: m.AlertsTab })),
+  { loading: () => <TabFallback />, ssr: false }
+);
+const ReportsTab = dynamic(
+  () => import('./features/reports/ReportsTab').then((m) => ({ default: m.ReportsTab })),
+  { loading: () => <TabFallback />, ssr: false }
+);
+export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get('tab') as MonitoringFeatureId | null;
@@ -68,6 +81,7 @@ export function MonitoringShell() {
         items={monitoringFeatures}
         portalSubtitle="Monitoring Portal"
         onTabChange={handleTabChange}
+        initialAuth={initialAuth}
       />
       <div className="h-full min-w-0 flex-1 flex flex-col overflow-hidden bg-white lg:rounded-[2rem] lg:rounded-l-[2.75rem]">
         <AdminHeader
@@ -88,6 +102,7 @@ export function MonitoringShell() {
               active={activeTab === 'reports'}
               initialCritical={criticalReportsOnly}
               highlightedReportId={highlightedReportId}
+              actorEmail={initialAuth?.email ?? undefined}
             />
           </div>
         </main>

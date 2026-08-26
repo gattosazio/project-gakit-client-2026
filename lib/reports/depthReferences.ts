@@ -85,7 +85,7 @@ export const ASSET_INK_BOUNDS: Record<
 
 /** Public URL for each reference silhouette. */
 const ASSET_FILENAMES: Record<FloodReference, string> = {
-  adult: 'person.svg',
+  adult: 'person.png',
   motorcycle: 'motorcycle.svg',
   sedan: 'sedan.svg',
   suv: 'suv.svg',

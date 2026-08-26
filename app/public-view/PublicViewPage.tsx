@@ -11,6 +11,7 @@ import { createReport, pingHealth } from './actions/public.view';
 import { reverseGeocode } from '@/lib/map/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type { CreateReportInput, DepthCategory, Report, ReportStatus } from '@/types/report';
+import type { AuthSnapshot } from '@/lib/auth/roles';
 import { SectionJumpControls } from './components/SectionJumpControls';
 import { LocationSearch } from './components/LocationSearch';
 import {
@@ -31,7 +32,11 @@ const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ 
 const SECTION_ORDER = ['hazard-map', 'about'] as const;
 type SectionId = (typeof SECTION_ORDER)[number];
 
-export function PublicViewPage() {
+export function PublicViewPage({
+  initialAuth,
+}: {
+  initialAuth?: AuthSnapshot;
+} = {}) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
   const [isManualLocationMode, setIsManualLocationMode] = useState(false);
@@ -234,7 +239,7 @@ export function PublicViewPage() {
 
   return (
     <div className="min-h-screen bg-canvas-grey">
-      <PublicHeader activeSection={activeSection} />
+      <PublicHeader activeSection={activeSection} initialAuth={initialAuth} />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
         showDown={activeSection !== 'about'}

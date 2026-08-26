@@ -19,7 +19,7 @@ import {
   markNotificationsRead,
   subscribeToReceiptChanges,
 } from '@/lib/notifications/receipts';
-import { fetchActiveAlerts } from '@/lib/weather/weather';
+import { useActiveAlerts } from '@/lib/weather/weatherStore';
 import { formatDateTime } from '@/lib/reports/reportFormatting';
 import type { Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
@@ -129,22 +129,30 @@ export function AdminHeader({
   icon: Icon,
   onNotificationClick,
 }: AdminHeaderProps) {
-  const [notifications, setNotifications] = useState<HeaderNotification[]>([]);
+  const [recentReports, setRecentReports] = useState<Report[]>([]);
   const [readIds, setReadIds] = useState<string[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const notificationRef = useRef<HTMLDivElement | null>(null);
+  const activeAlerts = useActiveAlerts();
 
-  const loadNotifications = useCallback(async () => {
+  // Single mirror of read state to localStorage; individual mutations only
+  // touch React state and this keeps storage in sync (pure updaters).
+  useEffect(() => {
+    window.localStorage.setItem('gakit-read-notifications', JSON.stringify(readIds));
+  }, [readIds]);
+
+  const notifications = useMemo<HeaderNotification[]>(
+    () => [...createNotifications(recentReports), ...(activeAlerts ?? []).map(mapWeatherToHeader)],
+    [recentReports, activeAlerts]
+  );
+
+  const loadReports = useCallback(async () => {
     try {
-      const [reportsResult, weatherAlerts] = await Promise.all([
-        listReports({ limit: 10 }),
-        fetchActiveAlerts().catch(() => []),
-      ]);
-      const weatherNotifs = weatherAlerts.map(mapWeatherToHeader);
-      setNotifications([...createNotifications(reportsResult.items), ...weatherNotifs]);
+      const reportsResult = await listReports({ limit: 10 });
+      setRecentReports(reportsResult.items);
     } catch {
-      setNotifications([]);
+      setRecentReports([]);
     }
   }, []);
 
@@ -155,9 +163,8 @@ export function AdminHeader({
     const cachedIds: string[] = saved ? (JSON.parse(saved) as string[]) : [];
     if (cachedIds.length > 0) setReadIds(cachedIds);
 
-    void loadNotifications();
-    const interval = setInterval(loadNotifications, 5 * 60 * 1000);
-
+    void loadReports();
+    const interval = setInterval(loadReports, 5 * 60 * 1000);
     // Pull receipts from Supabase so read/dismissed state follows the
     // account, not just this browser.
     let cancelled = false;
@@ -169,14 +176,13 @@ export function AdminHeader({
         setReadIds(mergedReads);
         setDismissedIds(receipts.dismissedIds);
       }
-      window.localStorage.setItem('gakit-read-notifications', JSON.stringify(mergedReads));
     })();
 
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [loadNotifications]);
+  }, [loadReports]);
 
   // Keep read/dismissed state in sync with other surfaces (alerts inbox)
   useEffect(
@@ -202,7 +208,7 @@ export function AdminHeader({
         { event: '*', schema: 'public', table: 'reports' },
         () => {
           if (debounce) clearTimeout(debounce);
-          debounce = setTimeout(() => void loadNotifications(), 1500);
+          debounce = setTimeout(() => void loadReports(), 1500);
         }
       )
       .subscribe();
@@ -211,7 +217,7 @@ export function AdminHeader({
       if (debounce) clearTimeout(debounce);
       void supabase.removeChannel(channel);
     };
-  }, [loadNotifications]);
+  }, [loadReports]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -308,12 +314,7 @@ export function AdminHeader({
   };
 
   const markAsRead = (id: string) => {
-    setReadIds((current) => {
-      if (current.includes(id)) return current;
-      const next = [...current, id];
-      window.localStorage.setItem('gakit-read-notifications', JSON.stringify(next));
-      return next;
-    });
+    setReadIds((current) => (current.includes(id) ? current : [...current, id]));
     void markNotificationsRead([id]);
   };
 
@@ -321,9 +322,7 @@ export function AdminHeader({
     const freshIds = recentNotifications
       .map((notification) => notification.id)
       .filter((id) => !readIds.includes(id));
-    const next = [...new Set([...readIds, ...freshIds])];
-    setReadIds(next);
-    window.localStorage.setItem('gakit-read-notifications', JSON.stringify(next));
+    setReadIds((current) => [...new Set([...current, ...freshIds])]);
     void markNotificationsRead(freshIds);
   };
 

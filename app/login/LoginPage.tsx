@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -188,10 +189,16 @@ export function LoginPage() {
         </div>
       </section>
 
-      <section
-        className="relative hidden md:flex w-[60%] bg-cover bg-center items-end"
-        style={{ backgroundImage: "url('/images/flooded-image1.jpg')" }}
-      >
+      <section className="relative hidden md:flex w-[60%] items-end overflow-hidden">
+        <Image
+          src="/images/flooded-image1.jpg"
+          alt=""
+          fill
+          priority
+          quality={70}
+          sizes="60vw"
+          className="object-cover object-center"
+        />
         <div className="absolute inset-0 bg-gakit-maroon/35" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
         <div className="relative z-10 p-12 max-w-3xl">

@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ChevronUp } from 'lucide-react';
-import { fetchActiveAlerts, fetchCurrentWeather } from '@/lib/weather/weather';
+import { useActiveAlerts, useCurrentWeather } from '@/lib/weather/weatherStore';
 import { getWeatherCondition } from '@/lib/weather/weatherCodes';
-import type { CurrentWeather, WeatherAlert } from '@/types/weather';
 import { WeatherAttribution } from '../weather/WeatherAttribution';
 import { CurrentConditions } from '../weather/CurrentConditions';
 import { RainStrip } from '../weather/RainStrip';
@@ -44,8 +43,9 @@ export function WeatherChip({
   className?: string;
   defaultExpanded?: boolean;
 }) {
-  const [digest, setDigest] = useState<WeatherAlert | null>(null);
-  const [current, setCurrent] = useState<CurrentWeather | null>(null);
+  const alerts = useActiveAlerts();
+  const current = useCurrentWeather();
+  const digest = alerts?.find((a) => a.alertType === 'daily_digest') ?? null;
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
   const [open, setOpen] = useState(
     () =>
@@ -53,61 +53,6 @@ export function WeatherChip({
       typeof window !== 'undefined' &&
       window.matchMedia('(min-width: 768px)').matches
   );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const load = async () => {
-      try {
-        const alerts: WeatherAlert[] = await fetchActiveAlerts();
-        if (cancelled) return;
-        setDigest(alerts.find((a) => a.alertType === 'daily_digest') ?? null);
-      } catch {
-        if (!cancelled) setDigest(null);
-      }
-    };
-
-    void load();
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') void load();
-    }, 5 * 60 * 1000);
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') void load();
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadCurrent = async () => {
-      try {
-        const snapshot = await fetchCurrentWeather();
-        if (!cancelled) setCurrent(snapshot);
-      } catch {
-        // Keep whatever we had — the pill falls back to rain chance.
-      }
-    };
-
-    void loadCurrent();
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') void loadCurrent();
-    }, 5 * 60 * 1000);
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') void loadCurrent();
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, []);
 
   const days = digest?.data?.days ?? null;
   const issuedAt = digest?.createdAt ?? null;

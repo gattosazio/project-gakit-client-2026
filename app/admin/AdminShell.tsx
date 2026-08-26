@@ -1,17 +1,36 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminHeader } from '@/components/AdminHeader';
 import { SideBar } from '@/components/SideBar';
 import { adminFeatures, adminFeatureMap, type AdminFeatureId } from './features/adminFeatureConfig';
-import { AccessRequestsTab } from './features/access-requests/AccessRequestsTab';
-import { AuditLogsTab } from './features/audit-logs/AuditLogsTab';
 import { PlatformOverviewTab } from './features/dashboard/PlatformOverviewTab';
-import { SystemSettingsTab } from './features/system-settings/SystemSettingsTab';
-import { UsersRolesTab } from './features/users-roles/UsersRolesTab';
+import type { AuthSnapshot } from '@/lib/auth/roles';
 import './Dashboard.css';
 
-export function AdminShell() {
+const TabFallback = () => (
+  <div className="flex items-center justify-center py-16 text-sm text-slate-400">Loading…</div>
+);
+
+const AccessRequestsTab = dynamic(
+  () => import('./features/access-requests/AccessRequestsTab').then((m) => ({ default: m.AccessRequestsTab })),
+  { loading: () => <TabFallback />, ssr: false }
+);
+const AuditLogsTab = dynamic(
+  () => import('./features/audit-logs/AuditLogsTab').then((m) => ({ default: m.AuditLogsTab })),
+  { loading: () => <TabFallback />, ssr: false }
+);
+const SystemSettingsTab = dynamic(
+  () => import('./features/system-settings/SystemSettingsTab').then((m) => ({ default: m.SystemSettingsTab })),
+  { loading: () => <TabFallback />, ssr: false }
+);
+const UsersRolesTab = dynamic(
+  () => import('./features/users-roles/UsersRolesTab').then((m) => ({ default: m.UsersRolesTab })),
+  { loading: () => <TabFallback />, ssr: false }
+);
+
+export function AdminShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get('tab') as AdminFeatureId | null;
@@ -33,6 +52,7 @@ export function AdminShell() {
         items={adminFeatures}
         portalSubtitle="Admin Portal"
         onTabChange={handleTabChange}
+        initialAuth={initialAuth}
       />
 
       <div className="h-full min-w-0 flex-1 flex flex-col overflow-hidden bg-white lg:rounded-[2rem] lg:rounded-l-[2.75rem]">

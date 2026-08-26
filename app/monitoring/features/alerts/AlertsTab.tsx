@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import {
   AlertTriangle,
@@ -33,9 +33,12 @@ import {
 } from '@/lib/notifications';
 import { useSortableTable, type SortState } from '@/hooks/useSortableTable';
 import { SortableHeader } from '@/components/ui/SortableHeader';
+import { ReportsPagination } from '../reports/ReportsPagination';
 import { listReports } from '../reports/actions/reports';
 
 type SortColumn = 'type' | 'location' | 'severity' | 'depth' | 'sentAt';
+
+const NOTIFICATIONS_PER_PAGE = 25;
 
 const TYPE_META: Record<
   NotificationType,
@@ -250,6 +253,37 @@ export function AlertsTab({
     [visibleNotifications, readIds]
   );
 
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [filter, dateFilter, sort]);
+
+  const orderedNotifications = useMemo(
+    () => [...unreadNotifications, ...readNotifications],
+    [unreadNotifications, readNotifications]
+  );
+  const totalPages = Math.max(
+    1,
+    Math.ceil(orderedNotifications.length / NOTIFICATIONS_PER_PAGE)
+  );
+  const safePage = Math.min(page, totalPages);
+  const pagedNotifications = useMemo(
+    () =>
+      orderedNotifications.slice(
+        (safePage - 1) * NOTIFICATIONS_PER_PAGE,
+        safePage * NOTIFICATIONS_PER_PAGE
+      ),
+    [orderedNotifications, safePage]
+  );
+  const pagedUnreadNotifications = useMemo(
+    () => pagedNotifications.filter((notification) => !readIds.includes(notification.id)),
+    [pagedNotifications, readIds]
+  );
+  const pagedReadNotifications = useMemo(
+    () => pagedNotifications.filter((notification) => readIds.includes(notification.id)),
+    [pagedNotifications, readIds]
+  );
+
   const dismissTarget = dismissConfirmId
     ? notifications.find((n) => n.id === dismissConfirmId) ?? null
     : null;
@@ -344,7 +378,7 @@ export function AlertsTab({
                     <th className="px-5 py-3 font-semibold">Actions</th>
                   </tr>
                 </thead>
-                {unreadNotifications.length > 0 && (
+                {pagedUnreadNotifications.length > 0 && (
                   <tbody className="divide-y divide-canvas-grey">
                     <tr>
                       <td
@@ -354,7 +388,7 @@ export function AlertsTab({
                         Unread
                       </td>
                     </tr>
-                    {unreadNotifications.map((notification) => (
+                    {pagedUnreadNotifications.map((notification) => (
                       <NotificationRow
                         key={notification.id}
                         notification={notification}
@@ -368,8 +402,8 @@ export function AlertsTab({
                     ))}
                   </tbody>
                 )}
-                {readNotifications.length > 0 && (
-                  <tbody className={`divide-y divide-canvas-grey ${unreadNotifications.length > 0 ? 'border-t-2 border-canvas-grey' : ''}`}>
+                {pagedReadNotifications.length > 0 && (
+                  <tbody className={`divide-y divide-canvas-grey ${pagedUnreadNotifications.length > 0 ? 'border-t-2 border-canvas-grey' : ''}`}>
                     <tr>
                       <td
                         colSpan={6}
@@ -378,7 +412,7 @@ export function AlertsTab({
                         Read
                       </td>
                     </tr>
-                    {readNotifications.map((notification) => (
+                    {pagedReadNotifications.map((notification) => (
                       <NotificationRow
                         key={notification.id}
                         notification={notification}
@@ -395,13 +429,13 @@ export function AlertsTab({
               </table>
             </div>
             <div className="md:hidden">
-              {unreadNotifications.length > 0 && (
+              {pagedUnreadNotifications.length > 0 && (
                 <section className="border-b border-canvas-grey">
                   <p className="bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500">
                     Unread
                   </p>
                   <div className="divide-y divide-canvas-grey">
-                    {unreadNotifications.map((notification) => (
+                    {pagedUnreadNotifications.map((notification) => (
                       <NotificationCard
                         key={notification.id}
                         notification={notification}
@@ -416,13 +450,13 @@ export function AlertsTab({
                   </div>
                 </section>
               )}
-              {readNotifications.length > 0 && (
-                <section className={unreadNotifications.length > 0 ? 'border-t border-canvas-grey' : ''}>
+              {pagedReadNotifications.length > 0 && (
+                <section className={pagedUnreadNotifications.length > 0 ? 'border-t border-canvas-grey' : ''}>
                   <p className="bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500">
                     Read
                   </p>
                   <div className="divide-y divide-canvas-grey">
-                    {readNotifications.map((notification) => (
+                    {pagedReadNotifications.map((notification) => (
                       <NotificationCard
                         key={notification.id}
                         notification={notification}
@@ -438,6 +472,16 @@ export function AlertsTab({
                 </section>
               )}
             </div>
+            {totalPages > 1 && (
+              <ReportsPagination
+                currentPage={safePage}
+                totalPages={totalPages}
+                totalItems={orderedNotifications.length}
+                pageSize={NOTIFICATIONS_PER_PAGE}
+                onPageChange={setPage}
+                itemLabel="notifications"
+              />
+            )}
           </>
         )}
       </div>
@@ -491,7 +535,7 @@ export function AlertsTab({
   );
 }
 
-function NotificationRow({
+const NotificationRow = memo(function NotificationRow({
   notification,
   onOpenReports,
   onSelectWeatherAlert,
@@ -576,9 +620,9 @@ function NotificationRow({
       </td>
     </tr>
   );
-}
+});
 
-function NotificationCard({
+const NotificationCard = memo(function NotificationCard({
   notification,
   onOpenReports,
   onSelectWeatherAlert,
@@ -662,7 +706,7 @@ function NotificationCard({
       </div>
     </div>
   );
-}
+});
 
 function NotificationTypeBadge({ type }: { type: NotificationType }) {
   const meta = TYPE_META[type];

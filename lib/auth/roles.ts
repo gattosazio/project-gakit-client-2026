@@ -5,6 +5,16 @@ export const ROLE_STAFF = 'staff';
 
 export type StaffRole = 'admin' | 'staff';
 
+/**
+ * Serializable auth state resolved on the server so client shells can hydrate
+ * user-dependent UI (account buttons, role badges) without post-hydration
+ * network waterfalls.
+ */
+export interface AuthSnapshot {
+  email: string | null;
+  role: StaffRole | null;
+}
+
 export async function getStaffRole(
   client: SupabaseClient,
   userId: string
