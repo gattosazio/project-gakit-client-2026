@@ -86,6 +86,7 @@ interface PublicMapProps {
   enableAddressLookup?: boolean;
   searchOverlayActive?: boolean;
   weatherExpandedByDefault?: boolean;
+  reportWindowHours?: number | null;
   onReady?: () => void;
   onLoadingChange?: (loading: boolean) => void;
 }
@@ -108,6 +109,7 @@ export function PublicMap({
   enableAddressLookup = true,
   searchOverlayActive = false,
   weatherExpandedByDefault = false,
+  reportWindowHours,
   onReady,
   onLoadingChange,
 }: PublicMapProps) {
@@ -155,7 +157,7 @@ export function PublicMap({
   const onReadyFiredRef = useRef(false);
 
   // Domain layers (reports / rainfall / Himawari IR) live in dedicated hooks.
-  const reportsLayer = useReportsLayer(mapRef, mapReady);
+  const reportsLayer = useReportsLayer(mapRef, mapReady, reportWindowHours);
   const { backendReports, isLoadingReports, reportsRef, loadMapReports } = reportsLayer;
   const rainfall = useRainfallLayer(mapRef, showRainfall);
   const { loadRainfall, lookupPrecip, applyPreloaded, hoursRef } = rainfall;
@@ -771,6 +773,7 @@ export function PublicMap({
             setVisibleReportStatuses((previous) => ({ ...previous, [status]: checked }))
           }
           reportStatusToggleStatuses={reportStatusToggleStatuses}
+          reportWindowHours={reportWindowHours}
         />
 
         <DataLayerControls

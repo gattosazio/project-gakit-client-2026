@@ -28,7 +28,7 @@ export const STATUS_META: Record<ReportStatus, StatusMeta> = {
   },
   ANOMALY: {
     label: 'Anomaly',
-    badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+    badgeClass: 'bg-red-50 text-hazard-critical border-red-200',
     color: '#EF4444',
   },
   REJECTED: {

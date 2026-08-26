@@ -63,6 +63,8 @@ export function ReportsTab({
   const mapSectionRef = useRef<HTMLElement | null>(null);
   const requestSeqRef = useRef(0);
 
+  const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
+
   useEffect(() => {
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
@@ -78,10 +80,26 @@ export function ReportsTab({
 
   useEffect(() => {
     if (!highlightedReportId) return;
+    setActiveHighlightedId(highlightedReportId);
     setQuery(highlightedReportId);
     setTimeFilter('all');
     setCurrentPage(1);
   }, [highlightedReportId]);
+
+  // Click-away listener: dismisses the maroon highlight when clicking outside the highlighted row
+  useEffect(() => {
+    if (!activeHighlightedId) return;
+
+    const handleClickAway = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest(`[data-highlighted-report="${activeHighlightedId}"]`)) {
+        setActiveHighlightedId(null);
+      }
+    };
+
+    window.addEventListener('mousedown', handleClickAway);
+    return () => window.removeEventListener('mousedown', handleClickAway);
+  }, [activeHighlightedId]);
 
   useEffect(() => {
     if (!active) return;
@@ -277,10 +295,16 @@ export function ReportsTab({
                     <tbody className="divide-y divide-canvas-grey">
                       {reports.map((report) => {
                         const status = STATUS_META[report.status];
+                        const isHighlighted = activeHighlightedId === report.id;
                         return (
                           <tr
                             key={report.id}
-                            className={highlightedReportId === report.id || selectedReport?.id === report.id ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/70'}
+                            data-highlighted-report={isHighlighted ? report.id : undefined}
+                            className={`${
+                              isHighlighted || selectedReport?.id === report.id
+                                ? 'bg-maroon-100/80'
+                                : 'hover:bg-canvas-light/70'
+                            } transition-colors duration-200`}
                           >
                             <td className="px-5 py-4">
                               <div className="font-mono text-xs font-semibold text-slate-900">
@@ -326,8 +350,15 @@ export function ReportsTab({
                 <div className="lg:hidden divide-y divide-canvas-grey">
                   {reports.map((report) => {
                     const status = STATUS_META[report.status];
+                    const isHighlighted = activeHighlightedId === report.id;
                     return (
-                      <div key={report.id} className="flex items-start gap-2 p-4 hover:bg-canvas-light">
+                      <div
+                        key={report.id}
+                        data-highlighted-report={isHighlighted ? report.id : undefined}
+                        className={`flex items-start gap-2 p-4 hover:bg-canvas-light ${
+                          isHighlighted ? 'bg-maroon-100/80' : ''
+                        } transition-colors duration-200`}
+                      >
                         <button
                           type="button"
                           onClick={() => handleInspect(report)}
@@ -393,6 +424,7 @@ export function ReportsTab({
                   hideShareLocation
                   hideAttribution
                   enableAddressLookup={false}
+                  reportWindowHours={timeRangeOptions.find((opt) => opt.value === timeFilter)?.hours ?? null}
                 />
               ) : (
                 <div className="w-full h-full bg-canvas-grey flex items-center justify-center">
@@ -402,7 +434,9 @@ export function ReportsTab({
             </div>
 
             <div className="border-t border-canvas-grey px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div className="text-sm text-slate-600">Live map of reports</div>
+              <div className="text-sm text-slate-600">
+                Live map of reports ({timeRangeOptions.find((opt) => opt.value === timeFilter)?.label.toLowerCase() ?? 'all time'})
+              </div>
               <div className="text-xs text-slate-500">Hover or click a marker to inspect details.</div>
             </div>
           </div>
