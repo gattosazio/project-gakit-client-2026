@@ -11,8 +11,14 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'GAKIT',
-  description: 'Geohazard assessment and reporting tool',
+  title: 'GAKIT - Geohazard Assessment & Knowledge Integration Tool',
+  description: 'Geohazard assessment & knowledge integration tool for geohazard risk management and decision support.',
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon.ico', sizes: '32x32' },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
