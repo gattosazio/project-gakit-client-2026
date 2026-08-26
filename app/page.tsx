@@ -1,7 +1,7 @@
-'use client';
-
 import { PublicViewPage } from './public-view/PublicViewPage';
+import { getServerAuthSnapshot } from '@/lib/supabase/server';
 
-export default function Home() {
-  return <PublicViewPage />;
+export default async function Home() {
+  const auth = await getServerAuthSnapshot();
+  return <PublicViewPage initialAuth={auth} />;
 }

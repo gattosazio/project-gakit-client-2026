@@ -133,6 +133,7 @@ export function useHimawariLayer(
     })();
 
     himawariRefreshTimerRef.current = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       void preloadHimawariFrames();
     }, HIMAWARI_REFRESH_MS);
 

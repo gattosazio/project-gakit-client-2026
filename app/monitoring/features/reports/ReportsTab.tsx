@@ -36,10 +36,13 @@ export function ReportsTab({
   initialCritical = false,
   highlightedReportId = null,
   active = true,
+  actorEmail,
 }: {
   initialCritical?: boolean;
   highlightedReportId?: string | null;
   active?: boolean;
+  /** Pre-resolved staff email from the server; skips the client auth round trip. */
+  actorEmail?: string;
 }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [total, setTotal] = useState(0);
@@ -57,7 +60,7 @@ export function ReportsTab({
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
-  const [actor, setActor] = useState<string | null>(null);
+  const [actor, setActor] = useState<string | null>(actorEmail ?? null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const mapSectionRef = useRef<HTMLElement | null>(null);
@@ -66,11 +69,12 @@ export function ReportsTab({
   const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
 
   useEffect(() => {
+    if (actorEmail) return;
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
       if (data.user?.email) setActor(data.user.email);
     });
-  }, []);
+  }, [actorEmail]);
 
   // Keep the critical-only filter in sync with the "Review Critical Reports"
   // deep link (ReportsTab is now mounted once, so this won't re-run on mount).
@@ -110,10 +114,13 @@ export function ReportsTab({
       setError(null);
 
       const selectedRange = timeRangeOptions.find((option) => option.value === timeFilter);
+      // Bucket the cutoff to 10-minute windows so the cache key stays stable
+      // between poll ticks instead of minting a new entry every minute.
       const since =
         selectedRange && selectedRange.hours != null
           ? new Date(
-              Math.floor((Date.now() - selectedRange.hours * 3600 * 1000) / 60_000) * 60_000
+              Math.floor((Date.now() - selectedRange.hours * 3600 * 1000) / (10 * 60_000)) *
+                (10 * 60_000)
             ).toISOString()
           : undefined;
 

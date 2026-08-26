@@ -84,14 +84,21 @@ export function useRainfallLayer(
 
     void loadRainfall(rainfallHours);
     rainfallTimerRef.current = setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
       void loadRainfall(rainfallHours);
     }, RAINFALL_REFRESH_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void loadRainfall(rainfallHours);
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       if (rainfallTimerRef.current) {
         clearInterval(rainfallTimerRef.current);
         rainfallTimerRef.current = null;
       }
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [showRainfall, rainfallHours, loadRainfall]);
 

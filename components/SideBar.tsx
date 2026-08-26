@@ -6,9 +6,10 @@ import { useEffect } from 'react';
 import Image from 'next/image';
 import { Loader2, LogOut, Map, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { getStaffRole, type StaffRole } from '@/lib/auth/roles';
+import { getStaffRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { PortalNavItem } from '@/types/portal';
 import { useRouteLoader } from './RouteLoader';
+import { usePrefetchRoute } from '@/hooks/usePrefetchRoute';
 
 interface SideBarProps<T extends string> {
   activeTab: T;
@@ -132,16 +133,18 @@ export function SideBar<T extends string>({
   items,
   portalSubtitle,
   onTabChange,
-}: SideBarProps<T>) {
+  initialAuth,
+}: SideBarProps<T> & { initialAuth?: AuthSnapshot }) {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [email, setEmail] = useState<string | null>(null);
-  const [role, setRole] = useState<StaffRole | null>(null);
+  const [email, setEmail] = useState<string | null>(initialAuth?.email ?? null);
+  const [role, setRole] = useState<StaffRole | null>(initialAuth?.role ?? null);
   const { navigate, loadingOverlay } = useRouteLoader();
 
   useEffect(() => {
+    if (initialAuth !== undefined) return;
     let cancelled = false;
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
@@ -154,7 +157,10 @@ export function SideBar<T extends string>({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialAuth]);
+
+  // Idle-time prefetch of the public map so "exit to map" navigations are instant.
+  usePrefetchRoute('/');
 
   async function handleLogOut() {
     setIsSigningOut(true);

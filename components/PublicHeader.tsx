@@ -1,70 +1,58 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Info, LogOut, MapPinned, UserRound, BookOpen } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { getStaffRole, homePathForRole, type StaffRole } from '@/lib/auth/roles';
-import { fetchActiveAlerts } from '@/lib/weather/weather';
+import { getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
+import { useActiveAlerts } from '@/lib/weather/weatherStore';
 import type { WeatherAlert } from '@/types/weather';
 import { useRouteLoader } from './RouteLoader';
+import { usePrefetchRoute } from '@/hooks/usePrefetchRoute';
 import { SignOutConfirmDialog } from './SideBar';
 import { NotificationBell } from './NotificationBell';
 import type { NotificationItem } from './NotificationBell';
 import { WeatherAlertModal } from './WeatherAlertModal';
 
-export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' | 'about' }) {
+export function PublicHeader({
+  activeSection,
+  initialAuth,
+}: {
+  activeSection?: 'hazard-map' | 'about';
+  initialAuth?: AuthSnapshot;
+}) {
   const router = useRouter();
   const { navigate, loadingOverlay } = useRouteLoader();
-  const [role, setRole] = useState<StaffRole | null>(null);
-  const [isChecking, setIsChecking] = useState(true);
-  const [email, setEmail] = useState<string | null>(null);
+  const [role, setRole] = useState<StaffRole | null>(initialAuth?.role ?? null);
+  const [isChecking, setIsChecking] = useState(initialAuth === undefined);
+  const [email, setEmail] = useState<string | null>(initialAuth?.email ?? null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMobileInfoOpen, setIsMobileInfoOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [weatherNotifications, setWeatherNotifications] = useState<NotificationItem[]>([]);
+  const activeAlerts = useActiveAlerts();
+  const weatherNotifications = useMemo<NotificationItem[]>(
+    () =>
+      (activeAlerts ?? []).map((a) => ({
+        id: a.id,
+        title: a.title,
+        subtitle: a.description,
+        severity: a.severity,
+        alertType: a.alertType,
+        sentAt: a.createdAt,
+        validFrom: a.validFrom,
+        validTo: a.validTo,
+        data: a.data ?? null,
+      })),
+    [activeAlerts]
+  );
   const [selectedAlert, setSelectedAlert] = useState<WeatherAlert | null>(null);
-
-  useEffect(() => {
-    const loadWeather = async () => {
-      try {
-        const alerts = await fetchActiveAlerts();
-        setWeatherNotifications(
-          alerts.map((a) => ({
-            id: a.id,
-            title: a.title,
-            subtitle: a.description,
-            severity: a.severity,
-            alertType: a.alertType,
-            sentAt: a.createdAt,
-            validFrom: a.validFrom,
-            validTo: a.validTo,
-            data: a.data ?? null,
-          }))
-        );
-      } catch {
-        // Silently fail
-      }
-    };
-    void loadWeather();
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') void loadWeather();
-    }, 5 * 60 * 1000);
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') void loadWeather();
-    };
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      clearInterval(interval);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
     const supabase = createClient();
+    const hydratedFromServer = initialAuth !== undefined;
 
     const resolveRole = (userId: string) =>
       getStaffRole(supabase, userId).then((staffRole) => {
@@ -74,20 +62,31 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
         }
       });
 
-    supabase.auth.getUser().then(({ data }) => {
-      if (cancelled) return;
-      if (data.user) {
-        if (!cancelled) setEmail(data.user.email ?? null);
-        void resolveRole(data.user.id);
-      } else {
-        setRole(null);
-        setIsChecking(false);
-      }
-    });
+    if (!hydratedFromServer) {
+      supabase.auth.getUser().then(({ data }) => {
+        if (cancelled) return;
+        if (data.user) {
+          if (!cancelled) setEmail(data.user.email ?? null);
+          void resolveRole(data.user.id);
+        } else {
+          setRole(null);
+          setIsChecking(false);
+        }
+      });
+    }
 
+    let sawInitialEvent = false;
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // onAuthStateChange replays the current session as INITIAL_SESSION; when
+      // the server already hydrated us, that replay is redundant work.
+      if (event === 'INITIAL_SESSION') {
+        sawInitialEvent = true;
+        if (hydratedFromServer) return;
+      } else if (!sawInitialEvent && hydratedFromServer) {
+        sawInitialEvent = true;
+      }
       if (cancelled) return;
       if (session?.user) {
         if (!cancelled) setEmail(session.user.email ?? null);
@@ -103,7 +102,7 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [initialAuth]);
 
   async function handleSignOut() {
     setIsSigningOut(true);
@@ -115,6 +114,7 @@ export function PublicHeader({ activeSection }: { activeSection?: 'hazard-map' |
   }
 
   const home = role ? homePathForRole(role) : null;
+  usePrefetchRoute(home ?? '/login');
   const accountLabel =
     home === '/admin' ? 'Admin' : home === '/monitoring' ? 'Monitoring' : 'Login';
 
