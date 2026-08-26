@@ -8,7 +8,6 @@ import type { PublicMapHandle } from '@/components/PublicMap';
 import type { FloodDepthCode, Report, ReportStatus } from '@/types/report';
 import { toast } from 'react-toastify';
 import { FeaturePageShell } from '../shared/FeaturePageShell';
-import { createClient } from '@/lib/supabase/client';
 import { createReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
 import { ReportDetail } from './ReportDetail';
 import {
@@ -36,13 +35,10 @@ export function ReportsTab({
   initialCritical = false,
   highlightedReportId = null,
   active = true,
-  actorEmail,
 }: {
   initialCritical?: boolean;
   highlightedReportId?: string | null;
   active?: boolean;
-  /** Pre-resolved staff email from the server; skips the client auth round trip. */
-  actorEmail?: string;
 }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [total, setTotal] = useState(0);
@@ -60,21 +56,12 @@ export function ReportsTab({
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
-  const [actor, setActor] = useState<string | null>(actorEmail ?? null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const mapSectionRef = useRef<HTMLElement | null>(null);
   const requestSeqRef = useRef(0);
 
   const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
-
-  useEffect(() => {
-    if (actorEmail) return;
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user?.email) setActor(data.user.email);
-    });
-  }, [actorEmail]);
 
   // Keep the critical-only filter in sync with the "Review Critical Reports"
   // deep link (ReportsTab is now mounted once, so this won't re-run on mount).
@@ -231,7 +218,7 @@ export function ReportsTab({
   const handleUpdateStatus = async (report: Report, toStatus: ReportStatus) => {
     setUpdatingId(report.id);
     try {
-      await updateReportStatus(report.id, toStatus, { actor });
+      await updateReportStatus(report.id, toStatus);
       const label =
         toStatus === 'VERIFIED' ? 'Report verified.' : toStatus === 'ANOMALY' ? 'Report marked as anomaly.' : 'Report rejected.';
       toast.success(label, { position: 'top-right', autoClose: 3000 });

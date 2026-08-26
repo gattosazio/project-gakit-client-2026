@@ -51,7 +51,8 @@ export function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/admin` },
+      // Middleware routes authenticated users to their role's portal.
+      options: { redirectTo: `${window.location.origin}/login` },
     });
 
     if (error) {

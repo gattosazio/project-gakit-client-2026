@@ -1,6 +1,7 @@
 import { cachedGet, invalidateApiCache } from '@/lib/backend/apiCache';
 import { RateLimitedError } from '@/lib/backend/apiErrors';
 import { markBackendOnline, markBackendWarming } from '@/lib/backend/backendStatus';
+import { authHeaders } from '@/lib/supabase/client';
 import { ILIGAN_BOUNDS } from '@/lib/map/geoUtils';
 import type {
   CreateReportInput,
@@ -58,8 +59,12 @@ async function request<T>(
     let status: number | undefined;
     try {
       const response = await fetch(`${API_URL}${path}`, {
-        headers: { 'Content-Type': 'application/json' },
         ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(await authHeaders()),
+          ...(options?.headers ?? {}),
+        },
         signal: controller.signal,
       });
       status = response.status;
