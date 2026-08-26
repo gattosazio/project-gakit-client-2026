@@ -1,5 +1,6 @@
 import { cachedGet, invalidateApiCache } from '@/lib/backend/apiCache';
 import { RateLimitedError } from '@/lib/backend/apiErrors';
+import { authHeaders } from '@/lib/supabase/client';
 import type {
   CreateReportInput,
   FloodDepthCode,
@@ -12,9 +13,14 @@ import type {
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const { headers: extraHeaders, ...rest } = options ?? {};
   const response = await fetch(`${API_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
+    ...rest,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(await authHeaders()),
+      ...(extraHeaders ?? {}),
+    },
   });
 
   const body = await response.json().catch(() => null);
@@ -99,7 +105,7 @@ export async function fetchReportStats(signal?: AbortSignal): Promise<ReportStat
 export async function updateReportStatus(
   reportId: string,
   toStatus: ReportStatus,
-  options: { reason?: string | null; actor?: string | null } = {}
+  options: { reason?: string | null } = {}
 ): Promise<Report> {
   const url = `/api/v1/reports/${reportId}/status`;
   const report = await request<Report>(url, {
@@ -107,7 +113,6 @@ export async function updateReportStatus(
     body: JSON.stringify({
       status: toStatus,
       reason: options.reason ?? null,
-      actor: options.actor ?? null,
     }),
   });
   invalidateApiCache('/api/v1/reports');

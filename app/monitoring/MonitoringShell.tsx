@@ -102,7 +102,6 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
               active={activeTab === 'reports'}
               initialCritical={criticalReportsOnly}
               highlightedReportId={highlightedReportId}
-              actorEmail={initialAuth?.email ?? undefined}
             />
           </div>
         </main>
