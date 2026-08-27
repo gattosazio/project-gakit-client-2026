@@ -41,12 +41,12 @@ describe('buildReportsGeoJson', () => {
     expect('id' in feature.properties).toBe(false);
   });
 
-  it('falls back to a generic address label when none exists', () => {
+  it('keeps address null when none exists (no generic fallback label)', () => {
     const collection = buildReportsGeoJson(
       [makeFeature({ id: 'b', address: null })],
       ALL_VISIBLE
     );
-    expect(collection.features[0].properties.address).toBe('Flood report');
+    expect(collection.features[0].properties.address).toBeNull();
   });
 
   it('drops reports whose status is filtered out', () => {

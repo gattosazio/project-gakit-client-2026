@@ -7,7 +7,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Navigation } from 'lucide-react';
+import { Locate } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import * as maplibregl from 'maplibre-gl';
@@ -18,6 +18,50 @@ import * as maplibregl from 'maplibre-gl';
 function setSwathZoomFloor(map: maplibregl.Map) {
   const fit = map.cameraForBounds(HIMAWARI_IMAGE_BOUNDS);
   if (fit?.zoom != null) map.setMinZoom(fit.zoom);
+}
+
+// Area-weighted polygon centroid (shoelace); largest ring of biggest area wins.
+function polygonRepPoint(
+  geometry: { type: string; coordinates: any[] } | null | undefined
+): [number, number] | null {
+  if (!geometry) return null;
+  type Ring = Array<[number, number]>;
+  let bestArea = 0;
+  let bestCentroid: [number, number] | null = null;
+
+  const evaluateRing = (ring: Ring) => {
+    let area = 0;
+    let cx = 0;
+    let cy = 0;
+    const n = ring.length;
+    for (let i = 0; i < n; i++) {
+      const [x0, y0] = ring[i];
+      const [x1, y1] = ring[(i + 1) % n];
+      const cross = x0 * y1 - x1 * y0;
+      area += cross;
+      cx += (x0 + x1) * cross;
+      cy += (y0 + y1) * cross;
+    }
+    area /= 2;
+    if (area === 0) return;
+    const centroid: [number, number] = [cx / (6 * area), cy / (6 * area)];
+    if (Math.abs(area) > Math.abs(bestArea)) {
+      bestArea = area;
+      bestCentroid = centroid;
+    }
+  };
+
+  const polys =
+    geometry.type === 'MultiPolygon' ? geometry.coordinates : [geometry.coordinates];
+  for (const poly of polys) {
+    for (const ring of poly as Ring[][]) {
+      if (Array.isArray(ring) && Array.isArray(ring[0])) {
+        evaluateRing(ring as unknown as Ring);
+      }
+    }
+  }
+
+  return bestCentroid;
 }
 
 import { getBackendStatus } from '@/lib/backend/backendStatus';
@@ -34,6 +78,7 @@ import { queryFloodHazard, type FloodRiskLevel } from '@/lib/map/floodHazard';
 import {
   riskLevelFilter,
   setupOverlayLayers,
+  stopClusterPulse,
   type MapMode,
 } from '@/lib/map/overlayLayers';
 import {
@@ -131,6 +176,10 @@ export function PublicMap({
   const handleLocationSelectRef = useRef<(lat: number, lng: number) => void>(() => {});
   const onReportClickRef = useRef(onReportClick);
   const onReadyRef = useRef(onReady);
+  // attributionControl is a constructor-only Map option (cannot change post-init),
+  // so we capture it in a ref to read inside the mount-only useEffect without
+  // making hideAttribution a dependency (which would re-create the whole map).
+  const hideAttributionRef = useRef(hideAttribution);
   const loadMapReportsRef = useRef<(() => void | Promise<void>) | null>(null);
   const loadRainfallRef = useRef<((hours?: any) => Promise<void> | void) | null>(null);
   const onMapLoadRef = useRef<(() => void) | null>(null);
@@ -138,7 +187,6 @@ export function PublicMap({
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reportPopupRef = useRef<any>(null);
-  const barangayPopupRef = useRef<any>(null);
   const hoveredBarangayIdRef = useRef<string | number | null>(null);
   const popupFrameRef = useRef<number | null>(null);
   const selectedMarkerRef = useRef<any>(null);
@@ -346,6 +394,17 @@ export function PublicMap({
     [onLocationSelect]
   );
 
+  // Re-centers the camera on a selected point so the marker stays visible above
+  // the mobile report bottom-sheet (which covers the lower part of the map).
+  // On desktop the modal is a side panel, so no offset is applied.
+  const panToSelectedLocation = useCallback((lat: number, lng: number, zoom?: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+    const offsetY = isMobile ? -map.getCanvas().clientHeight * 0.3 : 0;
+    map.easeTo({ center: [lng, lat], offset: [0, offsetY], zoom, duration: 400 });
+  }, []);
+
   const handleLocationSelect = useCallback(
     (lat: number, lng: number) => {
       // Immediately update with coordinates.
@@ -354,6 +413,8 @@ export function PublicMap({
         lng,
         address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
       });
+
+      panToSelectedLocation(lat, lng);
 
       if (!enableAddressLookup) return;
 
@@ -365,7 +426,7 @@ export function PublicMap({
         void reverseGeocodeWithAbort(lat, lng);
       }, 500);
     },
-    [onLocationSelect, reverseGeocodeWithAbort, enableAddressLookup]
+    [onLocationSelect, reverseGeocodeWithAbort, enableAddressLookup, panToSelectedLocation]
   );
 
   const handleShareLocation = useCallback(() => {
@@ -373,7 +434,7 @@ export function PublicMap({
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude } = position.coords;
-          mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 16 });
+          panToSelectedLocation(latitude, longitude, 16);
           handleLocationSelect(latitude, longitude);
         },
         () => {
@@ -389,7 +450,7 @@ export function PublicMap({
         autoClose: 3000,
       });
     }
-  }, [handleLocationSelect]);
+  }, [handleLocationSelect, panToSelectedLocation]);
 
   useEffect(() => {
     if (mapApiRef) {
@@ -464,7 +525,7 @@ export function PublicMap({
       if (!selectedMarkerRef.current) {
         const marker = new maplibregl.Marker({
           color: '#7A0019',
-          scale: 0.9,
+          scale: 0.7,
         })
           .setLngLat([location.lng, location.lat])
           .addTo(map);
@@ -493,13 +554,38 @@ export function PublicMap({
     [showReportPopup]
   );
 
+  // Clears barangay hover state + label (also when pointer hits a report pin).
+  const clearBarangayHover = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (hoveredBarangayIdRef.current !== null) {
+      map.setFeatureState(
+        { source: 'barangay-boundaries', id: hoveredBarangayIdRef.current },
+        { hover: false }
+      );
+      hoveredBarangayIdRef.current = null;
+    }
+    const labelSource = map.getSource('barangay-label-point') as any;
+    if (labelSource) {
+      labelSource.setData({ type: 'FeatureCollection', features: [] });
+    }
+    if (map.getLayer('barangay-label')) {
+      map.setLayoutProperty('barangay-label', 'visibility', 'none');
+    }
+  }, []);
+
   // Stable layer-event handlers so they can be attached/detached across style
   // reloads (2D <-> 3D) without duplicate listeners.
   const handleReportPointsMouseMove = useCallback(
     (e: any) => {
-      if (e.features?.length) queueReportPopup(e.features[0], e.lngLat);
+      // Only show the detail card for actual report pins (not cluster markers —
+      // hovering an aggregate has no single report to summarise).
+      if (e.features?.length && e.features[0].properties?.kind === 'report') {
+        queueReportPopup(e.features[0], e.lngLat);
+      }
+      clearBarangayHover();
     },
-    [queueReportPopup]
+    [queueReportPopup, clearBarangayHover]
   );
   const handleReportPointsMouseLeave = useCallback(() => hideReportPopup(), [hideReportPopup]);
   const handleReportPointsClick = useCallback(
@@ -535,15 +621,27 @@ export function PublicMap({
     });
   }, []);
 
-  // --- Barangay hover highlight ---
+  // --- Barangay hover highlight + label ---
   const handleBarangayMouseMove = useCallback(
     (e: any) => {
       const map = mapRef.current;
       if (!map || !e.features?.length) return;
+      // A report pin/cluster/selected-location marker draws over the barangay
+      // underneath, so suppress the highlight + label while one is under the
+      // pointer — showing it would just be noise behind the marker.
+      const overInteractive = map.queryRenderedFeatures(e.point, {
+        layers: ['report-points', 'report-clusters', 'selected-location'],
+      });
+      if (overInteractive.length) {
+        clearBarangayHover();
+        return;
+      }
       const feature = e.features[0];
       const id = feature.id ?? feature.properties?.adm4_psgc;
 
-      if (hoveredBarangayIdRef.current !== null && hoveredBarangayIdRef.current !== id) {
+      if (hoveredBarangayIdRef.current === id) return;
+
+      if (hoveredBarangayIdRef.current !== null) {
         map.setFeatureState(
           { source: 'barangay-boundaries', id: hoveredBarangayIdRef.current },
           { hover: false }
@@ -556,43 +654,34 @@ export function PublicMap({
       );
       map.getCanvas().style.cursor = 'pointer';
 
-      if (!barangayPopupRef.current) {
-        barangayPopupRef.current = new maplibregl.Popup({
-          closeButton: false,
-          closeOnClick: false,
-          anchor: 'bottom',
-          offset: 12,
-          maxWidth: '220px',
-          className: 'barangay-popup',
-        });
-      }
-      barangayPopupRef.current
-        .setLngLat(e.lngLat)
-        .setHTML(
-          `<div style="display:flex;align-items:center;gap:8px;font-family:inherit;">
-             <span style="width:10px;height:10px;border-radius:3px;background:rgb(56,189,248);box-shadow:0 0 0 3px rgba(56,189,248,0.25);flex-shrink:0;"></span>
-             <span style="font-size:13px;font-weight:600;color:#0f172a;letter-spacing:-0.01em;">${feature.properties?.adm4_en ?? 'Barangay'}</span>
-           </div>`
-        );
-      if (!barangayPopupRef.current.isOpen()) {
-        barangayPopupRef.current.addTo(map);
+      // Show the name as a symbol at the barangay centroid.
+      const centroid = polygonRepPoint(feature.geometry);
+      if (centroid) {
+        const labelSource = map.getSource('barangay-label-point') as any;
+        if (labelSource) {
+          labelSource.setData({
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: centroid },
+                properties: { name: feature.properties?.adm4_en ?? 'Barangay' },
+              },
+            ],
+          });
+        }
+        if (map.getLayer('barangay-label')) {
+          map.setLayoutProperty('barangay-label', 'visibility', 'visible');
+        }
       }
     },
-    []
+    [clearBarangayHover]
   );
   const handleBarangayMouseLeave = useCallback(() => {
     const map = mapRef.current;
-    if (!map) return;
-    if (hoveredBarangayIdRef.current !== null) {
-      map.setFeatureState(
-        { source: 'barangay-boundaries', id: hoveredBarangayIdRef.current },
-        { hover: false }
-      );
-      hoveredBarangayIdRef.current = null;
-    }
-    map.getCanvas().style.cursor = '';
-    barangayPopupRef.current?.remove();
-  }, []);
+    if (map) map.getCanvas().style.cursor = '';
+    clearBarangayHover();
+  }, [clearBarangayHover]);
 
   const attachLayerEvents = useCallback(
     (map: any) => {
@@ -605,6 +694,7 @@ export function PublicMap({
         { event: 'mousemove', layer: 'selected-location', handler: handleReportPointsMouseMove },
         { event: 'mouseleave', layer: 'selected-location', handler: handleReportPointsMouseLeave },
         { event: 'click', layer: 'report-clusters', handler: handleReportClustersClick },
+        { event: 'mousemove', layer: 'report-clusters', handler: handleReportPointsMouseMove },
         { event: 'mouseenter', layer: 'report-clusters', handler: handleReportPointsMouseEnter },
         { event: 'mouseleave', layer: 'report-clusters', handler: handleReportPointsCursorLeave },
         { event: 'mousemove', layer: 'barangay-fill', handler: handleBarangayMouseMove },
@@ -725,14 +815,15 @@ export function PublicMap({
       container: mapContainer.current,
       style: OPENFREEMAP_STYLE,
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
-      zoom: 12,
+      zoom: 13,
+      pitch: 35,
       maxZoom: 18,
       maxBounds: MAP_MAX_BOUNDS,
       renderWorldCopies: false,
       // Tiles pop in instead of slowly cross-fading, which reads much better on
       // a slow network where the initial tiles arrive late.
       fadeDuration: 0,
-      attributionControl: hideAttribution ? false : undefined,
+      attributionControl: hideAttributionRef.current ? false : undefined,
     });
     setSwathZoomFloor(map);
 
@@ -777,6 +868,11 @@ export function PublicMap({
     });
 
     map.on('click', (e: any) => {
+      // Click-to-report only fires on empty map space (pins own their clicks).
+      const hit = map.queryRenderedFeatures(e.point, {
+        layers: ['report-points', 'report-clusters', 'selected-location'],
+      });
+      if (hit.length) return;
       handleLocationSelectRef.current(e.lngLat.lat, e.lngLat.lng);
     });
 
@@ -795,6 +891,7 @@ export function PublicMap({
       resizeObserver.disconnect();
       selectedMarkerRef.current?.remove();
       selectedMarkerRef.current = null;
+      stopClusterPulse(map);
       setMapReady(false);
       map.remove();
       mapRef.current = null;
@@ -862,7 +959,7 @@ export function PublicMap({
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
-      <div ref={mapContainer} className="w-full h-full" />
+      <div ref={mapContainer} className="w-full h-full touch-action-none" />
 
       <MapModeToggle
         className="absolute top-4 right-4 md:right-6 z-[1000] hidden md:flex"
@@ -922,7 +1019,7 @@ export function PublicMap({
             title="Share my location"
             aria-label="Share my location"
           >
-            <Navigation className="w-5 h-5 text-gakit-maroon" />
+            <Locate className="w-5 h-5 text-gakit-maroon" />
             <span className="text-sm font-medium text-slate-700">Share location</span>
           </button>
         )}

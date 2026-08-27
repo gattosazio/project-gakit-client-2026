@@ -158,8 +158,9 @@ export function useHimawariLayer(
     }
   }, [himawariOpacity, mapRef, layersReadyRef]);
 
-  // Zoom out to fit the full Himawari se2 swath. Turning it off always returns
-  // to the standard Iligan view.
+  // Zoom out to fit the full Himawari se2 swath (flat, top-down — a tilt reads
+  // wrong on satellite imagery). Turning it off always returns to the standard
+  // tilted Iligan view.
   const toggleHimawariIR = useCallback(
     (next: boolean) => {
       setShowHimawariIR(next);
@@ -167,9 +168,9 @@ export function useHimawariLayer(
       if (!map) return;
       if (next) {
         const { center, zoom } = map.cameraForBounds(HIMAWARI_IMAGE_BOUNDS, { padding: 0 });
-        map.flyTo({ center, zoom, duration: 1000 });
+        map.flyTo({ center, zoom, pitch: 0, duration: 1000 });
       } else {
-        map.flyTo({ center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat], zoom: 12, duration: 1000 });
+        map.flyTo({ center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat], zoom: 12, pitch: 35, duration: 1000 });
       }
     },
     [mapRef]

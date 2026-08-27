@@ -1,57 +1,57 @@
 import { REPORT_STATUS_LABELS } from '@/constants/publicMap';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 
+// A simple white water-wave glyph — two short strokes read as "flood" at a
+// glance and stay legible on a small, flat status disc.
+const drawWave = (ctx: CanvasRenderingContext2D, cx: number, cy: number, w: number) => {
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 2;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  [-2.5, 2.5].forEach((dy) => {
+    const y = cy + dy;
+    ctx.beginPath();
+    ctx.moveTo(cx - w, y);
+    ctx.bezierCurveTo(cx - w * 0.5, y - 2.5, cx - w * 0.15, y - 2.5, cx, y);
+    ctx.bezierCurveTo(cx + w * 0.15, y + 2.5, cx + w * 0.5, y + 2.5, cx + w, y);
+    ctx.stroke();
+  });
+};
+
 export const createReportMarkerImage = (color: string): ImageData | null => {
+  const size = 40;
   const canvas = document.createElement('canvas');
-  canvas.width = 54;
-  canvas.height = 66;
+  canvas.width = size;
+  canvas.height = size;
   const context = canvas.getContext('2d');
   if (!context) return null;
 
-  const drawPin = () => {
-    context.beginPath();
-    context.moveTo(27, 61.5);
-    context.bezierCurveTo(23.25, 52.5, 7.5, 39, 7.5, 24.75);
-    context.bezierCurveTo(7.5, 13.875, 16.125, 5.25, 27, 5.25);
-    context.bezierCurveTo(37.875, 5.25, 46.5, 13.875, 46.5, 24.75);
-    context.bezierCurveTo(46.5, 39, 30.75, 52.5, 27, 61.5);
-    context.closePath();
-  };
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size / 2 - 4;
 
+  // Soft drop shadow grounds the marker.
   context.save();
   context.shadowColor = 'rgba(15, 23, 42, 0.35)';
-  context.shadowBlur = 6;
-  context.shadowOffsetY = 3.75;
-  drawPin();
+  context.shadowBlur = 5;
+  context.shadowOffsetY = 2;
+  context.beginPath();
+  context.arc(cx, cy, r, 0, Math.PI * 2);
   context.fillStyle = color;
   context.fill();
   context.restore();
 
-  drawPin();
-  context.fillStyle = color;
-  context.fill();
+  // Flat status disc with a crisp white ring.
+  context.beginPath();
+  context.arc(cx, cy, r, 0, Math.PI * 2);
+  context.lineWidth = 2.5;
   context.strokeStyle = '#ffffff';
-  context.lineWidth = 3;
-  context.lineJoin = 'round';
   context.stroke();
 
-  context.beginPath();
-  context.arc(27, 24, 11.25, 0, Math.PI * 2);
-  context.fillStyle = '#ffffff';
-  context.fill();
+  // White wave glyph.
+  drawWave(context, cx, cy, 6);
 
-  context.strokeStyle = color;
-  context.lineWidth = 2.625;
-  context.lineCap = 'round';
-  [21, 26.25].forEach((y) => {
-    context.beginPath();
-    context.moveTo(18, y);
-    context.bezierCurveTo(21, y - 2.25, 24, y + 2.25, 27, y);
-    context.bezierCurveTo(30, y - 2.25, 33, y + 2.25, 36, y);
-    context.stroke();
-  });
-
-  return context.getImageData(0, 0, canvas.width, canvas.height);
+  return context.getImageData(0, 0, size, size);
 };
 
 export const formatDepth = (depth: DepthCategory, depthCm?: number | null) => {
@@ -105,7 +105,7 @@ export const buildReportsGeoJson = (
         id: props.id,
         kind: 'report',
         status: props.status,
-        address: props.address || 'Flood report',
+        address: props.address,
         depthLabel,
         statusLabel: REPORT_STATUS_LABELS[props.status] || props.status,
         createdAt: new Date(props.createdAt).toLocaleString(),
@@ -159,9 +159,11 @@ export const buildReportPopupHtml = (feature: Record<string, any>): string => {
 
   return `
     <div class="gakit-tooltip" style="${tooltipStyle}">
-      <div style="font-weight: 700; font-size: 12px; color: #0f172a; margin-bottom: 2px;">
-        ${escapeHtml(props.address || 'Flood report')}
-      </div>
+      ${props.address
+        ? `<div style="font-weight: 700; font-size: 12px; color: #0f172a; margin-bottom: 2px;">
+             ${escapeHtml(props.address)}
+           </div>`
+        : ''}
       ${props.depthLabel ? row('Depth', props.depthLabel) : ''}
       ${props.statusLabel ? row('Status', props.statusLabel) : ''}
       ${props.elevation != null ? row('Elevation', `${Number(props.elevation).toFixed(1)} m`) : ''}

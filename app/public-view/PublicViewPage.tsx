@@ -5,7 +5,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from '@/components/ReportModal';
-import { Building2, Handshake, Loader2, Mail, MapPin, Navigation } from 'lucide-react';
+import { Building2, Handshake, Loader2, Mail, MapPin, Locate } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth } from './actions/public.view';
 import { reverseGeocode } from '@/lib/map/geoUtils';
@@ -49,6 +49,7 @@ export function PublicViewPage({
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Fetching reports…');
   const mapRef = useRef<PublicMapHandle | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!isLoadingReports) {
@@ -59,49 +60,57 @@ export function PublicViewPage({
     return () => clearTimeout(timer);
   }, [isLoadingReports]);
 
-  const scrollToMap = useCallback(() => {
-    document
-      .getElementById('hazard-map')
-      ?.scrollIntoView({ behavior: 'smooth' });
+  const smoothScrollTo = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
+
+  const scrollToMap = useCallback(() => {
+    smoothScrollTo('hazard-map');
+  }, [smoothScrollTo]);
 
   const scrollToSection = useCallback((sectionId: SectionId) => {
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
+    smoothScrollTo(sectionId);
+  }, [smoothScrollTo]);
 
-  const getSectionFromScroll = useCallback((scrollPosition: number): SectionId => {
-    const adjustedScrollPosition = scrollPosition + 120;
-    const documentBottom = window.scrollY + window.innerHeight;
-    const pageBottom = document.documentElement.scrollHeight;
+  const getSectionFromScroll = useCallback(
+    (scrollTop: number, viewportHeight: number, totalHeight: number): SectionId => {
+      const adjustedPosition = scrollTop + 120;
 
-    if (documentBottom >= pageBottom - 8) {
-      return 'about';
-    }
+      if (scrollTop + viewportHeight >= totalHeight - 8) {
+        return 'about';
+      }
 
-    return [...SECTION_ORDER]
-      .reverse()
-      .find((sectionId) => {
-        const element = document.getElementById(sectionId);
-        return element ? element.offsetTop <= adjustedScrollPosition : false;
-      }) ?? 'hazard-map';
-  }, []);
+      return (
+        [...SECTION_ORDER].reverse().find((sectionId) => {
+          const element = document.getElementById(sectionId);
+          return element ? element.offsetTop <= adjustedPosition : false;
+        }) ?? 'hazard-map'
+      );
+    },
+    []
+  );
 
+  // Track which section is in view (drives header/nav highlight). The page is
+  // its own scroll container with native scroll-snap (see the root <div>), so
+  // scroll events and section detection read from that container, not window.
   useEffect(() => {
-    const updateActiveSection = () => {
-      setActiveSection(getSectionFromScroll(window.scrollY));
+    const scroller = scrollContainerRef.current;
+    if (!scroller) return;
+
+    const onScroll = () => {
+      setActiveSection(
+        getSectionFromScroll(scroller.scrollTop, scroller.clientHeight, scroller.scrollHeight)
+      );
     };
+    onScroll();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => scroller.removeEventListener('scroll', onScroll);
+  }, [getSectionFromScroll]);
 
-    updateActiveSection();
-    window.addEventListener('scroll', updateActiveSection, { passive: true });
-    window.addEventListener('resize', updateActiveSection);
-
+  // Open on the map: scroll it into view after mount (snap settles it cleanly).
+  useEffect(() => {
     scrollToMap();
-
-    return () => {
-      window.removeEventListener('scroll', updateActiveSection);
-      window.removeEventListener('resize', updateActiveSection);
-    };
-  }, [getSectionFromScroll, scrollToMap]);
+  }, [scrollToMap]);
 
   // Keep the free-tier backend warm while this page is open (opt-in).
   // Only active during a dev session, so it never burns idle instance-hours.
@@ -239,8 +248,14 @@ export function PublicViewPage({
   };
 
   return (
-    <div className="min-h-screen bg-canvas-grey">
-      <PublicHeader activeSection={activeSection} initialAuth={initialAuth} />
+    <div
+      ref={scrollContainerRef}
+      className="h-[100dvh] snap-y snap-proximity overflow-y-auto bg-canvas-grey"
+    >      <PublicHeader
+        activeSection={activeSection}
+        initialAuth={initialAuth}
+        onNavigateSection={scrollToSection}
+      />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
         showDown={activeSection !== 'about'}
@@ -249,7 +264,7 @@ export function PublicViewPage({
       />
 
       <main className="pt-16 pb-14 md:pb-0">
-        <section id="hazard-map" className="min-h-[calc(100dvh-4rem)] scroll-mt-16">
+        <section id="hazard-map" className="min-h-[calc(100dvh-4rem)] scroll-mt-16 snap-start">
           <div className="flex h-[calc(100dvh-4rem)] overflow-hidden bg-white">
             <div className="relative isolate flex-1 w-full h-full min-h-0">
               {isManualLocationMode && (
@@ -263,7 +278,7 @@ export function PublicViewPage({
                     title="Use my current location"
                     aria-label="Use my current location"
                   >
-                    <Navigation className="h-5 w-5 text-gakit-maroon" />
+                    <Locate className="h-5 w-5 text-gakit-maroon" />
                   </button>
                 </div>
               )}
@@ -311,7 +326,7 @@ export function PublicViewPage({
           </div>
         </section>
 
-        <section id="about" className="bg-gakit-maroon scroll-mt-16">
+        <section id="about" className="bg-gakit-maroon scroll-mt-16 snap-start">
           <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
             <div>
               <div className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-maroon-200">
