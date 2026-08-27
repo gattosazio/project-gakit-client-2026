@@ -18,9 +18,11 @@ import { WeatherAlertModal } from './WeatherAlertModal';
 export function PublicHeader({
   activeSection,
   initialAuth,
+  onNavigateSection,
 }: {
   activeSection?: 'hazard-map' | 'about';
   initialAuth?: AuthSnapshot;
+  onNavigateSection?: (id: 'hazard-map' | 'about') => void;
 }) {
   const router = useRouter();
   const { navigate, loadingOverlay } = useRouteLoader();
@@ -122,8 +124,8 @@ export function PublicHeader({
     navigate(home ?? '/login');
   };
 
-  const scrollToSection = (id: string) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+  const scrollToSection = (id: 'hazard-map' | 'about') => {
+    onNavigateSection?.(id);
   };
 
   const userMenuContent = (

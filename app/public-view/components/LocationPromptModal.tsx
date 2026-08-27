@@ -1,6 +1,6 @@
 'use client';
 
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Locate } from 'lucide-react';
 import { LocationSearch, type SearchedLocation } from './LocationSearch';
 
 export interface SelectedLocation {
@@ -48,7 +48,7 @@ export function LocationPromptModal({
             className="w-full p-4 rounded-xl border-2 border-gakit-maroon bg-maroon-50 text-left hover:bg-maroon-100 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <Navigation className="w-5 h-5 text-gakit-maroon" />
+              <Locate className="w-5 h-5 text-gakit-maroon" />
               <div>
                 <div className="font-semibold text-slate-900">Use my current location</div>
                 <div className="text-xs text-slate-600">Turn on location access and continue.</div>

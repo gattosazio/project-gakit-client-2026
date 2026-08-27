@@ -7,7 +7,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Navigation } from 'lucide-react';
+import { Locate } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import * as maplibregl from 'maplibre-gl';
@@ -78,6 +78,7 @@ import { queryFloodHazard, type FloodRiskLevel } from '@/lib/map/floodHazard';
 import {
   riskLevelFilter,
   setupOverlayLayers,
+  stopClusterPulse,
   type MapMode,
 } from '@/lib/map/overlayLayers';
 import {
@@ -175,6 +176,10 @@ export function PublicMap({
   const handleLocationSelectRef = useRef<(lat: number, lng: number) => void>(() => {});
   const onReportClickRef = useRef(onReportClick);
   const onReadyRef = useRef(onReady);
+  // attributionControl is a constructor-only Map option (cannot change post-init),
+  // so we capture it in a ref to read inside the mount-only useEffect without
+  // making hideAttribution a dependency (which would re-create the whole map).
+  const hideAttributionRef = useRef(hideAttribution);
   const loadMapReportsRef = useRef<(() => void | Promise<void>) | null>(null);
   const loadRainfallRef = useRef<((hours?: any) => Promise<void> | void) | null>(null);
   const onMapLoadRef = useRef<(() => void) | null>(null);
@@ -520,7 +525,7 @@ export function PublicMap({
       if (!selectedMarkerRef.current) {
         const marker = new maplibregl.Marker({
           color: '#7A0019',
-          scale: 0.9,
+          scale: 0.7,
         })
           .setLngLat([location.lng, location.lat])
           .addTo(map);
@@ -810,14 +815,15 @@ export function PublicMap({
       container: mapContainer.current,
       style: OPENFREEMAP_STYLE,
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
-      zoom: 12,
+      zoom: 13,
+      pitch: 35,
       maxZoom: 18,
       maxBounds: MAP_MAX_BOUNDS,
       renderWorldCopies: false,
       // Tiles pop in instead of slowly cross-fading, which reads much better on
       // a slow network where the initial tiles arrive late.
       fadeDuration: 0,
-      attributionControl: hideAttribution ? false : undefined,
+      attributionControl: hideAttributionRef.current ? false : undefined,
     });
     setSwathZoomFloor(map);
 
@@ -885,6 +891,7 @@ export function PublicMap({
       resizeObserver.disconnect();
       selectedMarkerRef.current?.remove();
       selectedMarkerRef.current = null;
+      stopClusterPulse(map);
       setMapReady(false);
       map.remove();
       mapRef.current = null;
@@ -1012,7 +1019,7 @@ export function PublicMap({
             title="Share my location"
             aria-label="Share my location"
           >
-            <Navigation className="w-5 h-5 text-gakit-maroon" />
+            <Locate className="w-5 h-5 text-gakit-maroon" />
             <span className="text-sm font-medium text-slate-700">Share location</span>
           </button>
         )}

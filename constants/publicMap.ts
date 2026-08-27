@@ -6,18 +6,22 @@ const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
 export const HAS_MAPTILER = Boolean(MAPTILER_KEY);
 
-// Default 2D basemap — OpenFreeMap needs no API key.
+// 2D basemap — no API key needed.
 export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
-// Optional 3D-capable basemap (MapTiler). Only usable when a key is present.
+// 3D-capable basemap (MapTiler), only when a key is present.
 export const MAPTILER_STYLE = MAPTILER_KEY
   ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
   : OPENFREEMAP_STYLE;
 
-// Raster elevation source used to enable 3D terrain in the MapTiler view.
+// Raster DEM used to enable 3D terrain.
 export const MAPTILER_TERRAIN_STYLE = MAPTILER_KEY
   ? `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${MAPTILER_KEY}`
   : '';
+
+// MapTiler DEM serves 256px tiles up to z14; matches tiles.json from the source.
+export const MAPTILER_TERRAIN_TILE_SIZE = 256;
+export const MAPTILER_TERRAIN_MAX_ZOOM = 14;
 
 export const ILIGAN_REPORT_BOUNDS = {
   west: ILIGAN_BOUNDS[0][0],

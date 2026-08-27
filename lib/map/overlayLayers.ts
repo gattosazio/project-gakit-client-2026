@@ -1,6 +1,8 @@
 import { toast } from 'react-toastify';
 import {
+  MAPTILER_TERRAIN_MAX_ZOOM,
   MAPTILER_TERRAIN_STYLE,
+  MAPTILER_TERRAIN_TILE_SIZE,
   REPORT_MARKER_COLORS,
   REPORT_MARKER_IMAGE_IDS,
   REPORT_STATUS_LEGEND,
@@ -41,6 +43,41 @@ export interface OverlayLayerState {
 export const applyRainfallPaint = (map: any, hours: number) => {
   if (!map?.getLayer('rainfall-grid')) return;
   map.setPaintProperty('rainfall-grid', 'fill-color', buildRainfallPaintExpression(hours));
+};
+
+// Animated pulse on the individual-pin halos, driven by one rAF loop per map.
+// Transitions are disabled on the layers (above) so each frame applies
+// instantly; the default 300ms transition would smear pings into a double
+// pulse. Keyed by map in a WeakMap so a style reload can't start a second loop.
+// Aggregated (cluster) pins are intentionally static — a pulsing ring under the
+// count bubble adds clutter and fights a busy map, so only lone pins ping.
+const pulseHandles = new WeakMap<object, number>();
+const PING_PERIOD = 2000; // ms per sonar ping
+
+export const startClusterPulse = (map: any) => {
+  if (typeof window === 'undefined' || !map || pulseHandles.has(map)) return;
+  const loop = (t: number) => {
+    try {
+      // Sawtooth 0..1: ring expands then resets (opacity ~0 at the wrap, so the
+      // jump back to the start is invisible — no dead gap).
+      const p = (t % PING_PERIOD) / PING_PERIOD;
+      if (map.getLayer('report-point-halo')) {
+        map.setPaintProperty('report-point-halo', 'circle-radius', 11 + p * 10);
+        map.setPaintProperty('report-point-halo', 'circle-opacity', 0.5 * (1 - p * p * p));
+      }
+    } catch {
+      pulseHandles.delete(map);
+      return;
+    }
+    pulseHandles.set(map, requestAnimationFrame(loop));
+  };
+  pulseHandles.set(map, requestAnimationFrame(loop));
+};
+
+export const stopClusterPulse = (map: any) => {
+  const id = pulseHandles.get(map);
+  if (id != null) cancelAnimationFrame(id);
+  pulseHandles.delete(map);
 };
 
 // Adds the project sources/layers (flood hazard, rainfall, reports,
@@ -125,11 +162,12 @@ export const setupOverlayLayers = async (
 
   // --- Report markers as clustered GeoJSON (GPU-rendered, no DOM churn) ---
   if (!map.getSource('reports')) {
+    // Per-status counts let clusters inherit the dominant report status color.
     map.addSource('reports', {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: [] },
       cluster: true,
-      clusterMaxZoom: 11,
+      clusterMaxZoom: 14,
       clusterRadius: 25,
     });
 
@@ -140,6 +178,17 @@ export const setupOverlayLayers = async (
       if (image) map.addImage(imageId, image, { pixelRatio: 2 });
     });
 
+    // Status colors for individual-pin glow (clusters stay neutral indigo).
+    const statusColor = (expr: any) => [
+      'match', expr,
+      'VERIFIED', REPORT_MARKER_COLORS.VERIFIED,
+      'ANOMALY', REPORT_MARKER_COLORS.ANOMALY,
+      'REJECTED', REPORT_MARKER_COLORS.REJECTED,
+      REPORT_MARKER_COLORS.UNVERIFIED,
+    ];
+
+    // Solid cluster disc (neutral indigo), radius scales with count but is
+    // capped so clusters don't balloon when zoomed out.
     map.addLayer({
       id: 'report-clusters',
       type: 'circle',
@@ -147,9 +196,13 @@ export const setupOverlayLayers = async (
       filter: ['has', 'point_count'],
       paint: {
         'circle-color': '#6366f1',
-        'circle-radius': 22,
-        'circle-stroke-width': 2,
+        'circle-radius': [
+          'interpolate', ['linear'], ['get', 'point_count'],
+          2, 15, 5, 18, 10, 20, 25, 23, 50, 24,
+        ],
+        'circle-stroke-width': 2.5,
         'circle-stroke-color': '#ffffff',
+        'circle-stroke-opacity': 0.9,
       },
     });
 
@@ -160,10 +213,26 @@ export const setupOverlayLayers = async (
       filter: ['has', 'point_count'],
       layout: {
         'text-field': '{point_count_abbreviated}',
-        'text-size': 12,
+        'text-size': 13,
         'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
       },
       paint: { 'text-color': '#ffffff' },
+    });
+
+    // Soft glow behind individual pins.
+    map.addLayer({
+      id: 'report-point-halo',
+      type: 'circle',
+      source: 'reports',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': statusColor(['get', 'status']),
+        'circle-radius': 11,
+        'circle-blur': 0.5,
+        'circle-opacity': 0.32,
+        'circle-radius-transition': { duration: 0 },
+        'circle-opacity-transition': { duration: 0 },
+      },
     });
 
     map.addLayer({
@@ -180,7 +249,7 @@ export const setupOverlayLayers = async (
           'REJECTED', REPORT_MARKER_IMAGE_IDS.REJECTED,
           REPORT_MARKER_IMAGE_IDS.UNVERIFIED,
         ],
-        'icon-anchor': 'bottom',
+        'icon-anchor': 'center',
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
       },
@@ -363,24 +432,58 @@ export const setupOverlayLayers = async (
     map.setLayoutProperty('himawari-ir-layer', 'visibility', state.showHimawariIR ? 'visible' : 'none');
   }
 
-  // Keep barangay layer below report pins regardless of add order.
+  // Keep barangay layer below all report overlays regardless of add order.
   if (map.getLayer('barangay-outline') && map.getLayer('report-clusters')) {
     map.moveLayer('barangay-fill', 'report-clusters');
     map.moveLayer('barangay-label', 'report-clusters');
     map.moveLayer('barangay-outline', 'report-clusters');
   }
 
-  // --- 3D terrain (MapTiler view) ---
+  // --- 3D terrain + hillshade (MapTiler view) ---
   if (state.mapMode === '3d') {
     if (!map.getSource('terrain')) {
       map.addSource('terrain', {
         type: 'raster-dem',
         url: MAPTILER_TERRAIN_STYLE,
-        tileSize: 256,
+        tileSize: MAPTILER_TERRAIN_TILE_SIZE,
+        maxzoom: MAPTILER_TERRAIN_MAX_ZOOM,
       });
     }
-    map.setTerrain({ source: 'terrain', exaggeration: 1.4 });
+    map.setTerrain({ source: 'terrain', exaggeration: 1 });
+    // Hillshade needs its own DEM source (separate cache from terrain).
+    if (!map.getSource('hillshade-dem')) {
+      map.addSource('hillshade-dem', {
+        type: 'raster-dem',
+        url: MAPTILER_TERRAIN_STYLE,
+        tileSize: MAPTILER_TERRAIN_TILE_SIZE,
+        maxzoom: MAPTILER_TERRAIN_MAX_ZOOM,
+      });
+      map.addLayer({
+        id: 'hillshade',
+        type: 'hillshade',
+        source: 'hillshade-dem',
+        // Shade only the basemap/terrain — keep it below the data overlays so
+        // report pins, flood fills, and rainfall aren't washed out by the relief.
+        before: 'flood-hazard-fill',
+        paint: {
+          'hillshade-exaggeration': 0.4,
+          'hillshade-shadow-color': '#2b3c4e',
+          'hillshade-highlight-color': '#ffffff',
+        },
+      });
+    }
   } else {
     map.setTerrain(null);
+    if (map.getLayer('hillshade')) map.removeLayer('hillshade');
+    if (map.getSource('hillshade-dem')) map.removeSource('hillshade-dem');
+  }
+
+  // Pulse only in 2D. In 3D the halo layers are draped on terrain, so
+  // animating them every frame would force a constant re-drape — a steady 3D
+  // perf tax. Stop it in 3D (and on every style reload, idempotently).
+  if (state.mapMode === '3d') {
+    stopClusterPulse(map);
+  } else {
+    startClusterPulse(map);
   }
 };
