@@ -190,7 +190,7 @@ export function SideBar<T extends string>({
       <div className={`flex h-24 shrink-0 flex-col justify-center border-b border-slate-100 ${isCollapsed ? 'items-center px-3' : 'items-start px-7'}`}>
         <div className={`flex h-9 items-center ${isCollapsed ? 'w-9' : 'w-28'}`}>
           <Image
-            src="/images/gakit_logo2.svg"
+            src="/images/gakit_logo_adobe.svg"
             alt="GAKIT logo"
             width={160}
             height={48}
