@@ -7,7 +7,7 @@ const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 export const HAS_MAPTILER = Boolean(MAPTILER_KEY);
 
 // Default 2D basemap — OpenFreeMap needs no API key.
-export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/bright';
+export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
 // Optional 3D-capable basemap (MapTiler). Only usable when a key is present.
 export const MAPTILER_STYLE = MAPTILER_KEY

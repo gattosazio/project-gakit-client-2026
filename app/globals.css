@@ -59,6 +59,15 @@ body {
   display: none;
 }
 
+/* Barangay hover popup — modern card look */
+.maplibregl-popup.barangay-popup .maplibregl-popup-content {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border: 1px solid rgba(56, 189, 248, 0.35) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px -6px rgba(2, 132, 199, 0.25) !important;
+  padding: 8px 12px !important;
+}
+
 /* React-toastify custom styles */
 .Toastify__toast-container {
   z-index: 9999 !important;

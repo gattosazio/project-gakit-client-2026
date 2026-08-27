@@ -254,6 +254,53 @@ export const setupOverlayLayers = async (
     });
   }
 
+  // --- Iligan barangay boundaries ---
+  if (!map.getSource('barangay-boundaries')) {
+    map.addSource('barangay-boundaries', {
+      type: 'geojson',
+      data: '/data/iligan-barangays.geojson',
+      // Use the barangay PSGC code as the feature id so setFeatureState
+      // (used for hover highlighting) can resolve and update each polygon.
+      promoteId: 'adm4_psgc',
+    });
+
+    map.addLayer({
+      id: 'barangay-fill',
+      type: 'fill',
+      source: 'barangay-boundaries',
+      paint: {
+        'fill-color': 'rgb(56, 189, 248)',
+        'fill-opacity': [
+          'case',
+          ['boolean', ['feature-state', 'hover'], false],
+          0.25,
+          0.04,
+        ],
+      },
+    });
+
+    map.addLayer({
+      id: 'barangay-outline',
+      type: 'line',
+      source: 'barangay-boundaries',
+      paint: {
+        'line-color': 'rgba(56, 189, 248, 0.4)',
+        'line-width': [
+          'case',
+          ['boolean', ['feature-state', 'hover'], false],
+          2.5,
+          1,
+        ],
+        'line-opacity': [
+          'case',
+          ['boolean', ['feature-state', 'hover'], false],
+          1,
+          0.7,
+        ],
+      },
+    });
+  }
+
   // --- Himawari IR satellite imagery (JMA) ---
   if (!map.getSource('himawari-ir')) {
     // JMA publishes frames with a lag, so "now" rounded down may not exist

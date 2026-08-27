@@ -130,6 +130,8 @@ export function PublicMap({
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reportPopupRef = useRef<any>(null);
+  const barangayPopupRef = useRef<any>(null);
+  const hoveredBarangayIdRef = useRef<string | number | null>(null);
   const popupFrameRef = useRef<number | null>(null);
   const selectedMarkerRef = useRef<any>(null);
   const pendingInspectRef = useRef<MapReportToShow | null>(null);
@@ -516,6 +518,65 @@ export function PublicMap({
     });
   }, []);
 
+  // --- Barangay hover highlight ---
+  const handleBarangayMouseMove = useCallback(
+    (e: any) => {
+      const map = mapRef.current;
+      if (!map || !e.features?.length) return;
+      const feature = e.features[0];
+      const id = feature.id ?? feature.properties?.adm4_psgc;
+
+      if (hoveredBarangayIdRef.current !== null && hoveredBarangayIdRef.current !== id) {
+        map.setFeatureState(
+          { source: 'barangay-boundaries', id: hoveredBarangayIdRef.current },
+          { hover: false }
+        );
+      }
+      hoveredBarangayIdRef.current = id;
+      map.setFeatureState(
+        { source: 'barangay-boundaries', id },
+        { hover: true }
+      );
+      map.getCanvas().style.cursor = 'pointer';
+
+      if (!barangayPopupRef.current) {
+        barangayPopupRef.current = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          anchor: 'bottom',
+          offset: 12,
+          maxWidth: '220px',
+          className: 'barangay-popup',
+        });
+      }
+      barangayPopupRef.current
+        .setLngLat(e.lngLat)
+        .setHTML(
+          `<div style="display:flex;align-items:center;gap:8px;font-family:inherit;">
+             <span style="width:10px;height:10px;border-radius:3px;background:rgb(56,189,248);box-shadow:0 0 0 3px rgba(56,189,248,0.25);flex-shrink:0;"></span>
+             <span style="font-size:13px;font-weight:600;color:#0f172a;letter-spacing:-0.01em;">${feature.properties?.adm4_en ?? 'Barangay'}</span>
+           </div>`
+        );
+      if (!barangayPopupRef.current.isOpen()) {
+        barangayPopupRef.current.addTo(map);
+      }
+    },
+    []
+  );
+  const handleBarangayMouseLeave = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (hoveredBarangayIdRef.current !== null) {
+      map.setFeatureState(
+        { source: 'barangay-boundaries', id: hoveredBarangayIdRef.current },
+        { hover: false }
+      );
+      hoveredBarangayIdRef.current = null;
+    }
+    map.getCanvas().style.cursor = '';
+    barangayPopupRef.current?.remove();
+  }, []);
+
   const attachLayerEvents = useCallback(
     (map: any) => {
       const pairs: Array<{ event: string; layer: string; handler: (e: any) => void }> = [
@@ -529,6 +590,8 @@ export function PublicMap({
         { event: 'click', layer: 'report-clusters', handler: handleReportClustersClick },
         { event: 'mouseenter', layer: 'report-clusters', handler: handleReportPointsMouseEnter },
         { event: 'mouseleave', layer: 'report-clusters', handler: handleReportPointsCursorLeave },
+        { event: 'mousemove', layer: 'barangay-fill', handler: handleBarangayMouseMove },
+        { event: 'mouseleave', layer: 'barangay-fill', handler: handleBarangayMouseLeave },
       ];
       pairs.forEach(({ event, layer, handler }) => {
         map.off(event, layer, handler);
@@ -536,6 +599,8 @@ export function PublicMap({
       });
     },
     [
+      handleBarangayMouseLeave,
+      handleBarangayMouseMove,
       handleReportClustersClick,
       handleReportPointsClick,
       handleReportPointsCursorLeave,
