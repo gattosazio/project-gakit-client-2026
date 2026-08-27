@@ -131,8 +131,8 @@ export function PublicMap({
   const handleLocationSelectRef = useRef<(lat: number, lng: number) => void>(() => {});
   const onReportClickRef = useRef(onReportClick);
   const onReadyRef = useRef(onReady);
-  const loadMapReportsRef = useRef<(() => Promise<void>) | null>(null);
-  const loadRainfallRef = useRef<(() => Promise<void>) | null>(null);
+  const loadMapReportsRef = useRef<(() => void | Promise<void>) | null>(null);
+  const loadRainfallRef = useRef<((hours?: any) => Promise<void> | void) | null>(null);
   const onMapLoadRef = useRef<(() => void) | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
