@@ -78,7 +78,7 @@ export function WeatherChip({
   return (
     <div className={className}>
       {open ? (
-        <div className="w-72 rounded-xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
+        <div className="w-72 rounded-2xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-900">
             <div className="flex min-w-0 items-center gap-2">
               <TodayIcon className="h-3.5 w-3.5 shrink-0" />
@@ -154,7 +154,7 @@ export function WeatherChip({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-xl bg-white/90 px-3 py-2.5 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
+          className="flex items-center gap-2 rounded-2xl bg-white/90 px-3 py-2.5 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
           title={pillTooltip}
           aria-label="Show weather outlook"
         >

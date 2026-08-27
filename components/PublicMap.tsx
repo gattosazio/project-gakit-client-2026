@@ -73,6 +73,7 @@ export interface PublicMapHandle {
   showReport: (report: MapReportToShow) => void;
   getRainfallHours: () => number;
   refreshReports: () => void;
+  shareMyLocation: () => void;
 }
 
 interface PublicMapProps {
@@ -302,21 +303,6 @@ export function PublicMap({
     [mapReady, showReportPopup]
   );
 
-  useEffect(() => {
-    if (mapApiRef) {
-      mapApiRef.current = {
-        checkLocation,
-        focusLocation,
-        showReport,
-        getRainfallHours: () => rainfall.rainfallHours,
-        refreshReports: reportsLayer.invalidateAndReload,
-      };
-      return () => {
-        mapApiRef.current = null;
-      };
-    }
-  }, [mapApiRef, checkLocation, focusLocation, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload]);
-
   // Applies an inspect requested before the map finished loading.
   useEffect(() => {
     if (!mapReady || !pendingInspectRef.current) return;
@@ -395,6 +381,22 @@ export function PublicMap({
       });
     }
   }, [handleLocationSelect]);
+
+  useEffect(() => {
+    if (mapApiRef) {
+      mapApiRef.current = {
+        checkLocation,
+        focusLocation,
+        showReport,
+        getRainfallHours: () => rainfall.rainfallHours,
+        refreshReports: reportsLayer.invalidateAndReload,
+        shareMyLocation: handleShareLocation,
+      };
+      return () => {
+        mapApiRef.current = null;
+      };
+    }
+  }, [mapApiRef, checkLocation, focusLocation, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload, handleShareLocation]);
 
   // Keep refs in sync so stable callbacks can read the latest data without
   // forcing the map-setup effect to re-run.
@@ -792,7 +794,7 @@ export function PublicMap({
 
       <div
         className={`absolute right-4 md:right-6 z-[1000] flex flex-col items-end gap-3 transition-opacity duration-200 ${
-          hideShareLocation ? 'bottom-10 md:bottom-8' : 'bottom-28 md:bottom-10'
+          'bottom-28 md:bottom-8'
         } ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'} max-h-[62%] overflow-y-auto overscroll-contain pr-0.5`}
       >
         <ReportControls

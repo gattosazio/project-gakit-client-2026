@@ -65,7 +65,7 @@ export function LocationSearch({
   };
 
   return (
-    <div className="rounded-xl bg-white/90 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur-sm">
+    <div className="rounded-2xl bg-white/90 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur-sm">
       <form onSubmit={handleSearch} className="flex items-center gap-1.5">
         <label className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 transition-shadow focus-within:ring-2 focus-within:ring-gakit-maroon/40">
           <Search className="h-4 w-4 shrink-0 text-slate-400" />
@@ -99,7 +99,7 @@ export function LocationSearch({
       )}
 
       {searchResults.length > 0 && (
-        <div className="mt-1.5 max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="mt-1.5 max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
           {searchResults.map((result) => (
             <button
               key={`${result.lat}-${result.lng}`}
