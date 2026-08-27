@@ -116,7 +116,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return open ? (
-    <div className="rounded-xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
+    <div className="rounded-2xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
       <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-900 mb-2">
         <div className="flex items-center gap-2">
           <Icon className="w-3.5 h-3.5" />
@@ -135,7 +135,7 @@ function Card({
   ) : (
     <button
       onClick={() => onToggle(true)}
-      className="flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
+      className="flex items-center gap-2 rounded-2xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
       title={`Show ${title}`}
       aria-label={`Show ${title}`}
     >

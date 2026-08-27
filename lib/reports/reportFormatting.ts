@@ -1,4 +1,4 @@
-import type { FloodDepthCode, ReportStatus } from '@/types/report';
+import type { FloodDepthCode, FloodReference, ReportStatus } from '@/types/report';
 
 export const DEPTH_LABELS: Record<FloodDepthCode, string> = {
   ankle: 'Ankle Deep',
@@ -7,6 +7,15 @@ export const DEPTH_LABELS: Record<FloodDepthCode, string> = {
   shoulder: 'Shoulder Deep',
   head: 'Head Deep',
   overhead: 'Overhead',
+};
+
+export const REFERENCE_LABELS: Record<FloodReference, string> = {
+  adult: 'Adult',
+  motorcycle: 'Motorcycle',
+  sedan: 'Sedan',
+  suv: 'SUV',
+  jeepney: 'Jeepney',
+  bus: 'Minibus',
 };
 
 export interface StatusMeta {

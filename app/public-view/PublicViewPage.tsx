@@ -5,7 +5,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from '@/components/ReportModal';
-import { Building2, Handshake, Loader2, Mail, MapPin } from 'lucide-react';
+import { Building2, Handshake, Loader2, Mail, MapPin, Navigation } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth } from './actions/public.view';
 import { reverseGeocode } from '@/lib/map/geoUtils';
@@ -253,12 +253,22 @@ export function PublicViewPage({
           <div className="flex h-[calc(100dvh-4rem)] overflow-hidden bg-white">
             <div className="relative isolate flex-1 w-full h-full min-h-0">
               {isManualLocationMode && (
-                <div className="absolute left-14 right-4 top-4 z-[1100] md:right-auto md:w-80">
-                  <LocationSearch onSelect={handleSearchedLocationSelect} />
+                <div className="absolute left-14 top-4 z-[1100] flex w-[calc(100%-4rem)] max-w-sm items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <LocationSearch onSelect={handleSearchedLocationSelect} />
+                  </div>
+                  <button
+                    onClick={() => mapRef.current?.shareMyLocation()}
+                    className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl bg-white/90 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur-sm"
+                    title="Use my current location"
+                    aria-label="Use my current location"
+                  >
+                    <Navigation className="h-5 w-5 text-gakit-maroon" />
+                  </button>
                 </div>
               )}
               {isLoadingReports && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 md:top-4 z-[1000] bg-white/95 border border-canvas-grey rounded-lg shadow-lg px-4 py-3 flex items-center gap-2">
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 md:top-4 z-[1000] bg-white/95 border border-canvas-grey rounded-2xl shadow-lg px-4 py-3 flex items-center gap-2">
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
                   <span className="text-sm font-medium text-slate-700">{loadingMessage}</span>
                 </div>
@@ -273,6 +283,7 @@ export function PublicViewPage({
                 defaultVisibleReportStatuses={{ ANOMALY: false, REJECTED: false }}
                 searchOverlayActive={isManualLocationMode}
                 weatherExpandedByDefault
+                hideShareLocation
               />
 
               <LocationPromptModal

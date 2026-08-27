@@ -299,86 +299,82 @@ export function ReportModal({
               </div>
 
               {selectedLocation && (
-                <>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-lg border border-violet-200 bg-violet-50 p-3">
-                      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
-                        <Mountain className="w-3 h-3" />
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-3">
+                    <AlertTriangle className="w-3 h-3" />
+                    Site Conditions
+                  </div>
+                  <div className="grid grid-cols-3 divide-x divide-slate-200">
+                    <div className="flex flex-col items-center text-center px-2">
+                      <Mountain className="w-3.5 h-3.5 text-violet-500 mb-1" />
+                      <div className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
                         Elevation
                       </div>
                       {isCheckingElevation ? (
-                        <div className="flex items-center gap-2 text-sm text-slate-500">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Checking...
+                        <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-0.5">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          ...
                         </div>
                       ) : (
-                        <div className="text-sm font-bold text-slate-900">
-                          {elevation != null
-                            ? `${elevation.toFixed(1)} m`
-                            : 'No data'}
-                        </div>
-                      )}
-                      {elevation != null && (
-                        <div className="text-[10px] text-slate-500 mt-1">
-                          SRTM 30m
-                        </div>
+                        <>
+                          <div className="text-sm font-bold text-slate-900 mt-0.5">
+                            {elevation != null
+                              ? `${elevation.toFixed(1)} m`
+                              : 'No data'}
+                          </div>
+                          {elevation != null && (
+                            <div className="text-[10px] text-slate-400">
+                              SRTM 30m
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
 
-                    <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
-                      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
-                        <CloudRain className="w-3 h-3" />
-                        Precipitation
+                    <div className="flex flex-col items-center text-center px-2">
+                      <CloudRain className="w-3.5 h-3.5 text-sky-500 mb-1" />
+                      <div className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                        Rainfall
                       </div>
                       {isCheckingLocation ? (
-                        <div className="flex items-center gap-2 text-sm text-slate-500">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Checking...
+                        <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-0.5">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          ...
                         </div>
                       ) : (
-                        <div className="text-sm font-bold text-slate-900">
-                          {locationRisk?.precipMm != null
-                            ? `${locationRisk.precipMm.toFixed(2)} mm`
-                            : 'No data'}
-                        </div>
-                      )}
-                      {rainfallHours && locationRisk?.precipMm != null && (
-                        <div className="text-[10px] text-slate-500 mt-1">
-                          {rainfallHours}h accumulation
-                        </div>
+                        <>
+                          <div className="text-sm font-bold text-slate-900 mt-0.5">
+                            {locationRisk?.precipMm != null
+                              ? `${locationRisk.precipMm.toFixed(2)} mm`
+                              : 'No data'}
+                          </div>
+                          {rainfallHours && locationRisk?.precipMm != null && (
+                            <div className="text-[10px] text-slate-400">
+                              {rainfallHours}h accum.
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
-                  </div>
 
-                  <div
-                    className={`rounded-lg border p-3 ${locationRisk?.hazardLevel
-                        ? HAZARD_META[locationRisk.hazardLevel].bg
-                        : 'bg-slate-50 border-slate-200'
-                      }`}
-                  >
-                    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide font-semibold text-slate-500 mb-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      Flood Hazard
+                    <div className="flex flex-col items-center text-center px-2">
+                      <AlertTriangle className={`w-3.5 h-3.5 mb-1 ${locationRisk?.hazardLevel ? HAZARD_META[locationRisk.hazardLevel].color.replace('text-', 'text-') : 'text-slate-400'}`} />
+                      <div className="text-[10px] uppercase tracking-wide font-semibold text-slate-500">
+                        Hazard
+                      </div>
+                      {isCheckingLocation ? (
+                        <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-0.5">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          ...
+                        </div>
+                      ) : (
+                        <div className={`text-sm font-bold mt-0.5 ${locationRisk?.hazardLevel ? HAZARD_META[locationRisk.hazardLevel].color : 'text-slate-600'}`}>
+                          {HAZARD_META[locationRisk?.hazardLevel ?? 'none'].label}
+                        </div>
+                      )}
                     </div>
-                    {isCheckingLocation ? (
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        Checking...
-                      </div>
-                    ) : (
-                      <div
-                        className={`text-sm font-bold ${locationRisk?.hazardLevel
-                            ? HAZARD_META[locationRisk.hazardLevel].color
-                            : 'text-slate-600'
-                          }`}
-                      >
-                        {HAZARD_META[
-                          locationRisk?.hazardLevel ?? 'none'
-                        ].label}
-                      </div>
-                    )}
                   </div>
-                </>
+                </div>
               )}
 
               <p className="text-sm text-slate-600">

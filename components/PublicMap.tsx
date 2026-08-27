@@ -73,6 +73,7 @@ export interface PublicMapHandle {
   showReport: (report: MapReportToShow) => void;
   getRainfallHours: () => number;
   refreshReports: () => void;
+  shareMyLocation: () => void;
 }
 
 interface PublicMapProps {
@@ -89,6 +90,7 @@ interface PublicMapProps {
   reportWindowHours?: number | null;
   onReady?: () => void;
   onLoadingChange?: (loading: boolean) => void;
+  onReportClick?: (reportId: string) => void;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -112,6 +114,7 @@ export function PublicMap({
   reportWindowHours,
   onReady,
   onLoadingChange,
+  onReportClick,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -304,21 +307,6 @@ export function PublicMap({
     [mapReady, showReportPopup]
   );
 
-  useEffect(() => {
-    if (mapApiRef) {
-      mapApiRef.current = {
-        checkLocation,
-        focusLocation,
-        showReport,
-        getRainfallHours: () => rainfall.rainfallHours,
-        refreshReports: reportsLayer.invalidateAndReload,
-      };
-      return () => {
-        mapApiRef.current = null;
-      };
-    }
-  }, [mapApiRef, checkLocation, focusLocation, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload]);
-
   // Applies an inspect requested before the map finished loading.
   useEffect(() => {
     if (!mapReady || !pendingInspectRef.current) return;
@@ -397,6 +385,22 @@ export function PublicMap({
       });
     }
   }, [handleLocationSelect]);
+
+  useEffect(() => {
+    if (mapApiRef) {
+      mapApiRef.current = {
+        checkLocation,
+        focusLocation,
+        showReport,
+        getRainfallHours: () => rainfall.rainfallHours,
+        refreshReports: reportsLayer.invalidateAndReload,
+        shareMyLocation: handleShareLocation,
+      };
+      return () => {
+        mapApiRef.current = null;
+      };
+    }
+  }, [mapApiRef, checkLocation, focusLocation, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload, handleShareLocation]);
 
   // Keep refs in sync so stable callbacks can read the latest data without
   // forcing the map-setup effect to re-run.
@@ -492,9 +496,12 @@ export function PublicMap({
   const handleReportPointsClick = useCallback(
     (e: any) => {
       // Clicks bypass the frame queue so the details popup feels instant.
-      if (e.features?.length) showReportPopup(e.features[0], e.lngLat);
+      if (e.features?.length) {
+        showReportPopup(e.features[0], e.lngLat);
+        onReportClick?.(e.features[0].id as string);
+      }
     },
-    [showReportPopup]
+    [showReportPopup, onReportClick]
   );
   const handleReportPointsMouseEnter = useCallback(() => {
     const map = mapRef.current;
@@ -851,13 +858,13 @@ export function PublicMap({
       <WeatherChip
         defaultExpanded={weatherExpandedByDefault}
         className={`absolute right-4 md:right-6 z-[1001] flex transition-[top] duration-200 ${
-          searchOverlayActive ? 'top-[4.5rem]' : 'top-4'
+          searchOverlayActive ? 'top-[5.5rem]' : 'top-4'
         } md:top-[3.25rem]`}
       />
 
       <div
         className={`absolute right-4 md:right-6 z-[1000] flex flex-col items-end gap-3 transition-opacity duration-200 ${
-          hideShareLocation ? 'bottom-10 md:bottom-8' : 'bottom-28 md:bottom-10'
+          'bottom-28 md:bottom-8'
         } ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'} max-h-[62%] overflow-y-auto overscroll-contain pr-0.5`}
       >
         <ReportControls

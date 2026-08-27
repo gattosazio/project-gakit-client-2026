@@ -337,11 +337,6 @@ export function AdminHeader({
   return (
     <header className="flex h-24 shrink-0 items-center justify-between gap-4 border-b border-slate-100 bg-white px-5 py-4 md:px-9">
       <div className="flex min-w-0 items-center gap-4">
-        {Icon && (
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-maroon-50 text-gakit-maroon">
-            <Icon className="h-6 w-6" />
-          </span>
-        )}
         <div className="min-w-0">
           <h1 className="truncate text-xl font-bold tracking-[-0.02em] text-slate-900 md:text-[1.75rem]">
             {title}
