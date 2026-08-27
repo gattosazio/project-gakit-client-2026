@@ -264,41 +264,74 @@ export const setupOverlayLayers = async (
       promoteId: 'adm4_psgc',
     });
 
-    map.addLayer({
-      id: 'barangay-fill',
-      type: 'fill',
-      source: 'barangay-boundaries',
-      paint: {
-        'fill-color': 'rgb(56, 189, 248)',
-        'fill-opacity': [
-          'case',
-          ['boolean', ['feature-state', 'hover'], false],
-          0.25,
-          0.04,
-        ],
-      },
-    });
-
+    // Subtle outline; hover bumps width/opacity. Kept below report pins.
     map.addLayer({
       id: 'barangay-outline',
       type: 'line',
       source: 'barangay-boundaries',
+      before: 'report-clusters',
       paint: {
-        'line-color': 'rgba(56, 189, 248, 0.4)',
+        'line-color': 'rgba(56, 189, 248, 0.5)',
         'line-width': [
           'case',
           ['boolean', ['feature-state', 'hover'], false],
-          2.5,
+          2,
           1,
         ],
         'line-opacity': [
           'case',
           ['boolean', ['feature-state', 'hover'], false],
-          1,
-          0.7,
+          0.9,
+          0.6,
         ],
       },
     });
+
+    // Subtle fill; also the hover hit-target (thin outline is missable).
+    map.addLayer({
+      id: 'barangay-fill',
+      type: 'fill',
+      source: 'barangay-boundaries',
+      before: 'report-clusters',
+      paint: {
+        'fill-color': 'rgba(56, 189, 248, 0.04)',
+        'fill-opacity': [
+          'case',
+          ['boolean', ['feature-state', 'hover'], false],
+          1.0,
+          0.04,
+        ],
+      },
+    });
+  }
+
+  // Hovered barangay name, rendered at the polygon centroid from a point source.
+  if (!map.getSource('barangay-label-point')) {
+    map.addSource('barangay-label-point', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+
+    map.addLayer({
+      id: 'barangay-label',
+      type: 'symbol',
+      source: 'barangay-label-point',
+      before: 'report-clusters',
+      layout: {
+        'text-field': ['get', 'name'],
+        'text-size': 12,
+        'text-font': ['Inter Bold'],
+        'text-anchor': 'center',
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+      },
+      paint: {
+        // Same hue as the boundary line.
+        'text-color': '#38bdf8'
+      },
+    });
+
+    map.setLayoutProperty('barangay-label', 'visibility', 'none');
   }
 
   // --- Himawari IR satellite imagery (JMA) ---
@@ -328,6 +361,13 @@ export const setupOverlayLayers = async (
     }, 'report-clusters');
 
     map.setLayoutProperty('himawari-ir-layer', 'visibility', state.showHimawariIR ? 'visible' : 'none');
+  }
+
+  // Keep barangay layer below report pins regardless of add order.
+  if (map.getLayer('barangay-outline') && map.getLayer('report-clusters')) {
+    map.moveLayer('barangay-fill', 'report-clusters');
+    map.moveLayer('barangay-label', 'report-clusters');
+    map.moveLayer('barangay-outline', 'report-clusters');
   }
 
   // --- 3D terrain (MapTiler view) ---

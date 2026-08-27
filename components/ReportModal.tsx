@@ -386,38 +386,41 @@ export function ReportModal({
           {step === 'depth' && (
             <div className="space-y-5">
               <div>
-                <h3 className="text-sm font-semibold text-slate-900 mb-1">
-                  Choose a reference:
-                </h3>
-                <p className="text-xs text-slate-500">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Choose a reference:
+                  </h3>
+                  <div className="w-40 shrink-0">
+                    <FilterDropdown<FloodReference>
+                      value={selectedReference}
+                      onSelect={(id) => setReference(id)}
+                      options={FLOOD_REFERENCE_META.map((meta) => {
+                        const Icon = REFERENCE_ICONS[meta.id];
+                        return {
+                          value: meta.id,
+                          label: meta.label,
+                          icon: <Icon className="h-3.5 w-3.5 shrink-0" />,
+                        };
+                      })}
+                      triggerIcon={(() => {
+                        const Icon = REFERENCE_ICONS[selectedReference];
+                        return <Icon className="h-3.5 w-3.5 shrink-0" />;
+                      })()}
+                      triggerLabel={referenceMeta?.label ?? 'Choose a reference'}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
                   Pick a reference that best matches the flooded area.
                 </p>
-              </div>
-
-              <FilterDropdown<FloodReference>
-                value={selectedReference}
-                onSelect={(id) => setReference(id)}
-                options={FLOOD_REFERENCE_META.map((meta) => {
-                  const Icon = REFERENCE_ICONS[meta.id];
-                  return {
-                    value: meta.id,
-                    label: meta.label,
-                    icon: <Icon className="h-4 w-4 shrink-0" />,
-                  };
-                })}
-                triggerIcon={(() => {
-                  const Icon = REFERENCE_ICONS[selectedReference];
-                  return <Icon className="h-4 w-4 shrink-0" />;
-                })()}
-                triggerLabel={referenceMeta?.label ?? 'Choose a reference'}
-              />
-              <div>
-              <h3 className="text-sm font-semibold text-slate-900 mb-1">
-                Set the flood depth:
-              </h3>
-              <p className="text-xs text-slate-500">
-                Choose a preset, drag the slider, or input an exact depth.
-              </p>
+                <div className="mt-3">
+                  <h3 className="text-sm font-semibold text-slate-900 mb-1">
+                    Set the flood depth:
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Choose a preset, drag the slider, or input an exact depth.
+                  </p>
+                </div>
               </div>
               {referenceMeta && (
                 <section className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4">
