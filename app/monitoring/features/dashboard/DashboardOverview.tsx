@@ -7,7 +7,6 @@ import {
   Clock,
   FileText,
   MapPin,
-  ShieldAlert,
 } from 'lucide-react';
 import { fetchReportStats, listReports as fetchReports } from '../reports/actions/reports';
 import type { Report, ReportStats } from '@/types/report';
@@ -129,9 +128,6 @@ export function DashboardOverview({
     { label: 'Verified Reports', value: String(verifiedCount), detail: 'Trusted map pins', icon: CheckCircle2, color: 'text-hazard-safe' },
   ];
 
-  const emergencyLevel =
-    criticalCount >= 5 ? 'Elevated' : criticalCount > 0 ? 'Watch' : 'Normal';
-
   if (loading) {
     return (
       <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-10 text-sm text-slate-500 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
@@ -226,26 +222,39 @@ export function DashboardOverview({
           </div>
         </div>
 
-        <div className="flex min-h-[18rem] flex-col rounded-2xl bg-gakit-maroon p-6 text-white shadow-[0_16px_36px_rgba(122,0,25,0.3)] md:p-7">
-          <div className="flex items-center gap-3">
-            <span className="rounded-xl bg-white/10 p-2.5">
-              <ShieldAlert className="h-5 w-5" />
+        <div className="flex min-h-[18rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
+          <div className="flex items-center justify-between border-b border-slate-100 p-5 md:p-6">
+            <div>
+              <h2 className="font-bold text-slate-900">Report Summary</h2>
+              <p className="mt-1 text-sm text-slate-500">Current report breakdown.</p>
+            </div>
+            <span className="rounded-xl bg-maroon-50 p-2.5">
+              <FileText className="h-5 w-5 text-gakit-maroon" />
             </span>
-            <h2 className="font-bold">Emergency Status</h2>
           </div>
-          <div className="mt-7 text-4xl font-bold tracking-[-0.03em]">{emergencyLevel}</div>
-          <p className="mt-3 text-sm leading-6 text-white/80">
-            {criticalCount === 0
-              ? 'No head-deep or overhead reports on file. Keep monitoring live submissions.'
-              : `${criticalCount} report${criticalCount === 1 ? ' is' : 's are'} marked critical. Prioritize validation and responder review.`}
-          </p>
-          <button
-            type="button"
-            onClick={onReviewCritical}
-            className="mt-auto w-full rounded-xl bg-white px-4 py-3 text-sm font-semibold text-gakit-maroon transition-colors hover:bg-maroon-50"
-          >
-            Review Critical Reports
-          </button>
+          <div className="flex-1 divide-y divide-slate-100">
+            {metrics.map((metric) => {
+              const Icon = metric.icon;
+              return (
+                <div key={metric.label} className="flex items-center justify-between px-5 py-3.5 md:px-6">
+                  <div className="flex items-center gap-3">
+                    <Icon className={`h-4 w-4 ${metric.color}`} />
+                    <span className="text-sm font-medium text-slate-600">{metric.label}</span>
+                  </div>
+                  <span className="text-lg font-bold tracking-[-0.02em] text-slate-900">{metric.value}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="border-t border-slate-100 p-4 md:p-5">
+            <button
+              type="button"
+              onClick={onReviewCritical}
+              className="w-full rounded-xl bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-maroon-800"
+            >
+              Review Critical Reports
+            </button>
+          </div>
         </div>
       </section>
 

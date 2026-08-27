@@ -90,6 +90,7 @@ interface PublicMapProps {
   reportWindowHours?: number | null;
   onReady?: () => void;
   onLoadingChange?: (loading: boolean) => void;
+  onReportClick?: (reportId: string) => void;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -113,6 +114,7 @@ export function PublicMap({
   reportWindowHours,
   onReady,
   onLoadingChange,
+  onReportClick,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -492,9 +494,12 @@ export function PublicMap({
   const handleReportPointsClick = useCallback(
     (e: any) => {
       // Clicks bypass the frame queue so the details popup feels instant.
-      if (e.features?.length) showReportPopup(e.features[0], e.lngLat);
+      if (e.features?.length) {
+        showReportPopup(e.features[0], e.lngLat);
+        onReportClick?.(e.features[0].id as string);
+      }
     },
-    [showReportPopup]
+    [showReportPopup, onReportClick]
   );
   const handleReportPointsMouseEnter = useCallback(() => {
     const map = mapRef.current;

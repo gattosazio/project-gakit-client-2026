@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Loader2, PlusCircle, RotateCcw, Search } from 'lucide-react';
-import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reports/reportFormatting';
+import { DEPTH_LABELS, REFERENCE_LABELS, STATUS_META, formatDateTime } from '@/lib/reports/reportFormatting';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type { FloodDepthCode, FloodReference, Report, ReportStatus } from '@/types/report';
 import { toast } from 'react-toastify';
@@ -59,6 +59,7 @@ export function ReportsTab({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const mapSectionRef = useRef<HTMLElement | null>(null);
+  const tableSectionRef = useRef<HTMLElement | null>(null);
   const requestSeqRef = useRef(0);
 
   const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
@@ -217,6 +218,16 @@ export function ReportsTab({
     mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
+  const handleMapPinClick = (reportId: string) => {
+    setActiveHighlightedId(reportId);
+    setSelectedReportId(null);
+    setCurrentPage(1);
+    setQuery(reportId);
+    setTimeout(() => {
+      tableSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
+
   const handleUpdateStatus = async (report: Report, toStatus: ReportStatus) => {
     setUpdatingId(report.id);
     try {
@@ -238,12 +249,45 @@ export function ReportsTab({
   return (
     <>
       <FeaturePageShell>
-        <section className="grid grid-cols-1 gap-4">
+        <section ref={mapSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
+            <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
+              <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+                <h3 className="font-bold text-slate-900">Map</h3>
+              </div>
+
+            <div className="h-[20rem] md:h-[26rem] relative">
+              {active ? (
+                <PublicMap
+                  mapApiRef={mapRef}
+                  onLocationSelect={handleNoopLocationSelect}
+                  selectedLocation={null}
+                  hideShareLocation
+                  hideAttribution
+                  enableAddressLookup={false}
+                  reportWindowHours={timeRangeOptions.find((opt) => opt.value === timeFilter)?.hours ?? null}
+                  onReportClick={handleMapPinClick}
+                />
+              ) : (
+                <div className="w-full h-full bg-canvas-grey flex items-center justify-center">
+                  <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-canvas-grey px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div className="text-sm text-slate-600">
+                Live map of reports ({timeRangeOptions.find((opt) => opt.value === timeFilter)?.label.toLowerCase() ?? 'all time'})
+              </div>
+              <div className="text-xs text-slate-500">Click a marker to view details.</div>
+            </div>
+          </div>
+        </section>
+
+        <section ref={tableSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
             <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
               <div className="space-y-4 p-4 border-b border-canvas-grey">
                 <div>
                   <h3 className="font-bold text-slate-900">Reports</h3>
-                  {/* <p className="text-sm text-slate-500">{loading ? 'Loading...' : `${total} reports found`}</p> */}
                 </div>
                 <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_10rem_auto_auto]">
                   <label className="col-span-2 flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 xl:col-span-1">
@@ -283,6 +327,7 @@ export function ReportsTab({
                         <th className="text-left font-semibold px-5 py-3">Report</th>
                         <th className="text-left font-semibold px-5 py-3">Location</th>
                         <th className="text-left font-semibold px-5 py-3">Depth</th>
+                        <th className="text-left font-semibold px-5 py-3">Reference</th>
                         <th className="text-left font-semibold px-5 py-3">Status</th>
                         <th className="text-left font-semibold px-5 py-3">Submitted</th>
                         <th className="text-left font-semibold px-5 py-3">Action</th>
@@ -314,6 +359,9 @@ export function ReportsTab({
                               </div>
                             </td>
                             <td className="px-5 py-4 text-slate-700">{DEPTH_LABELS[report.depth.code]}</td>
+                            <td className="px-5 py-4 text-slate-700">
+                              {report.reference ? REFERENCE_LABELS[report.reference] : '—'}
+                            </td>
                             <td className="px-5 py-4">
                               <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
                                 {status.label}
@@ -334,7 +382,7 @@ export function ReportsTab({
                       })}
                       {reports.length === 0 && !loading && (
                         <tr>
-                          <td colSpan={6} className="px-5 py-10 text-center text-sm text-slate-500">
+                          <td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-500">
                             No reports match the current filters.
                           </td>
                         </tr>
@@ -368,6 +416,10 @@ export function ReportsTab({
                             <div className="text-sm text-slate-600 mt-1">
                               {report.location.address || 'Unknown location'}
                             </div>
+                            <div className="text-xs text-slate-500 mt-1">
+                              {DEPTH_LABELS[report.depth.code]}
+                              {report.reference && <span className="ml-1.5 text-slate-400">· {REFERENCE_LABELS[report.reference]}</span>}
+                            </div>
                             <div className="text-xs text-slate-500 mt-1">{formatDateTime(report.createdAt)}</div>
                           </div>
                           <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
@@ -398,45 +450,6 @@ export function ReportsTab({
               </>
               )}
             </div>
-        </section>
-
-        <section ref={mapSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
-          <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
-            <div className="p-4 border-b border-canvas-grey flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-slate-900">Map</h3>
-                <p className="text-sm text-slate-500">
-                  Click Inspect on a report to zoom to its pinned location on the map.
-                </p>
-              </div>
-            </div>
-
-            <div className="h-[20rem] md:h-[26rem] relative">
-              {active ? (
-                <PublicMap
-                  mapApiRef={mapRef}
-                  onLocationSelect={handleNoopLocationSelect}
-                  selectedLocation={null}
-                  hideShareLocation
-                  hideAttribution
-                  enableAddressLookup={false}
-                  reportWindowHours={timeRangeOptions.find((opt) => opt.value === timeFilter)?.hours ?? null}
-                />
-              ) : (
-                <div className="w-full h-full bg-canvas-grey flex items-center justify-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-canvas-grey px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div className="text-sm text-slate-600">
-                Live map of reports ({timeRangeOptions.find((opt) => opt.value === timeFilter)?.label.toLowerCase() ?? 'all time'})
-              </div>
-              <div className="text-xs text-slate-500">Hover or click a marker to inspect details.</div>
-            </div>
-          </div>
-
         </section>
         {selectedReport && (
           <div>
