@@ -159,7 +159,7 @@ export function PublicHeader({
           >
             <div className="flex h-10 w-24 items-center justify-center sm:w-28">
               <Image
-                src="/images/gakit_logo2.svg"
+                src="/images/gakit_logo_adobe.svg"
                 alt="GAKIT logo"
                 width={160}
                 height={48}
