@@ -85,7 +85,7 @@ export function LocationSearch({
         <button
           type="submit"
           disabled={isSearching}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gakit-maroon text-white shadow-sm transition-colors hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gakit-maroon text-white shadow-sm transition-colors hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-60"
           aria-label="Search location"
         >
           <Search className="h-4 w-4" />

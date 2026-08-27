@@ -788,7 +788,7 @@ export function PublicMap({
       <WeatherChip
         defaultExpanded={weatherExpandedByDefault}
         className={`absolute right-4 md:right-6 z-[1001] flex transition-[top] duration-200 ${
-          searchOverlayActive ? 'top-[4.5rem]' : 'top-4'
+          searchOverlayActive ? 'top-[5.5rem]' : 'top-4'
         } md:top-[3.25rem]`}
       />
 
