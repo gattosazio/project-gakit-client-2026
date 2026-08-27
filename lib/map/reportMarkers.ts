@@ -102,6 +102,7 @@ export const buildReportsGeoJson = (
       type: 'Feature',
       geometry: feature.geometry,
       properties: {
+        id: props.id,
         kind: 'report',
         status: props.status,
         address: props.address || 'Flood report',

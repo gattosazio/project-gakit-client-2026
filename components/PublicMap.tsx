@@ -129,6 +129,11 @@ export function PublicMap({
   );
   const selectedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
   const handleLocationSelectRef = useRef<(lat: number, lng: number) => void>(() => {});
+  const onReportClickRef = useRef(onReportClick);
+  const onReadyRef = useRef(onReady);
+  const loadMapReportsRef = useRef<(() => Promise<void>) | null>(null);
+  const loadRainfallRef = useRef<(() => Promise<void>) | null>(null);
+  const onMapLoadRef = useRef<(() => void) | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -411,7 +416,11 @@ export function PublicMap({
 
   useEffect(() => {
     handleLocationSelectRef.current = handleLocationSelect;
-  }, [handleLocationSelect]);
+    onReportClickRef.current = onReportClick;
+    onReadyRef.current = onReady;
+    loadMapReportsRef.current = loadMapReports;
+    loadRainfallRef.current = loadRainfall;
+  }, [handleLocationSelect, onReportClick, onReady, loadMapReports, loadRainfall]);
 
   // When the parent dismisses the selected location (e.g. the report modal is
   // closed), cancel any pending reverse-geocode so a stale address callback
@@ -498,10 +507,11 @@ export function PublicMap({
       // Clicks bypass the frame queue so the details popup feels instant.
       if (e.features?.length) {
         showReportPopup(e.features[0], e.lngLat);
-        onReportClick?.(e.features[0].id as string);
+        const reportId = e.features[0].properties?.id;
+        if (reportId) onReportClickRef.current?.(reportId);
       }
     },
-    [showReportPopup, onReportClick]
+    [showReportPopup]
   );
   const handleReportPointsMouseEnter = useCallback(() => {
     const map = mapRef.current;
@@ -645,21 +655,25 @@ export function PublicMap({
         // initial style load (not on 2D <-> 3D switches).
         if (!onReadyFiredRef.current) {
           onReadyFiredRef.current = true;
-          onReady?.();
+          onReadyRef.current?.();
         }
 
         // Apply rainfall data that was fetched before the map finished loading.
         applyPreloaded(map);
       })();
 
-      void loadMapReports();
+      void loadMapReportsRef.current?.();
     },
-    [applyReportData, applySelectedMarker, attachLayerEvents, loadMapReports, onReady, himawari.visibleRef, applyPreloaded, hoursRef]
+    [applyReportData, applySelectedMarker, attachLayerEvents, himawari.visibleRef, applyPreloaded, hoursRef]
   );
 
   const onMapLoad = useCallback(() => {
     if (mapRef.current) handleStyleLoad(mapRef.current);
   }, [handleStyleLoad]);
+
+  useEffect(() => {
+    onMapLoadRef.current = onMapLoad;
+  }, [onMapLoad]);
 
   // Swaps the basemap without tearing the map down: setStyle({ diff: false })
   // keeps the same maplibre instance (camera, markers, workers), reloading only
@@ -738,7 +752,9 @@ export function PublicMap({
     // 'style.load' fires on initial style load and again after every basemap
     // switch (map.setStyle), unlike 'load' which only fires once. The handler
     // re-adds project layers + terrain so the map instance persists.
-    map.on('style.load', onMapLoad);
+    map.on('style.load', () => {
+      onMapLoadRef.current?.();
+    });
 
     // Pre-fetch near real-time rainfall so the report-modal hazard check always
     // has precipitation data, even if the rainfall layer stays off. The GSMaP
@@ -749,13 +765,13 @@ export function PublicMap({
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
         window.requestIdleCallback(
           () => {
-            if (mapRef.current === map) void loadRainfall();
+            if (mapRef.current === map) void loadRainfallRef.current?.();
           },
           { timeout: 5000 }
         );
       } else {
         setTimeout(() => {
-          if (mapRef.current === map) void loadRainfall();
+          if (mapRef.current === map) void loadRainfallRef.current?.();
         }, 1000);
       }
     });
@@ -770,7 +786,7 @@ export function PublicMap({
         moveendTimerRef.current = null;
         // Skip refetches while the backend is warming up so pans don't restart
         // a retry cycle; the pins shown come from cache/state meanwhile.
-        if (getBackendStatus() !== 'warming') void loadMapReports();
+        if (getBackendStatus() !== 'warming') void loadMapReportsRef.current?.();
       }, 300);
     });
 
@@ -783,7 +799,7 @@ export function PublicMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [loadMapReports, loadRainfall, onMapLoad]);
+  }, []);
 
   // Hide the layer/share controls when they would sit behind the bottom
   // navbar (e.g. a short map card on a small phone), while keeping them
