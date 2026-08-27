@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { Loader2, PlusCircle, RotateCcw, Search } from 'lucide-react';
 import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reports/reportFormatting';
 import type { PublicMapHandle } from '@/components/PublicMap';
-import type { FloodDepthCode, Report, ReportStatus } from '@/types/report';
+import type { FloodDepthCode, FloodReference, Report, ReportStatus } from '@/types/report';
 import { toast } from 'react-toastify';
 import { FeaturePageShell } from '../shared/FeaturePageShell';
 import { createReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
@@ -170,6 +170,7 @@ export function ReportsTab({
     location: { lat: number; lng: number; elevation?: number };
     depth: 'ankle' | 'knee' | 'waist' | 'shoulder' | 'head' | 'overhead';
     depthCm?: number;
+    reference: { id: FloodReference; label: string; landmark: string };
     image?: File;
   }): Promise<void> => {
     const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
@@ -182,6 +183,7 @@ export function ReportsTab({
       },
       depth: data.depth,
       ...(data.depthCm != null ? { depthCm: data.depthCm } : {}),
+      reference: data.reference.id,
     });
 
     toast.success('Staff report submitted successfully.', {

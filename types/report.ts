@@ -1,4 +1,5 @@
 export type FloodDepthCode = 'ankle' | 'knee' | 'waist' | 'shoulder' | 'head' | 'overhead';
+export type FloodReference = 'adult' | 'motorcycle' | 'sedan' | 'suv' | 'jeepney' | 'bus';
 export type ReportStatus = 'UNVERIFIED' | 'VERIFIED' | 'ANOMALY' | 'REJECTED';
 
 export interface DepthCategory {
@@ -16,6 +17,7 @@ export interface Report {
   };
   depth: DepthCategory;
   depthCm?: number | null;
+  reference?: FloodReference | null;
   status: ReportStatus;
   observedAt: string;
   createdAt: string;
@@ -27,6 +29,7 @@ export interface MapReportProperties {
   address: string | null;
   depth: DepthCategory;
   depthCm?: number | null;
+  reference?: FloodReference | null;
   status: ReportStatus;
   observedAt: string;
   createdAt: string;
@@ -65,6 +68,7 @@ export interface CreateReportInput {
   };
   depth: FloodDepthCode;
   depthCm?: number;
+  reference?: FloodReference;
   observedAt?: string;
 }
 
