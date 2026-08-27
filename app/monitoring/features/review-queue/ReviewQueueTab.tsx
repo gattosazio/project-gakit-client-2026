@@ -170,6 +170,12 @@ export function ReviewQueueTab() {
     safeCurrentPage * REVIEW_ITEMS_PER_PAGE
   );
 
+  const canReset =
+    (query || '').trim() !== '' ||
+    verdictFilter !== 'All' ||
+    priorityFilter !== 'All' ||
+    reasonFilter !== 'All';
+
   const resetFilters = () => {
     setQuery('');
     setVerdictFilter('All');
@@ -235,10 +241,16 @@ export function ReviewQueueTab() {
           </select>
 
           <button
+            type="button"
             onClick={resetFilters}
-            className="flex items-center justify-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
+            disabled={!canReset}
+            className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+              canReset
+                ? 'border-canvas-grey bg-white text-slate-700 hover:bg-canvas-light hover:border-slate-300 cursor-pointer'
+                : 'border-canvas-grey/60 bg-canvas-light/60 text-slate-400 cursor-not-allowed opacity-60'
+            }`}
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={`w-4 h-4 transition-colors ${canReset ? 'text-gakit-maroon' : 'text-slate-400'}`} />
             Reset
           </button>
         </div>

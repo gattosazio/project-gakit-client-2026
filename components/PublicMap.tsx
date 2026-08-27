@@ -129,10 +129,17 @@ export function PublicMap({
   );
   const selectedLocationRef = useRef<{ lat: number; lng: number } | null>(null);
   const handleLocationSelectRef = useRef<(lat: number, lng: number) => void>(() => {});
+  const onReportClickRef = useRef(onReportClick);
+  const onReadyRef = useRef(onReady);
+  const loadMapReportsRef = useRef<(() => void | Promise<void>) | null>(null);
+  const loadRainfallRef = useRef<((hours?: any) => Promise<void> | void) | null>(null);
+  const onMapLoadRef = useRef<(() => void) | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reportPopupRef = useRef<any>(null);
+  const barangayPopupRef = useRef<any>(null);
+  const hoveredBarangayIdRef = useRef<string | number | null>(null);
   const popupFrameRef = useRef<number | null>(null);
   const selectedMarkerRef = useRef<any>(null);
   const pendingInspectRef = useRef<MapReportToShow | null>(null);
@@ -409,7 +416,11 @@ export function PublicMap({
 
   useEffect(() => {
     handleLocationSelectRef.current = handleLocationSelect;
-  }, [handleLocationSelect]);
+    onReportClickRef.current = onReportClick;
+    onReadyRef.current = onReady;
+    loadMapReportsRef.current = loadMapReports;
+    loadRainfallRef.current = loadRainfall;
+  }, [handleLocationSelect, onReportClick, onReady, loadMapReports, loadRainfall]);
 
   // When the parent dismisses the selected location (e.g. the report modal is
   // closed), cancel any pending reverse-geocode so a stale address callback
@@ -496,10 +507,11 @@ export function PublicMap({
       // Clicks bypass the frame queue so the details popup feels instant.
       if (e.features?.length) {
         showReportPopup(e.features[0], e.lngLat);
-        onReportClick?.(e.features[0].id as string);
+        const reportId = e.features[0].properties?.id;
+        if (reportId) onReportClickRef.current?.(reportId);
       }
     },
-    [showReportPopup, onReportClick]
+    [showReportPopup]
   );
   const handleReportPointsMouseEnter = useCallback(() => {
     const map = mapRef.current;
@@ -523,6 +535,65 @@ export function PublicMap({
     });
   }, []);
 
+  // --- Barangay hover highlight ---
+  const handleBarangayMouseMove = useCallback(
+    (e: any) => {
+      const map = mapRef.current;
+      if (!map || !e.features?.length) return;
+      const feature = e.features[0];
+      const id = feature.id ?? feature.properties?.adm4_psgc;
+
+      if (hoveredBarangayIdRef.current !== null && hoveredBarangayIdRef.current !== id) {
+        map.setFeatureState(
+          { source: 'barangay-boundaries', id: hoveredBarangayIdRef.current },
+          { hover: false }
+        );
+      }
+      hoveredBarangayIdRef.current = id;
+      map.setFeatureState(
+        { source: 'barangay-boundaries', id },
+        { hover: true }
+      );
+      map.getCanvas().style.cursor = 'pointer';
+
+      if (!barangayPopupRef.current) {
+        barangayPopupRef.current = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          anchor: 'bottom',
+          offset: 12,
+          maxWidth: '220px',
+          className: 'barangay-popup',
+        });
+      }
+      barangayPopupRef.current
+        .setLngLat(e.lngLat)
+        .setHTML(
+          `<div style="display:flex;align-items:center;gap:8px;font-family:inherit;">
+             <span style="width:10px;height:10px;border-radius:3px;background:rgb(56,189,248);box-shadow:0 0 0 3px rgba(56,189,248,0.25);flex-shrink:0;"></span>
+             <span style="font-size:13px;font-weight:600;color:#0f172a;letter-spacing:-0.01em;">${feature.properties?.adm4_en ?? 'Barangay'}</span>
+           </div>`
+        );
+      if (!barangayPopupRef.current.isOpen()) {
+        barangayPopupRef.current.addTo(map);
+      }
+    },
+    []
+  );
+  const handleBarangayMouseLeave = useCallback(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (hoveredBarangayIdRef.current !== null) {
+      map.setFeatureState(
+        { source: 'barangay-boundaries', id: hoveredBarangayIdRef.current },
+        { hover: false }
+      );
+      hoveredBarangayIdRef.current = null;
+    }
+    map.getCanvas().style.cursor = '';
+    barangayPopupRef.current?.remove();
+  }, []);
+
   const attachLayerEvents = useCallback(
     (map: any) => {
       const pairs: Array<{ event: string; layer: string; handler: (e: any) => void }> = [
@@ -536,6 +607,8 @@ export function PublicMap({
         { event: 'click', layer: 'report-clusters', handler: handleReportClustersClick },
         { event: 'mouseenter', layer: 'report-clusters', handler: handleReportPointsMouseEnter },
         { event: 'mouseleave', layer: 'report-clusters', handler: handleReportPointsCursorLeave },
+        { event: 'mousemove', layer: 'barangay-fill', handler: handleBarangayMouseMove },
+        { event: 'mouseleave', layer: 'barangay-fill', handler: handleBarangayMouseLeave },
       ];
       pairs.forEach(({ event, layer, handler }) => {
         map.off(event, layer, handler);
@@ -543,6 +616,8 @@ export function PublicMap({
       });
     },
     [
+      handleBarangayMouseLeave,
+      handleBarangayMouseMove,
       handleReportClustersClick,
       handleReportPointsClick,
       handleReportPointsCursorLeave,
@@ -580,21 +655,25 @@ export function PublicMap({
         // initial style load (not on 2D <-> 3D switches).
         if (!onReadyFiredRef.current) {
           onReadyFiredRef.current = true;
-          onReady?.();
+          onReadyRef.current?.();
         }
 
         // Apply rainfall data that was fetched before the map finished loading.
         applyPreloaded(map);
       })();
 
-      void loadMapReports();
+      void loadMapReportsRef.current?.();
     },
-    [applyReportData, applySelectedMarker, attachLayerEvents, loadMapReports, onReady, himawari.visibleRef, applyPreloaded, hoursRef]
+    [applyReportData, applySelectedMarker, attachLayerEvents, himawari.visibleRef, applyPreloaded, hoursRef]
   );
 
   const onMapLoad = useCallback(() => {
     if (mapRef.current) handleStyleLoad(mapRef.current);
   }, [handleStyleLoad]);
+
+  useEffect(() => {
+    onMapLoadRef.current = onMapLoad;
+  }, [onMapLoad]);
 
   // Swaps the basemap without tearing the map down: setStyle({ diff: false })
   // keeps the same maplibre instance (camera, markers, workers), reloading only
@@ -673,7 +752,9 @@ export function PublicMap({
     // 'style.load' fires on initial style load and again after every basemap
     // switch (map.setStyle), unlike 'load' which only fires once. The handler
     // re-adds project layers + terrain so the map instance persists.
-    map.on('style.load', onMapLoad);
+    map.on('style.load', () => {
+      onMapLoadRef.current?.();
+    });
 
     // Pre-fetch near real-time rainfall so the report-modal hazard check always
     // has precipitation data, even if the rainfall layer stays off. The GSMaP
@@ -684,13 +765,13 @@ export function PublicMap({
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
         window.requestIdleCallback(
           () => {
-            if (mapRef.current === map) void loadRainfall();
+            if (mapRef.current === map) void loadRainfallRef.current?.();
           },
           { timeout: 5000 }
         );
       } else {
         setTimeout(() => {
-          if (mapRef.current === map) void loadRainfall();
+          if (mapRef.current === map) void loadRainfallRef.current?.();
         }, 1000);
       }
     });
@@ -705,7 +786,7 @@ export function PublicMap({
         moveendTimerRef.current = null;
         // Skip refetches while the backend is warming up so pans don't restart
         // a retry cycle; the pins shown come from cache/state meanwhile.
-        if (getBackendStatus() !== 'warming') void loadMapReports();
+        if (getBackendStatus() !== 'warming') void loadMapReportsRef.current?.();
       }, 300);
     });
 
@@ -718,7 +799,7 @@ export function PublicMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [loadMapReports, loadRainfall, onMapLoad]);
+  }, []);
 
   // Hide the layer/share controls when they would sit behind the bottom
   // navbar (e.g. a short map card on a small phone), while keeping them

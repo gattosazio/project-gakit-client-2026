@@ -115,7 +115,7 @@ export function ReportsTab({
       fetchReports({
         page: currentPage,
         limit: REPORTS_PER_PAGE,
-        search: query.trim() || undefined,
+        search: (query || '').trim() || undefined,
         status: statusFilter === 'All' ? undefined : statusFilter,
         depth: depthFilter === 'All' ? undefined : depthFilter,
         critical: criticalFilter || undefined,
@@ -153,6 +153,14 @@ export function ReportsTab({
   const selectedReport =
     reports.find((report) => report.id === selectedReportId) || null;
 
+  const canReset =
+    (query || '').trim() !== '' ||
+    statusFilter !== 'All' ||
+    depthFilter !== 'All' ||
+    timeFilter !== '24h' ||
+    Boolean(criticalFilter) ||
+    activeHighlightedId !== null;
+
   const resetFilters = () => {
     setQuery('');
     setStatusFilter('All');
@@ -160,6 +168,7 @@ export function ReportsTab({
     setTimeFilter('24h');
     setCriticalFilter(false);
     setCurrentPage(1);
+    setActiveHighlightedId(null);
   };
 
   const handleLocationSelect = (location: SelectedLocation) => {
@@ -218,7 +227,7 @@ export function ReportsTab({
     mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const handleMapPinClick = (reportId: string) => {
+  const handleMapPinClick = useCallback((reportId: string) => {
     setActiveHighlightedId(reportId);
     setSelectedReportId(null);
     setCurrentPage(1);
@@ -226,7 +235,7 @@ export function ReportsTab({
     setTimeout(() => {
       tableSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 50);
-  };
+  }, []);
 
   const handleUpdateStatus = async (report: Report, toStatus: ReportStatus) => {
     setUpdatingId(report.id);
@@ -305,8 +314,17 @@ export function ReportsTab({
                   <StatusFilterDropdown value={statusFilter} onChange={(value) => { setStatusFilter(value); setCurrentPage(1); }} />
                   <DepthsFilterDropdown value={depthFilter} onChange={(value) => { setDepthFilter(value); setCurrentPage(1); }} />
                   <TimeFilterDropdown value={timeFilter} onChange={(value) => { setTimeFilter(value); setCurrentPage(1); }} />
-                  <button onClick={resetFilters} className="flex items-center justify-center gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light">
-                    <RotateCcw className="w-4 h-4" />
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    disabled={!canReset}
+                    className={`flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition-colors ${
+                      canReset
+                        ? 'border-canvas-grey bg-white text-slate-700 hover:bg-canvas-light hover:border-slate-300 cursor-pointer'
+                        : 'border-canvas-grey/60 bg-canvas-light/60 text-slate-400 cursor-not-allowed opacity-60'
+                    }`}
+                  >
+                    <RotateCcw className={`w-4 h-4 transition-colors ${canReset ? 'text-gakit-maroon' : 'text-slate-400'}`} />
                     Reset
                   </button>
                   <button onClick={() => setIsSubmitOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white hover:bg-maroon-800">
@@ -342,10 +360,12 @@ export function ReportsTab({
                             key={report.id}
                             data-highlighted-report={isHighlighted ? report.id : undefined}
                             className={`${
-                              isHighlighted || selectedReport?.id === report.id
+                              isHighlighted
+                                ? 'bg-maroon-100'
+                                : selectedReport?.id === report.id
                                 ? 'bg-maroon-100/80'
                                 : 'hover:bg-canvas-light/70'
-                            } transition-colors duration-200`}
+                            } transition-all duration-300`}
                           >
                             <td className="px-5 py-4">
                               <div className="font-mono text-xs font-semibold text-slate-900">
@@ -400,8 +420,8 @@ export function ReportsTab({
                         key={report.id}
                         data-highlighted-report={isHighlighted ? report.id : undefined}
                         className={`flex items-start gap-2 p-4 hover:bg-canvas-light ${
-                          isHighlighted ? 'bg-maroon-100/80' : ''
-                        } transition-colors duration-200`}
+                          isHighlighted ? 'bg-maroon-100' : ''
+                        } transition-all duration-300`}
                       >
                         <button
                           type="button"
