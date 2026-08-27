@@ -10,7 +10,7 @@ import { toast } from 'react-toastify';
 import { createReport, pingHealth } from './actions/public.view';
 import { reverseGeocode } from '@/lib/map/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
-import type { CreateReportInput, DepthCategory, Report, ReportStatus } from '@/types/report';
+import type { CreateReportInput, DepthCategory, FloodReference, Report, ReportStatus } from '@/types/report';
 import type { AuthSnapshot } from '@/lib/auth/roles';
 import { SectionJumpControls } from './components/SectionJumpControls';
 import { LocationSearch } from './components/LocationSearch';
@@ -207,7 +207,7 @@ export function PublicViewPage({
     location: { lat: number; lng: number };
     depth: CreateReportInput['depth'];
     depthCm: number;
-    reference: { label: string; landmark: string };
+    reference: { id: FloodReference; label: string; landmark: string };
   }): Promise<void> => {
     const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
 
@@ -219,6 +219,7 @@ export function PublicViewPage({
       },
       depth: data.depth,
       depthCm: data.depthCm,
+      reference: data.reference.id,
     });
 
     setLastSubmittedReport({

@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { X } from 'lucide-react';
 import { ReportModal } from '@/components/ReportModal';
 import type { PublicMapHandle } from '@/components/PublicMap';
-import type { FloodDepthCode, SelectedLocation } from '@/types/report';
+import type { FloodDepthCode, FloodReference, SelectedLocation } from '@/types/report';
 // The elevation-bearing variant of the shared location shape.
 export type { SelectedLocation };
 
@@ -31,6 +31,7 @@ export function StaffSubmitReportModal({
     location: { lat: number; lng: number };
     depth: FloodDepthCode;
     depthCm?: number;
+    reference: { id: FloodReference; label: string; landmark: string };
   }) => Promise<void>;
 }) {
   const mapRef = useRef<PublicMapHandle | null>(null);

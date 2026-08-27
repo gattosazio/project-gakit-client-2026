@@ -44,7 +44,7 @@ interface ReportModalProps {
     location: { lat: number; lng: number };
     depth: FloodDepth;
     depthCm: number;
-    reference: { label: string; landmark: string };
+    reference: { id: FloodReference; label: string; landmark: string };
   }) => Promise<void>;
   onCheckLocation?: (location: {
     lat: number;
@@ -232,6 +232,7 @@ export function ReportModal({
         depth: selectedCode,
         depthCm: selectedCm,
         reference: {
+          id: selectedReference,
           label: referenceMeta.label,
           landmark: `~${selectedCm} cm`,
         },
