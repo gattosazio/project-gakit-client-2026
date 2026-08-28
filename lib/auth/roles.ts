@@ -32,13 +32,13 @@ export async function getStaffRole(
 }
 
 export function homePathForRole(role: StaffRole | null): string | null {
-  if (role === ROLE_ADMIN) return '/admin';
-  if (role === ROLE_STAFF) return '/monitoring';
+  if (role === ROLE_ADMIN || role === ROLE_STAFF) return '/monitoring';
   return null;
 }
 
 export function canAccessPath(pathname: string, role: StaffRole | null): boolean {
   if (pathname.startsWith('/admin')) return role === ROLE_ADMIN;
-  if (pathname.startsWith('/monitoring')) return role === ROLE_STAFF;
+  if (pathname.startsWith('/monitoring')) return role === ROLE_ADMIN || role === ROLE_STAFF;
+  if (pathname.startsWith('/settings')) return role === ROLE_ADMIN || role === ROLE_STAFF;
   return true;
 }

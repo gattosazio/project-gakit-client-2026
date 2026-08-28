@@ -12,7 +12,7 @@ import {
   Search,
   Users,
 } from 'lucide-react';
-import { FeaturePageShell } from '../shared/FeaturePageShell';
+import { FeaturePageShell } from '@/components/FeaturePageShell';
 
 type AIVerdict = 'Verified' | 'Anomaly' | 'Needs Review';
 type Priority = 'High' | 'Medium' | 'Low';

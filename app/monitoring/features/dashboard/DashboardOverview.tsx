@@ -146,27 +146,6 @@ export function DashboardOverview({
 
   return (
     <>
-      <section className="grid grid-cols-2 gap-3 md:gap-5 xl:grid-cols-4">
-        {metrics.map((metric) => {
-          const Icon = metric.icon;
-
-          return (
-            <div key={metric.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.06)] md:p-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="text-sm font-medium text-slate-500">{metric.label}</div>
-                  <div className="mt-2 text-3xl font-bold tracking-[-0.03em] text-slate-900">{metric.value}</div>
-                </div>
-                <span className="rounded-xl bg-white p-2.5 shadow-sm">
-                  <Icon className={`h-5 w-5 ${metric.color}`} />
-                </span>
-              </div>
-              <div className="mt-4 text-xs text-slate-500">{metric.detail}</div>
-            </div>
-          );
-        })}
-      </section>
-
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)]">
         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
           <div className="flex items-center justify-between border-b border-slate-100 p-5 md:p-6">
@@ -252,7 +231,7 @@ export function DashboardOverview({
               onClick={onReviewCritical}
               className="w-full rounded-xl bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-maroon-800"
             >
-              Review Critical Reports
+              Review Reports Today
             </button>
           </div>
         </div>
