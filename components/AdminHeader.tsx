@@ -19,6 +19,7 @@ import {
   subscribeToReceiptChanges,
 } from '@/lib/notifications/receipts';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
+import { alertDescription, alertTitle } from '@/lib/weather/weatherCodes';
 import { formatDateTime } from '@/lib/reports/reportFormatting';
 import type { Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
@@ -69,8 +70,8 @@ function mapWeatherToHeader(alert: WeatherAlert): HeaderNotification {
     SEVERITY_ICON_CLASS[alert.severity] ?? 'bg-cyan-50 text-cyan-700';
   return {
     id: `weather-${alert.id}`,
-    title: alert.title,
-    detail: alert.description,
+    title: alertTitle(alert),
+    detail: alertDescription(alert),
     createdAt: alert.createdAt,
     icon: WEATHER_ICONS[alert.alertType] ?? CloudRain,
     iconClass: severityClass,

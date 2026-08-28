@@ -7,6 +7,7 @@ import { Info, LogOut, MapPinned, UserRound, BookOpen } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
+import { alertDescription, alertTitle } from '@/lib/weather/weatherCodes';
 import type { WeatherAlert } from '@/types/weather';
 import { useRouteLoader } from './RouteLoader';
 import { usePrefetchRoute } from '@/hooks/usePrefetchRoute';
@@ -66,10 +67,10 @@ export function PublicHeader({
   }, []);
   const weatherNotifications = useMemo<NotificationItem[]>(
     () =>
-      (activeAlerts ?? []).map((a) => ({
+       (activeAlerts ?? []).map((a) => ({
         id: a.id,
-        title: a.title,
-        subtitle: a.description,
+        title: alertTitle(a),
+        subtitle: alertDescription(a),
         severity: a.severity,
         alertType: a.alertType,
         sentAt: a.createdAt,

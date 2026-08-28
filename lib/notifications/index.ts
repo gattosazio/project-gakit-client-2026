@@ -3,6 +3,7 @@
 // of React so it can be unit-tested directly.
 import type { FloodDepthCode, Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
+import { alertTitle } from '@/lib/weather/weatherCodes';
 
 export type NotificationType =
   | 'new-report'
@@ -92,7 +93,7 @@ export function mapWeatherAlertToNotification(alert: WeatherAlert): Notification
     id: `weather-${alert.id}`,
     type: 'weather',
     severity: alert.severity as Severity,
-    title: alert.title,
+    title: alertTitle(alert),
     location: 'Iligan City',
     sentAt: alert.createdAt,
     weatherAlert: alert,

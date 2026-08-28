@@ -26,15 +26,15 @@ export interface CurrentWeather {
 }
 
 export interface WeatherAlertData {
-  days: WeatherDayData[];
+  days?: WeatherDayData[];
+  title?: string;
+  description?: string;
 }
 
 export interface WeatherAlert {
   id: string;
   alertType: AlertType;
   severity: AlertSeverity;
-  title: string;
-  description: string;
   validFrom: string;
   validTo: string;
   createdAt: string;
