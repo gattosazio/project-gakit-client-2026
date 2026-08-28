@@ -31,21 +31,20 @@ export default function InvitePage() {
     const hashParams = () =>
       new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
 
-    const initial = hashParams();
-    if (initial.get('error_code') === 'otp_expired' || initial.get('error')) {
-      setStatus('error');
-      setErrorMessage(initial.get('error_code') === 'otp_expired' ? expiring : invalid);
-      return;
-    }
-
     const supabase = createClient();
     void supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
+      const params = hashParams();
+      if (params.get('error_code') === 'otp_expired' || params.get('error')) {
+        setStatus('error');
+        setErrorMessage(params.get('error_code') === 'otp_expired' ? expiring : invalid);
+        return;
+      }
       if (data.session) {
         setStatus('ready');
         return;
       }
-const after = hashParams();
+      const after = hashParams();
       setStatus('error');
       setErrorMessage(after.get('error_code') === 'otp_expired' ? expiring : invalid);
     });

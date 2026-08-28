@@ -11,7 +11,7 @@ function redirectTo(request: NextRequest, pathname: string) {
   return NextResponse.redirect(url);
 }
 
-export async function updateSession(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -61,7 +61,7 @@ export async function updateSession(request: NextRequest) {
   return supabaseResponse;
 }
 
-export default updateSession;
+export default proxy;
 
 export const config = {
   matcher: [

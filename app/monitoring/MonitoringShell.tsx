@@ -36,15 +36,22 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
   const activeFeature = monitoringFeatureMap[activeTab];
 
   // Keep the active tab in sync with URL changes made outside this component
-  // (notification bell, browser back/forward). Our handlers set state first,
-  // so this is a no-op for tab switches we initiated ourselves.
+  // (notification bell, browser back/forward). Our handlers set state first, so
+  // this is a no-op for tab switches we initiated ourselves. Deferred to a
+  // microtask so it isn't a synchronous setState inside the effect body.
   useEffect(() => {
-    setActiveTab(tabFromParams);
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setActiveTab(tabFromParams);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [tabFromParams]);
 
   const handleTabChange = (tab: MonitoringFeatureId) => {
     setActiveTab(tab);
-
     setHighlightedReportId(null);
     const params = new URLSearchParams(searchParams.toString());
     params.delete('notification');
@@ -54,21 +61,18 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     router.replace(query ? `/monitoring?${query}` : '/monitoring', { scroll: false });
   };
   const handleOpenReports = () => {
-
-    setHighlightedReportId(null);
     setActiveTab('reports');
+    setHighlightedReportId(null);
     router.replace('/monitoring?tab=reports', { scroll: false });
   };
   const handleOpenReport = (reportId?: string) => {
-
-    setHighlightedReportId(reportId ?? null);
     setActiveTab('reports');
+    setHighlightedReportId(reportId ?? null);
     router.replace('/monitoring?tab=reports', { scroll: false });
   };
   const handleOpenNotification = (notificationId: string) => {
-
-    setHighlightedReportId(null);
     setActiveTab('alerts');
+    setHighlightedReportId(null);
     router.replace(`/monitoring?tab=alerts&notification=${encodeURIComponent(notificationId)}`, { scroll: false });
   };
   return (

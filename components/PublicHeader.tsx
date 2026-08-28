@@ -37,12 +37,19 @@ export function PublicHeader({
   const [readAlertIds, setReadAlertIds] = useState<string[]>([]);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('gakit:read-alerts');
-      if (stored) setReadAlertIds(JSON.parse(stored));
-    } catch {
-      /* ignore malformed storage */
-    }
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      try {
+        const stored = localStorage.getItem('gakit:read-alerts');
+        if (stored) setReadAlertIds(JSON.parse(stored));
+      } catch {
+        /* ignore malformed storage */
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const markAlertRead = useCallback((id: string) => {

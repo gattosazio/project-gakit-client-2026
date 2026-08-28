@@ -50,17 +50,21 @@ export function PublicViewPage({
   const [loadingMessage, setLoadingMessage] = useState('Fetching reports…');
   const [isLocating, setIsLocating] = useState(false);
   const [isLocated, setIsLocated] = useState(false);
+  const [rainfallHours, setRainfallHours] = useState(1);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!isLoadingReports) {
-      setLoadingMessage('Fetching reports…');
-      return;
-    }
+    if (!isLoadingReports) return;
     const timer = setTimeout(() => setLoadingMessage('Server is starting…'), 5000);
     return () => clearTimeout(timer);
   }, [isLoadingReports]);
+
+  // Reset the loading message whenever reports are not loading (guarded so it
+  // only adjusts state during render when the value actually differs).
+  if (!isLoadingReports && loadingMessage !== 'Fetching reports…') {
+    setLoadingMessage('Fetching reports…');
+  }
 
   const smoothScrollTo = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -152,7 +156,8 @@ export function PublicViewPage({
   // so it never appears over a still-loading (blank) map.
   const handleMapReady = useCallback(() => {
     setIsLocationPromptOpen(true);
-  }, []);
+    setRainfallHours(mapRef.current?.getRainfallHours?.() ?? 1);
+  }, [setRainfallHours]);
 
   const handleUseCurrentLocation = useCallback(() => {
     const attempt = (canRetry: boolean) => {
@@ -366,7 +371,7 @@ export function PublicViewPage({
                   setIsSuccessOpen(true);
                 }}
               onCheckLocation={handleCheckLocation}
-              rainfallHours={mapRef.current?.getRainfallHours?.() ?? 1}
+              rainfallHours={rainfallHours}
             />
           </div>
         </section>
