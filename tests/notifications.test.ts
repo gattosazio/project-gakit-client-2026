@@ -81,7 +81,7 @@ describe('mapWeatherAlertToNotification', () => {
       id: 'w1',
       alertType: 'severe_weather',
       severity: 'warning',
-      title: 'Heavy rainfall expected',
+      data: { title: 'Heavy rainfall expected' },
       validFrom: '2026-08-22T00:00:00Z',
       validTo: '2026-08-22T12:00:00Z',
       createdAt: '2026-08-21T23:00:00Z',

@@ -336,6 +336,7 @@ export function PublicViewPage({
               <PublicMap
                 mapApiRef={mapRef}
                 onReady={handleMapReady}
+                onRainfallHoursChange={setRainfallHours}
                 onLoadingChange={setIsLoadingReports}
                 onLocationSelect={handleLocationSelect}
                 selectedLocation={selectedLocation}

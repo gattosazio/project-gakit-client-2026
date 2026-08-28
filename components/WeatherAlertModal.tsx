@@ -2,7 +2,7 @@
 
 import { CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
 import type { CurrentWeather, WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
-import { getWeatherCondition } from '@/lib/weather/weatherCodes';
+import { alertDescription, alertTitle, digestPeriod, formatDayForecast, getWeatherCondition } from '@/lib/weather/weatherCodes';
 import { WeatherAttribution } from './weather/WeatherAttribution';
 import { CurrentConditions } from './weather/CurrentConditions';
 import { RainStrip } from './weather/RainStrip';
@@ -68,14 +68,7 @@ function friendlyDay(iso: string): string {
 function DayRow({ day, highlighted }: { day: WeatherDayData; highlighted?: boolean }) {
   const condition = getWeatherCondition(day.conditionCode);
   const Icon = condition.icon;
-
-  // Precipitation codes (WMO 51+) read naturally with their probability,
-  // e.g. "24% chance of light drizzle" — never implying rain is certain.
-  const isPrecip = day.conditionCode >= 51;
-  const detail = isPrecip
-    ? `${day.rainChance}% chance of ${condition.label.toLowerCase()}` +
-      (day.rainMm > 0 ? ` (${day.rainMm.toFixed(1)}mm)` : '')
-    : condition.label;
+  const detail = formatDayForecast(day);
 
   return (
     <div
@@ -136,6 +129,7 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
   const period = friendlyPeriod(alert.validFrom, alert.validTo);
+  const heading = alertTitle(alert);
 
   return (
     <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4">
@@ -168,13 +162,17 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
 
         {/* Body */}
         <div className="p-4 md:p-5">
-          <h3 className="text-base font-bold text-slate-900">{alert.title}</h3>
+          <h3 className="text-base font-bold text-slate-900">{heading}</h3>
           <p className="mb-2 text-[10px] text-slate-400">
-            Issued{' '}
-            {new Date(alert.createdAt).toLocaleTimeString([], {
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {alert.alertType === 'daily_digest' && digestPeriod(alert)
+              ? `${digestPeriod(alert)} · Issued ${new Date(alert.createdAt).toLocaleTimeString(
+                  [],
+                  { hour: '2-digit', minute: '2-digit' }
+                )}`
+              : `Issued ${new Date(alert.createdAt).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}`}
           </p>
 
           {current && (
@@ -191,7 +189,7 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
             </div>
           ) : (
             <p className="whitespace-pre-line text-sm text-slate-600 leading-relaxed mb-4">
-              {alert.description}
+              {alertDescription(alert)}
             </p>
           )}
 

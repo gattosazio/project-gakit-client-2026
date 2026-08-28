@@ -215,8 +215,6 @@ export function NotificationBell({
                           id: item.id.replace('weather-', ''),
                           alertType: (item.alertType ?? 'daily_digest') as AlertType,
                           severity: item.severity,
-                          title: item.title,
-                          description: item.subtitle,
                           validFrom: item.validFrom ?? item.sentAt,
                           validTo: item.validTo ?? item.sentAt,
                           createdAt: item.sentAt,

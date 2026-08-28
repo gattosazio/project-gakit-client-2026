@@ -3,6 +3,12 @@ const PROXY_BASE = '/api/himawari-proxy';
 export const HIMAWARI_AREA = 'se2';
 export const HIMAWARI_BAND = 'snd';
 
+// 1x1 transparent PNG used to seed the MapLibre image source so it never fires
+// an AJAX at a JMA slot that may 404 (publish gaps / stale frames). Real frames
+// are swapped in via updateImage once preloaded by useHimawariLayer.
+export const HIMAWARI_PLACEHOLDER_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=';
+
 export const HIMAWARI_COORDINATES: [number, number][] = [
   [105, 29.25],
   [140, 29.25],

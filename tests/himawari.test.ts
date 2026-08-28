@@ -1,5 +1,47 @@
 import { describe, expect, it } from 'vitest';
-import { isFrameFresh } from '@/lib/map/himawari';
+import { inflateSync } from 'node:zlib';
+import { isFrameFresh, HIMAWARI_PLACEHOLDER_DATA_URL } from '@/lib/map/himawari';
+
+describe('HIMAWARI_PLACEHOLDER_DATA_URL', () => {
+  it('is a valid, decodable 1x1 transparent PNG data URL', () => {
+    expect(HIMAWARI_PLACEHOLDER_DATA_URL).toMatch(/^data:image\/png;base64,/);
+    const bytes = Uint8Array.from(
+      Buffer.from(HIMAWARI_PLACEHOLDER_DATA_URL.split(',')[1], 'base64')
+    );
+    // PNG signature
+    expect([...bytes.slice(0, 8)]).toEqual([137, 80, 78, 71, 13, 10, 26, 10]);
+    // IHDR width (bytes 16-19) and height (bytes 20-23)
+    const width = (bytes[16] << 24) | (bytes[17] << 16) | (bytes[18] << 8) | bytes[19];
+    const height = (bytes[20] << 24) | (bytes[21] << 16) | (bytes[22] << 8) | bytes[23];
+    expect(width).toBe(1);
+    expect(height).toBe(1);
+
+    // Walk chunks and inflate IDAT; a corrupt image fails to inflate, which is
+    // exactly the browser "could not be decoded" failure we must guard against.
+    let offset = 8;
+    const idat: number[] = [];
+    while (offset < bytes.length) {
+      const len =
+        (bytes[offset] << 24) |
+        (bytes[offset + 1] << 16) |
+        (bytes[offset + 2] << 8) |
+        bytes[offset + 3];
+      const type = String.fromCharCode(
+        bytes[offset + 4],
+        bytes[offset + 5],
+        bytes[offset + 6],
+        bytes[offset + 7]
+      );
+      const data = bytes.slice(offset + 8, offset + 8 + len);
+      if (type === 'IDAT') idat.push(...data);
+      if (type === 'IEND') break;
+      offset += 12 + len;
+    }
+    const inflated = inflateSync(Buffer.from(idat));
+    // 1x1 RGBA: one filter byte (0) followed by 4 zero channels (transparent).
+    expect([...inflated]).toEqual([0, 0, 0, 0, 0]);
+  });
+});
 
 describe('isFrameFresh', () => {
   const now = new Date('2026-08-25T11:23:00Z');

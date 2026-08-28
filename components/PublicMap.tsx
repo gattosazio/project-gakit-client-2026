@@ -88,6 +88,7 @@ import {
 import { ILIGAN_CENTER, reverseGeocode } from '@/lib/map/geoUtils';
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 import { queryFloodHazard, type FloodRiskLevel } from '@/lib/map/floodHazard';
+import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
 import {
   riskLevelFilter,
   setupOverlayLayers,
@@ -146,6 +147,9 @@ interface PublicMapProps {
   searchOverlayActive?: boolean;
   weatherExpandedByDefault?: boolean;
   reportFilters?: MapReportFilters;
+  /** Notified when the rainfall accumulation window changes so parent pages can
+   *  keep any mirrored state (e.g. the report modal's "Xh accum." label) in sync. */
+  onRainfallHoursChange?: (hours: RainfallAccumulationHours) => void;
   onReady?: () => void;
   onLoadingChange?: (loading: boolean) => void;
   onReportClick?: (reportId: string) => void;
@@ -179,6 +183,7 @@ export function PublicMap({
   onReady,
   onLoadingChange,
   onReportClick,
+  onRainfallHoursChange,
   hasBottomNav = false,
   fullScreen = false,
 }: PublicMapProps) {
@@ -243,6 +248,16 @@ export function PublicMap({
   const { backendReports, isLoadingReports, reportsRef, loadMapReports } = reportsLayer;
   const rainfall = useRainfallLayer(mapRef, showRainfall);
   const { loadRainfall, lookupPrecip, applyPreloaded, hoursRef } = rainfall;
+
+  // Bubble accumulation-window changes up so parent pages can mirror state
+  // (e.g. the report modal's "Xh accum." label) without re-reading the map.
+  const handleRainfallHoursChange = useCallback(
+    (hours: RainfallAccumulationHours) => {
+      rainfall.setRainfallHours(hours);
+      onRainfallHoursChange?.(hours);
+    },
+    [rainfall, onRainfallHoursChange]
+  );
   const himawari = useHimawariLayer(mapRef, layersReadyRef);
 
   // Refs mirror toggle state so the style-load handler (which runs on every
@@ -1071,7 +1086,7 @@ export function PublicMap({
           rainfallObservedAt={rainfall.rainfallObservedAt}
           rainfallSource={rainfall.rainfallSource}
           rainfallHours={rainfall.rainfallHours}
-          onRainfallHoursChange={rainfall.setRainfallHours}
+          onRainfallHoursChange={handleRainfallHoursChange}
           showHimawariIR={himawari.showHimawariIR}
           onShowHimawariIRChange={himawari.toggleHimawariIR}
           himawariOpacity={himawari.opacity}
