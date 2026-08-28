@@ -141,10 +141,7 @@ export async function createReport(
   }
 }
 
-export async function fetchMapReports(
-  bounds: MapBounds,
-  signal?: AbortSignal
-): Promise<MapReportsResponse> {
+export function buildMapReportsUrl(bounds: MapBounds): string {
   const params = new URLSearchParams({
     west: String(bounds.west),
     south: String(bounds.south),
@@ -154,9 +151,20 @@ export async function fetchMapReports(
     ...(bounds.createdAfterHours != null
       ? { created_after_hours: String(bounds.createdAfterHours) }
       : {}),
+    ...(bounds.status != null ? { status: bounds.status } : {}),
+    ...(bounds.depth != null ? { depth: bounds.depth } : {}),
+    ...(bounds.critical != null ? { critical: String(bounds.critical) } : {}),
   });
 
-  const url = `/api/v1/reports/map?${params}`;
+  const queryString = params.toString();
+  return `/api/v1/reports/map${queryString ? `?${queryString}` : ''}`;
+}
+
+export async function fetchMapReports(
+  bounds: MapBounds,
+  signal?: AbortSignal
+): Promise<MapReportsResponse> {
+  const url = buildMapReportsUrl(bounds);
   return cachedGet<MapReportsResponse>(url, 5_000, () =>
     request<MapReportsResponse>(url, { signal }, REQUEST_TIMEOUT_MS_REPORTS)
   );

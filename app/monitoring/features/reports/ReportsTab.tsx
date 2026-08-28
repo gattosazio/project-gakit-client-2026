@@ -5,7 +5,14 @@ import dynamic from 'next/dynamic';
 import { Loader2, PlusCircle, RotateCcw, Search } from 'lucide-react';
 import { DEPTH_LABELS, REFERENCE_LABELS, STATUS_META, formatDateTime } from '@/lib/reports/reportFormatting';
 import type { PublicMapHandle } from '@/components/PublicMap';
-import type { FloodDepthCode, FloodReference, Report, ReportStatus } from '@/types/report';
+import type {
+  FloodDepthCode,
+  FloodReference,
+  MapReportFilters,
+  Report,
+  ReportSortColumn,
+  ReportStatus,
+} from '@/types/report';
 import { toast } from 'react-toastify';
 import { FeaturePageShell } from '@/components/FeaturePageShell';
 import { createReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
@@ -16,13 +23,15 @@ import {
   TimeFilterDropdown,
 } from './ReportFilterDropdowns';
 import { timeRangeOptions } from './reportFilterOptions';
-import { ReportActions } from './ReportActions';
+import { ReportActions, StatusDropdown } from './ReportActions';
 import { ReportsPagination } from './ReportsPagination';
 import {
   StaffSubmitReportModal,
   type SelectedLocation,
 } from './StaffSubmitReportModal';
 import { useVisibleInterval } from '@/hooks/useVisibleInterval';
+import { useSortableTable } from '@/hooks/useSortableTable';
+import { SortableHeader } from '@/components/ui/SortableHeader';
 
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
   loading: () => <div className="w-full h-full bg-canvas-grey flex items-center justify-center">Loading map...</div>,
@@ -32,11 +41,9 @@ const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ 
 const REPORTS_PER_PAGE = 6;
 
 export function ReportsTab({
-  initialCritical = false,
   highlightedReportId = null,
   active = true,
 }: {
-  initialCritical?: boolean;
   highlightedReportId?: string | null;
   active?: boolean;
 }) {
@@ -48,8 +55,7 @@ export function ReportsTab({
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | ReportStatus>('All');
   const [depthFilter, setDepthFilter] = useState<'All' | FloodDepthCode>('All');
-  const [timeFilter, setTimeFilter] = useState('24h');
-  const [criticalFilter, setCriticalFilter] = useState(initialCritical);
+  const [timeFilter, setTimeFilter] = useState('48h');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -62,13 +68,12 @@ export function ReportsTab({
   const tableSectionRef = useRef<HTMLElement | null>(null);
   const requestSeqRef = useRef(0);
 
-  const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
+  const { sort, toggleSort } = useSortableTable<ReportSortColumn>({
+    column: 'createdAt',
+    direction: 'desc',
+  });
 
-  // Keep the critical-only filter in sync with the "Review Critical Reports"
-  // deep link (ReportsTab is now mounted once, so this won't re-run on mount).
-  useEffect(() => {
-    setCriticalFilter(initialCritical);
-  }, [initialCritical]);
+  const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
 
   useEffect(() => {
     if (!highlightedReportId) return;
@@ -118,8 +123,9 @@ export function ReportsTab({
         search: (query || '').trim() || undefined,
         status: statusFilter === 'All' ? undefined : statusFilter,
         depth: depthFilter === 'All' ? undefined : depthFilter,
-        critical: criticalFilter || undefined,
         created_after: since,
+        sort_by: sort.column,
+        sort_dir: sort.direction,
       })
         .then((result) => {
           if (seq !== requestSeqRef.current) return;
@@ -145,7 +151,7 @@ export function ReportsTab({
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [active, currentPage, query, statusFilter, depthFilter, timeFilter, criticalFilter, refreshKey]);
+  }, [active, currentPage, query, statusFilter, depthFilter, timeFilter, refreshKey, sort]);
 
   // Background auto-refresh, paused while the tab is hidden.
   useVisibleInterval(() => setRefreshKey((key) => key + 1), 30_000, active);
@@ -157,19 +163,41 @@ export function ReportsTab({
     (query || '').trim() !== '' ||
     statusFilter !== 'All' ||
     depthFilter !== 'All' ||
-    timeFilter !== '24h' ||
-    Boolean(criticalFilter) ||
+    timeFilter !== '48h' ||
     activeHighlightedId !== null;
 
   const resetFilters = () => {
     setQuery('');
     setStatusFilter('All');
     setDepthFilter('All');
-    setTimeFilter('24h');
-    setCriticalFilter(false);
+    setTimeFilter('48h');
     setCurrentPage(1);
     setActiveHighlightedId(null);
   };
+
+  const handleSortChange = (column: ReportSortColumn) => {
+    toggleSort(column);
+    setCurrentPage(1);
+  };
+
+  // The map eats the same dropdown filters as the table: recency window plus
+  // optional status/depth. Filtering happens server-side before the
+  // map endpoint's result limit, so table and map can never show diverging sets.
+  const reportFilters: MapReportFilters = {
+    createdAfterHours:
+      timeRangeOptions.find((option) => option.value === timeFilter)?.hours ?? null,
+    status: statusFilter === 'All' ? undefined : statusFilter,
+    depth: depthFilter === 'All' ? undefined : depthFilter,
+  };
+
+  const mapSubtitle = [
+    timeRangeOptions.find((option) => option.value === timeFilter)?.label.toLowerCase() ??
+      'all time',
+    statusFilter !== 'All' ? STATUS_META[statusFilter].label.toLowerCase() : null,
+    depthFilter !== 'All' ? DEPTH_LABELS[depthFilter].toLowerCase() : null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(' · ');
 
   const handleLocationSelect = (location: SelectedLocation) => {
     setSelectedLocation(location);
@@ -273,7 +301,8 @@ export function ReportsTab({
                   hideShareLocation
                   hideAttribution
                   enableAddressLookup={false}
-                  reportWindowHours={timeRangeOptions.find((opt) => opt.value === timeFilter)?.hours ?? null}
+                  hasBottomNav
+                  reportFilters={reportFilters}
                   onReportClick={handleMapPinClick}
                 />
               ) : (
@@ -285,7 +314,7 @@ export function ReportsTab({
 
             <div className="border-t border-canvas-grey px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div className="text-sm text-slate-600">
-                Live map of reports ({timeRangeOptions.find((opt) => opt.value === timeFilter)?.label.toLowerCase() ?? 'all time'})
+                Live map of reports ({mapSubtitle})
               </div>
               <div className="text-xs text-slate-500">Click a marker to view details.</div>
             </div>
@@ -343,17 +372,36 @@ export function ReportsTab({
                     <thead className="bg-canvas-light text-slate-500">
                       <tr>
                         <th className="text-left font-semibold px-5 py-3">Report</th>
-                        <th className="text-left font-semibold px-5 py-3">Location</th>
-                        <th className="text-left font-semibold px-5 py-3">Depth</th>
+                        <SortableHeader
+                          label="Location"
+                          column="address"
+                          sort={sort}
+                          onSort={handleSortChange}
+                        />
+                        <SortableHeader
+                          label="Depth"
+                          column="depth"
+                          sort={sort}
+                          onSort={handleSortChange}
+                        />
                         <th className="text-left font-semibold px-5 py-3">Reference</th>
-                        <th className="text-left font-semibold px-5 py-3">Status</th>
-                        <th className="text-left font-semibold px-5 py-3">Submitted</th>
-                        <th className="text-left font-semibold px-5 py-3">Action</th>
+                        <SortableHeader
+                          label="Status"
+                          column="status"
+                          sort={sort}
+                          onSort={handleSortChange}
+                        />
+                        <SortableHeader
+                          label="Submitted"
+                          column="createdAt"
+                          sort={sort}
+                          onSort={handleSortChange}
+                        />
+                        <th className="text-left font-semibold px-5 py-3">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-canvas-grey">
                       {reports.map((report) => {
-                        const status = STATUS_META[report.status];
                         const isHighlighted = activeHighlightedId === report.id;
                         return (
                           <tr
@@ -383,18 +431,18 @@ export function ReportsTab({
                               {report.reference ? REFERENCE_LABELS[report.reference] : '—'}
                             </td>
                             <td className="px-5 py-4">
-                              <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
-                                {status.label}
-                              </span>
+                              <StatusDropdown
+                                report={report}
+                                isUpdating={updatingId === report.id}
+                                onUpdateStatus={handleUpdateStatus}
+                              />
                             </td>
                             <td className="px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
                             <td className="px-5 py-4">
                               <ReportActions
                                 report={report}
-                                isUpdating={updatingId === report.id}
                                 onInspect={() => handleInspect(report)}
                                 onViewDetails={() => setSelectedReportId(report.id)}
-                                onUpdateStatus={handleUpdateStatus}
                               />
                             </td>
                           </tr>
@@ -413,7 +461,6 @@ export function ReportsTab({
 
                 <div className="lg:hidden divide-y divide-canvas-grey">
                   {reports.map((report) => {
-                    const status = STATUS_META[report.status];
                     const isHighlighted = activeHighlightedId === report.id;
                     return (
                       <div
@@ -428,7 +475,6 @@ export function ReportsTab({
                           onClick={() => handleInspect(report)}
                           className="min-w-0 flex-1 text-left"
                         >
-                          <div className="flex items-start justify-between gap-3">
                           <div>
                             <div className="font-mono text-xs font-semibold text-slate-900">
                               {report.id.slice(0, 8)}
@@ -442,18 +488,17 @@ export function ReportsTab({
                             </div>
                             <div className="text-xs text-slate-500 mt-1">{formatDateTime(report.createdAt)}</div>
                           </div>
-                          <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
-                            {status.label}
-                          </span>
-                          </div>
                         </button>
-                        <ReportActions
+                        <StatusDropdown
                           report={report}
                           isUpdating={updatingId === report.id}
+                          onUpdateStatus={handleUpdateStatus}
+                        />
+                        <ReportActions
+                          report={report}
                           showInspect={false}
                           onInspect={() => handleInspect(report)}
                           onViewDetails={() => setSelectedReportId(report.id)}
-                          onUpdateStatus={handleUpdateStatus}
                         />
                       </div>
                     );

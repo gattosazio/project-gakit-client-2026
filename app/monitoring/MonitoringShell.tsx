@@ -31,7 +31,6 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
   const tabFromParams =
     requestedTab && monitoringFeatureMap[requestedTab] ? requestedTab : 'dashboard';
   const [activeTab, setActiveTab] = useState<MonitoringFeatureId>(tabFromParams);
-  const [criticalReportsOnly, setCriticalReportsOnly] = useState(false);
   const [highlightedReportId, setHighlightedReportId] = useState<string | null>(null);
   const [selectedWeatherAlert, setSelectedWeatherAlert] = useState<WeatherAlert | null>(null);
   const activeFeature = monitoringFeatureMap[activeTab];
@@ -45,7 +44,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
 
   const handleTabChange = (tab: MonitoringFeatureId) => {
     setActiveTab(tab);
-    setCriticalReportsOnly(false);
+
     setHighlightedReportId(null);
     const params = new URLSearchParams(searchParams.toString());
     params.delete('notification');
@@ -54,20 +53,20 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     const query = params.toString();
     router.replace(query ? `/monitoring?${query}` : '/monitoring', { scroll: false });
   };
-  const handleReviewCritical = () => {
-    setCriticalReportsOnly(true);
+  const handleOpenReports = () => {
+
     setHighlightedReportId(null);
     setActiveTab('reports');
     router.replace('/monitoring?tab=reports', { scroll: false });
   };
   const handleOpenReport = (reportId?: string) => {
-    setCriticalReportsOnly(false);
+
     setHighlightedReportId(reportId ?? null);
     setActiveTab('reports');
     router.replace('/monitoring?tab=reports', { scroll: false });
   };
   const handleOpenNotification = (notificationId: string) => {
-    setCriticalReportsOnly(false);
+
     setHighlightedReportId(null);
     setActiveTab('alerts');
     router.replace(`/monitoring?tab=alerts&notification=${encodeURIComponent(notificationId)}`, { scroll: false });
@@ -91,7 +90,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
         />
         <main className="flex-1 overflow-y-auto p-4 pb-20 md:px-7 md:py-6 lg:px-8 lg:pb-8 space-y-6">
           <div className={activeTab === 'dashboard' ? 'space-y-4' : 'hidden'}>
-            <DashboardOverview active={activeTab === 'dashboard'} onReviewCritical={handleReviewCritical} />
+            <DashboardOverview active={activeTab === 'dashboard'} onOpenReports={handleOpenReports} />
           </div>
           <div className={activeTab === 'alerts' ? 'space-y-4' : 'hidden'}>
             <AlertsTab active={activeTab === 'alerts'} onOpenReports={handleOpenReport} onSelectWeatherAlert={setSelectedWeatherAlert} />
@@ -99,7 +98,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           <div className={activeTab === 'reports' ? 'space-y-4' : 'hidden'}>
             <ReportsTab
               active={activeTab === 'reports'}
-              initialCritical={criticalReportsOnly}
+
               highlightedReportId={highlightedReportId}
             />
           </div>

@@ -7,7 +7,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Locate } from 'lucide-react';
+import { Loader2, Locate } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import * as maplibregl from 'maplibre-gl';
@@ -64,6 +64,19 @@ function polygonRepPoint(
   return bestCentroid;
 }
 
+function bboxChanged(
+  previous: { west: number; south: number; east: number; north: number },
+  next: { west: number; south: number; east: number; north: number }
+): boolean {
+  const rangeX = Math.max(0.0001, Math.abs(previous.east - previous.west));
+  const rangeY = Math.max(0.0001, Math.abs(previous.north - previous.south));
+  const dx =
+    Math.abs(previous.west - next.west) + Math.abs(previous.east - next.east);
+  const dy =
+    Math.abs(previous.south - next.south) + Math.abs(previous.north - next.north);
+  return dx / rangeX > 0.01 || dy / rangeY > 0.01;
+}
+
 import { getBackendStatus } from '@/lib/backend/backendStatus';
 import { getElevation } from '@/lib/map/elevation';
 import {
@@ -86,7 +99,7 @@ import {
   buildReportsGeoJson,
   buildSelectedGeoJson,
 } from '@/lib/map/reportMarkers';
-import type { DepthCategory, ReportStatus } from '@/types/report';
+import type { DepthCategory, MapReportFilters, ReportStatus } from '@/types/report';
 import { ReportControls, DataLayerControls, MapModeToggle } from '@/components/map/MapControls';
 import { WeatherChip } from '@/components/map/WeatherChip';
 // @ts-ignore
@@ -118,7 +131,7 @@ export interface PublicMapHandle {
   showReport: (report: MapReportToShow) => void;
   getRainfallHours: () => number;
   refreshReports: () => void;
-  shareMyLocation: () => void;
+  shareMyLocation: () => Promise<boolean>;
 }
 
 interface PublicMapProps {
@@ -132,10 +145,16 @@ interface PublicMapProps {
   enableAddressLookup?: boolean;
   searchOverlayActive?: boolean;
   weatherExpandedByDefault?: boolean;
-  reportWindowHours?: number | null;
+  reportFilters?: MapReportFilters;
   onReady?: () => void;
   onLoadingChange?: (loading: boolean) => void;
   onReportClick?: (reportId: string) => void;
+  /** Pages rendered with the fixed mobile bottom navbar (e.g. monitoring) hide
+   *  the floating layer/report controls when they slide behind it. */
+  hasBottomNav?: boolean;
+  /** Full-viewport maps (e.g. the public landing page) anchor the floating
+   *  controls higher on mobile so phone/browser bottom UI never covers them. */
+  fullScreen?: boolean;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -156,10 +175,12 @@ export function PublicMap({
   enableAddressLookup = true,
   searchOverlayActive = false,
   weatherExpandedByDefault = false,
-  reportWindowHours,
+  reportFilters,
   onReady,
   onLoadingChange,
   onReportClick,
+  hasBottomNav = false,
+  fullScreen = false,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -186,6 +207,7 @@ export function PublicMap({
   const abortControllerRef = useRef<AbortController | null>(null);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastFetchedBoundsRef = useRef<{ west: number; south: number; east: number; north: number } | null>(null);
   const reportPopupRef = useRef<any>(null);
   const hoveredBarangayIdRef = useRef<string | number | null>(null);
   const popupFrameRef = useRef<number | null>(null);
@@ -193,6 +215,7 @@ export function PublicMap({
   const pendingInspectRef = useRef<MapReportToShow | null>(null);
   const inspectTargetRef = useRef<MapReportToShow | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [isShareLocating, setIsShareLocating] = useState(false);
 
   // Layer visibility toggles
   const [showFloodHazard, setShowFloodHazard] = useState(false);
@@ -216,7 +239,7 @@ export function PublicMap({
   const onReadyFiredRef = useRef(false);
 
   // Domain layers (reports / rainfall / Himawari IR) live in dedicated hooks.
-  const reportsLayer = useReportsLayer(reportWindowHours);
+  const reportsLayer = useReportsLayer(reportFilters);
   const { backendReports, isLoadingReports, reportsRef, loadMapReports } = reportsLayer;
   const rainfall = useRainfallLayer(mapRef, showRainfall);
   const { loadRainfall, lookupPrecip, applyPreloaded, hoursRef } = rainfall;
@@ -429,27 +452,59 @@ export function PublicMap({
     [onLocationSelect, reverseGeocodeWithAbort, enableAddressLookup, panToSelectedLocation]
   );
 
-  const handleShareLocation = useCallback(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          panToSelectedLocation(latitude, longitude, 16);
-          handleLocationSelect(latitude, longitude);
-        },
-        () => {
-          toast.error('Unable to get your location. Please allow location access.', {
+  const handleShareLocation = useCallback((): Promise<boolean> => {
+    const attempt = (canRetry: boolean): Promise<boolean> =>
+      new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          toast.error('Location sharing is not supported by this browser.', {
             position: 'top-right',
             autoClose: 3000,
           });
+          resolve(false);
+          return;
         }
-      );
-    } else {
-      toast.error('Location sharing is not supported by this browser.', {
-        position: 'top-right',
-        autoClose: 3000,
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            try {
+              panToSelectedLocation(latitude, longitude, 16);
+              handleLocationSelect(latitude, longitude);
+            } finally {
+              resolve(true);
+            }
+          },
+          (error) => {
+            // Transient failures (timeout, position unavailable) get one retry;
+            // permission state is not retried — it needs a real user action.
+            if (canRetry && error.code !== 1) {
+              void attempt(false).then(resolve);
+              return;
+            }
+            if (error.code === 1) {
+              toast.error('To use your location, allow location access for this site.', {
+                position: 'top-right',
+                autoClose: 4000,
+              });
+            } else if (error.code === 3) {
+              toast.error('Location request timed out. Please try again.', {
+                position: 'top-right',
+                autoClose: 4000,
+              });
+            } else {
+              toast.error("Couldn't get your location. Please try again.", {
+                position: 'top-right',
+                autoClose: 4000,
+              });
+            }
+            resolve(false);
+          },
+          // maximumAge lets rapid repeat taps reuse a fix already acquired in the
+          // last 30s instead of forcing a brand-new OS scan each time (which is
+          // what made the 2nd/3rd+ tries flaky); the timeout is a safety net.
+          { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 }
+        );
       });
-    }
+    return attempt(true);
   }, [handleLocationSelect, panToSelectedLocation]);
 
   useEffect(() => {
@@ -803,10 +858,16 @@ export function PublicMap({
   useEffect(() => {
     if (!mapContainer.current || !maplibregl) return;
 
-    // Next.js/webpack dev mode rewrites import.meta.url inside maplibre-gl.mjs
-    // to a local file:// path, which breaks maplibre's worker URL resolution and
-    // results in a silently failing worker (blank map, no tiles). Serve the
-    // worker from /public and point maplibre at it explicitly.
+    // Next.js 14 + webpack rewrites `import.meta.url` inside
+    // maplibre-gl/dist/maplibre-gl.mjs to a local file:// path during
+    // compilation. MapLibre uses that URL to locate its worker, so the worker
+    // fails to load (blank map, no tiles). The bundler-native
+    // `new URL('maplibre-gl/dist/...', import.meta.url)` pattern also fails
+    // here: webpack emits the worker as a static .mjs asset and Terser then
+    // tries to minify it as a plain script, erroring on `import`/`export`.
+    // The reliable fix for this stack is to serve the worker (and its shared
+    // chunk) from /public and point MapLibre at it explicitly. Keep both
+    // files in sync with the installed maplibre-gl version.
     maplibregl.setWorkerUrl('/vendor/maplibre-gl/maplibre-gl-worker.mjs');
 
     // Start with the 2D OpenFreeMap basemap (no API key required). The 3D
@@ -882,7 +943,20 @@ export function PublicMap({
         moveendTimerRef.current = null;
         // Skip refetches while the backend is warming up so pans don't restart
         // a retry cycle; the pins shown come from cache/state meanwhile.
-        if (getBackendStatus() !== 'warming') void loadMapReportsRef.current?.();
+        if (getBackendStatus() === 'warming') return;
+        const next = (() => {
+          try {
+            const bounds = mapRef.current?.getBounds?.();
+            if (!bounds) return null;
+            return { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() };
+          } catch {
+            return null;
+          }
+        })();
+        const previous = lastFetchedBoundsRef.current;
+        if (!next || (previous && !bboxChanged(previous, next))) return;
+        lastFetchedBoundsRef.current = next;
+        void loadMapReportsRef.current?.();
       }, 300);
     });
 
@@ -907,7 +981,7 @@ export function PublicMap({
     const el = controlsSentinelRef.current;
     if (!el) return;
 
-    const clearances = { mobile: 96, desktop: 0 };
+    const clearances = { mobile: hasBottomNav ? 96 : 0, desktop: 0 };
     let clearance = window.innerWidth < 768 ? clearances.mobile : clearances.desktop;
     let observer: IntersectionObserver | null = null;
 
@@ -934,7 +1008,7 @@ export function PublicMap({
       observer?.disconnect();
       window.removeEventListener('resize', onResize);
     };
-  }, []);
+  }, [hasBottomNav]);
 
   // Apply layer visibility + risk-level filters when toggles change
   useEffect(() => {
@@ -977,8 +1051,8 @@ export function PublicMap({
 
       <div
         className={`absolute right-4 md:right-6 z-[1000] flex flex-col items-end gap-3 transition-opacity duration-200 ${
-          'bottom-28 md:bottom-8'
-        } ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'} max-h-[62%] overflow-y-auto overscroll-contain pr-0.5`}
+          `${fullScreen ? 'bottom-24' : 'bottom-4'} md:bottom-8`
+        } ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
       >
         <ReportControls
           open={reportsOpen}
@@ -988,7 +1062,7 @@ export function PublicMap({
             setVisibleReportStatuses((previous) => ({ ...previous, [status]: checked }))
           }
           reportStatusToggleStatuses={reportStatusToggleStatuses}
-          reportWindowHours={reportWindowHours}
+          reportWindowHours={reportFilters?.createdAfterHours}
         />
 
         <DataLayerControls
@@ -1014,13 +1088,19 @@ export function PublicMap({
 
         {!hideShareLocation && (
           <button
-            onClick={handleShareLocation}
-            className="flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
+            onClick={() => {
+              setIsShareLocating(true);
+              void handleShareLocation().finally(() => setIsShareLocating(false));
+            }}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 p-2 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
             title="Share my location"
             aria-label="Share my location"
           >
-            <Locate className="w-5 h-5 text-gakit-maroon" />
-            <span className="text-sm font-medium text-slate-700">Share location</span>
+            {isShareLocating ? (
+              <Loader2 className="h-5 w-5 animate-spin text-gakit-maroon" />
+            ) : (
+              <Locate className="h-5 w-5 text-gakit-maroon" />
+            )}
           </button>
         )}
 

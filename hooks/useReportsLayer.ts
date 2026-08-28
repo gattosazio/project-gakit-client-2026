@@ -1,11 +1,8 @@
 'use client';
 
 import { useRef, useSyncExternalStore } from 'react';
-import {
-  DEFAULT_MAP_REPORT_WINDOW_HOURS,
-  getMapReportsPoller,
-} from '@/lib/reports/reportsPoller';
-import type { MapReportFeature } from '@/types/report';
+import { getMapReportsPoller } from '@/lib/reports/reportsPoller';
+import type { MapReportFeature, MapReportFilters } from '@/types/report';
 
 const EMPTY_FEATURES: MapReportFeature[] = [];
 
@@ -15,10 +12,8 @@ const EMPTY_FEATURES: MapReportFeature[] = [];
  * dedupe live there. The returned `reportsRef` lets stable callbacks
  * (style-load handlers) read the latest data without resubscribing.
  */
-export function useReportsLayer(
-  createdAfterHours: number | null = DEFAULT_MAP_REPORT_WINDOW_HOURS
-) {
-  const poller = getMapReportsPoller(createdAfterHours);
+export function useReportsLayer(filters?: MapReportFilters) {
+  const poller = getMapReportsPoller(filters);
   const state = useSyncExternalStore(
     poller.subscribe,
     poller.getSnapshot,

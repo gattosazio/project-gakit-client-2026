@@ -37,8 +37,8 @@ describe('buildReportsGeoJson', () => {
       depthLabel: 'Knee deep (~45 cm)',
       statusLabel: 'Pending validation',
     });
-    // The backend id is intentionally not copied onto map features.
-    expect('id' in feature.properties).toBe(false);
+    // The backend id is copied onto map features so pin clicks can resolve the report.
+    expect(feature.properties.id).toBe('a');
   });
 
   it('keeps address null when none exists (no generic fallback label)', () => {

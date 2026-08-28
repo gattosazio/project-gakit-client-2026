@@ -56,9 +56,25 @@ export interface MapBounds {
   east: number;
   north: number;
   limit?: number;
-  /** Only return reports created within the last N hours. */
-  createdAfterHours?: number;
+  /** Only return reports created within the last N hours. Null means all time. */
+  createdAfterHours?: number | null;
+  /** Only return reports with this verification status. */
+  status?: ReportStatus;
+  /** Only return reports with this flood depth category. */
+  depth?: FloodDepthCode;
+  /** Only return critical reports (head-deep or higher). */
+  critical?: boolean;
 }
+
+/**
+ * The filter subset of MapBounds callers pick from. The geographic bounds are
+ * always DRY-ed in by ILIGAN_REPORT_BOUNDS, so only the filter fields travel
+ * through the map layer: recency window plus optional status/depth/critical.
+ */
+export type MapReportFilters = Pick<
+  MapBounds,
+  'createdAfterHours' | 'status' | 'depth' | 'critical'
+>;
 
 export interface CreateReportInput {
   location: {
@@ -72,6 +88,15 @@ export interface CreateReportInput {
   observedAt?: string;
 }
 
+/** Columns the reports table can be sorted by (all match server sort_by values). */
+export type ReportSortColumn =
+  | 'createdAt'
+  | 'observedAt'
+  | 'updatedAt'
+  | 'depth'
+  | 'status'
+  | 'address';
+
 export interface ReportListQuery {
   page?: number;
   limit?: number;
@@ -79,6 +104,8 @@ export interface ReportListQuery {
   status?: ReportStatus;
   depth?: FloodDepthCode;
   critical?: boolean;
+  sortBy?: ReportSortColumn;
+  sortDir?: 'asc' | 'desc';
 }
 
 /** A map-picked or geocoded location shared by the report flows. */

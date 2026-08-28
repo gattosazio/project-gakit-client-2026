@@ -6,6 +6,7 @@ import type {
   FloodDepthCode,
   PaginatedReports,
   Report,
+  ReportSortColumn,
   ReportStats,
   ReportStatus,
 } from '@/types/report';
@@ -54,6 +55,8 @@ export interface MonitoringReportListQuery {
   depth?: FloodDepthCode;
   critical?: boolean;
   created_after?: string;
+  sort_by?: ReportSortColumn;
+  sort_dir?: 'asc' | 'desc';
 }
 
 export async function createReport(

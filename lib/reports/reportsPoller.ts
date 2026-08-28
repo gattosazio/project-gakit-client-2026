@@ -1,8 +1,11 @@
 import { SharedResourcePoller } from '@/lib/backend/sharedPoller';
 import { getBackendStatus } from '@/lib/backend/backendStatus';
-import { fetchMapReports } from '@/app/public-view/actions/public.view';
+import {
+  buildMapReportsUrl,
+  fetchMapReports,
+} from '@/app/public-view/actions/public.view';
 import { ILIGAN_REPORT_BOUNDS } from '@/constants/publicMap';
-import type { MapReportFeature } from '@/types/report';
+import type { MapReportFeature, MapReportFilters } from '@/types/report';
 
 const REPORT_POLL_INTERVAL_MS = 15_000;
 
@@ -18,17 +21,38 @@ function signatureOf(features: MapReportFeature[]): string {
     .join('|');
 }
 
+/**
+ * Deterministic filter serialization so every distinct filter combination
+ * maps to exactly one shared poller regardless of key order. `undefined`
+ * fields are dropped but `null` is kept (recency uses null to mean all-time).
+ */
+function serializeMapFilters(filters?: MapReportFilters): string {
+  const entries = Object.entries(filters ?? {})
+    .filter(([, value]) => value !== undefined)
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+  return JSON.stringify(entries);
+}
+
 const pollers = new Map<string, SharedResourcePoller<MapReportFeature[]>>();
 
 /**
- * One poller per recency window so every mounted map showing the same window
- * (public page, Reports tab, staff submit modal) shares a single 15-second
- * fetch instead of polling independently per maplibre instance.
+ * One poller per filter combination so every mounted map showing the same
+ * filter set (public page, Reports tab, staff submit modal) shares a single
+ * 15-second fetch instead of polling independently per maplibre instance.
+ * Bounds come from ILIGAN_REPORT_BOUNDS; any filter fields supplied by the
+ * caller (recency window, status, depth, critical) are honored server-side.
  */
 export function getMapReportsPoller(
-  createdAfterHours: number | null = DEFAULT_MAP_REPORT_WINDOW_HOURS
+  filters?: MapReportFilters
 ): SharedResourcePoller<MapReportFeature[]> {
-  const key = createdAfterHours == null ? 'all-time' : `${createdAfterHours}h`;
+  // Recency defaults to DEFAULT_MAP_REPORT_WINDOW_HOURS unless the caller
+  // explicitly passes `createdAfterHours: null` (all time).
+  const effective: MapReportFilters = {
+    createdAfterHours: DEFAULT_MAP_REPORT_WINDOW_HOURS,
+    ...(filters ?? {}),
+  };
+
+  const key = serializeMapFilters(effective);
 
   let poller = pollers.get(key);
   if (poller) return poller;
@@ -38,13 +62,11 @@ export function getMapReportsPoller(
     fetcher: async () => {
       const response = await fetchMapReports({
         ...ILIGAN_REPORT_BOUNDS,
-        ...(createdAfterHours != null ? { createdAfterHours } : {}),
+        ...effective,
       });
       return response.features;
     },
-    cacheKey: `/api/v1/reports/map${
-      createdAfterHours != null ? `?created_after_hours=${createdAfterHours}` : ''
-    }`,
+    cacheKey: buildMapReportsUrl({ ...ILIGAN_REPORT_BOUNDS, ...effective }),
     intervalMs: REPORT_POLL_INTERVAL_MS,
     shouldFetch: () => getBackendStatus() !== 'warming',
     equals: (_previous, next) => {

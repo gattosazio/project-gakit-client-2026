@@ -78,7 +78,9 @@ export class SharedResourcePoller<T> {
   getServerSnapshot = (): SharedResourceState<T> => this.initialState;
 
   refreshNow = (): void => {
-    void this.load({ force: true });
+    // Cache-friendly: go through the resource cache so rapid manual refreshes
+    // (e.g. moveend pans on the map) within the TTL dedupe to a single request.
+    void this.load({ force: false });
   };
 
   private handleVisibilityChange = (): void => {

@@ -2,15 +2,23 @@
 
 import { Loader2 } from 'lucide-react';
 import type { BackendStatus } from '@/lib/backend/backendStatus';
+import type { MapReportFilters } from '@/types/report';
 
 interface MapStatusChipProps {
   backendStatus: BackendStatus;
   showLoading: boolean;
   showEmptyState: boolean;
-  reportWindowHours?: number | null;
+  reportFilters?: MapReportFilters;
 }
 
-function formatEmptyStateText(hours?: number | null): string {
+function formatEmptyStateText(filters?: MapReportFilters): string {
+  // When any non-recency filter is active, the time window alone can't explain
+  // an empty map — surface that the *filters* matched nothing.
+  if (filters?.status || filters?.depth || filters?.critical) {
+    return 'No flood reports match the current filters';
+  }
+
+  const hours = filters?.createdAfterHours;
   if (hours === null) return 'No flood reports in this area';
   if (hours === undefined || hours === 48) return 'No flood reports in the last 48 hours';
   if (hours === 24) return 'No flood reports in the last 24 hours';
@@ -29,7 +37,7 @@ export function MapStatusChip({
   backendStatus,
   showLoading,
   showEmptyState,
-  reportWindowHours,
+  reportFilters,
 }: MapStatusChipProps) {
   if (backendStatus === 'warming') {
     return (
@@ -52,7 +60,7 @@ export function MapStatusChip({
   if (showEmptyState) {
     return (
       <div className="absolute bottom-8 left-3 z-[1000] rounded-lg bg-white/95 px-3 py-2 text-xs font-medium text-slate-600 shadow-lg ring-1 ring-slate-200">
-        {formatEmptyStateText(reportWindowHours)}
+        {formatEmptyStateText(reportFilters)}
       </div>
     );
   }
