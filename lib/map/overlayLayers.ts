@@ -8,7 +8,7 @@ import {
   REPORT_STATUS_LEGEND,
 } from '@/constants/publicMap';
 import { buildRainfallPaintExpression, FLOOD_HAZARD_COLORS } from '@/lib/map/colorScales';
-import { HIMAWARI_COORDINATES, himawariFrameTimes, himawariFrameURL } from '@/lib/map/himawari';
+import { HIMAWARI_COORDINATES, HIMAWARI_PLACEHOLDER_DATA_URL } from '@/lib/map/himawari';
 import { createReportMarkerImage } from '@/lib/map/reportMarkers';
 
 export type MapMode = '2d' | '3d';
@@ -405,15 +405,12 @@ export const setupOverlayLayers = async (
 
   // --- Himawari IR satellite imagery (JMA) ---
   if (!map.getSource('himawari-ir')) {
-    // JMA publishes frames with a lag, so "now" rounded down may not exist
-    // yet and would leave the layer silently blank until the animation loop
-    // replaces it. Start from one frame back (10 minutes), which is always
-    // available.
-    const initialTime = himawariFrameTimes(12)[1];
-
+    // Seed with a transparent 1x1 so MapLibre never fires an AJAX at a JMA
+    // slot that may 404 (publish gaps / stale frames). The animation loop in
+    // useHimawariLayer swaps in real frames via updateImage once preloaded.
     map.addSource('himawari-ir', {
       type: 'image',
-      url: himawariFrameURL(initialTime),
+      url: HIMAWARI_PLACEHOLDER_DATA_URL,
       coordinates: HIMAWARI_COORDINATES,
     });
 

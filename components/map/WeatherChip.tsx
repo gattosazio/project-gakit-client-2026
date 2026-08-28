@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ChevronUp } from 'lucide-react';
 import { useActiveAlerts, useCurrentWeather } from '@/lib/weather/weatherStore';
-import { getWeatherCondition } from '@/lib/weather/weatherCodes';
+import { formatDayForecast, getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
 import { WeatherAttribution } from '../weather/WeatherAttribution';
 import { CurrentConditions } from '../weather/CurrentConditions';
 import { RainStrip } from '../weather/RainStrip';
@@ -60,11 +60,12 @@ export function WeatherChip({
   if (!digest || !days || days.length === 0) return null;
 
   const todayCondition = getWeatherCondition(days[0].conditionCode);
-  const TodayIcon = todayCondition.icon;
 
   // Collapsed pill: prefer live conditions when available.
-  const liveCondition = current ? getWeatherCondition(current.conditionCode) : null;
-  const PillIcon = liveCondition ? liveCondition.icon : TodayIcon;
+  const liveCondition = current
+    ? getWeatherCondition(current.conditionCode, isDaytimeInManila(current.observedAt))
+    : null;
+  const PillIcon = liveCondition ? liveCondition.icon : todayCondition.icon;
   const hasLive = current !== null && liveCondition !== null;
   const pillLabel = hasLive
     ? `${liveCondition.label} · ${Math.round(current.temperature)}°`
@@ -81,7 +82,6 @@ export function WeatherChip({
         <div className="w-72 rounded-2xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-900">
             <div className="flex min-w-0 items-center gap-2">
-              <TodayIcon className="h-3.5 w-3.5 shrink-0" />
               <span className="shrink-0">Weather Outlook</span>
               {issuedAt && (
                 <span className="truncate text-[10px] font-medium text-slate-400">
@@ -110,10 +110,7 @@ export function WeatherChip({
             {days.map((day) => {
               const condition = getWeatherCondition(day.conditionCode);
               const Icon = condition.icon;
-              const isPrecip = day.conditionCode >= 51;
-              const detail = isPrecip
-                ? `${day.rainChance}% chance of ${condition.label.toLowerCase()}`
-                : condition.label;
+              const detail = formatDayForecast(day);
 
               return (
                 <button

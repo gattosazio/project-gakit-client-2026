@@ -168,7 +168,7 @@ export function ReportModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, step, selectedLocation, onCheckLocation]);
+  }, [isOpen, step, selectedLocation, rainfallHours, onCheckLocation]);
 
   useEffect(() => {
     if (!isOpen) return;

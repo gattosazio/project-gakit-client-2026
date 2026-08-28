@@ -1,7 +1,7 @@
 'use client';
 
 import type { CurrentWeather } from '@/types/weather';
-import { getWeatherCondition } from '@/lib/weather/weatherCodes';
+import { getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
 
 /**
  * Live-conditions row shared by the expanded weather-outlook card and the
@@ -9,7 +9,10 @@ import { getWeatherCondition } from '@/lib/weather/weatherCodes';
  * forecast rows beneath it.
  */
 export function CurrentConditions({ current }: { current: CurrentWeather }) {
-  const condition = getWeatherCondition(current.conditionCode);
+  const condition = getWeatherCondition(
+    current.conditionCode,
+    isDaytimeInManila(current.observedAt)
+  );
   const Icon = condition.icon;
   const observed = new Date(current.observedAt).toLocaleTimeString([], {
     hour: '2-digit',

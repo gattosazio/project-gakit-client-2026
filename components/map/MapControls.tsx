@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, ChevronUp, Info, Layers, ListFilter } from 'lucide-react';
+import { ChevronUp, Layers, ListFilter, RotateCwFadingClock } from 'lucide-react';
 import {
   REPORT_MARKER_COLORS,
   REPORT_STATUS_LEGEND,
@@ -29,7 +29,7 @@ const formatRainfallTime = (isoUtc: string) => {
 /**
  * Resolves the attribution mode for the current rainfall response.
  *
- * The server stitches GSMaP_NOW hours onto GSMaP_NRT v6 for multi-hour
+ * The server stitches GSMaP_NOW hours onto GSMaP_NRT for multi-hour
  * windows, so an NRT-sourced response is actually a blend; a NOW-sourced
  * multi-hour response means NRT was still cold and the facade fell back.
  */
@@ -367,22 +367,12 @@ export function DataLayerControls({
             </div>
             {rainfallSource && (
               <div className="flex items-center gap-1 pt-1 text-[10px] leading-snug text-slate-400">
-                {blended ? (
-                  <>
-                    <Info className="h-3 w-3 shrink-0 text-sky-500" />
-                    <span>
-                      GSMaP_NOW+NRT Hybrid · Hourly
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
-                    <span>
-                      GSMaP_NOW · Hourly
-                      {rainfallHours > 1 ? ' (NRT warming up)' : ''}
-                    </span>
-                  </>
-                )}
+                <RotateCwFadingClock className="h-3 w-3 shrink-0 text-sky-500" />
+                <span>
+                  {blended
+                    ? 'GSMaP_NOW+NRT Hybrid · Hourly'
+                    : `GSMaP_NOW · Hourly${rainfallHours > 1 ? ' (NRT warming up)' : ''}`}
+                </span>
               </div>
             )}
             <div className="pt-1">
