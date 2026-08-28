@@ -136,20 +136,11 @@ export function AdminHeader({
   const [readIds, setReadIds] = useState<string[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
+  const [tab, setTab] = useState<'unread' | 'read'>('unread');
   const notificationRef = useRef<HTMLDivElement | null>(null);
   const activeAlerts = useActiveAlerts();
 
-  // Single mirror of read state to localStorage; individual mutations only
-  // touch React state and this keeps storage in sync (pure updaters).
-  useEffect(() => {
-    window.localStorage.setItem('gakit-read-notifications', JSON.stringify(readIds));
-  }, [readIds]);
-
-  const notifications = useMemo<HeaderNotification[]>(
-    () => [...createNotifications(recentReports), ...(activeAlerts ?? []).map(mapWeatherToHeader)],
-    [recentReports, activeAlerts]
-  );
-
+  // Load reports and keep them fresh.
   const loadReports = useCallback(async () => {
     try {
       const reportsResult = await listReports({ limit: 10 });
@@ -159,25 +150,43 @@ export function AdminHeader({
     }
   }, []);
 
-  useEffect(() => {
-    // Seed from localStorage for an instant paint; server sync below is the
-    // cross-device source of truth.
-    const saved = window.localStorage.getItem('gakit-read-notifications');
-    const cachedIds: string[] = saved ? (JSON.parse(saved) as string[]) : [];
-    if (cachedIds.length > 0) setReadIds(cachedIds);
+  const notifications = useMemo<HeaderNotification[]>(
+    () => [...createNotifications(recentReports), ...(activeAlerts ?? []).map(mapWeatherToHeader)],
+    [recentReports, activeAlerts]
+  );
 
+  useEffect(() => {
     void loadReports();
     const interval = setInterval(loadReports, 5 * 60 * 1000);
-    // Pull receipts from Supabase so read/dismissed state follows the
-    // account, not just this browser.
+
+    // Server is the source of truth for read/dismissed state. On success we
+    // replace local state and mirror to localStorage so a refresh stays fast.
+    // On failure we fall back to the local cache so a degraded network still
+    // shows something sane (and crucially, the cache is never merged with
+    // server data, so a shared browser can no longer leak a previous
+    // account's reads into the next user's view).
     let cancelled = false;
     void (async () => {
       const receipts = await fetchNotificationReceipts();
-      if (!receipts || cancelled) return;
-      const mergedReads = [...new Set([...cachedIds, ...receipts.readIds])];
-      if (!cancelled) {
-        setReadIds(mergedReads);
+      if (cancelled) return;
+      if (receipts) {
+        setReadIds(receipts.readIds);
         setDismissedIds(receipts.dismissedIds);
+        try {
+          window.localStorage.setItem(
+            'gakit-read-notifications',
+            JSON.stringify(receipts.readIds)
+          );
+        } catch {
+          /* ignore quota errors */
+        }
+      } else {
+        try {
+          const cached = window.localStorage.getItem('gakit-read-notifications');
+          if (cached) setReadIds(JSON.parse(cached) as string[]);
+        } catch {
+          /* ignore malformed storage */
+        }
       }
     })();
 
@@ -356,7 +365,11 @@ export function AdminHeader({
             type="button"
             aria-label="Open notifications"
             aria-expanded={isOpen}
-            onClick={() => setIsOpen((open) => !open)}
+            onClick={() => {
+              const next = !isOpen;
+              setIsOpen(next);
+              if (next) setTab(unreadCount > 0 ? 'unread' : 'read');
+            }}
             className={`relative rounded-full p-2.5 ring-1 transition-colors ${
               isOpen
                 ? 'bg-maroon-50 ring-gakit-maroon'
@@ -395,25 +408,50 @@ export function AdminHeader({
                   </p>
                 ) : (
                   <>
-                    {unreadNotifications.length > 0 && (
-                      <section>
-                        <p className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                          Unread
+                    <div className="flex border-b border-canvas-grey">
+                      <button
+                        type="button"
+                        onClick={() => setTab('unread')}
+                        aria-pressed={tab === 'unread'}
+                        className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors ${
+                          tab === 'unread'
+                            ? 'border-b-2 border-gakit-maroon text-gakit-maroon'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTab('read')}
+                        aria-pressed={tab === 'read'}
+                        className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors ${
+                          tab === 'read'
+                            ? 'border-b-2 border-gakit-maroon text-gakit-maroon'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        Read{readNotifications.length > 0 ? ` (${readNotifications.length})` : ''}
+                      </button>
+                    </div>
+                    {tab === 'unread' ? (
+                      unreadNotifications.length === 0 ? (
+                        <p className="px-4 py-8 text-center text-sm text-slate-400">
+                          No unread notifications
                         </p>
+                      ) : (
                         <div className="divide-y divide-canvas-grey">
                           {unreadNotifications.map(renderItem)}
                         </div>
-                      </section>
-                    )}
-                    {readNotifications.length > 0 && (
-                      <section className={unreadNotifications.length > 0 ? 'border-t border-canvas-grey' : ''}>
-                        <p className="px-4 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                          Read
-                        </p>
-                        <div className="divide-y divide-canvas-grey">
-                          {readNotifications.map(renderItem)}
-                        </div>
-                      </section>
+                      )
+                    ) : readNotifications.length === 0 ? (
+                      <p className="px-4 py-8 text-center text-sm text-slate-400">
+                        No read notifications
+                      </p>
+                    ) : (
+                      <div className="divide-y divide-canvas-grey">
+                        {readNotifications.map(renderItem)}
+                      </div>
                     )}
                   </>
                 )}

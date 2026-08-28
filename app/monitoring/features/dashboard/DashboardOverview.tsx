@@ -17,10 +17,10 @@ const CURRENT_YEAR = String(new Date().getFullYear());
 
 export function DashboardOverview({
   active = true,
-  onReviewCritical,
+  onOpenReports,
 }: {
   active?: boolean;
-  onReviewCritical?: () => void;
+  onOpenReports?: () => void;
 }) {
   const [stats, setStats] = useState<ReportStats | null>(null);
   const [latestReports, setLatestReports] = useState<Report[]>([]);
@@ -157,7 +157,7 @@ export function DashboardOverview({
               <MapPin className="h-5 w-5 text-gakit-maroon" />
             </span>
           </div>
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-slate-500">
                 <tr>
@@ -199,6 +199,34 @@ export function DashboardOverview({
               </tbody>
             </table>
           </div>
+
+          <div className="md:hidden divide-y divide-slate-100 bg-white">
+            {latestReports.map((report) => {
+              const status = STATUS_META[report.status];
+              return (
+                <div key={report.id} className="flex items-start gap-2 p-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-mono text-xs font-semibold text-slate-900">
+                      {report.id.slice(0, 8)}
+                    </div>
+                    <div className="text-sm text-slate-600 mt-1">
+                      {report.location.address || `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`}
+                    </div>
+                    <div className="text-xs text-slate-500 mt-1">{DEPTH_LABELS[report.depth.code]}</div>
+                    <div className="text-xs text-slate-500 mt-1">{formatDateTime(report.createdAt)}</div>
+                  </div>
+                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
+                    {status.label}
+                  </span>
+                </div>
+              );
+            })}
+            {latestReports.length === 0 && (
+              <div className="px-5 py-10 text-center text-sm text-slate-500">
+                No reports submitted yet.
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex min-h-[18rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
@@ -228,10 +256,10 @@ export function DashboardOverview({
           <div className="border-t border-slate-100 p-4 md:p-5">
             <button
               type="button"
-              onClick={onReviewCritical}
+              onClick={onOpenReports}
               className="w-full rounded-xl bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-maroon-800"
             >
-              Review Reports Today
+              Review Reports
             </button>
           </div>
         </div>

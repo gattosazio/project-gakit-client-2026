@@ -12,9 +12,14 @@ vi.mock('@/lib/backend/apiCache', () => ({
   invalidateApiCache: vi.fn(),
 }));
 
-vi.mock('@/app/public-view/actions/public.view', () => ({
-  fetchMapReports: vi.fn(),
-}));
+vi.mock('@/app/public-view/actions/public.view', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/app/public-view/actions/public.view')>();
+  return {
+    ...actual,
+    fetchMapReports: vi.fn(),
+  };
+});
 
 const backendStatus = vi.hoisted(() => ({ value: 'online' as 'online' | 'warming' }));
 
@@ -80,16 +85,39 @@ afterEach(() => {
 });
 
 describe('getMapReportsPoller', () => {
-  it('returns one shared poller per recency window', () => {
+  it('returns one shared poller per distinct filter combination', () => {
     const defaultPoller = getMapReportsPoller();
-    const explicitPoller = getMapReportsPoller(DEFAULT_MAP_REPORT_WINDOW_HOURS);
-    const allTimePoller = getMapReportsPoller(null);
-    const otherWindowPoller = getMapReportsPoller(24);
+    const explicitPoller = getMapReportsPoller({
+      createdAfterHours: DEFAULT_MAP_REPORT_WINDOW_HOURS,
+    });
+    const allTimePoller = getMapReportsPoller({ createdAfterHours: null });
+    const otherWindowPoller = getMapReportsPoller({ createdAfterHours: 24 });
+    const statusFiltered = getMapReportsPoller({
+      createdAfterHours: 24,
+      status: 'VERIFIED',
+    });
+    const depthFiltered = getMapReportsPoller({
+      createdAfterHours: 24,
+      depth: 'knee',
+    });
+    const statusDepthFiltered = getMapReportsPoller({
+      createdAfterHours: 24,
+      status: 'VERIFIED',
+      depth: 'knee',
+    });
 
     expect(explicitPoller).toBe(defaultPoller);
     expect(allTimePoller).not.toBe(defaultPoller);
     expect(otherWindowPoller).not.toBe(defaultPoller);
     expect(otherWindowPoller).not.toBe(allTimePoller);
+    expect(statusFiltered).not.toBe(otherWindowPoller);
+    expect(depthFiltered).not.toBe(statusFiltered);
+    expect(statusDepthFiltered).not.toBe(statusFiltered);
+
+    // Serialization is key-order independent: same filter values, same poller.
+    expect(
+      getMapReportsPoller({ status: 'VERIFIED', createdAfterHours: 24 })
+    ).toBe(statusFiltered);
   });
 
   it('fetches once per tick regardless of subscriber count', async () => {
@@ -150,7 +178,7 @@ describe('getMapReportsPoller', () => {
       .mockResolvedValueOnce({ type: 'FeatureCollection', features: initial })
       .mockResolvedValueOnce({ type: 'FeatureCollection', features: changed });
 
-    const poller = getMapReportsPoller(null);
+    const poller = getMapReportsPoller({ createdAfterHours: null });
     const listener = vi.fn();
     const unsubscribe = poller.subscribe(listener);
 
@@ -165,13 +193,13 @@ describe('getMapReportsPoller', () => {
     unsubscribe();
   });
 
-  it('bypasses the HTTP cache on scheduled ticks with a window-scoped key', async () => {
+  it('bypasses the HTTP cache on scheduled ticks with a map-URL-scoped key', async () => {
     vi.mocked(fetchMapReports).mockResolvedValue({
       type: 'FeatureCollection',
       features: [],
     });
 
-    const poller = getMapReportsPoller(24);
+    const poller = getMapReportsPoller({ createdAfterHours: 24 });
     const unsubscribe = poller.subscribe(vi.fn());
 
     await vi.advanceTimersByTimeAsync(0);
@@ -179,7 +207,38 @@ describe('getMapReportsPoller', () => {
 
     await vi.advanceTimersByTimeAsync(REPORT_POLL_INTERVAL_MS);
     expect(invalidateApiCache).toHaveBeenCalledWith(
-      '/api/v1/reports/map?created_after_hours=24'
+      expect.stringContaining('/api/v1/reports/map?')
+    );
+    expect(invalidateApiCache).toHaveBeenCalledWith(
+      expect.stringContaining('created_after_hours=24')
+    );
+
+    unsubscribe();
+  });
+
+  it('invalidates the exact composite URL including status/depth/critical filters', async () => {
+    vi.mocked(fetchMapReports).mockResolvedValue({
+      type: 'FeatureCollection',
+      features: [],
+    });
+
+    const poller = getMapReportsPoller({
+      createdAfterHours: 24,
+      status: 'VERIFIED',
+      depth: 'knee',
+      critical: true,
+    });
+    const unsubscribe = poller.subscribe(vi.fn());
+
+    await vi.advanceTimersByTimeAsync(REPORT_POLL_INTERVAL_MS);
+    expect(invalidateApiCache).toHaveBeenCalledWith(
+      expect.stringContaining('status=VERIFIED')
+    );
+    expect(invalidateApiCache).toHaveBeenCalledWith(
+      expect.stringContaining('depth=knee')
+    );
+    expect(invalidateApiCache).toHaveBeenCalledWith(
+      expect.stringContaining('critical=true')
     );
 
     unsubscribe();

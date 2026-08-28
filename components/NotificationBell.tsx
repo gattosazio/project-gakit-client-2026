@@ -37,11 +37,13 @@ export interface NotificationItem {
   validFrom?: string;
   validTo?: string;
   data?: WeatherAlertData | null;
+  read?: boolean;
 }
 
 interface NotificationBellProps {
   notifications: NotificationItem[];
   onSelectAlert?: (alert: WeatherAlert) => void;
+  onMarkRead?: (id: string) => void;
   className?: string;
   variant?: 'header' | 'map' | 'mobile-nav';
 }
@@ -49,10 +51,12 @@ interface NotificationBellProps {
 export function NotificationBell({
   notifications,
   onSelectAlert,
+  onMarkRead,
   className = '',
   variant = 'header',
 }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<'unread' | 'read'>('unread');
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
@@ -72,7 +76,12 @@ export function NotificationBell({
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open]);
 
-  const count = notifications.length;
+  const total = notifications.length;
+  const unreadCount = notifications.filter((n) => !n.read).length;
+  const count = unreadCount;
+  const unreadNotifications = notifications.filter((n) => !n.read);
+  const readNotifications = notifications.filter((n) => n.read);
+  const activeList = tab === 'unread' ? unreadNotifications : readNotifications;
 
   const buttonClassName =
     variant === 'header'
@@ -94,7 +103,11 @@ export function NotificationBell({
     <div className={`relative ${className}`}>
       <button
         ref={buttonRef}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          const next = !open;
+          setOpen(next);
+          if (next) setTab(unreadCount > 0 ? 'unread' : 'read');
+        }}
         className={buttonClassName}
         title={`${count} notification${count !== 1 ? 's' : ''}`}
         aria-label="Notifications"
@@ -134,7 +147,7 @@ export function NotificationBell({
             <div>
               <p className="text-sm font-semibold text-slate-900">Notifications</p>
               <p className="text-xs text-slate-500">
-                {count > 0 ? `${count} active alert${count !== 1 ? 's' : ''}` : 'No alerts'}
+                {total > 0 ? `${total} active alert${total !== 1 ? 's' : ''}` : 'No alerts'}
               </p>
             </div>
             <button
@@ -146,14 +159,48 @@ export function NotificationBell({
             </button>
           </div>
 
+          {/* Tabs */}
+          {total > 0 && (
+            <div className="flex border-b border-canvas-grey">
+              <button
+                type="button"
+                onClick={() => setTab('unread')}
+                aria-pressed={tab === 'unread'}
+                className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors ${
+                  tab === 'unread'
+                    ? 'border-b-2 border-gakit-maroon text-gakit-maroon'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Unread{unreadCount > 0 ? ` (${unreadCount})` : ''}
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab('read')}
+                aria-pressed={tab === 'read'}
+                className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors ${
+                  tab === 'read'
+                    ? 'border-b-2 border-gakit-maroon text-gakit-maroon'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                Read{readNotifications.length > 0 ? ` (${readNotifications.length})` : ''}
+              </button>
+            </div>
+          )}
+
           {/* List */}
-          {count === 0 ? (
+          {total === 0 ? (
             <div className="px-4 py-8 text-center text-sm text-slate-400">
               No notifications
             </div>
+          ) : activeList.length === 0 ? (
+            <div className="px-4 py-8 text-center text-sm text-slate-400">
+              {tab === 'unread' ? 'No unread notifications' : 'No read notifications'}
+            </div>
           ) : (
             <div className="max-h-80 divide-y divide-canvas-grey overflow-y-auto">
-              {notifications.map((item) => {
+              {activeList.map((item) => {
                 const config = SEVERITY_CONFIG[item.severity];
                 const Icon = item.alertType ? (ALERT_ICONS[item.alertType] ?? CloudRain) : Bell;
                 const typeLabel = item.alertType ? ALERT_TYPE_LABELS[item.alertType] : '';
@@ -162,6 +209,7 @@ export function NotificationBell({
                     key={item.id}
                     type="button"
                     onClick={() => {
+                      if (onMarkRead) onMarkRead(item.id);
                       if (onSelectAlert) {
                         onSelectAlert({
                           id: item.id.replace('weather-', ''),

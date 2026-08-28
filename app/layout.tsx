@@ -36,7 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link
           rel="preload"
           as="fetch"
-          href="https://tiles.openfreemap.org/styles/bright"
+          href="https://tiles.openfreemap.org/styles/positron"
           crossOrigin="anonymous"
         />
       </head>

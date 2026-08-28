@@ -196,6 +196,7 @@ export function SideBar<T extends string>({
             alt="GAKIT logo"
             width={160}
             height={48}
+            priority
             className="h-full w-full object-contain"
           />
         </div>

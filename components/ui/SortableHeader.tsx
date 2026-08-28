@@ -1,6 +1,6 @@
 'use client';
 
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react';
 import type { SortState } from '@/hooks/useSortableTable';
 
 export function SortableHeader<Column extends string>({
@@ -14,6 +14,7 @@ export function SortableHeader<Column extends string>({
   sort: SortState<Column>;
   onSort: (column: Column) => void;
 }) {
+  const isActive = sort.column === column;
   return (
     <th className="px-6 py-3 font-semibold text-left">
       <button
@@ -22,13 +23,15 @@ export function SortableHeader<Column extends string>({
         className="inline-flex items-center gap-1 hover:text-slate-900"
       >
         {label}
-        <ChevronDown
-          className={`h-3.5 w-3.5 transition-transform ${
-            sort.column === column && sort.direction === 'asc'
-              ? 'rotate-180'
-              : ''
-          }`}
-        />
+        {isActive ? (
+          sort.direction === 'asc' ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )
+        ) : (
+          <ChevronsUpDown className="h-3.5 w-3.5 text-slate-300" />
+        )}
       </button>
     </th>
   );

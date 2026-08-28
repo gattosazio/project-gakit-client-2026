@@ -5,7 +5,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from '@/components/ReportModal';
-import { Building2, Handshake, Loader2, Mail, MapPin, Locate } from 'lucide-react';
+import { Building2, Handshake, Loader2, Locate, LocateFixed, Mail, MapPin } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth } from './actions/public.view';
 import { reverseGeocode } from '@/lib/map/geoUtils';
@@ -48,6 +48,8 @@ export function PublicViewPage({
   const [lastSubmittedReport, setLastSubmittedReport] = useState<SubmittedReport | null>(null);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Fetching reports…');
+  const [isLocating, setIsLocating] = useState(false);
+  const [isLocated, setIsLocated] = useState(false);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -153,33 +155,56 @@ export function PublicViewPage({
   }, []);
 
   const handleUseCurrentLocation = useCallback(() => {
-    if (!navigator.geolocation) {
-      toast.error('Location sharing is not supported by this browser.', {
-        position: 'top-right',
-        autoClose: 3000,
-      });
-      return;
-    }
+    const attempt = (canRetry: boolean) => {
+      if (!navigator.geolocation) {
+        toast.error('Location sharing is not supported by this browser.', {
+          position: 'top-right',
+          autoClose: 3000,
+        });
+        return;
+      }
 
-    setIsLocationPromptOpen(false);
-    setIsManualLocationMode(false);
-    navigator.geolocation.getCurrentPosition((position) => {
-      const { latitude, longitude } = position.coords;
-      const fallbackLocation = {
-        lat: latitude,
-        lng: longitude,
-        address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-      };
+      setIsLocationPromptOpen(false);
+      setIsManualLocationMode(false);
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          const fallbackLocation = {
+            lat: latitude,
+            lng: longitude,
+            address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
+          };
 
-      setSelectedLocation(fallbackLocation);
-      setIsModalOpen(true);
-      void resolveLocation(latitude, longitude).then(setSelectedLocation);
-    }, () => {
-      toast.error('Unable to get your location. Please allow location access.', {
-        position: 'top-right',
-        autoClose: 3000,
-      });
-    });
+          setSelectedLocation(fallbackLocation);
+          setIsModalOpen(true);
+          void resolveLocation(latitude, longitude).then(setSelectedLocation);
+        },
+        (error) => {
+          if (canRetry && error.code !== 1) {
+            attempt(false);
+            return;
+          }
+          if (error.code === 1) {
+            toast.error('To use your location, allow location access for this site.', {
+              position: 'top-right',
+              autoClose: 4000,
+            });
+          } else if (error.code === 3) {
+            toast.error('Location request timed out. Please try again.', {
+              position: 'top-right',
+              autoClose: 4000,
+            });
+          } else {
+            toast.error("Couldn't get your location. Please try again.", {
+              position: 'top-right',
+              autoClose: 4000,
+            });
+          }
+        },
+        { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 }
+      );
+    };
+    attempt(true);
   }, []);
 
   const handleChooseLocation = useCallback(() => {
@@ -198,6 +223,7 @@ export function PublicViewPage({
   const handleSearchedLocationSelect = useCallback((location: SelectedLocation) => {
     if (isModalOpen) return;
     setIsLocationPromptOpen(false);
+    setIsLocated(false);
     mapRef.current?.focusLocation(location);
     setSelectedLocation(location);
     setIsModalOpen(true);
@@ -273,12 +299,26 @@ export function PublicViewPage({
                     <LocationSearch onSelect={handleSearchedLocationSelect} />
                   </div>
                   <button
-                    onClick={() => mapRef.current?.shareMyLocation()}
-                    className="flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl bg-white/90 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur-sm"
-                    title="Use my current location"
-                    aria-label="Use my current location"
+                    onClick={async () => {
+                      setIsLocating(true);
+                      try {
+                        const ok = (await mapRef.current?.shareMyLocation()) ?? false;
+                        if (ok) setIsLocated(true);
+                      } finally {
+                        setIsLocating(false);
+                      }
+                    }}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/90 p-2 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur-sm"
+                    title={isLocated ? 'Using your current location' : 'Use my current location'}
+                    aria-label={isLocated ? 'Using your current location' : 'Use my current location'}
                   >
-                    <Locate className="h-5 w-5 text-gakit-maroon" />
+                    {isLocating ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-gakit-maroon" />
+                    ) : isLocated ? (
+                      <LocateFixed className="h-5 w-5 text-gakit-maroon" />
+                    ) : (
+                      <Locate className="h-5 w-5 text-gakit-maroon" />
+                    )}
                   </button>
                 </div>
               )}
@@ -299,6 +339,7 @@ export function PublicViewPage({
                 searchOverlayActive={isManualLocationMode}
                 weatherExpandedByDefault
                 hideShareLocation
+                fullScreen
               />
 
               <LocationPromptModal
@@ -316,10 +357,14 @@ export function PublicViewPage({
                   setIsModalOpen(false);
                   setSelectedLocation(null);
                   setIsManualLocationMode(true);
+                  setIsLocated(false);
                 }}
               selectedLocation={selectedLocation}
               onSubmit={handleReportSubmit}
-              onSuccess={() => setIsSuccessOpen(true)}
+              onSuccess={() => {
+                  setIsLocated(false);
+                  setIsSuccessOpen(true);
+                }}
               onCheckLocation={handleCheckLocation}
               rainfallHours={mapRef.current?.getRainfallHours?.() ?? 1}
             />
@@ -365,13 +410,15 @@ export function PublicViewPage({
             <div className="space-y-4 lg:pt-7">
               <div className="rounded-2xl border border-white/20 bg-white p-6 text-slate-900 shadow-xl shadow-black/10">
                 <div className="flex items-center gap-4">
-                  <Image
-                    src="/images/iit-logo.png"
-                    alt="MSU-IIT Logo"
-                    width={64}
-                    height={64}
-                    className="h-16 w-16 object-contain"
-                  />
+                  <div className="relative h-16 w-16 shrink-0">
+                    <Image
+                      src="/images/iit-logo.png"
+                      alt="MSU-IIT Logo"
+                      fill
+                      sizes="64px"
+                      className="object-contain"
+                    />
+                  </div>
                   <div>
                     <div className="text-xs font-bold uppercase tracking-[0.14em] text-gakit-maroon">
                       GAKIT is a project of

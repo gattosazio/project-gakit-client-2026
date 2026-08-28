@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Info, LogOut, MapPinned, UserRound, BookOpen } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -34,6 +34,29 @@ export function PublicHeader({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const activeAlerts = useActiveAlerts();
+  const [readAlertIds, setReadAlertIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('gakit:read-alerts');
+      if (stored) setReadAlertIds(JSON.parse(stored));
+    } catch {
+      /* ignore malformed storage */
+    }
+  }, []);
+
+  const markAlertRead = useCallback((id: string) => {
+    setReadAlertIds((current) => {
+      if (current.includes(id)) return current;
+      const next = [...current, id];
+      try {
+        localStorage.setItem('gakit:read-alerts', JSON.stringify(next));
+      } catch {
+        /* ignore quota errors */
+      }
+      return next;
+    });
+  }, []);
   const weatherNotifications = useMemo<NotificationItem[]>(
     () =>
       (activeAlerts ?? []).map((a) => ({
@@ -46,8 +69,9 @@ export function PublicHeader({
         validFrom: a.validFrom,
         validTo: a.validTo,
         data: a.data ?? null,
+        read: readAlertIds.includes(a.id),
       })),
-    [activeAlerts]
+    [activeAlerts, readAlertIds]
   );
   const [selectedAlert, setSelectedAlert] = useState<WeatherAlert | null>(null);
 
@@ -165,6 +189,7 @@ export function PublicHeader({
                 alt="GAKIT logo"
                 width={160}
                 height={48}
+                priority
                 className="h-full w-full object-contain"
               />
             </div>
@@ -216,6 +241,7 @@ export function PublicHeader({
           <NotificationBell
             notifications={weatherNotifications}
             onSelectAlert={setSelectedAlert}
+            onMarkRead={markAlertRead}
             variant="header"
           />
           {email && (
@@ -319,6 +345,7 @@ export function PublicHeader({
           <NotificationBell
             notifications={weatherNotifications}
             onSelectAlert={setSelectedAlert}
+            onMarkRead={markAlertRead}
             variant="mobile-nav"
           />
           {!isChecking && (

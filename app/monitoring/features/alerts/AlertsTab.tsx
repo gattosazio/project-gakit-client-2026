@@ -6,6 +6,8 @@ import {
   AlertTriangle,
   BellRing,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   Clock,
   CloudRain,
   Eye,
@@ -107,6 +109,8 @@ export function AlertsTab({
   const [filter, setFilter] = useState<'all' | NotificationType>('all');
   const [dateFilter, setDateFilter] = useState<'24h' | '7d' | 'all'>('24h');
   const [dismissConfirmId, setDismissConfirmId] = useState<string | null>(null);
+  const [readCollapsed, setReadCollapsed] = useState(false);
+  const [unreadCollapsed, setUnreadCollapsed] = useState(false);
   const { sort, toggleSort } = useSortableTable<SortColumn>({
     column: 'sentAt',
     direction: 'desc',
@@ -302,6 +306,7 @@ export function AlertsTab({
     if (ids.length === 0) return;
     setReadIds((cur) => [...new Set([...cur, ...ids])]);
     void markNotificationsRead(ids);
+    setReadCollapsed(false);
   }, [unreadNotifications]);
 
   return (
@@ -378,97 +383,148 @@ export function AlertsTab({
                     <th className="px-5 py-3 font-semibold">Actions</th>
                   </tr>
                 </thead>
-                {pagedUnreadNotifications.length > 0 && (
-                  <tbody className="divide-y divide-canvas-grey">
-                    <tr>
-                      <td
-                        colSpan={6}
-                        className="bg-canvas-light px-6 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500"
+                <tbody className="divide-y divide-canvas-grey">
+                  <tr>
+                    <td colSpan={6} className="bg-canvas-light px-0 py-0">
+                      <button
+                        type="button"
+                        onClick={() => setUnreadCollapsed((collapsed) => !collapsed)}
+                        aria-expanded={!unreadCollapsed}
+                        className="flex w-full items-center gap-2 px-6 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700"
                       >
+                        {unreadCollapsed ? (
+                          <ChevronRight className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
                         Unread
-                      </td>
-                    </tr>
-                    {pagedUnreadNotifications.map((notification) => (
-                      <NotificationRow
-                        key={notification.id}
-                        notification={notification}
-                        onOpenReports={onOpenReports}
-                        onSelectWeatherAlert={onSelectWeatherAlert}
-                        onMarkRead={markAsRead}
-                        onDismiss={setDismissConfirmId}
-                        isRead={false}
-                        highlighted={activeHighlightedId === notification.id}
-                      />
+                      </button>
+                    </td>
+                  </tr>
+                  {!unreadCollapsed &&
+                    (pagedUnreadNotifications.length > 0 ? (
+                      pagedUnreadNotifications.map((notification) => (
+                        <NotificationRow
+                          key={notification.id}
+                          notification={notification}
+                          onOpenReports={onOpenReports}
+                          onSelectWeatherAlert={onSelectWeatherAlert}
+                          onMarkRead={markAsRead}
+                          onDismiss={setDismissConfirmId}
+                          isRead={false}
+                          highlighted={activeHighlightedId === notification.id}
+                        />
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-4 text-sm text-slate-400">
+                          No unread notifications.
+                        </td>
+                      </tr>
                     ))}
-                  </tbody>
-                )}
+                </tbody>
                 {pagedReadNotifications.length > 0 && (
                   <tbody className={`divide-y divide-canvas-grey ${pagedUnreadNotifications.length > 0 ? 'border-t-2 border-canvas-grey' : ''}`}>
                     <tr>
-                      <td
-                        colSpan={6}
-                        className="bg-canvas-light px-6 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500"
-                      >
-                        Read
+                      <td colSpan={6} className="bg-canvas-light px-0 py-0">
+                        <button
+                          type="button"
+                          onClick={() => setReadCollapsed((collapsed) => !collapsed)}
+                          aria-expanded={!readCollapsed}
+                          className="flex w-full items-center gap-2 px-6 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700"
+                        >
+                          {readCollapsed ? (
+                            <ChevronRight className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                          Read ({pagedReadNotifications.length})
+                        </button>
                       </td>
                     </tr>
-                    {pagedReadNotifications.map((notification) => (
-                      <NotificationRow
-                        key={notification.id}
-                        notification={notification}
-                        onOpenReports={onOpenReports}
-                        onSelectWeatherAlert={onSelectWeatherAlert}
-                        onMarkRead={markAsRead}
-                        onDismiss={setDismissConfirmId}
-                        isRead={true}
-                        highlighted={activeHighlightedId === notification.id}
-                      />
-                    ))}
+                    {!readCollapsed &&
+                      pagedReadNotifications.map((notification) => (
+                        <NotificationRow
+                          key={notification.id}
+                          notification={notification}
+                          onOpenReports={onOpenReports}
+                          onSelectWeatherAlert={onSelectWeatherAlert}
+                          onMarkRead={markAsRead}
+                          onDismiss={setDismissConfirmId}
+                          isRead={true}
+                          highlighted={activeHighlightedId === notification.id}
+                        />
+                      ))}
                   </tbody>
                 )}
               </table>
             </div>
             <div className="md:hidden">
-              {pagedUnreadNotifications.length > 0 && (
-                <section className="border-b border-canvas-grey">
-                  <p className="bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Unread
-                  </p>
-                  <div className="divide-y divide-canvas-grey">
-                    {pagedUnreadNotifications.map((notification) => (
-                      <NotificationCard
-                        key={notification.id}
-                        notification={notification}
-                        onOpenReports={onOpenReports}
-                        onSelectWeatherAlert={onSelectWeatherAlert}
-                        onMarkRead={markAsRead}
-                        onDismiss={setDismissConfirmId}
-                        isRead={false}
-                        highlighted={activeHighlightedId === notification.id}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
+              <section className="border-b border-canvas-grey">
+                <button
+                  type="button"
+                  onClick={() => setUnreadCollapsed((collapsed) => !collapsed)}
+                  aria-expanded={!unreadCollapsed}
+                  className="flex w-full items-center gap-2 bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700"
+                >
+                  {unreadCollapsed ? (
+                    <ChevronRight className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                  Unread
+                </button>
+                {!unreadCollapsed &&
+                  (pagedUnreadNotifications.length > 0 ? (
+                    <div className="divide-y divide-canvas-grey">
+                      {pagedUnreadNotifications.map((notification) => (
+                        <NotificationCard
+                          key={notification.id}
+                          notification={notification}
+                          onOpenReports={onOpenReports}
+                          onSelectWeatherAlert={onSelectWeatherAlert}
+                          onMarkRead={markAsRead}
+                          onDismiss={setDismissConfirmId}
+                          isRead={false}
+                          highlighted={activeHighlightedId === notification.id}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="px-4 py-4 text-sm text-slate-400">No unread notifications.</p>
+                  ))}
+              </section>
               {pagedReadNotifications.length > 0 && (
                 <section className={pagedUnreadNotifications.length > 0 ? 'border-t border-canvas-grey' : ''}>
-                  <p className="bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500">
-                    Read
-                  </p>
-                  <div className="divide-y divide-canvas-grey">
-                    {pagedReadNotifications.map((notification) => (
-                      <NotificationCard
-                        key={notification.id}
-                        notification={notification}
-                        onOpenReports={onOpenReports}
-                        onSelectWeatherAlert={onSelectWeatherAlert}
-                        onMarkRead={markAsRead}
-                        onDismiss={setDismissConfirmId}
-                        isRead={true}
-                        highlighted={activeHighlightedId === notification.id}
-                      />
-                    ))}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setReadCollapsed((collapsed) => !collapsed)}
+                    aria-expanded={!readCollapsed}
+                    className="flex w-full items-center gap-2 bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700"
+                  >
+                    {readCollapsed ? (
+                      <ChevronRight className="h-4 w-4" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4" />
+                    )}
+                    Read ({pagedReadNotifications.length})
+                  </button>
+                  {!readCollapsed && (
+                    <div className="divide-y divide-canvas-grey">
+                      {pagedReadNotifications.map((notification) => (
+                        <NotificationCard
+                          key={notification.id}
+                          notification={notification}
+                          onOpenReports={onOpenReports}
+                          onSelectWeatherAlert={onSelectWeatherAlert}
+                          onMarkRead={markAsRead}
+                          onDismiss={setDismissConfirmId}
+                          isRead={true}
+                          highlighted={activeHighlightedId === notification.id}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </section>
               )}
             </div>
