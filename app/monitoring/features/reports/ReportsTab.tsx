@@ -48,7 +48,7 @@ export function ReportsTab({
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | ReportStatus>('All');
   const [depthFilter, setDepthFilter] = useState<'All' | FloodDepthCode>('All');
-  const [timeFilter, setTimeFilter] = useState('24h');
+  const [timeFilter, setTimeFilter] = useState('48h');
   const [criticalFilter, setCriticalFilter] = useState(initialCritical);
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -157,7 +157,7 @@ export function ReportsTab({
     (query || '').trim() !== '' ||
     statusFilter !== 'All' ||
     depthFilter !== 'All' ||
-    timeFilter !== '24h' ||
+    timeFilter !== '48h' ||
     Boolean(criticalFilter) ||
     activeHighlightedId !== null;
 
@@ -165,7 +165,7 @@ export function ReportsTab({
     setQuery('');
     setStatusFilter('All');
     setDepthFilter('All');
-    setTimeFilter('24h');
+    setTimeFilter('48h');
     setCriticalFilter(false);
     setCurrentPage(1);
     setActiveHighlightedId(null);

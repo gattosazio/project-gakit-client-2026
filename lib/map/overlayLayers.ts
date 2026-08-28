@@ -168,7 +168,7 @@ export const setupOverlayLayers = async (
       data: { type: 'FeatureCollection', features: [] },
       cluster: true,
       clusterMaxZoom: 14,
-      clusterRadius: 25,
+      clusterRadius: 15,
     });
 
     REPORT_STATUS_LEGEND.forEach(({ status }) => {
@@ -198,7 +198,7 @@ export const setupOverlayLayers = async (
         'circle-color': '#6366f1',
         'circle-radius': [
           'interpolate', ['linear'], ['get', 'point_count'],
-          2, 15, 5, 18, 10, 20, 25, 23, 50, 24,
+          2, 11, 5, 12.5, 10, 14, 25, 16, 50, 17,
         ],
         'circle-stroke-width': 2.5,
         'circle-stroke-color': '#ffffff',
