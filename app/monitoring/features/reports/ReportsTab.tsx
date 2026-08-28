@@ -75,12 +75,20 @@ export function ReportsTab({
 
   const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
 
+  // Sync highlight/filters when the `highlightedReportId` prop changes.
   useEffect(() => {
     if (!highlightedReportId) return;
-    setActiveHighlightedId(highlightedReportId);
-    setQuery(highlightedReportId);
-    setTimeFilter('all');
-    setCurrentPage(1);
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setActiveHighlightedId(highlightedReportId);
+      setQuery(highlightedReportId);
+      setTimeFilter('all');
+      setCurrentPage(1);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [highlightedReportId]);
 
   // Click-away listener: dismisses the maroon highlight when clicking outside the highlighted row

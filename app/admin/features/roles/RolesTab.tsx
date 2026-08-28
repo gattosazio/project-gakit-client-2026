@@ -26,11 +26,10 @@ export function RolesTab({ active = true }: { active?: boolean }) {
 
   useEffect(() => {
     if (!active) return;
-    setLoading(true);
-    setError(null);
     void listRoles()
       .then((result) => {
         setRoles(result);
+        setError(null);
         setToggleError(null);
       })
       .catch((err: unknown) => {

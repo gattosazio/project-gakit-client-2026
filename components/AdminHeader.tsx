@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
   CloudRain,
@@ -137,18 +137,9 @@ export function AdminHeader({
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [tab, setTab] = useState<'unread' | 'read'>('unread');
+  const [now, setNow] = useState(0);
   const notificationRef = useRef<HTMLDivElement | null>(null);
   const activeAlerts = useActiveAlerts();
-
-  // Load reports and keep them fresh.
-  const loadReports = useCallback(async () => {
-    try {
-      const reportsResult = await listReports({ limit: 10 });
-      setRecentReports(reportsResult.items);
-    } catch {
-      setRecentReports([]);
-    }
-  }, []);
 
   const notifications = useMemo<HeaderNotification[]>(
     () => [...createNotifications(recentReports), ...(activeAlerts ?? []).map(mapWeatherToHeader)],
@@ -156,8 +147,17 @@ export function AdminHeader({
   );
 
   useEffect(() => {
-    void loadReports();
-    const interval = setInterval(loadReports, 5 * 60 * 1000);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const reportsResult = await listReports({ limit: 10 });
+        if (!cancelled) setRecentReports(reportsResult.items);
+      } catch {
+        if (!cancelled) setRecentReports([]);
+      }
+    };
+    void load();
+    const interval = setInterval(load, 5 * 60 * 1000);
 
     // Server is the source of truth for read/dismissed state. On success we
     // replace local state and mirror to localStorage so a refresh stays fast.
@@ -165,7 +165,6 @@ export function AdminHeader({
     // shows something sane (and crucially, the cache is never merged with
     // server data, so a shared browser can no longer leak a previous
     // account's reads into the next user's view).
-    let cancelled = false;
     void (async () => {
       const receipts = await fetchNotificationReceipts();
       if (cancelled) return;
@@ -194,7 +193,7 @@ export function AdminHeader({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [loadReports]);
+  }, []);
 
   // Keep read/dismissed state in sync with other surfaces (alerts inbox)
   useEffect(
@@ -211,7 +210,17 @@ export function AdminHeader({
     // change). Payloads are ignored; the existing loader is the source of
     // truth. Debounced to coalesce bursts (bulk status updates etc).
     const supabase = createClient();
+    let cancelled = false;
     let debounce: ReturnType<typeof setTimeout> | null = null;
+
+    const load = async () => {
+      try {
+        const reportsResult = await listReports({ limit: 10 });
+        if (!cancelled) setRecentReports(reportsResult.items);
+      } catch {
+        if (!cancelled) setRecentReports([]);
+      }
+    };
 
     const channel = supabase
       .channel('admin-notifications-feed')
@@ -220,16 +229,17 @@ export function AdminHeader({
         { event: '*', schema: 'public', table: 'reports' },
         () => {
           if (debounce) clearTimeout(debounce);
-          debounce = setTimeout(() => void loadReports(), 1500);
+          debounce = setTimeout(() => void load(), 1500);
         }
       )
       .subscribe();
 
     return () => {
+      cancelled = true;
       if (debounce) clearTimeout(debounce);
       void supabase.removeChannel(channel);
     };
-  }, [loadReports]);
+  }, []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -244,9 +254,25 @@ export function AdminHeader({
     return () => window.removeEventListener('mousedown', close);
   }, [isOpen]);
 
+  // Keep `now` current so the "last 24 hours" cutoff in recentNotifications
+  // stays accurate without calling an impure function during render.
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) setNow(Date.now());
+    });
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
   const recentNotifications = useMemo(() => {
-    // Only show notifications from the last 24 hours, excluding dismissed ones
-    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    // Only show notifications from the last 24 hours, excluding dismissed ones.
+    // `now` is refreshed on mount and every minute so the cutoff stays current
+    // without calling an impure function during render.
+    const cutoff = now - 24 * 60 * 60 * 1000;
     return [...notifications]
       .filter(
         (notification) =>
@@ -258,7 +284,7 @@ export function AdminHeader({
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       )
       .slice(0, 5);
-  }, [dismissedIds, notifications]);
+  }, [dismissedIds, notifications, now]);
 
   const unreadNotifications = useMemo(
     () =>

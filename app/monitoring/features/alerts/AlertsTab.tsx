@@ -116,8 +116,18 @@ export function AlertsTab({
     direction: 'desc',
   });
 
+  // Sync the highlight with the notification URL param. Deferred to a microtask
+  // so it isn't a synchronous setState inside the effect body (and respects any
+  // manual click-away clear until the param actually changes).
   useEffect(() => {
-    setActiveHighlightedId(notificationParam);
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setActiveHighlightedId(notificationParam);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [notificationParam]);
 
   // Click-away listener: dismisses the maroon highlight when clicking outside the highlighted row/card
@@ -135,30 +145,33 @@ export function AlertsTab({
     return () => window.removeEventListener('mousedown', handleClickAway);
   }, [activeHighlightedId]);
 
-  const loadNotifications = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const [reportsResult, weatherResult] = await Promise.all([
-        listReports({ limit: 100 }),
-        fetchAlertHistory(0, 50).catch(() => ({ items: [], total: 0, offset: 0, limit: 50 })),
-      ]);
-      setReports(reportsResult.items);
-      setWeatherAlerts(weatherResult.items);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Unable to load notifications.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
     if (!active) return;
-    void loadNotifications();
-  }, [active, loadNotifications]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [reportsResult, weatherResult] = await Promise.all([
+          listReports({ limit: 100 }),
+          fetchAlertHistory(0, 50).catch(() => ({ items: [], total: 0, offset: 0, limit: 50 })),
+        ]);
+        if (!cancelled) {
+          setReports(reportsResult.items);
+          setWeatherAlerts(weatherResult.items);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Unable to load notifications.'
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active]);
 
   useEffect(() => {
     if (!active) return;
@@ -259,7 +272,14 @@ export function AlertsTab({
 
   const [page, setPage] = useState(1);
   useEffect(() => {
-    setPage(1);
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setPage(1);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [filter, dateFilter, sort]);
 
   const orderedNotifications = useMemo(

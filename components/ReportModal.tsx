@@ -94,40 +94,51 @@ export function ReportModal({
   const [isCheckingElevation, setIsCheckingElevation] = useState(false);
   const lastElevationKey = useRef('');
 
+  // Reset transient form state when the modal opens/closes.
   useEffect(() => {
-    if (isOpen) setStep('confirm');
-    if (!isOpen) setCustomCm('');
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      if (isOpen) setStep('confirm');
+      else setCustomCm('');
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen]);
 
   // Keep the exact-centimeter input in step with any selection source
   // (strips, presets, or typing into the input itself).
   useEffect(() => {
-    if (selectedCm != null) setCustomCm(String(selectedCm));
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      if (selectedCm != null) setCustomCm(String(selectedCm));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [selectedCm]);
 
   useEffect(() => {
-    if (!isOpen || step !== 'confirm' || !selectedLocation) {
-      setIsCheckingElevation(false);
-      return;
-    }
+    if (!isOpen || step !== 'confirm' || !selectedLocation) return;
     const key = `${selectedLocation.lat},${selectedLocation.lng}`;
     if (key === lastElevationKey.current) return;
     lastElevationKey.current = key;
 
     let cancelled = false;
-    setIsCheckingElevation(true);
-
     const abort = new AbortController();
-    void getElevation(selectedLocation.lat, selectedLocation.lng, abort.signal)
-      .then((elev) => {
+    void (async () => {
+      setIsCheckingElevation(true);
+      try {
+        const elev = await getElevation(selectedLocation.lat, selectedLocation.lng, abort.signal);
         if (!cancelled) setElevation(elev);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setElevation(null);
-      })
-      .finally(() => {
-        setIsCheckingElevation(false);
-      });
+      } finally {
+        if (!cancelled) setIsCheckingElevation(false);
+      }
+    })();
 
     return () => {
       cancelled = true;
@@ -141,19 +152,18 @@ export function ReportModal({
     }
 
     let cancelled = false;
-    setIsCheckingLocation(true);
-    setLocationRisk(null);
-
-    void onCheckLocation(selectedLocation)
-      .then((risk) => {
+    void (async () => {
+      setIsCheckingLocation(true);
+      setLocationRisk(null);
+      try {
+        const risk = await onCheckLocation(selectedLocation);
         if (!cancelled) setLocationRisk(risk);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) setLocationRisk({ hazardLevel: null, precipMm: null });
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setIsCheckingLocation(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;

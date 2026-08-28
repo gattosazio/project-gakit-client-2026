@@ -858,16 +858,12 @@ export function PublicMap({
   useEffect(() => {
     if (!mapContainer.current || !maplibregl) return;
 
-    // Next.js 14 + webpack rewrites `import.meta.url` inside
-    // maplibre-gl/dist/maplibre-gl.mjs to a local file:// path during
-    // compilation. MapLibre uses that URL to locate its worker, so the worker
-    // fails to load (blank map, no tiles). The bundler-native
-    // `new URL('maplibre-gl/dist/...', import.meta.url)` pattern also fails
-    // here: webpack emits the worker as a static .mjs asset and Terser then
-    // tries to minify it as a plain script, erroring on `import`/`export`.
-    // The reliable fix for this stack is to serve the worker (and its shared
-    // chunk) from /public and point MapLibre at it explicitly. Keep both
-    // files in sync with the installed maplibre-gl version.
+    // MapLibre's worker must be served from a stable public URL. Under
+    // Next.js the bundler-native `new Worker(new URL('maplibre-gl/dist/...',
+    // import.meta.url))` resolution fails at runtime (blank map, no tiles) on
+    // both webpack+Terser and Turbopack, so we point MapLibre at the vendored
+    // copy in /public/vendor/maplibre-gl (kept in sync via
+    // scripts/sync-maplibre-worker.mjs, run on postinstall).
     maplibregl.setWorkerUrl('/vendor/maplibre-gl/maplibre-gl-worker.mjs');
 
     // Start with the 2D OpenFreeMap basemap (no API key required). The 3D

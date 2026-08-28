@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import { getMapReportsPoller } from '@/lib/reports/reportsPoller';
 import type { MapReportFeature, MapReportFilters } from '@/types/report';
 
@@ -21,7 +21,9 @@ export function useReportsLayer(filters?: MapReportFilters) {
   );
 
   const backendReportsRef = useRef<MapReportFeature[]>([]);
-  backendReportsRef.current = state.data ?? EMPTY_FEATURES;
+  useEffect(() => {
+    backendReportsRef.current = state.data ?? EMPTY_FEATURES;
+  }, [state.data]);
 
   return {
     backendReports: state.data ?? EMPTY_FEATURES,

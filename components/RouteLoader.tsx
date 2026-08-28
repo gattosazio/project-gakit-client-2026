@@ -9,8 +9,16 @@ export function useRouteLoader() {
   const pathname = usePathname();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Clear the loading overlay whenever the route (pathname) actually changes.
   useEffect(() => {
-    setIsLoading(false);
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      setIsLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [pathname]);
 
   const navigate = (path: string) => {
