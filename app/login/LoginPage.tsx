@@ -71,25 +71,10 @@ export function LoginPage() {
             <ArrowLeft className="w-4 h-4" />
             Back to Home
           </Link>
-
-          <Link href="/" className="flex items-center gap-3 mb-10">
-            <div className="w-9 h-9 bg-gakit-maroon rounded-lg flex items-center justify-center shadow-sm">
-              <span className="text-white font-bold text-sm">GK</span>
-            </div>
-            <div>
-              <div className="text-lg font-bold text-slate-900 leading-tight">
-                Project GAKIT
-              </div>
-              <div className="text-xs text-slate-500 font-medium">
-                Flood Assessment Reporting
-              </div>
-            </div>
-          </Link>
-
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-slate-900">Staff Sign in</h1>
+            <h1 className="text-3xl font-bold text-slate-900">Sign in</h1>
             <p className="text-sm text-slate-600 mt-2">
-              This sign in is for GAKIT staff and responders. Public flood reports are
+              This sign in is for GAKIT officials. Public flood reports are
               anonymous and don&apos;t require an account.
             </p>
           </div>
@@ -172,12 +157,6 @@ export function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 text-center text-sm">
-            <Link href="/" className="font-semibold text-gakit-maroon hover:text-maroon-800">
-              Submit a public flood report &mdash; no account needed
-            </Link>
-          </div>
-
           <div className="mt-8 pt-6 border-t border-canvas-grey text-center text-sm text-slate-600">
             Don&apos;t have an account?{' '}
             <button
@@ -203,9 +182,7 @@ export function LoginPage() {
         <div className="absolute inset-0 bg-gakit-maroon/35" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" />
         <div className="relative z-10 p-12 max-w-3xl">
-          <div className="text-sm font-semibold text-white/80 mb-3">
-            Project GAKIT
-          </div>
+          {/* palceholder for project gakit logo */}
           <h2 className="text-5xl font-bold text-white leading-tight">
             Geohazard Assessment & Knowledge Integration Tool
           </h2>
