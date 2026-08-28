@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 import { canAccessPath, getStaffRole, homePathForRole } from '@/lib/auth/roles';
 
-const PROTECTED_PREFIXES = ['/admin', '/monitoring'];
+const PROTECTED_PREFIXES = ['/admin', '/monitoring', '/settings'];
 
 function redirectTo(request: NextRequest, pathname: string) {
   const url = request.nextUrl.clone();

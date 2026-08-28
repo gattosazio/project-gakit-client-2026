@@ -7,7 +7,7 @@ import { DEPTH_LABELS, REFERENCE_LABELS, STATUS_META, formatDateTime } from '@/l
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type { FloodDepthCode, FloodReference, Report, ReportStatus } from '@/types/report';
 import { toast } from 'react-toastify';
-import { FeaturePageShell } from '../shared/FeaturePageShell';
+import { FeaturePageShell } from '@/components/FeaturePageShell';
 import { createReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
 import { ReportDetail } from './ReportDetail';
 import {

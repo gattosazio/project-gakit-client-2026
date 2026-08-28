@@ -16,6 +16,7 @@ interface SideBarProps<T extends string> {
   items: PortalNavItem<T>[];
   portalSubtitle: string;
   onTabChange: (tab: T) => void;
+  showPublicMapLink?: boolean;
 }
 
 export function SignOutConfirmDialog({
@@ -134,6 +135,7 @@ export function SideBar<T extends string>({
   portalSubtitle,
   onTabChange,
   initialAuth,
+  showPublicMapLink = true,
 }: SideBarProps<T> & { initialAuth?: AuthSnapshot }) {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -160,7 +162,7 @@ export function SideBar<T extends string>({
   }, [initialAuth]);
 
   // Idle-time prefetch of the public map so "exit to map" navigations are instant.
-  usePrefetchRoute('/');
+  usePrefetchRoute(showPublicMapLink ? '/' : null);
 
   async function handleLogOut() {
     setIsSigningOut(true);
@@ -201,16 +203,18 @@ export function SideBar<T extends string>({
       </div>
 
       <nav className={`flex-1 space-y-1 overflow-y-auto py-6 ${isCollapsed ? 'px-2' : 'px-4'}`}>
-        <button
-          onClick={() => navigate('/')}
-          title="Public Hazard Map"
-          className={`group flex w-full items-center rounded-2xl py-3 text-sm font-semibold text-slate-600 transition-all duration-200 hover:bg-white hover:text-gakit-maroon hover:shadow-sm ${
-            isCollapsed ? 'justify-center px-3' : 'gap-3 px-4'
-          }`}
-        >
-          <Map className="h-4 w-4 text-slate-400 transition-colors group-hover:text-gakit-maroon" />
-          <span className={isCollapsed ? 'sr-only' : ''}>Public Hazard Map</span>
-        </button>
+        {showPublicMapLink && (
+          <button
+            onClick={() => navigate('/')}
+            title="Public Hazard Map"
+            className={`group flex w-full items-center rounded-2xl py-3 text-sm font-semibold text-slate-600 transition-all duration-200 hover:bg-white hover:text-gakit-maroon hover:shadow-sm ${
+              isCollapsed ? 'justify-center px-3' : 'gap-3 px-4'
+            }`}
+          >
+            <Map className="h-4 w-4 text-slate-400 transition-colors group-hover:text-gakit-maroon" />
+            <span className={isCollapsed ? 'sr-only' : ''}>Public Hazard Map</span>
+          </button>
+        )}
 
         <div className={`pb-2 pt-6 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 ${isCollapsed ? 'sr-only' : 'px-4'}`}>
           Menu

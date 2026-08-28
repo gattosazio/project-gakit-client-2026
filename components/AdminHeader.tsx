@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   Flame,
   Thermometer,
-  Settings,
   ShieldAlert,
   type LucideIcon,
 } from 'lucide-react';
@@ -24,11 +23,14 @@ import { formatDateTime } from '@/lib/reports/reportFormatting';
 import type { Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
 import { MobileSignOutButton } from './SideBar';
+import { SettingsDropdown } from './SettingsDropdown';
+import type { StaffRole } from '@/lib/auth/roles';
 
 interface AdminHeaderProps {
   title: string;
   description: string;
   icon?: LucideIcon;
+  role?: StaffRole | null;
   onNotificationClick?: (notificationId: string) => void;
 }
 
@@ -127,6 +129,7 @@ export function AdminHeader({
   title,
   description,
   icon: Icon,
+  role = null,
   onNotificationClick,
 }: AdminHeaderProps) {
   const [recentReports, setRecentReports] = useState<Report[]>([]);
@@ -418,14 +421,7 @@ export function AdminHeader({
             </div>
           )}
         </div>
-        <button
-          type="button"
-          aria-label="Settings"
-          title="Settings"
-          className="rounded-full bg-slate-50 p-2.5 text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-maroon-50 hover:text-gakit-maroon hover:ring-maroon-200"
-        >
-          <Settings className="h-5 w-5" />
-        </button>
+        <SettingsDropdown role={role} />
         <div className="lg:hidden">
           <MobileSignOutButton compact />
         </div>
