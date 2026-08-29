@@ -92,6 +92,7 @@ import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 import { queryFloodHazard, type FloodRiskLevel } from '@/lib/map/floodHazard';
 import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
 import {
+  applyBarangayBoundariesVisibility,
   riskLevelFilter,
   setupOverlayLayers,
   stopClusterPulse,
@@ -553,6 +554,17 @@ export function PublicMap({
     return () => window.removeEventListener('resize', onResize);
   }, [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, collapseToFit]);
 
+  const [showBarangayBoundaries, setShowBarangayBoundaries] = useState(false);
+  const showBarangayBoundariesRef = useRef(false);
+
+  const handleShowBarangayBoundariesChange = useCallback((checked: boolean) => {
+    setShowBarangayBoundaries(checked);
+    showBarangayBoundariesRef.current = checked;
+    if (mapRef.current) {
+      applyBarangayBoundariesVisibility(mapRef.current, checked);
+    }
+  }, []);
+
   // Refs mirror toggle state so the style-load handler (which runs on every
   // basemap switch) can read the latest values without re-creating the map.
   const mapModeRef = useRef<MapMode>('2d');
@@ -563,14 +575,15 @@ export function PublicMap({
     high: true,
     medium: true,
     low: true,
-  });
+    });
 
   useEffect(() => {
     mapModeRef.current = mapMode;
     showFloodHazardRef.current = showFloodHazard;
     showRainfallRef.current = showRainfall;
+    showBarangayBoundariesRef.current = showBarangayBoundaries;
     visibleRiskLevelsRef.current = visibleRiskLevels;
-  }, [mapMode, showFloodHazard, showRainfall, visibleRiskLevels]);
+  }, [mapMode, showFloodHazard, showRainfall, showBarangayBoundaries, visibleRiskLevels]);
 
   useEffect(() => {
     onLoadingChange?.(isLoadingReports);
@@ -989,7 +1002,7 @@ export function PublicMap({
   const handleBarangayMouseMove = useCallback(
     (e: any) => {
       const map = mapRef.current;
-      if (!map || !e.features?.length) return;
+      if (!map || !e.features?.length || !showBarangayBoundariesRef.current) return;
       // A report pin/cluster/selected-location marker draws over the barangay
       // underneath, so suppress the highlight + label while one is under the
       // pointer — showing it would just be noise behind the marker.
@@ -1047,37 +1060,36 @@ export function PublicMap({
     clearBarangayHover();
   }, [clearBarangayHover]);
 
+  // Re-attach layer event handlers whenever the map style reloads.
   const attachLayerEvents = useCallback(
     (map: any) => {
-      const pairs: Array<{ event: string; layer: string; handler: (e: any) => void }> = [
+      const layerListeners: Array<{ event: string; layer: string; handler: (e: any) => void }> = [
         { event: 'mousemove', layer: 'report-points', handler: handleReportPointsMouseMove },
         { event: 'mouseleave', layer: 'report-points', handler: handleReportPointsMouseLeave },
         { event: 'click', layer: 'report-points', handler: handleReportPointsClick },
         { event: 'mouseenter', layer: 'report-points', handler: handleReportPointsMouseEnter },
         { event: 'mouseleave', layer: 'report-points', handler: handleReportPointsCursorLeave },
-        { event: 'mousemove', layer: 'selected-location', handler: handleReportPointsMouseMove },
-        { event: 'mouseleave', layer: 'selected-location', handler: handleReportPointsMouseLeave },
         { event: 'click', layer: 'report-clusters', handler: handleReportClustersClick },
-        { event: 'mousemove', layer: 'report-clusters', handler: handleReportPointsMouseMove },
         { event: 'mouseenter', layer: 'report-clusters', handler: handleReportPointsMouseEnter },
         { event: 'mouseleave', layer: 'report-clusters', handler: handleReportPointsCursorLeave },
         { event: 'mousemove', layer: 'barangay-fill', handler: handleBarangayMouseMove },
-        { event: 'mouseleave', layer: 'barangay-fill', handler: handleBarangayMouseLeave },
+        { event: 'mouseleave', layer: 'barangay-fill', handler: clearBarangayHover },
       ];
-      pairs.forEach(({ event, layer, handler }) => {
-        map.off(event, layer, handler);
-        map.on(event, layer, handler);
+      layerListeners.forEach(({ event, layer, handler }) => {
+        if (map.getLayer(layer)) {
+          map.on(event, layer, handler);
+        }
       });
     },
     [
-      handleBarangayMouseLeave,
-      handleBarangayMouseMove,
-      handleReportClustersClick,
-      handleReportPointsClick,
-      handleReportPointsCursorLeave,
-      handleReportPointsMouseEnter,
-      handleReportPointsMouseLeave,
       handleReportPointsMouseMove,
+      handleReportPointsMouseLeave,
+      handleReportPointsClick,
+      handleReportPointsMouseEnter,
+      handleReportPointsCursorLeave,
+      handleReportClustersClick,
+      handleBarangayMouseMove,
+      clearBarangayHover,
     ]
   );
 
@@ -1092,9 +1104,11 @@ export function PublicMap({
           showFloodHazard: showFloodHazardRef.current,
           showRainfall: showRainfallRef.current,
           showHimawariIR: himawari.visibleRef.current,
+          showBarangayBoundaries: showBarangayBoundariesRef.current,
           visibleRiskLevels: visibleRiskLevelsRef.current,
           mapMode: mapModeRef.current,
           rainfallHours: hoursRef.current,
+          basemap: basemapRef.current,
         });
 
         layersReadyRef.current = true;
@@ -1118,7 +1132,14 @@ export function PublicMap({
 
       void loadMapReportsRef.current?.();
     },
-    [applyReportData, applySelectedMarker, attachLayerEvents, himawari.visibleRef, applyPreloaded, hoursRef]
+    [
+      attachLayerEvents,
+      applyReportData,
+      applySelectedMarker,
+      applyPreloaded,
+      himawari.visibleRef,
+      hoursRef,
+    ]
   );
 
   const onMapLoad = useCallback(() => {
@@ -1423,6 +1444,8 @@ export function PublicMap({
           onRiskLevelChange={(key, checked) =>
             setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
           }
+          showBarangayBoundaries={showBarangayBoundaries}
+          onShowBarangayBoundariesChange={handleShowBarangayBoundariesChange}
         />
 
         {!hideShareLocation && (
@@ -1454,7 +1477,7 @@ export function PublicMap({
         <div
           className={`absolute ${
             fullScreen ? 'bottom-2 md:bottom-2' : 'bottom-1.5'
-          } right-2 z-[990] flex items-center gap-1 rounded-md bg-white/90 px-2 py-0.5 text-[10px] text-slate-500 shadow-sm ring-1 ring-slate-200 backdrop-blur-sm`}
+          } right-2 z-[990] flex items-center gap-1 text-[10px] font-medium text-slate-600 [text-shadow:_0_1px_2px_rgb(255_255_255_/_80%)]`}
         >
           {basemap === 'satellite' ? (
             <>

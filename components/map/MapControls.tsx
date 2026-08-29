@@ -288,6 +288,8 @@ interface DataLayerControlsProps {
   onShowHimawariIRChange: (checked: boolean) => void;
   himawariOpacity: number;
   onHimawariOpacityChange: (value: number) => void;
+  showBarangayBoundaries?: boolean;
+  onShowBarangayBoundariesChange?: (checked: boolean) => void;
 }
 
 export function DataLayerControls({
@@ -307,6 +309,8 @@ export function DataLayerControls({
   onShowHimawariIRChange,
   himawariOpacity,
   onHimawariOpacityChange,
+  showBarangayBoundaries = false,
+  onShowBarangayBoundariesChange,
 }: DataLayerControlsProps) {
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
   return (
@@ -449,6 +453,17 @@ export function DataLayerControls({
             </div>
           </div>
         )}
+
+        <PillToggle
+          label="Barangay Boundaries"
+          color="#06B6D4"
+          checked={showBarangayBoundaries}
+          onChange={(checked) => onShowBarangayBoundariesChange?.(checked)}
+          credit={{
+            href: 'https://data.humdata.org/dataset/cod-ab-phl',
+            label: 'HDX / UN OCHA',
+          }}
+        />
       </div>
     </Card>
   );
