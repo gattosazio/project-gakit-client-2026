@@ -899,67 +899,53 @@ export function PublicMap({
 function createSelectedPinElement(): HTMLElement {
   const container = document.createElement('div');
   container.className = 'gakit-selected-pin-container relative flex flex-col items-center pointer-events-none select-none';
-  container.style.width = '24px';
-  container.style.height = '32px';
+  container.style.width = '28px';
+  container.style.height = '38px';
 
   container.innerHTML = `
-    <div class="relative flex flex-col items-center">
-      <!-- Pin Body with Neumorphic Drop Shadow & Specular Modeling -->
-      <div class="relative z-10 flex h-8 w-6 items-start justify-center drop-shadow-[0_4px_6px_rgba(15,23,42,0.38)]">
-        <svg viewBox="0 0 24 32" class="h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <div class="relative flex flex-col items-center select-none pointer-events-none">
+      <!-- Elevated Pin Head with Drop-In Motion -->
+      <div class="gakit-pin-drop relative z-10 flex h-9 w-7 items-start justify-center drop-shadow-[0_6px_10px_rgba(123,17,19,0.38)]">
+        <svg viewBox="0 0 28 36" class="h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <!-- 3D Directional Light Gradient for Pin Body -->
             <linearGradient id="gakitPinGrad" x1="20%" y1="0%" x2="80%" y2="100%">
               <stop offset="0%" stop-color="#A81C20" />
               <stop offset="45%" stop-color="#7B1113" />
-              <stop offset="100%" stop-color="#45080A" />
-            </linearGradient>
-
-            <!-- Debossed Well Inner Gradient -->
-            <linearGradient id="debossedWellGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#D1D5DB" />
-              <stop offset="35%" stop-color="#E5E7EB" />
-              <stop offset="100%" stop-color="#FFFFFF" />
-            </linearGradient>
-
-            <!-- Maroon Center Dot Gradient -->
-            <linearGradient id="dotGrad" x1="20%" y1="0%" x2="80%" y2="100%">
-              <stop offset="0%" stop-color="#B91C1C" />
-              <stop offset="100%" stop-color="#59080A" />
+              <stop offset="100%" stop-color="#4F090B" />
             </linearGradient>
           </defs>
 
-          <!-- Outer Droplet Pin -->
+          <!-- Sleek Gloss Droplet Pin -->
           <path
-            d="M12 0.75C5.78 0.75 0.75 5.78 0.75 12c0 8.2 10.5 18.7 10.8 19a0.7 0.7 0 0 0 0.9 0c0.3-0.3 10.8-10.8 10.8-19 0-6.22-5.03-11.25-11.25-11.25z"
+            d="M14 0.75C6.96 0.75 1.25 6.46 1.25 13.5c0 9.2 12 21.05 12.35 21.38a0.6 0.6 0 0 0 0.8 0c0.35-0.33 12.35-12.18 12.35-21.38C26.75 6.46 21.04 0.75 14 0.75z"
             fill="url(#gakitPinGrad)"
             stroke="#FFFFFF"
-            stroke-width="1.35"
+            stroke-width="1.5"
           />
 
-          <!-- Top-Left Specular Light Sheen -->
+          <!-- Specular Light Sheen -->
           <path
-            d="M4.5 9.5C5.2 5.5 8.5 2.5 12 2.2"
+            d="M5.5 11C6.2 6.5 9.8 3 14 2.5"
             stroke="#FFFFFF"
-            stroke-width="0.9"
+            stroke-width="1"
             stroke-linecap="round"
-            stroke-opacity="0.55"
+            stroke-opacity="0.6"
           />
 
-          <!-- Debossed Recessed Well (Inner Ring & Shadow) -->
-          <circle cx="12" cy="11.5" r="4.2" fill="url(#debossedWellGrad)" />
-          <circle cx="12" cy="11.5" r="4.2" stroke="#9CA3AF" stroke-width="0.5" stroke-opacity="0.6" />
+          <!-- Pure White Center Target Disc -->
+          <circle cx="14" cy="13.5" r="4.8" fill="#FFFFFF" />
 
-          <!-- Tactile Maroon Center Bead -->
-          <circle cx="12" cy="11.5" r="2" fill="url(#dotGrad)" />
-          <circle cx="11.4" cy="10.9" r="0.5" fill="#FFFFFF" fill-opacity="0.8" />
+          <!-- Center Maroon Precision Dot -->
+          <circle cx="14" cy="13.5" r="2.2" fill="#7B1113" />
         </svg>
       </div>
 
-      <!-- Dual Ground Ambient Occlusion Shadow -->
-      <div class="absolute bottom-0 z-0 flex items-center justify-center">
-        <span class="h-1.5 w-3.5 -translate-y-1/2 rounded-full bg-slate-950/25 blur-[1px]"></span>
-        <span class="absolute h-1 w-1.5 -translate-y-1/2 rounded-full bg-slate-950/60"></span>
+      <!-- Sonar Ground Ripple & Ground Contact Shadow -->
+      <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 z-0 flex items-center justify-center pointer-events-none">
+        <span class="absolute h-8 w-8 -translate-y-1/2 rounded-full bg-rose-600/30 animate-ping"></span>
+        <span class="absolute h-5 w-5 -translate-y-1/2 rounded-full bg-rose-500/25 animate-pulse"></span>
+        <span class="h-1.5 w-4 -translate-y-1/2 rounded-full bg-slate-950/35 blur-[1px]"></span>
+        <span class="absolute h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gakit-maroon ring-1 ring-white shadow-xs"></span>
       </div>
     </div>
   `;
