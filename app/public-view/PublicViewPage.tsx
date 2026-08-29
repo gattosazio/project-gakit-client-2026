@@ -398,7 +398,7 @@ export function PublicViewPage({
               <div className="mt-5 grid gap-3.5 sm:mt-8 sm:grid-cols-2 sm:gap-5">
                 <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
                   <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon shadow-xs ring-1 ring-maroon-200/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                       <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -412,7 +412,7 @@ export function PublicViewPage({
                 </div>
                 <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
                   <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon shadow-xs ring-1 ring-maroon-200/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                       <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -469,7 +469,7 @@ export function PublicViewPage({
 
               <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
                 <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon shadow-xs ring-1 ring-maroon-200/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                     <Mail className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                   <div className="min-w-0 flex-1">

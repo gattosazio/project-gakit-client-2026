@@ -67,9 +67,9 @@ const PRESET_CHIP_BASE_CLASSES =
   'bg-white text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08),0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-slate-900 active:scale-95';
 
 const CRITICALITY_CHIP_SELECTED: Record<DepthCriticality, string> = {
-  low: 'bg-emerald-50 text-emerald-800 shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-emerald-300 font-bold',
-  medium: 'bg-amber-50 text-amber-800 shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-amber-300 font-bold',
-  critical: 'bg-rose-50 text-rose-800 shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-rose-300 font-bold',
+  low: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-300 font-bold shadow-xs',
+  medium: 'bg-amber-50 text-amber-800 ring-1 ring-amber-300 font-bold shadow-xs',
+  critical: 'bg-rose-50 text-rose-800 ring-1 ring-rose-300 font-bold shadow-xs',
 };
 
 export function ReportModal({
@@ -465,7 +465,7 @@ export function ReportModal({
                       );
                     })}
                     <span className="text-xs font-medium text-slate-400">or</span>
-                    <label className="flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/90 transition-all duration-150 focus-within:bg-[#eef2f6] focus-within:shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,1)] focus-within:ring-slate-300">
+                    <label className="flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/90 transition-all duration-150 focus-within:ring-2 focus-within:ring-gakit-maroon">
                       <input
                         type="text"
                         inputMode="numeric"

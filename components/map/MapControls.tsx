@@ -72,12 +72,12 @@ function PillToggle({
       />
       {/* Pill track */}
       <span
-        className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full shadow-[inset_1px_1.5px_3px_rgba(15,23,42,0.18),inset_-1px_-1px_2px_rgba(255,255,255,0.7)] transition-colors duration-200"
-        style={{ backgroundColor: checked ? color : '#e2e8f0' }}
+        className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/80 transition-colors duration-200"
+        style={{ backgroundColor: checked ? color : '#cbd5e1' }}
       >
         {/* Circle thumb */}
         <span
-          className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.22)] ring-1 ring-black/5 transition-transform duration-200 ${
+          className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${
             checked ? 'translate-x-[15px]' : 'translate-x-[2px]'
           }`}
         />
@@ -181,7 +181,7 @@ export function MapViewToggle({
   const activeKey = VIEW_PRESETS.find((v) => v.basemap === basemap && v.mode === mode)?.key;
   return (
     <div
-      className={`${className} flex items-center rounded-lg bg-[#eef2f6] shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.12),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-slate-300/80 p-0.5`}
+      className={`${className} flex items-center rounded-xl bg-white/95 p-1 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 backdrop-blur-md`}
     >
       {VIEW_PRESETS.map((v) => {
         const disabled = v.needsTerrain && !hasMaptiler;
@@ -198,12 +198,12 @@ export function MapViewToggle({
                 ? `${v.label} requires a MapTiler API key`
                 : `${v.label} view`
             }
-            className={`rounded-md px-2.5 py-1 text-[11px] font-bold leading-none transition-all duration-150 ${
+            className={`rounded-lg px-3 py-1.5 text-xs font-bold leading-none transition-all duration-150 active:scale-95 ${
               active
-                ? 'bg-gakit-maroon text-white shadow-[0_1px_3px_rgba(123,17,19,0.35)]'
+                ? 'bg-gakit-maroon text-white shadow-xs'
                 : disabled
                   ? 'cursor-not-allowed text-slate-300'
-                  : 'text-slate-600 hover:text-slate-900 active:scale-95'
+                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
             }`}
           >
             {v.label}

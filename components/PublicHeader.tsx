@@ -243,7 +243,7 @@ export function PublicHeader({
               onClick={() => scrollToSection('about')}
               className={`inline-flex items-center justify-center rounded-full px-5 py-2 font-heading text-xs font-bold transition-all duration-150 ${
                 activeSection === 'about'
-                  ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80'
+                  ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
                   : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
               }`}
             >
@@ -252,7 +252,7 @@ export function PublicHeader({
             {!isChecking && (
               <button
                 onClick={handleAccountClick}
-                className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-5 py-2 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28),inset_0_1px_1px_rgba(255,255,255,0.25)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:opacity-90"
+                className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-5 py-2 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:scale-95"
               >
                 <span className="tracking-wide">{accountLabel}</span>
               </button>
@@ -270,9 +270,9 @@ export function PublicHeader({
                 setIsMenuOpen(false);
                 setIsNotifOpen(false);
               }}
-              className={`rounded-full p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
+              className={`rounded-full p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:scale-95 ${
                 isInfoOpen
-                  ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+                  ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
                   : ''
               }`}
               aria-expanded={isInfoOpen}
@@ -330,9 +330,9 @@ export function PublicHeader({
                   setIsNotifOpen(false);
                   setIsInfoOpen(false);
                 }}
-                className={`flex items-center justify-center rounded-full p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
+                className={`flex items-center justify-center rounded-full p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:scale-95 ${
                   isMenuOpen
-                    ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+                    ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
                     : ''
                 }`}
                 aria-expanded={isMenuOpen}
@@ -361,9 +361,9 @@ export function PublicHeader({
               setIsMenuOpen(false);
               setIsNotifOpen(false);
             }}
-            className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
+            className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:scale-95 ${
               isInfoOpen
-                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80'
+                ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
                 : ''
             }`}
             aria-label="How to report guide"
@@ -406,9 +406,9 @@ export function PublicHeader({
                 setIsInfoOpen(false);
                 setIsNotifOpen(false);
               }}
-              className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
+              className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:scale-95 ${
                 isMenuOpen
-                  ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80'
+                  ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
                   : ''
               }`}
               aria-expanded={isMenuOpen}
@@ -430,10 +430,10 @@ export function PublicHeader({
         <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white/95 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
           <button
             onClick={() => scrollToSection('hazard-map')}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
+            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
               activeSection === 'hazard-map'
-                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80'
+                ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
             }`}
           >
             <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
@@ -441,10 +441,10 @@ export function PublicHeader({
           </button>
           <button
             onClick={() => scrollToSection('about')}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
+            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
               activeSection === 'about'
-                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80'
+                ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
             }`}
           >
             <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
@@ -465,7 +465,7 @@ export function PublicHeader({
           {!isChecking && (
             <button
               onClick={handleAccountClick}
-              className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80"
+              className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70 active:scale-95"
             >
               <UserRound className="h-5 w-5" />
               <span className="text-[10px] font-semibold">{accountLabel}</span>

@@ -20,7 +20,7 @@ export function MobileBottomNav<T extends string>({
         <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white/95 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
           <button
             onClick={() => navigate('/')}
-            className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80"
+            className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70 active:scale-95"
           >
             <Map className="h-5 w-5" />
             <span className="text-[10px] font-semibold">Map</span>
@@ -33,10 +33,10 @@ export function MobileBottomNav<T extends string>({
                 key={feature.id}
                 onClick={() => onTabChange(feature.id)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
+                className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
                   isActive
-                    ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80'
+                    ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
                 }`}
               >
                 <Icon className={`h-5 w-5 ${isActive ? 'text-gakit-maroon' : ''}`} />

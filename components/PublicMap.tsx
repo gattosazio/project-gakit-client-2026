@@ -1535,7 +1535,7 @@ function createSelectedPinElement(): HTMLElement {
             disabled={isShareLocating}
             title="Locate my position"
             aria-label="Locate my position"
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/95 text-slate-700 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-none transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:scale-95 disabled:cursor-not-allowed md:backdrop-blur"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/95 text-slate-700 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-none transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95 disabled:cursor-not-allowed md:backdrop-blur"
           >
             {isShareLocating ? (
               <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
@@ -1552,7 +1552,7 @@ function createSelectedPinElement(): HTMLElement {
             onClick={() => mapRef.current?.zoomIn()}
             aria-label="Zoom in"
             title="Zoom in"
-            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon"
+            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
           </button>
@@ -1562,7 +1562,7 @@ function createSelectedPinElement(): HTMLElement {
             onClick={() => mapRef.current?.zoomOut()}
             aria-label="Zoom out"
             title="Zoom out"
-            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon"
+            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon"
           >
             <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
           </button>
@@ -1572,7 +1572,7 @@ function createSelectedPinElement(): HTMLElement {
             onClick={handleResetNorth}
             aria-label="Reset orientation and view to Iligan City"
             title="Reset to North / Iligan City view"
-            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon"
+            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon"
           >
             <Navigation
               className="h-3.5 w-3.5 transition-transform duration-200 ease-out"

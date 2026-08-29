@@ -38,9 +38,9 @@ export function SettingsDropdown({ role }: { role: StaffRole | null }) {
         aria-label="Open settings"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
-        className={`rounded-full p-2.5 transition-all duration-150 ${
+        className={`rounded-full p-2.5 transition-all duration-150 active:scale-95 ${
           isOpen
-            ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+            ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
             : 'bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 hover:text-gakit-maroon'
         }`}
       >
