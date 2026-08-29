@@ -1453,7 +1453,7 @@ function createSelectedPinElement(): HTMLElement {
       <div ref={mapContainer} className="w-full h-full touch-action-none" />
 
       <MapViewToggle
-        className="absolute top-4 right-4 md:right-6 z-[1000] hidden md:flex"
+        className="absolute top-20 md:top-22 right-4 md:right-6 z-[1000] hidden md:flex"
         basemap={basemap}
         mode={mapMode}
         onViewChange={handleViewChange}

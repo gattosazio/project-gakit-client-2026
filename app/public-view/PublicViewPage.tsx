@@ -320,11 +320,11 @@ export function PublicViewPage({
         onMoveDown={() => scrollToSection('about')}
       />
 
-      <main className="pt-16 pb-14 md:pb-0">
-        <section id="hazard-map" className="min-h-[calc(100dvh-4rem)] scroll-mt-16 snap-start transform-gpu">
-          <div className="flex h-[calc(100dvh-4rem)] overflow-hidden bg-white">
+      <main className="pb-14 md:pb-0">
+        <section id="hazard-map" className="min-h-[100dvh] snap-start transform-gpu">
+          <div className="flex h-[100dvh] overflow-hidden bg-white">
             <div className="relative isolate flex-1 w-full h-full min-h-0 transform-gpu">
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 md:left-6 md:translate-x-0 z-[1100] w-[calc(100%-2rem)] max-w-[310px] md:w-72 md:max-w-none">
+              <div className="absolute top-18 left-1/2 -translate-x-1/2 md:top-22 md:left-6 md:translate-x-0 z-[1100] w-[calc(100%-2rem)] max-w-[310px] md:w-72 md:max-w-none">
                 <LocationSearch
                   onSelect={handleSearchedLocationSelect}
                   onLocate={async () => {
@@ -333,7 +333,7 @@ export function PublicViewPage({
                 />
               </div>
               {isLoadingReports && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 md:top-4 z-[1000] bg-white border border-canvas-grey rounded-2xl shadow-lg px-4 py-3 flex items-center gap-2">
+                <div className="absolute top-34 left-1/2 -translate-x-1/2 md:top-22 md:left-84 z-[1000] bg-white/90 backdrop-blur-xl border border-white/80 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.08)] px-4 py-3 flex items-center gap-2">
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
                   <span className="text-sm font-medium text-slate-700">{loadingMessage}</span>
                 </div>
