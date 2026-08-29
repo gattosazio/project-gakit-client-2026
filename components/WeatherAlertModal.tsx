@@ -1,5 +1,5 @@
-'use client';
-
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
 import type { CurrentWeather, WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
 import { alertDescription, alertTitle, digestPeriod, formatDayForecast, getWeatherCondition } from '@/lib/weather/weatherCodes';
@@ -126,14 +126,25 @@ interface WeatherAlertModalProps {
 }
 
 export function WeatherAlertModal({ alert, highlightDate, current, onClose }: WeatherAlertModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
   const period = friendlyPeriod(alert.validFrom, alert.validTo);
   const heading = alertTitle(alert);
 
-  return (
-    <div className="fixed inset-0 z-[1300] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+  if (!mounted || typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       <div className="relative w-full max-w-md rounded-2xl border border-canvas-grey bg-white shadow-2xl">
         {/* Header */}
@@ -212,6 +223,7 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

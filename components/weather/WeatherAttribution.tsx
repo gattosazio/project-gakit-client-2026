@@ -14,7 +14,7 @@ export function WeatherAttribution({ className = '' }: { className?: string }) {
       className={`inline-block text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline ${className}`}
       title="Weather data by Open-Meteo.com — ECMWF & GFS models"
     >
-      Weather data by Open-Meteo (ECMWF, NOAA GFS)
+      © Open-Meteo (ECMWF, NOAA GFS)
     </a>
   );
 }

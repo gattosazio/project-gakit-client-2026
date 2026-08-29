@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bell, CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
 import type { WeatherAlert, AlertSeverity, AlertType, WeatherAlertData } from '@/types/weather';
 
@@ -46,6 +46,8 @@ interface NotificationBellProps {
   onMarkRead?: (id: string) => void;
   className?: string;
   variant?: 'header' | 'map' | 'mobile-nav';
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function NotificationBell({
@@ -54,11 +56,25 @@ export function NotificationBell({
   onMarkRead,
   className = '',
   variant = 'header',
+  isOpen,
+  onOpenChange,
 }: NotificationBellProps) {
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = isOpen !== undefined ? isOpen : internalOpen;
   const [tab, setTab] = useState<'unread' | 'read'>('unread');
   const panelRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+
+  const setOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const resolved = typeof next === 'function' ? next(open) : next;
+      if (isOpen === undefined) {
+        setInternalOpen(resolved);
+      }
+      onOpenChange?.(resolved);
+    },
+    [isOpen, open, onOpenChange]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -74,7 +90,7 @@ export function NotificationBell({
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
+  }, [open, setOpen]);
 
   const total = notifications.length;
   const unreadCount = notifications.filter((n) => !n.read).length;
@@ -85,14 +101,16 @@ export function NotificationBell({
 
   const buttonClassName =
     variant === 'header'
-      ? `relative rounded-lg border p-2 transition-colors ${
+      ? `relative rounded-full p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
           open
-            ? 'border-gakit-maroon bg-maroon-50'
-            : 'border-canvas-grey hover:bg-canvas-light'
+            ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+            : ''
         }`
       : variant === 'mobile-nav'
-        ? `relative flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors ${
-            open ? 'bg-maroon-50 text-gakit-maroon' : 'text-slate-500 hover:bg-maroon-50 hover:text-gakit-maroon'
+        ? `relative flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
+            open
+              ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.12),inset_-1.5px_-1.5px_3px_rgba(255,255,255,1)] ring-1 ring-slate-300/60 font-bold'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon'
           }`
         : 'relative flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur';
 
@@ -112,7 +130,7 @@ export function NotificationBell({
         title={`${count} notification${count !== 1 ? 's' : ''}`}
         aria-label="Notifications"
       >
-        <Bell className={`${iconClassName} ${variant === 'header' ? 'text-slate-600' : 'text-gakit-maroon'}`} />
+        <Bell className={`${iconClassName} ${variant === 'header' ? 'text-slate-600' : open ? 'text-gakit-maroon' : 'text-slate-500'}`} />
         {count > 0 && (
           <span
             className={`absolute flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ${

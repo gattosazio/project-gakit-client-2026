@@ -95,7 +95,7 @@ function PillToggle({
           className="ml-auto text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline"
           title={`Data source: ${credit.label}`}
         >
-          {credit.label}
+          © {credit.label}
         </a>
       )}
     </label>
@@ -118,7 +118,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return open ? (
-    <div className="rounded-2xl bg-white/95 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur animate-[weatherGrow_160ms_ease-out] origin-bottom">
+    <div className="w-72 rounded-2xl bg-white/95 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
       <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
         <div className="flex items-center gap-2">
           <Icon className="w-3.5 h-3.5" />
@@ -313,7 +313,7 @@ export function DataLayerControls({
     <Card open={open} onToggle={onToggle} icon={Layers} title="Layers">
       <div className="space-y-1.5">
         <PillToggle
-          label="Flood Hazard Zones"
+          label="Flood Susceptibility"
           color="#3B82F6"
           checked={showFloodHazard}
           onChange={onShowFloodHazardChange}

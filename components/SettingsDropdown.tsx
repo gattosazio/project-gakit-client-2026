@@ -38,10 +38,10 @@ export function SettingsDropdown({ role }: { role: StaffRole | null }) {
         aria-label="Open settings"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
-        className={`rounded-full p-2.5 ring-1 transition-colors ${
+        className={`rounded-full p-2.5 transition-all duration-150 ${
           isOpen
-            ? 'bg-maroon-50 ring-gakit-maroon'
-            : 'bg-slate-50 ring-slate-200 hover:bg-maroon-50 hover:text-gakit-maroon hover:ring-maroon-200'
+            ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+            : 'bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 hover:text-gakit-maroon'
         }`}
       >
         <Settings className="h-5 w-5 text-slate-600" />

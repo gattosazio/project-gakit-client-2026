@@ -307,7 +307,7 @@ export function ReportsTab({
                   onLocationSelect={handleNoopLocationSelect}
                   selectedLocation={null}
                   hideShareLocation
-                  hideAttribution
+                  hideWeather
                   enableAddressLookup={false}
                   hasBottomNav
                   reportFilters={reportFilters}

@@ -289,9 +289,7 @@ export function PublicViewPage({
       />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
-        showDown={activeSection !== 'about'}
-        onMoveUp={() => navigateSections('previous')}
-        onMoveDown={() => navigateSections('next')}
+        onMoveUp={() => scrollToSection('hazard-map')}
       />
 
       <main className="pt-16 pb-14 md:pb-0">
@@ -299,7 +297,7 @@ export function PublicViewPage({
           <div className="flex h-[calc(100dvh-4rem)] overflow-hidden bg-white">
             <div className="relative isolate flex-1 w-full h-full min-h-0">
               {isManualLocationMode && (
-                <div className="absolute left-14 top-4 z-[1100] flex w-[calc(100%-4rem)] max-w-sm items-center gap-2">
+                <div className="absolute left-14 md:left-16 top-4 z-[1100] flex w-[calc(100%-4.5rem)] max-w-none md:max-w-sm md:w-[calc(100%-5rem)] items-center gap-2">
                   <div className="min-w-0 flex-1">
                     <LocationSearch onSelect={handleSearchedLocationSelect} />
                   </div>
@@ -313,16 +311,20 @@ export function PublicViewPage({
                         setIsLocating(false);
                       }
                     }}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/90 p-2 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur-sm"
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-150 ${
+                      isLocated
+                        ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+                        : 'bg-white/95 text-slate-700 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-gakit-maroon hover:shadow-2xl'
+                    }`}
                     title={isLocated ? 'Using your current location' : 'Use my current location'}
                     aria-label={isLocated ? 'Using your current location' : 'Use my current location'}
                   >
                     {isLocating ? (
-                      <Loader2 className="h-5 w-5 animate-spin text-gakit-maroon" />
+                      <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
                     ) : isLocated ? (
-                      <LocateFixed className="h-5 w-5 text-gakit-maroon" />
+                      <LocateFixed className="h-4.5 w-4.5 text-gakit-maroon" />
                     ) : (
-                      <Locate className="h-5 w-5 text-gakit-maroon" />
+                      <Locate className="h-4.5 w-4.5 text-gakit-maroon" />
                     )}
                   </button>
                 </div>
@@ -377,83 +379,95 @@ export function PublicViewPage({
           </div>
         </section>
 
-        <section id="about" className="bg-gakit-maroon scroll-mt-16 snap-start">
-          <div className="mx-auto grid w-full max-w-6xl gap-10 px-6 py-16 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
+        <section id="about" className="border-t border-slate-300/70 bg-[#e9edf2] scroll-mt-16 snap-start">
+          <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 md:gap-10 md:py-16 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
             <div>
-              <div className="mb-3 text-sm font-semibold uppercase tracking-[0.16em] text-maroon-200">
+              <div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-gakit-maroon md:mb-3">
                 About Project GAKIT
               </div>
-              <h2 className="max-w-2xl text-3xl font-bold leading-tight text-white md:text-4xl">
+              <h2 className="max-w-2xl text-2xl font-extrabold leading-tight text-slate-900 sm:text-3xl md:text-4xl">
                 Community flood reports help others make safer decisions.
               </h2>
-              <p className="mt-5 max-w-2xl text-base leading-7 text-maroon-100">
+              <p className="mt-3 max-w-2xl text-sm font-medium leading-relaxed text-slate-600 sm:text-base sm:leading-7 md:mt-5">
                 GAKIT combines community observations, geospatial information,
                 and environmental data to support local flood awareness in
                 Iligan City. Public reports help responders and researchers see
                 where flooding is being experienced on the ground.
               </p>
 
-              <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-2xl border border-white/15 bg-white/10 p-5">
-                  <MapPin className="h-6 w-6 text-maroon-200" />
-                  <h3 className="mt-4 font-semibold text-white">Local reporting</h3>
-                  <p className="mt-2 text-sm leading-6 text-maroon-100">
-                    Residents can mark a flooded location and share the observed
-                    water depth.
-                  </p>
+              <div className="mt-5 grid gap-3.5 sm:mt-8 sm:grid-cols-2 sm:gap-5">
+                <div className="group rounded-2xl border border-white/90 bg-gradient-to-br from-white via-white/95 to-slate-50/90 p-4 shadow-[-8px_-8px_20px_rgba(255,255,255,1),8px_8px_22px_rgba(15,23,42,0.11),1px_3px_6px_rgba(15,23,42,0.05)] ring-1 ring-slate-200/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-[-10px_-10px_24px_rgba(255,255,255,1),10px_10px_28px_rgba(15,23,42,0.12)] sm:hover:-translate-y-1.5">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-[#ebf0f5] text-gakit-maroon shadow-[inset_2px_2px_5px_rgba(15,23,42,0.12),inset_-2px_-2px_5px_rgba(255,255,255,1)] transition-transform duration-200 group-hover:scale-105 sm:h-12 sm:w-12 sm:rounded-2xl sm:shadow-[inset_3px_3px_6px_rgba(15,23,42,0.14),inset_-3px_-3px_6px_rgba(255,255,255,1)]">
+                      <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Local reporting</h3>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:mt-1.5 sm:text-sm sm:leading-6">
+                        Residents can mark a flooded location and share the observed
+                        water depth.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="rounded-2xl border border-white/15 bg-white/10 p-5">
-                  <Building2 className="h-6 w-6 text-maroon-200" />
-                  <h3 className="mt-4 font-semibold text-white">Decision support</h3>
-                  <p className="mt-2 text-sm leading-6 text-maroon-100">
-                    Reports complement hazard, rainfall, and terrain data for
-                    safer local decisions.
-                  </p>
+                <div className="group rounded-2xl border border-white/90 bg-gradient-to-br from-white via-white/95 to-slate-50/90 p-4 shadow-[-8px_-8px_20px_rgba(255,255,255,1),8px_8px_22px_rgba(15,23,42,0.11),1px_3px_6px_rgba(15,23,42,0.05)] ring-1 ring-slate-200/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-[-10px_-10px_24px_rgba(255,255,255,1),10px_10px_28px_rgba(15,23,42,0.12)] sm:hover:-translate-y-1.5">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-[#ebf0f5] text-gakit-maroon shadow-[inset_2px_2px_5px_rgba(15,23,42,0.12),inset_-2px_-2px_5px_rgba(255,255,255,1)] transition-transform duration-200 group-hover:scale-105 sm:h-12 sm:w-12 sm:rounded-2xl sm:shadow-[inset_3px_3px_6px_rgba(15,23,42,0.14),inset_-3px_-3px_6px_rgba(255,255,255,1)]">
+                      <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Decision support</h3>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:mt-1.5 sm:text-sm sm:leading-6">
+                        Reports complement hazard, rainfall, and terrain data for
+                        safer local decisions.
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4 lg:pt-7">
-              <div className="rounded-2xl border border-white/20 bg-white p-6 text-slate-900 shadow-xl shadow-black/10">
-                <div className="flex items-center gap-4">
-                  <div className="relative h-16 w-16 shrink-0">
+            <div className="space-y-3.5 sm:space-y-5 lg:space-y-6 lg:pt-7">
+              <div className="group rounded-2xl border border-white/90 bg-gradient-to-br from-white via-white/95 to-slate-50/90 p-4 shadow-[-8px_-8px_20px_rgba(255,255,255,1),8px_8px_22px_rgba(15,23,42,0.11),1px_3px_6px_rgba(15,23,42,0.05)] ring-1 ring-slate-200/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-[-10px_-10px_26px_rgba(255,255,255,1),12px_12px_30px_rgba(15,23,42,0.13)] sm:hover:-translate-y-1.5">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-white p-2 shadow-[-4px_-4px_10px_rgba(255,255,255,1),5px_5px_12px_rgba(15,23,42,0.12)] sm:h-18 sm:w-18 sm:rounded-2xl sm:p-2.5 sm:shadow-[-5px_-5px_12px_rgba(255,255,255,1),6px_6px_16px_rgba(15,23,42,0.14)]">
                     <Image
                       src="/images/iit-logo.png"
                       alt="MSU-IIT Logo"
-                      fill
-                      sizes="64px"
+                      width={48}
+                      height={48}
                       className="object-contain"
                     />
                   </div>
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-[0.14em] text-gakit-maroon">
-                      GAKIT is a project of
-                    </div>
-                    <h3 className="mt-1 text-xl font-bold">
+                    <span className="inline-flex items-center rounded-full border border-maroon-200 bg-maroon-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gakit-maroon shadow-sm sm:px-2.5 sm:text-[11px]">
+                      Project of
+                    </span>
+                    <h3 className="mt-1 text-base font-bold leading-snug text-slate-900 sm:mt-1.5 sm:text-lg md:text-xl">
                       Mindanao State University–Iligan Institute of Technology
                     </h3>
                   </div>
                 </div>
-                <p className="mt-4 text-sm leading-6 text-slate-600">
+                <p className="mt-3 text-xs leading-relaxed text-slate-600 sm:mt-4 sm:text-sm sm:leading-6">
                   GAKIT is an applied geohazard research and community-focused
                   flood risk information system developed at MSU-IIT.
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-white/15 bg-maroon-800/70 p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-white">
-                    <Mail className="h-5 w-5" />
+              <div className="group rounded-2xl border border-white/90 bg-gradient-to-br from-white via-white/95 to-slate-50/90 p-4 shadow-[-8px_-8px_20px_rgba(255,255,255,1),8px_8px_22px_rgba(15,23,42,0.11),1px_3px_6px_rgba(15,23,42,0.05)] ring-1 ring-slate-200/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-[-10px_-10px_24px_rgba(255,255,255,1),10px_10px_28px_rgba(15,23,42,0.12)] sm:hover:-translate-y-1.5">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-[#ebf0f5] text-gakit-maroon shadow-[inset_2px_2px_5px_rgba(15,23,42,0.12),inset_-2px_-2px_5px_rgba(255,255,255,1)] sm:h-12 sm:w-12 sm:rounded-2xl sm:shadow-[inset_3px_3px_6px_rgba(15,23,42,0.14),inset_-3px_-3px_6px_rgba(255,255,255,1)]">
+                    <Mail className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
-                  <div>
-                    <div className="font-semibold text-white">Contact and collaborate</div>
-                    <p className="mt-1 text-sm leading-6 text-maroon-100">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Contact and collaborate</div>
+                    <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:text-sm sm:leading-6">
                       For research, data-sharing, community, or deployment
                       partnership inquiries.
                     </p>
                     <a
                       href="mailto:support@gakit.ph?subject=Project%20GAKIT%20Inquiry"
-                      className="mt-4 inline-flex rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-gakit-maroon transition-colors hover:bg-maroon-50"
+                      className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gakit-maroon px-4 py-2 text-xs font-bold text-white shadow-[-2px_-2px_6px_rgba(255,255,255,0.9),4px_4px_12px_rgba(123,17,19,0.35)] transition-all duration-200 hover:bg-maroon-800 sm:mt-4 sm:px-5 sm:py-2.5 sm:text-sm"
                     >
                       support@gakit.ph
                     </a>

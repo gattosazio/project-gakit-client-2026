@@ -1,9 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Info, LogOut, MapPinned, UserRound, BookOpen } from 'lucide-react';
+import { Info, LogOut, MapPinned, UserRound, BookOpen, Activity, Shield, LogIn, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
@@ -31,11 +31,42 @@ export function PublicHeader({
   const [isChecking, setIsChecking] = useState(initialAuth === undefined);
   const [email, setEmail] = useState<string | null>(initialAuth?.email ?? null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isMobileInfoOpen, setIsMobileInfoOpen] = useState(false);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const activeAlerts = useActiveAlerts();
   const [readAlertIds, setReadAlertIds] = useState<string[]>([]);
+
+  const infoRef = useRef<HTMLDivElement>(null);
+  const mobileInfoRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+  const mobileUserMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMenuOpen && !isInfoOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        userMenuRef.current &&
+        !userMenuRef.current.contains(target) &&
+        mobileUserMenuRef.current &&
+        !mobileUserMenuRef.current.contains(target)
+      ) {
+        setIsMenuOpen(false);
+      }
+      if (
+        infoRef.current &&
+        !infoRef.current.contains(target) &&
+        mobileInfoRef.current &&
+        !mobileInfoRef.current.contains(target)
+      ) {
+        setIsInfoOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isMenuOpen, isInfoOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -151,6 +182,11 @@ export function PublicHeader({
   usePrefetchRoute(home ?? '/login');
   const accountLabel =
     home === '/admin' ? 'Admin' : home === '/monitoring' ? 'Monitoring' : 'Login';
+  const AccountIcon = useMemo(() => {
+    if (home === '/monitoring') return Activity;
+    if (home === '/admin') return Shield;
+    return LogIn;
+  }, [home]);
 
   const handleAccountClick = () => {
     navigate(home ?? '/login');
@@ -188,7 +224,7 @@ export function PublicHeader({
           <button
             type="button"
             onClick={() => scrollToSection('hazard-map')}
-            className="flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
+            className="group flex items-center gap-2 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
             aria-label="Go to the GAKIT hazard map"
           >
             <div className="flex h-10 w-24 items-center justify-center sm:w-28">
@@ -201,20 +237,23 @@ export function PublicHeader({
                 className="h-full w-full object-contain"
               />
             </div>
-            <span className="hidden text-left text-xs font-medium leading-tight text-slate-600 xl:block">
-              Geohazard Assessment &amp;
-              <br />
-              Knowledge Integration Tool
-            </span>
+            <div className="hidden border-l border-slate-300/80 pl-3 text-left xl:block">
+              <div className="text-[11px] font-bold tracking-tight text-slate-800 leading-none">MSU-IIT</div>
+              <div className="mt-0.5 text-[10px] font-medium leading-tight text-slate-500">
+                Geohazard Assessment &amp;
+                <br />
+                Knowledge Integration Tool
+              </div>
+            </div>
           </button>
 
           <nav className="hidden items-center gap-3 text-sm font-semibold md:flex">
             <button
               onClick={() => scrollToSection('about')}
-              className={`rounded-lg px-4 py-2.5 transition-colors ${
+              className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-xs font-bold transition-all duration-150 ${
                 activeSection === 'about'
-                  ? 'bg-maroon-50 text-gakit-maroon'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-gakit-maroon'
+                  ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80'
+                  : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
               }`}
             >
               About
@@ -222,9 +261,15 @@ export function PublicHeader({
             {!isChecking && (
               <button
                 onClick={handleAccountClick}
-                className="rounded-full border-2 border-gakit-maroon px-6 py-2.5 text-gakit-maroon bg-white transition-colors hover:bg-maroon-50 inline-flex items-center gap-2"
+                className="group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-5 py-2 text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28),inset_0_1px_1px_rgba(255,255,255,0.25)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:opacity-90"
               >
-                {accountLabel}
+                {home === '/monitoring' ? (
+                  <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
+                ) : (
+                  <AccountIcon className="h-3.5 w-3.5 text-maroon-100" />
+                )}
+                <span className="tracking-wide">{accountLabel}</span>
+                <ChevronRight className="h-3.5 w-3.5 text-maroon-200" />
               </button>
             )}
           </nav>
@@ -232,35 +277,78 @@ export function PublicHeader({
 
         {/* Right-edge cluster: info, notifications, account */}
         <div className="absolute right-6 top-1/2 z-[1201] hidden -translate-y-1/2 items-center gap-2 md:flex md:right-10">
-          <div className="group relative">
+          <div ref={infoRef} className="relative">
             <button
               type="button"
-              className="rounded-lg p-2.5 text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon transition-colors"
+              onClick={() => {
+                setIsInfoOpen((open) => !open);
+                setIsMenuOpen(false);
+                setIsNotifOpen(false);
+              }}
+              className={`rounded-full p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
+                isInfoOpen
+                  ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+                  : ''
+              }`}
+              aria-expanded={isInfoOpen}
+              aria-label="How to report guide"
             >
               <Info className="h-5 w-5" />
             </button>
-            <div className="hidden group-hover:block absolute right-0 top-12 w-56 z-[1201]">
-              <div className="bg-white border border-canvas-grey rounded-lg shadow-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
-                <div className="font-semibold text-slate-900 mb-1">How to report a flood hazard</div>
-                1. Set your location (search, tap, or use GPS).<br />2. Choose a person or vehicle reference, then estimate the waterline.<br />3. Submit report.
+            {isInfoOpen && (
+              <div className="absolute right-0 top-12 w-72 z-[1201]">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xl ring-1 ring-slate-900/5">
+                  <div className="mb-2.5 flex items-center gap-2 border-b border-slate-100 pb-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-md bg-maroon-50 text-gakit-maroon font-bold text-[11px]">
+                      ?
+                    </div>
+                    <div className="text-xs font-bold text-slate-900">How to report a flood hazard</div>
+                  </div>
+                  <div className="space-y-2 text-xs text-slate-600">
+                    <div className="flex items-start gap-2">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">1</span>
+                      <span>Set location (search, tap, or use GPS).</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">2</span>
+                      <span>Choose scale reference & estimate waterline.</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">3</span>
+                      <span>Submit report to alert responders & community.</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
           <NotificationBell
             notifications={weatherNotifications}
             onSelectAlert={setSelectedAlert}
             onMarkRead={markAlertRead}
             variant="header"
+            isOpen={isNotifOpen}
+            onOpenChange={(next) => {
+              setIsNotifOpen(next);
+              if (next) {
+                setIsMenuOpen(false);
+                setIsInfoOpen(false);
+              }
+            }}
           />
           {email && (
-            <div className="relative">
+            <div ref={userMenuRef} className="relative">
               <button
                 type="button"
-                onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
-                className={`flex items-center justify-center rounded-lg border p-2 text-slate-600 transition-colors ${
+                onClick={() => {
+                  setIsMenuOpen((isOpen) => !isOpen);
+                  setIsNotifOpen(false);
+                  setIsInfoOpen(false);
+                }}
+                className={`flex items-center justify-center rounded-full p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
                   isMenuOpen
-                    ? 'border-gakit-maroon bg-maroon-50'
-                    : 'border-canvas-grey hover:bg-slate-50'
+                    ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+                    : ''
                 }`}
                 aria-expanded={isMenuOpen}
                 aria-haspopup="menu"
@@ -279,37 +367,64 @@ export function PublicHeader({
       </div>
 
       {/* Mobile top-right cluster: info > account (alerts live in bottom nav) */}
-      <div className="absolute right-4 top-3 z-[1201] flex items-center gap-2 md:hidden">
-        <div className="relative">
+      <div className="absolute right-4 top-3 z-[1201] flex items-center gap-1.5 md:hidden">
+        <div ref={mobileInfoRef} className="relative">
           <button
             type="button"
-            onClick={() => { setIsMobileInfoOpen((v) => !v); setIsMenuOpen(false); }}
-            className={`flex items-center justify-center rounded-lg border p-2 transition-colors ${
-              isMobileInfoOpen
-                ? 'border-gakit-maroon bg-maroon-50 text-gakit-maroon'
-                : 'border-canvas-grey text-slate-500 hover:bg-slate-50'
+            onClick={() => {
+              setIsInfoOpen((v) => !v);
+              setIsMenuOpen(false);
+              setIsNotifOpen(false);
+            }}
+            className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
+              isInfoOpen
+                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80'
+                : ''
             }`}
+            aria-label="How to report guide"
           >
             <Info className="h-5 w-5" />
           </button>
-          {isMobileInfoOpen && (
-            <div className="absolute right-0 top-12 w-56 z-[1201]">
-              <div className="bg-white border border-canvas-grey rounded-lg shadow-lg px-3 py-2 text-xs text-slate-600 leading-relaxed">
-                <div className="font-semibold text-slate-900 mb-1">How to report a flood hazard</div>
-                1. Set your location (search, tap, or use GPS).<br />2. Choose a person or vehicle reference, then estimate the waterline.<br />3. Submit report.
+          {isInfoOpen && (
+            <div className="absolute right-0 top-12 w-64 z-[1201]">
+              <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xl ring-1 ring-slate-900/5">
+                <div className="mb-2 flex items-center gap-2 border-b border-slate-100 pb-1.5">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-maroon-50 text-gakit-maroon font-bold text-[11px]">
+                    ?
+                  </div>
+                  <div className="text-xs font-bold text-slate-900">How to report a hazard</div>
+                </div>
+                <div className="space-y-1.5 text-xs text-slate-600">
+                  <div className="flex items-start gap-1.5">
+                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">1</span>
+                    <span>Set location by tapping map or GPS.</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">2</span>
+                    <span>Estimate waterline reference depth.</span>
+                  </div>
+                  <div className="flex items-start gap-1.5">
+                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">3</span>
+                    <span>Submit to alert community.</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
         </div>
         {email && (
-          <div className="relative">
+          <div ref={mobileUserMenuRef} className="relative">
             <button
               type="button"
-              onClick={() => setIsMenuOpen((isOpen) => !isOpen)}
-              className={`flex items-center justify-center rounded-lg border p-2 text-slate-600 transition-colors ${
+              onClick={() => {
+                setIsMenuOpen((isOpen) => !isOpen);
+                setIsInfoOpen(false);
+                setIsNotifOpen(false);
+              }}
+              className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
                 isMenuOpen
-                  ? 'border-gakit-maroon bg-maroon-50'
-                  : 'border-canvas-grey hover:bg-slate-50'
+                  ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80'
+                  : ''
               }`}
               aria-expanded={isMenuOpen}
               aria-haspopup="menu"
@@ -330,10 +445,10 @@ export function PublicHeader({
         <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white/95 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
           <button
             onClick={() => scrollToSection('hazard-map')}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors ${
+            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
               activeSection === 'hazard-map'
-                ? 'bg-maroon-50 text-gakit-maroon'
-                : 'text-slate-500 hover:bg-maroon-50 hover:text-gakit-maroon'
+                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.12),inset_-1.5px_-1.5px_3px_rgba(255,255,255,1)] ring-1 ring-slate-300/60 font-bold'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon'
             }`}
           >
             <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
@@ -341,10 +456,10 @@ export function PublicHeader({
           </button>
           <button
             onClick={() => scrollToSection('about')}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors ${
+            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
               activeSection === 'about'
-                ? 'bg-maroon-50 text-gakit-maroon'
-                : 'text-slate-500 hover:bg-maroon-50 hover:text-gakit-maroon'
+                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.12),inset_-1.5px_-1.5px_3px_rgba(255,255,255,1)] ring-1 ring-slate-300/60 font-bold'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon'
             }`}
           >
             <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
@@ -355,6 +470,12 @@ export function PublicHeader({
             onSelectAlert={setSelectedAlert}
             onMarkRead={markAlertRead}
             variant="mobile-nav"
+            onOpenChange={(next) => {
+              if (next) {
+                setIsMenuOpen(false);
+                setIsInfoOpen(false);
+              }
+            }}
           />
           {!isChecking && (
             <button

@@ -3,11 +3,12 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type MutableRefObject,
 } from 'react';
-import { Loader2, Locate } from 'lucide-react';
+import { Loader2, Locate, Minus, Plus } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import * as maplibregl from 'maplibre-gl';
@@ -141,6 +142,7 @@ interface PublicMapProps {
   selectedLocation: { lat: number; lng: number } | null;
   mapApiRef?: MutableRefObject<PublicMapHandle | null>;
   hideShareLocation?: boolean;
+  hideWeather?: boolean;
   hideAttribution?: boolean;
   reportStatusToggleStatuses?: ReportStatus[];
   defaultVisibleReportStatuses?: Partial<Record<ReportStatus, boolean>>;
@@ -174,6 +176,7 @@ export function PublicMap({
   selectedLocation,
   mapApiRef,
   hideShareLocation = false,
+  hideWeather = false,
   hideAttribution = false,
   reportStatusToggleStatuses,
   defaultVisibleReportStatuses,
@@ -223,7 +226,7 @@ export function PublicMap({
   const [mapReady, setMapReady] = useState(false);
   const [isShareLocating, setIsShareLocating] = useState(false);
 
-  // Layer visibility toggles
+  // ─── Overlay card state ────────────────────────────────────────────────────
   const [showFloodHazard, setShowFloodHazard] = useState(false);
   const [showRainfall, setShowRainfall] = useState(false);
   const [layersOpen, setLayersOpen] = useState(() =>
@@ -232,6 +235,137 @@ export function PublicMap({
   const [reportsOpen, setReportsOpen] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
   );
+  const [weatherOpen, setWeatherOpen] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth >= 768 : true
+  );
+  const controlsContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // ─── Deterministic height budget & Context-Aware Cascade ───────────────────
+  //
+  // For the public map (!hideWeather), the stack is vertically centered on desktop
+  // (md:top-1/2 -translate-y-1/2). For embedded maps (like ReportsTab / Monitoring),
+  // it is bottom-anchored (bottom-4) to fit cleanly inside fixed-height card containers.
+
+  const SEARCH_CLEAR_PX = 76;
+
+  type OverlayState = {
+    weatherOpen: boolean;
+    reportsOpen: boolean;
+    layersOpen: boolean;
+    flood: boolean;
+    rain: boolean;
+    himawari: boolean;
+  };
+
+  type PriorityTarget = 'weather' | 'reports' | 'layers' | 'auto';
+
+  const predictedStackHeight = useCallback(
+    (s: OverlayState) => {
+      const weatherH = hideWeather ? 0 : s.weatherOpen ? 275 : 38;
+      const reportsH = s.reportsOpen ? 150 : 38;
+      let layersH = 38;
+      if (s.layersOpen) {
+        layersH = 135;
+        if (s.flood) layersH += 75;
+        if (s.rain) layersH += 125;
+        if (s.himawari) layersH += 55;
+      }
+      const activeCardCount = (hideWeather ? 0 : 1) + 2 + (hideShareLocation ? 0 : 1);
+      const gapsH = Math.max(0, activeCardCount - 1) * 12;
+      const locateH = hideShareLocation ? 0 : 40;
+      return weatherH + reportsH + layersH + gapsH + locateH;
+    },
+    [hideWeather, hideShareLocation]
+  );
+
+  const maxAllowedStackHeight = useCallback(() => {
+    const isDesktopCentered =
+      !hideWeather &&
+      typeof window !== 'undefined' &&
+      window.innerWidth >= 768;
+    const mapH =
+      mapContainer.current?.clientHeight ||
+      (typeof window !== 'undefined' ? window.innerHeight : 800);
+
+    if (isDesktopCentered) {
+      // Desktop full view: centered vertically (top-1/2 -translate-y-1/2)
+      return mapH - 2 * SEARCH_CLEAR_PX;
+    } else {
+      // Embedded / mobile: anchored at bottom (bottom-4 or bottom-24)
+      const bottomMargin = fullScreen && hasBottomNav ? 96 : 16;
+      const topMargin = SEARCH_CLEAR_PX;
+      return mapH - bottomMargin - topMargin;
+    }
+  }, [hideWeather, fullScreen, hasBottomNav]);
+
+  const stackFits = useCallback(
+    (s: OverlayState) => {
+      return predictedStackHeight(s) <= maxAllowedStackHeight();
+    },
+    [predictedStackHeight, maxAllowedStackHeight]
+  );
+
+  /**
+   * Cascades collapses based on what the user is actively opening/interacting with.
+   * Protects the target card from ever being collapsed by its own toggle.
+   */
+  const collapseToFit = useCallback(
+    (proposed: OverlayState, priority: PriorityTarget = 'auto'): OverlayState => {
+      if (typeof window === 'undefined') return proposed;
+
+      let s = { ...proposed };
+      if (stackFits(s)) return s;
+
+      if (priority === 'weather') {
+        // Protect weather: collapse Layers first, then Reports
+        if (s.layersOpen) {
+          s = { ...s, layersOpen: false };
+          if (stackFits(s)) return s;
+        }
+        if (s.reportsOpen) {
+          s = { ...s, reportsOpen: false };
+          if (stackFits(s)) return s;
+        }
+      } else if (priority === 'reports') {
+        // Protect reports: collapse Weather first, then Layers
+        if (!hideWeather && s.weatherOpen) {
+          s = { ...s, weatherOpen: false };
+          if (stackFits(s)) return s;
+        }
+        if (s.layersOpen) {
+          s = { ...s, layersOpen: false };
+          if (stackFits(s)) return s;
+        }
+      } else if (priority === 'layers') {
+        // Protect layers: collapse Weather first, then Reports (never collapse Layers!)
+        if (!hideWeather && s.weatherOpen) {
+          s = { ...s, weatherOpen: false };
+          if (stackFits(s)) return s;
+        }
+        if (s.reportsOpen) {
+          s = { ...s, reportsOpen: false };
+          if (stackFits(s)) return s;
+        }
+      } else {
+        // Auto / window resize
+        if (!hideWeather && s.weatherOpen) {
+          s = { ...s, weatherOpen: false };
+          if (stackFits(s)) return s;
+        }
+        if (s.reportsOpen) {
+          s = { ...s, reportsOpen: false };
+          if (stackFits(s)) return s;
+        }
+        if (s.layersOpen) {
+          s = { ...s, layersOpen: false };
+        }
+      }
+      return s;
+    },
+    [hideWeather, stackFits]
+  );
+
+  // ─── Domain layers ─────────────────────────────────────────────────────────
   const [visibleRiskLevels, setVisibleRiskLevels] = useState<Record<string, boolean>>({
     high: true,
     medium: true,
@@ -245,14 +379,11 @@ export function PublicMap({
   const layersReadyRef = useRef(false);
   const onReadyFiredRef = useRef(false);
 
-  // Domain layers (reports / rainfall / Himawari IR) live in dedicated hooks.
   const reportsLayer = useReportsLayer(reportFilters);
   const { backendReports, isLoadingReports, reportsRef, loadMapReports } = reportsLayer;
   const rainfall = useRainfallLayer(mapRef, showRainfall);
   const { loadRainfall, lookupPrecip, applyPreloaded, hoursRef } = rainfall;
 
-  // Bubble accumulation-window changes up so parent pages can mirror state
-  // (e.g. the report modal's "Xh accum." label) without re-reading the map.
   const handleRainfallHoursChange = useCallback(
     (hours: RainfallAccumulationHours) => {
       rainfall.setRainfallHours(hours);
@@ -261,6 +392,166 @@ export function PublicMap({
     [rainfall, onRainfallHoursChange]
   );
   const himawari = useHimawariLayer(mapRef, layersReadyRef);
+
+  // ─── Card toggle handlers ──────────────────────────────────────────────────
+
+  const handleToggleWeather = useCallback(
+    (nextOpen: boolean) => {
+      const proposed: OverlayState = {
+        weatherOpen: nextOpen,
+        reportsOpen,
+        layersOpen,
+        flood: showFloodHazard,
+        rain: showRainfall,
+        himawari: himawari.showHimawariIR,
+      };
+      const safe = nextOpen ? collapseToFit(proposed, 'weather') : proposed;
+      setWeatherOpen(safe.weatherOpen);
+      setReportsOpen(safe.reportsOpen);
+      setLayersOpen(safe.layersOpen);
+    },
+    [reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, collapseToFit]
+  );
+
+  const handleToggleReports = useCallback(
+    (nextOpen: boolean) => {
+      const proposed: OverlayState = {
+        weatherOpen,
+        reportsOpen: nextOpen,
+        layersOpen,
+        flood: showFloodHazard,
+        rain: showRainfall,
+        himawari: himawari.showHimawariIR,
+      };
+      const safe = nextOpen ? collapseToFit(proposed, 'reports') : proposed;
+      setWeatherOpen(safe.weatherOpen);
+      setReportsOpen(safe.reportsOpen);
+      setLayersOpen(safe.layersOpen);
+    },
+    [weatherOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, collapseToFit]
+  );
+
+  const handleToggleLayers = useCallback(
+    (nextOpen: boolean) => {
+      const proposed: OverlayState = {
+        weatherOpen,
+        reportsOpen,
+        layersOpen: nextOpen,
+        flood: showFloodHazard,
+        rain: showRainfall,
+        himawari: himawari.showHimawariIR,
+      };
+      const safe = nextOpen ? collapseToFit(proposed, 'layers') : proposed;
+      setWeatherOpen(safe.weatherOpen);
+      setReportsOpen(safe.reportsOpen);
+      setLayersOpen(safe.layersOpen);
+    },
+    [weatherOpen, reportsOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, collapseToFit]
+  );
+
+  // ─── Sub-layer toggle handlers ─────────────────────────────────────────────
+
+  const handleShowFloodHazardChange = useCallback(
+    (checked: boolean) => {
+      setShowFloodHazard(checked);
+      const proposed: OverlayState = {
+        weatherOpen,
+        reportsOpen,
+        layersOpen,
+        flood: checked,
+        rain: showRainfall,
+        himawari: himawari.showHimawariIR,
+      };
+      const safe = checked ? collapseToFit(proposed, 'layers') : proposed;
+      setWeatherOpen(safe.weatherOpen);
+      setReportsOpen(safe.reportsOpen);
+      setLayersOpen(safe.layersOpen);
+    },
+    [weatherOpen, reportsOpen, layersOpen, showRainfall, himawari.showHimawariIR, collapseToFit]
+  );
+
+  const handleShowRainfallChange = useCallback(
+    (checked: boolean) => {
+      setShowRainfall(checked);
+      const proposed: OverlayState = {
+        weatherOpen,
+        reportsOpen,
+        layersOpen,
+        flood: showFloodHazard,
+        rain: checked,
+        himawari: himawari.showHimawariIR,
+      };
+      const safe = checked ? collapseToFit(proposed, 'layers') : proposed;
+      setWeatherOpen(safe.weatherOpen);
+      setReportsOpen(safe.reportsOpen);
+      setLayersOpen(safe.layersOpen);
+    },
+    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, himawari.showHimawariIR, collapseToFit]
+  );
+
+  const handleShowHimawariIRChange = useCallback(
+    (checked: boolean) => {
+      himawari.toggleHimawariIR(checked);
+      const proposed: OverlayState = {
+        weatherOpen,
+        reportsOpen,
+        layersOpen,
+        flood: showFloodHazard,
+        rain: showRainfall,
+        himawari: checked,
+      };
+      const safe = checked ? collapseToFit(proposed, 'layers') : proposed;
+      setWeatherOpen(safe.weatherOpen);
+      setReportsOpen(safe.reportsOpen);
+      setLayersOpen(safe.layersOpen);
+    },
+    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari, collapseToFit]
+  );
+
+  // ─── Pre-paint DOM boundary guard: ensures stack NEVER surpasses search bar ─
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    const el = controlsContainerRef.current;
+    if (!el) return;
+
+    const checkDomOverflow = () => {
+      const rect = el.getBoundingClientRect();
+      const parentRect = mapContainer.current?.getBoundingClientRect();
+      const relativeTop = parentRect ? rect.top - parentRect.top : rect.top;
+
+      if (relativeTop < 76) {
+        if (!hideWeather && weatherOpen) {
+          setWeatherOpen(false);
+        } else if (reportsOpen && layersOpen) {
+          setReportsOpen(false);
+        }
+      }
+    };
+
+    checkDomOverflow();
+    window.addEventListener('resize', checkDomOverflow);
+    return () => window.removeEventListener('resize', checkDomOverflow);
+  }, [hideWeather, weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR]);
+
+  // ─── Window resize: re-run collapseToFit against current state ─────────────
+  useEffect(() => {
+    const onResize = () => {
+      const proposed: OverlayState = { 
+        weatherOpen, 
+        reportsOpen, 
+        layersOpen, 
+        flood: showFloodHazard,
+        rain: showRainfall,
+        himawari: himawari.showHimawariIR,
+      };
+      const safe = collapseToFit(proposed);
+      setWeatherOpen(safe.weatherOpen);
+      setReportsOpen(safe.reportsOpen);
+      setLayersOpen(safe.layersOpen);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, collapseToFit]);
 
   // Refs mirror toggle state so the style-load handler (which runs on every
   // basemap switch) can read the latest values without re-creating the map.
@@ -906,12 +1197,11 @@ export function PublicMap({
       // Tiles pop in instead of slowly cross-fading, which reads much better on
       // a slow network where the initial tiles arrive late.
       fadeDuration: 0,
-      attributionControl: hideAttributionRef.current ? false : undefined,
+      attributionControl: false,
     });
     setSwathZoomFloor(map);
 
     mapRef.current = map;
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left');
 
     // Keep the map sized correctly when its container changes (e.g. when the
     // tab wrapper toggles display, or layout shifts). Prevents a stale/blank
@@ -1065,16 +1355,47 @@ export function PublicMap({
         hasMaptiler={HAS_MAPTILER}
       />
 
+      <div className="absolute top-4 left-4 md:left-6 z-[1000] flex h-[52px] w-8 flex-col overflow-hidden rounded-2xl bg-white/90 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
+        <button
+          type="button"
+          onClick={() => mapRef.current?.zoomIn()}
+          aria-label="Zoom in"
+          className="flex flex-1 items-center justify-center text-gakit-maroon transition-colors hover:bg-maroon-50 active:bg-maroon-100"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+        <span className="h-px w-full bg-slate-200" />
+        <button
+          type="button"
+          onClick={() => mapRef.current?.zoomOut()}
+          aria-label="Zoom out"
+          className="flex flex-1 items-center justify-center text-gakit-maroon transition-colors hover:bg-maroon-50 active:bg-maroon-100"
+        >
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
       <div
+        ref={controlsContainerRef}
         className={`absolute left-4 md:left-6 z-[1000] flex flex-col items-start gap-3 transition-opacity duration-200 ${
-          `${fullScreen ? 'bottom-24' : 'bottom-4'} md:bottom-8`
-        } ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+          fullScreen ? 'bottom-24' : 'bottom-4'
+        } ${
+          !hideWeather ? 'md:bottom-auto md:top-1/2 md:-translate-y-1/2' : ''
+        } ${
+          controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
+        }`}
       >
-        <WeatherChip />
+        {!hideWeather && (
+          <WeatherChip
+            open={weatherOpen}
+            onToggle={handleToggleWeather}
+            defaultExpanded={weatherExpandedByDefault}
+          />
+        )}
 
         <ReportControls
           open={reportsOpen}
-          onToggle={setReportsOpen}
+          onToggle={handleToggleReports}
           visibleReportStatuses={visibleReportStatuses}
           onReportStatusChange={(status, checked) =>
             setVisibleReportStatuses((previous) => ({ ...previous, [status]: checked }))
@@ -1085,17 +1406,17 @@ export function PublicMap({
 
         <DataLayerControls
           open={layersOpen}
-          onToggle={setLayersOpen}
+          onToggle={handleToggleLayers}
           showFloodHazard={showFloodHazard}
-          onShowFloodHazardChange={setShowFloodHazard}
+          onShowFloodHazardChange={handleShowFloodHazardChange}
           showRainfall={showRainfall}
-          onShowRainfallChange={setShowRainfall}
+          onShowRainfallChange={handleShowRainfallChange}
           rainfallObservedAt={rainfall.rainfallObservedAt}
           rainfallSource={rainfall.rainfallSource}
           rainfallHours={rainfall.rainfallHours}
           onRainfallHoursChange={handleRainfallHoursChange}
           showHimawariIR={himawari.showHimawariIR}
-          onShowHimawariIRChange={himawari.toggleHimawariIR}
+          onShowHimawariIRChange={handleShowHimawariIRChange}
           himawariOpacity={himawari.opacity}
           onHimawariOpacityChange={himawari.setOpacity}
           visibleRiskLevels={visibleRiskLevels}
@@ -1128,6 +1449,85 @@ export function PublicMap({
           className="absolute bottom-0 right-0 h-px w-px"
         />
       </div>
+
+      {!hideAttribution && (
+        <div
+          className={`absolute ${
+            fullScreen ? 'bottom-2 md:bottom-2' : 'bottom-1.5'
+          } right-2 z-[990] flex items-center gap-1 rounded-md bg-white/90 px-2 py-0.5 text-[10px] text-slate-500 shadow-sm ring-1 ring-slate-200 backdrop-blur-sm`}
+        >
+          {basemap === 'satellite' ? (
+            <>
+              <a
+                href="https://www.esri.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-slate-800 hover:underline"
+              >
+                Imagery © Esri
+              </a>
+              <span>·</span>
+              <a
+                href="https://www.maxar.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-slate-800 hover:underline"
+              >
+                Maxar
+              </a>
+              <span>·</span>
+              <a
+                href="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-slate-800 hover:underline"
+              >
+                Earthstar
+              </a>
+            </>
+          ) : mapMode === '3d' && HAS_MAPTILER ? (
+            <>
+              <a
+                href="https://www.maptiler.com/copyright/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-slate-800 hover:underline"
+              >
+                © MapTiler
+              </a>
+              <span>·</span>
+              <a
+                href="https://www.openstreetmap.org/copyright"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-slate-800 hover:underline"
+              >
+                © OpenStreetMap
+              </a>
+            </>
+          ) : (
+            <>
+              <a
+                href="https://openfreemap.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-slate-800 hover:underline"
+              >
+                © OpenFreeMap
+              </a>
+              <span>·</span>
+              <a
+                href="https://www.openstreetmap.org/copyright"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-slate-800 hover:underline"
+              >
+                © OpenStreetMap
+              </a>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
