@@ -77,9 +77,9 @@ export function WeatherChip({
     : `Weather outlook — ${todayCondition.label}, ${days[0].rainChance}% chance of rain`;
 
   return (
-    <div className={className}>
+    <div className={`relative ${className}`}>
       {open ? (
-        <div className="w-72 rounded-2xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
+        <div className="absolute left-0 bottom-full mb-2 w-72 rounded-2xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-900">
             <div className="flex min-w-0 items-center gap-2">
               <span className="shrink-0">Weather Outlook</span>

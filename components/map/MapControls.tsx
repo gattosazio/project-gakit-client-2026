@@ -17,6 +17,8 @@ import {
 } from '@/lib/map/colorScales';
 import type { MapMode } from '@/lib/map/overlayLayers';
 import type { ReportStatus } from '@/types/report';
+import { PillSlider } from '@/components/ui/PillSlider';
+import type { BasemapId } from '@/constants/publicMap';
 
 const JAXA_GSMAP_URL = 'https://sharaku.eorc.jaxa.jp/GSMaP/';
 
@@ -147,54 +149,67 @@ function Card({
   );
 }
 
-/* ─── Map mode toggle (2D / 3D) ──────────────────────────────────────── */
+/* ─── Map view toggle (2D / 3D / Sat / Sat+T) ────────────────────────── */
 
-export function MapModeToggle({
+type ViewPreset = {
+  key: string;
+  label: string;
+  basemap: BasemapId;
+  mode: MapMode;
+  needsTerrain: boolean;
+};
+
+const VIEW_PRESETS: ViewPreset[] = [
+  { key: '2d', label: '2D', basemap: 'light', mode: '2d', needsTerrain: false },
+  { key: '3d', label: '3D', basemap: 'light', mode: '3d', needsTerrain: true },
+  { key: 'sat', label: 'Satellite', basemap: 'satellite', mode: '2d', needsTerrain: false },
+];
+
+export function MapViewToggle({
+  basemap,
   mode,
-  onModeChange,
+  onViewChange,
   hasMaptiler,
   className = '',
 }: {
+  basemap: BasemapId;
   mode: MapMode;
-  onModeChange: (mode: MapMode) => void;
+  onViewChange: (next: { basemap: BasemapId; mode: MapMode }) => void;
   hasMaptiler: boolean;
   className?: string;
 }) {
+  const activeKey = VIEW_PRESETS.find((v) => v.basemap === basemap && v.mode === mode)?.key;
   return (
-    <div className={`${className} flex items-center rounded-md bg-white/90 border border-canvas-grey shadow-lg shadow-slate-900/10 p-0.5`}>
-      <button
-        type="button"
-        onClick={() => onModeChange('2d')}
-        aria-pressed={mode === '2d'}
-        title="2D map (OpenFreeMap)"
-        className={`rounded px-2 py-1 text-[10px] font-semibold leading-none transition-colors ${
-          mode === '2d'
-            ? 'bg-gakit-maroon text-white'
-            : 'text-slate-600 hover:bg-canvas-light'
-        }`}
-      >
-        2D
-      </button>
-      <button
-        type="button"
-        onClick={() => onModeChange('3d')}
-        aria-pressed={mode === '3d'}
-        disabled={!hasMaptiler}
-        title={
-          hasMaptiler
-            ? '3D map with terrain (MapTiler)'
-            : '3D view requires a MapTiler API key'
-        }
-        className={`rounded px-2 py-1 text-[10px] font-semibold leading-none transition-colors ${
-          mode === '3d'
-            ? 'bg-gakit-maroon text-white'
-            : hasMaptiler
-            ? 'text-slate-600 hover:bg-canvas-light'
-            : 'cursor-not-allowed text-slate-300'
-        }`}
-      >
-        3D
-      </button>
+    <div
+      className={`${className} flex items-center rounded-md bg-white/90 border border-canvas-grey shadow-lg shadow-slate-900/10 p-0.5`}
+    >
+      {VIEW_PRESETS.map((v) => {
+        const disabled = v.needsTerrain && !hasMaptiler;
+        const active = v.key === activeKey;
+        return (
+          <button
+            key={v.key}
+            type="button"
+            onClick={() => onViewChange({ basemap: v.basemap, mode: v.mode })}
+            aria-pressed={active}
+            disabled={disabled}
+            title={
+              disabled
+                ? `${v.label} requires a MapTiler API key`
+                : `${v.label} view`
+            }
+            className={`rounded px-2 py-1 text-[10px] font-semibold leading-none transition-colors ${
+              active
+                ? 'bg-gakit-maroon text-white'
+                : disabled
+                  ? 'cursor-not-allowed text-slate-300'
+                  : 'text-slate-600 hover:bg-canvas-light'
+            }`}
+          >
+            {v.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -420,14 +435,14 @@ export function DataLayerControls({
                 Opacity
               </div>
               <div className="flex items-center gap-2">
-                <input
-                  type="range"
+                <PillSlider
+                  value={himawariOpacity}
                   min={0}
-                  max={100}
-                  value={Math.round(himawariOpacity * 100)}
-                  onChange={(e) => onHimawariOpacityChange(Number(e.target.value) / 100)}
-                  aria-label="Himawari IR layer opacity"
-                  className="flex-1 h-1 accent-gakit-maroon cursor-pointer"
+                  max={1}
+                  step={0.01}
+                  onChange={onHimawariOpacityChange}
+                  ariaLabel="Himawari IR layer opacity"
+                  accent="#6366f1"
                 />
                 <span className="text-[10px] font-semibold text-slate-600 w-7 text-right">{Math.round(himawariOpacity * 100)}%</span>
               </div>
