@@ -25,7 +25,7 @@ export function LocationPromptModal({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute inset-0 z-[1300] bg-black/40 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[1400] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl">
         <div className="p-5 space-y-3">
           <div>

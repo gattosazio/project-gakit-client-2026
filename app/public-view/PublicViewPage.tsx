@@ -346,31 +346,7 @@ export function PublicViewPage({
                 weatherExpandedByDefault
                 fullScreen
               />
-
-              <LocationPromptModal
-                isOpen={isLocationPromptOpen}
-                onClose={() => setIsLocationPromptOpen(false)}
-                onUseCurrentLocation={handleUseCurrentLocation}
-                onChooseLocation={handleChooseLocation}
-                onSearchLocationSelect={handleSearchedLocationSelect}
-              />
             </div>
-
-            <ReportModal
-              isOpen={isModalOpen}
-              onClose={() => {
-                setIsModalOpen(false);
-                setSelectedLocation(null);
-                setIsManualLocationMode(true);
-              }}
-              selectedLocation={selectedLocation}
-              onSubmit={handleReportSubmit}
-              onSuccess={() => {
-                setIsSuccessOpen(true);
-              }}
-              onCheckLocation={handleCheckLocation}
-              rainfallHours={rainfallHours}
-            />
           </div>
         </section>
 
@@ -487,6 +463,30 @@ export function PublicViewPage({
           </div>
         </section>
       </main>
+
+      <LocationPromptModal
+        isOpen={isLocationPromptOpen}
+        onClose={() => setIsLocationPromptOpen(false)}
+        onUseCurrentLocation={handleUseCurrentLocation}
+        onChooseLocation={handleChooseLocation}
+        onSearchLocationSelect={handleSearchedLocationSelect}
+      />
+
+      <ReportModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedLocation(null);
+          setIsManualLocationMode(true);
+        }}
+        selectedLocation={selectedLocation}
+        onSubmit={handleReportSubmit}
+        onSuccess={() => {
+          setIsSuccessOpen(true);
+        }}
+        onCheckLocation={handleCheckLocation}
+        rainfallHours={rainfallHours}
+      />
 
       <SuccessModal
         isOpen={isSuccessOpen}

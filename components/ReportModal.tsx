@@ -262,8 +262,13 @@ export function ReportModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[1300] flex items-end md:fixed md:right-0 md:top-0 md:bottom-0 md:items-center md:justify-end md:w-auto md:pointer-events-none">
-      <div className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[78vh] flex flex-col md:rounded-2xl md:max-h-[calc(100vh-12rem)] md:h-auto md:max-w-96 md:mr-6 md:pointer-events-auto">
+    <div className="fixed inset-0 z-[1400] flex items-end justify-center pointer-events-none md:items-center md:justify-end md:p-6">
+      {/* Mobile backdrop */}
+      <div
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs pointer-events-auto md:hidden"
+        onClick={handleClose}
+      />
+      <div className="relative z-10 bg-white rounded-t-3xl shadow-2xl w-full max-h-[82vh] flex flex-col pointer-events-auto md:rounded-2xl md:max-h-[calc(100vh-8rem)] md:h-auto md:max-w-96">
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-canvas-grey">
           <div>
             <h2 className="text-xl font-bold text-slate-900">
@@ -492,7 +497,7 @@ export function ReportModal({
 
         </div>
 
-        <div className="p-4 md:p-6 border-t border-canvas-grey bg-canvas-light/50">
+        <div className="p-4 pb-8 sm:pb-4 md:p-6 border-t border-canvas-grey bg-canvas-light/50">
           {step === 'confirm' ? (
             <button
               onClick={() => setStep('depth')}
