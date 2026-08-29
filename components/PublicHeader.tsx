@@ -15,15 +15,20 @@ import { SignOutConfirmDialog } from './SideBar';
 import { NotificationBell } from './NotificationBell';
 import type { NotificationItem } from './NotificationBell';
 import { WeatherAlertModal } from './WeatherAlertModal';
+import { LocationSearch, type SearchedLocation } from '@/app/public-view/components/LocationSearch';
 
 export function PublicHeader({
   activeSection,
   initialAuth,
   onNavigateSection,
+  onSearchSelect,
+  onLocate,
 }: {
   activeSection?: 'hazard-map' | 'about';
   initialAuth?: AuthSnapshot;
   onNavigateSection?: (id: 'hazard-map' | 'about') => void;
+  onSearchSelect?: (location: SearchedLocation) => void;
+  onLocate?: () => void | Promise<void>;
 }) {
   const router = useRouter();
   const { navigate, loadingOverlay } = useRouteLoader();
@@ -239,6 +244,26 @@ export function PublicHeader({
             </div>
           </button>
         </div>
+
+        {/* Center: Integrated Location Search */}
+        {onSearchSelect && (
+          <LocationSearch
+            variant="header-compact"
+            onSelect={onSearchSelect}
+            onLocate={onLocate}
+            className="mx-2 hidden md:flex md:w-64 lg:w-80"
+          />
+        )}
+
+        {/* Mobile search */}
+        {onSearchSelect && (
+          <LocationSearch
+            variant="header-compact"
+            onSelect={onSearchSelect}
+            onLocate={onLocate}
+            className="mx-1.5 flex flex-1 min-w-0 md:hidden"
+          />
+        )}
 
         {/* Desktop Navigation & Actions */}
         <div className="hidden items-center gap-2 md:flex">

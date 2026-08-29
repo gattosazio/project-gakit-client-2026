@@ -13,10 +13,14 @@ export function LocationSearch({
   onSelect,
   onLocate,
   isLocating = false,
+  variant = 'standalone',
+  className = '',
 }: {
   onSelect: (location: SearchedLocation) => void;
   onLocate?: () => void | Promise<void>;
   isLocating?: boolean;
+  variant?: 'standalone' | 'header-compact';
+  className?: string;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
@@ -113,12 +117,18 @@ export function LocationSearch({
     isFocused &&
     (Boolean(onLocate) || searchResults.length > 0 || Boolean(searchError));
 
+  const isCompact = variant === 'header-compact';
+
   return (
     <div
       ref={containerRef}
-      className="relative flex h-[52px] items-center rounded-2xl bg-white/85 px-3.5 py-1.5 shadow-[0_8px_30px_rgb(0,0,0,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl transition-all duration-150 focus-within:ring-2 focus-within:ring-gakit-maroon/40"
+      className={
+        isCompact
+          ? `relative flex h-8 md:h-9 items-center rounded-full bg-slate-100/90 px-3 py-1 ring-1 ring-slate-200/90 transition-all duration-150 focus-within:bg-white focus-within:ring-2 focus-within:ring-gakit-maroon/50 focus-within:shadow-md ${className}`
+          : `relative flex h-[52px] items-center rounded-2xl bg-white/85 px-3.5 py-1.5 shadow-[0_8px_30px_rgb(0,0,0,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl transition-all duration-150 focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
+      }
     >
-      <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-2">
+      <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-1.5 md:gap-2">
         <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} />
         <input
           value={searchQuery}
@@ -129,8 +139,8 @@ export function LocationSearch({
             setSearchError(null);
             setIsFocused(true);
           }}
-          placeholder="Search street, barangay, or landmark"
-          className="min-w-0 flex-1 bg-transparent py-1 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400"
+          placeholder={isCompact ? 'Search location…' : 'Search street, barangay, or landmark'}
+          className="min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400"
           aria-label="Search for a location in Iligan City"
         />
         {searchQuery && (
@@ -138,27 +148,32 @@ export function LocationSearch({
             type="button"
             onClick={handleClear}
             aria-label="Clear search"
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 active:scale-90"
+            className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200/80 hover:text-slate-700 active:scale-90"
           >
-            <X className="h-3.5 w-3.5" strokeWidth={2} />
+            <X className="h-3 w-3" strokeWidth={2} />
           </button>
         )}
-        {isSearching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gakit-maroon" />}
+        {isSearching && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-gakit-maroon" />}
 
-        <span className="h-5 w-px shrink-0 bg-slate-200/80" />
-
-        <button
-          type="submit"
-          disabled={isSearching}
-          aria-label="Search location"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-all duration-150 hover:bg-maroon-50 hover:text-gakit-maroon active:bg-maroon-100 active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          <Search className="h-4 w-4" strokeWidth={2} />
-        </button>
+        {!isCompact && (
+          <>
+            <span className="h-5 w-px shrink-0 bg-slate-200/80" />
+            <button
+              type="submit"
+              disabled={isSearching}
+              aria-label="Search location"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-all duration-150 hover:bg-maroon-50 hover:text-gakit-maroon active:bg-maroon-100 active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Search className="h-4 w-4" strokeWidth={2} />
+            </button>
+          </>
+        )}
       </form>
 
       {showDropdown && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-white/60 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/80 backdrop-blur-xl">
+        <div className={`absolute z-50 mt-2 overflow-hidden rounded-2xl border border-white/80 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.14),inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/80 backdrop-blur-xl ${
+          isCompact ? 'left-0 sm:left-auto sm:right-0 top-full w-72 sm:w-80 md:w-96' : 'left-0 right-0 top-full'
+        }`}>
           {searchError && (
             <p
               className="px-3.5 py-2.5 text-xs text-red-600 border-b border-slate-100"
