@@ -104,8 +104,17 @@ export function WeatherChip({
       {open ? (
         <div className="w-72 rounded-2xl bg-white/90 p-3 shadow-[0_12px_40px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl animate-[weatherGrow_160ms_ease-out] origin-bottom">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-900">
-            <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 items-center gap-1.5">
               <span className="shrink-0">Weather Outlook</span>
+              {current && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-300/70">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                  </span>
+                  LIVE
+                </span>
+              )}
               {issuedAt && (
                 <span className="truncate text-[10px] font-medium text-slate-400 tabular-nums">
                   · Issued{' '}
@@ -182,6 +191,12 @@ export function WeatherChip({
           <PillIcon className="h-5 w-5 text-gakit-maroon" />
           <span className="hidden text-sm font-semibold text-slate-700 tabular-nums md:inline">{pillLabel}</span>
           <span className="text-sm font-semibold text-slate-700 tabular-nums md:hidden">{numericLabel}</span>
+          {current && (
+            <span className="relative flex h-2 w-2" title="Live weather observation active">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            </span>
+          )}
         </button>
       )}
 

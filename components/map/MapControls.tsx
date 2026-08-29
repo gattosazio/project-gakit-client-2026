@@ -54,6 +54,7 @@ function PillToggle({
   onChange,
   credit,
   subtitle,
+  live,
 }: {
   label: string;
   color: string;
@@ -61,6 +62,7 @@ function PillToggle({
   onChange: (v: boolean) => void;
   credit?: { href: string; label: string };
   subtitle?: string;
+  live?: boolean;
 }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none group">
@@ -82,8 +84,17 @@ function PillToggle({
           }`}
         />
       </span>
-      <span className="text-xs text-slate-700 font-medium group-hover:text-slate-900">
+      <span className="flex items-center gap-1.5 text-xs text-slate-700 font-medium group-hover:text-slate-900">
         {label}
+        {live && checked && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-300/70">
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            </span>
+            LIVE
+          </span>
+        )}
         {subtitle && <span className="text-slate-400 ml-0.5">{subtitle}</span>}
       </span>
       {credit && (
@@ -109,12 +120,14 @@ function Card({
   onToggle,
   icon: Icon,
   title,
+  badge,
   children,
 }: {
   open: boolean;
   onToggle: (v: boolean) => void;
   icon: typeof Layers;
   title: string;
+  badge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return open ? (
@@ -123,6 +136,7 @@ function Card({
         <div className="flex items-center gap-2">
           <Icon className="w-3.5 h-3.5" />
           {title}
+          {badge}
         </div>
         <button
           onClick={() => onToggle(false)}
@@ -145,6 +159,7 @@ function Card({
     >
       <Icon className="w-5 h-5 text-gakit-maroon" />
       <span className="text-sm font-semibold text-slate-700">{title}</span>
+      {badge}
     </button>
   );
 }
@@ -313,8 +328,16 @@ export function DataLayerControls({
   onShowBarangayBoundariesChange,
 }: DataLayerControlsProps) {
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
+  const hasLiveActive = showHimawariIR || showRainfall;
+  const layerBadge = hasLiveActive ? (
+    <span className="relative ml-1 flex h-2 w-2" title="Live meteorological feed active">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+    </span>
+  ) : null;
+
   return (
-    <Card open={open} onToggle={onToggle} icon={Layers} title="Layers">
+    <Card open={open} onToggle={onToggle} icon={Layers} title="Layers" badge={layerBadge}>
       <div className="space-y-1.5">
         <PillToggle
           label="Flood Susceptibility"
@@ -348,6 +371,7 @@ export function DataLayerControls({
           color="#0284C7"
           checked={showRainfall}
           onChange={onShowRainfallChange}
+          live
           credit={{
             href: JAXA_GSMAP_URL,
             label: 'JAXA GSMaP',
@@ -424,6 +448,7 @@ export function DataLayerControls({
           color="#6366f1"
           checked={showHimawariIR}
           onChange={onShowHimawariIRChange}
+          live
           credit={{
             href: 'https://www.data.jma.go.jp/mscweb/data/himawari/',
             label: 'JMA Himawari-9',
