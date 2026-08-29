@@ -76,10 +76,14 @@ export function WeatherChip({
       ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
     : `Weather outlook — ${todayCondition.label}, ${days[0].rainChance}% chance of rain`;
 
+  const numericLabel = hasLive
+    ? `${Math.round(current.temperature)}°`
+    : `${days[0].rainChance}%`;
+
   return (
     <div className={`relative ${className}`}>
       {open ? (
-        <div className="absolute left-0 bottom-full mb-2 w-72 rounded-2xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
+        <div className="absolute left-0 bottom-full mb-2 max-h-[18rem] w-72 overflow-y-auto rounded-2xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-900">
             <div className="flex min-w-0 items-center gap-2">
               <span className="shrink-0">Weather Outlook</span>
@@ -156,7 +160,8 @@ export function WeatherChip({
           aria-label="Show weather outlook"
         >
           <PillIcon className="h-5 w-5 text-gakit-maroon" />
-          <span className="text-sm font-medium text-slate-700">{pillLabel}</span>
+          <span className="hidden text-sm font-medium text-slate-700 md:inline">{pillLabel}</span>
+          <span className="text-sm font-medium text-slate-700 md:hidden">{numericLabel}</span>
         </button>
       )}
       {selectedDayDate && (
