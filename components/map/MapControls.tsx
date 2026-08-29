@@ -54,7 +54,6 @@ function PillToggle({
   onChange,
   credit,
   subtitle,
-  live,
 }: {
   label: string;
   color: string;
@@ -62,7 +61,6 @@ function PillToggle({
   onChange: (v: boolean) => void;
   credit?: { href: string; label: string };
   subtitle?: string;
-  live?: boolean;
 }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none group">
@@ -84,17 +82,8 @@ function PillToggle({
           }`}
         />
       </span>
-      <span className="flex items-center gap-1.5 text-xs text-slate-700 font-medium group-hover:text-slate-900">
+      <span className="text-xs text-slate-700 font-medium group-hover:text-slate-900">
         {label}
-        {live && checked && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-300/70">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            </span>
-            LIVE
-          </span>
-        )}
         {subtitle && <span className="text-slate-400 ml-0.5">{subtitle}</span>}
       </span>
       {credit && (
@@ -447,7 +436,6 @@ export function DataLayerControls({
           color="#6366f1"
           checked={showHimawariIR}
           onChange={onShowHimawariIRChange}
-          live
           credit={{
             href: 'https://www.data.jma.go.jp/mscweb/data/himawari/',
             label: 'JMA Himawari-9',
@@ -455,8 +443,15 @@ export function DataLayerControls({
         />
         {showHimawariIR && (
           <div className="pl-9 pt-1 pb-1 space-y-1.5">
-            <div className="text-[10px] leading-snug text-slate-400">
-              Last hour · 10-min frames
+            <div className="flex items-center gap-1.5 text-[10px] leading-snug text-slate-400">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-300/70">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                </span>
+                LIVE
+              </span>
+              <span>Last hour · 10-min frames</span>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
