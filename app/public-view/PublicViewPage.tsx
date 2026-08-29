@@ -13,7 +13,6 @@ import type { PublicMapHandle } from '@/components/PublicMap';
 import type { CreateReportInput, DepthCategory, FloodReference, Report, ReportStatus } from '@/types/report';
 import type { AuthSnapshot } from '@/lib/auth/roles';
 import { SectionJumpControls } from './components/SectionJumpControls';
-import { LocationSearch } from './components/LocationSearch';
 import {
   LocationPromptModal,
   type SelectedLocation,
@@ -306,12 +305,16 @@ export function PublicViewPage({
   return (
     <div
       ref={scrollContainerRef}
-      className="h-[100dvh] overflow-y-auto bg-canvas-grey scroll-smooth overscroll-y-contain md:snap-y md:snap-proximity"
+      className="h-[100dvh] overflow-y-auto bg-canvas-grey overscroll-y-contain [-webkit-overflow-scrolling:touch] md:snap-y md:snap-proximity"
     >
       <PublicHeader
         activeSection={activeSection}
         initialAuth={initialAuth}
         onNavigateSection={scrollToSection}
+        onSearchSelect={handleSearchedLocationSelect}
+        onLocate={async () => {
+          await mapRef.current?.shareMyLocation();
+        }}
       />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
@@ -320,20 +323,12 @@ export function PublicViewPage({
         onMoveDown={() => scrollToSection('about')}
       />
 
-      <main className="pt-16 pb-14 md:pb-0">
-        <section id="hazard-map" className="min-h-[calc(100dvh-4rem)] scroll-mt-16 snap-start">
-          <div className="flex h-[calc(100dvh-4rem)] overflow-hidden bg-white">
-            <div className="relative isolate flex-1 w-full h-full min-h-0">
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 md:left-6 md:translate-x-0 z-[1100] w-[calc(100%-2rem)] max-w-[310px] md:w-72 md:max-w-none">
-                <LocationSearch
-                  onSelect={handleSearchedLocationSelect}
-                  onLocate={async () => {
-                    await mapRef.current?.shareMyLocation();
-                  }}
-                />
-              </div>
+      <main className="pb-14 md:pb-0">
+        <section id="hazard-map" className="min-h-[100dvh] snap-start transform-gpu">
+          <div className="flex h-[100dvh] overflow-hidden bg-white">
+            <div className="relative isolate flex-1 w-full h-full min-h-0 transform-gpu">
               {isLoadingReports && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 md:top-4 z-[1000] bg-white border border-canvas-grey rounded-2xl shadow-lg px-4 py-3 flex items-center gap-2">
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 backdrop-blur-xl border border-white/80 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.08)] px-4 py-2.5 flex items-center gap-2">
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
                   <span className="text-sm font-medium text-slate-700">{loadingMessage}</span>
                 </div>
@@ -351,35 +346,11 @@ export function PublicViewPage({
                 weatherExpandedByDefault
                 fullScreen
               />
-
-              <LocationPromptModal
-                isOpen={isLocationPromptOpen}
-                onClose={() => setIsLocationPromptOpen(false)}
-                onUseCurrentLocation={handleUseCurrentLocation}
-                onChooseLocation={handleChooseLocation}
-                onSearchLocationSelect={handleSearchedLocationSelect}
-              />
             </div>
-
-            <ReportModal
-              isOpen={isModalOpen}
-              onClose={() => {
-                setIsModalOpen(false);
-                setSelectedLocation(null);
-                setIsManualLocationMode(true);
-              }}
-              selectedLocation={selectedLocation}
-              onSubmit={handleReportSubmit}
-              onSuccess={() => {
-                setIsSuccessOpen(true);
-              }}
-              onCheckLocation={handleCheckLocation}
-              rainfallHours={rainfallHours}
-            />
           </div>
         </section>
 
-        <section id="about" className="border-t border-maroon-900/40 bg-gakit-maroon scroll-mt-16 snap-start">
+        <section id="about" className="border-t border-maroon-900/40 bg-gakit-maroon scroll-mt-16 snap-start [content-visibility:auto] [contain-intrinsic-size:700px] transform-gpu">
           <div className="mx-auto grid w-full max-w-6xl gap-3.5 px-4 py-8 sm:gap-6 sm:px-6 md:gap-10 md:py-16 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
             <div>
               <div className="mb-2 font-heading text-xs font-bold uppercase tracking-[0.18em] text-rose-200 md:mb-3">
@@ -396,9 +367,9 @@ export function PublicViewPage({
               </p>
 
               <div className="mt-5 grid gap-3.5 sm:mt-8 sm:grid-cols-2 sm:gap-5">
-                <div className="group rounded-2xl bg-white p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 transition-transform transition-shadow duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
+                <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
                   <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon shadow-xs ring-1 ring-maroon-200/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                       <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -410,9 +381,9 @@ export function PublicViewPage({
                     </div>
                   </div>
                 </div>
-                <div className="group rounded-2xl bg-white p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 transition-transform transition-shadow duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
+                <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
                   <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon shadow-xs ring-1 ring-maroon-200/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                       <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
                     <div className="min-w-0 flex-1">
@@ -428,7 +399,7 @@ export function PublicViewPage({
             </div>
 
             <div className="space-y-3.5 sm:space-y-5 lg:space-y-6 lg:pt-7">
-              <div className="group rounded-2xl bg-white p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 transition-transform transition-shadow duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
+              <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
                 <div className="flex items-center gap-3 sm:gap-4">
                   <a
                     href="https://www.msuiit.edu.ph"
@@ -467,9 +438,9 @@ export function PublicViewPage({
                 </p>
               </div>
 
-              <div className="group rounded-2xl bg-white p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 transition-transform transition-shadow duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
+              <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
                 <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon shadow-xs ring-1 ring-maroon-200/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                     <Mail className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -492,6 +463,30 @@ export function PublicViewPage({
           </div>
         </section>
       </main>
+
+      <LocationPromptModal
+        isOpen={isLocationPromptOpen}
+        onClose={() => setIsLocationPromptOpen(false)}
+        onUseCurrentLocation={handleUseCurrentLocation}
+        onChooseLocation={handleChooseLocation}
+        onSearchLocationSelect={handleSearchedLocationSelect}
+      />
+
+      <ReportModal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedLocation(null);
+          setIsManualLocationMode(true);
+        }}
+        selectedLocation={selectedLocation}
+        onSubmit={handleReportSubmit}
+        onSuccess={() => {
+          setIsSuccessOpen(true);
+        }}
+        onCheckLocation={handleCheckLocation}
+        rainfallHours={rainfallHours}
+      />
 
       <SuccessModal
         isOpen={isSuccessOpen}

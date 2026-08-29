@@ -75,7 +75,7 @@ export function FloodDepthScale({
         <div className="absolute inset-x-0 bottom-0" style={{ height: `${pctOf(MAX_DEPTH_CM)}%` }}>
           <div
             aria-hidden
-            className="absolute left-1/2 h-full w-3.5 -translate-x-1/2 rounded-full bg-sky-50 shadow-[inset_2px_3px_6px_rgba(15,23,42,0.15),inset_-2px_-2px_6px_rgba(255,255,255,0.9)]"
+            className="absolute left-1/2 h-full w-3.5 -translate-x-1/2 rounded-full bg-slate-100 ring-1 ring-slate-200/80"
           >
             <div
               className="absolute left-1/2 top-0 h-full w-[6px] -translate-x-1/2 rounded-full"
@@ -179,10 +179,8 @@ export function FloodDepthScale({
             style={{ bottom: thumbBottom }}
           >
             <div
-              className={`flex h-full w-full items-center justify-center rounded-full bg-white ring-1 ring-slate-300/80 transition-shadow duration-150 ease-out ${
-                pressed
-                  ? 'scale-95 shadow-[inset_1px_2px_4px_rgba(15,23,42,0.2),0_1px_2px_rgba(15,23,42,0.1)]'
-                  : 'scale-100 shadow-[0_2px_6px_rgba(15,23,42,0.22),0_1px_2px_rgba(15,23,42,0.12)]'
+              className={`flex h-full w-full items-center justify-center rounded-full bg-white ring-1 ring-slate-300 transition-all duration-150 ease-out ${
+                pressed ? 'scale-95 shadow-sm' : 'scale-100 shadow-md'
               }`}
             >
               <div className="h-1 w-3 rounded-full bg-slate-300" />

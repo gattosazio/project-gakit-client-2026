@@ -102,12 +102,12 @@ export function WeatherChip({
   return (
     <div className={className}>
       {open ? (
-        <div className="w-72 rounded-2xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur animate-[weatherGrow_160ms_ease-out] origin-bottom">
+        <div className="w-72 rounded-2xl bg-white/90 p-3 shadow-[0_12px_40px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl animate-[weatherGrow_160ms_ease-out] origin-bottom">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-900">
             <div className="flex min-w-0 items-center gap-2">
               <span className="shrink-0">Weather Outlook</span>
               {issuedAt && (
-                <span className="truncate text-[10px] font-medium text-slate-400">
+                <span className="truncate text-[10px] font-medium text-slate-400 tabular-nums">
                   · Issued{' '}
                   {new Date(issuedAt).toLocaleTimeString([], {
                     hour: '2-digit',
@@ -118,7 +118,7 @@ export function WeatherChip({
             </div>
             <button
               onClick={() => setOpen(false)}
-              className="rounded-md p-1 text-slate-400 transition-colors hover:bg-canvas-light hover:text-slate-700"
+              className="rounded-md p-1 text-slate-400 transition-colors hover:bg-canvas-light hover:text-slate-700 active:scale-95"
               aria-label="Collapse weather outlook"
             >
               <ChevronDown className="h-4 w-4" />
@@ -141,7 +141,7 @@ export function WeatherChip({
                   type="button"
                   onClick={() => setSelectedDayDate(day.date)}
                   aria-label={`Open weather details for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
-                  className="-mx-1 w-[calc(100%+0.5rem)] rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-canvas-light"
+                  className="-mx-1 w-[calc(100%+0.5rem)] rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-canvas-light active:scale-[0.98]"
                 >
                   <span className="flex items-center gap-2.5">
                     <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-canvas-light ring-1 ring-canvas-grey">
@@ -153,7 +153,7 @@ export function WeatherChip({
                       </span>
                       <span className="block text-[11px] leading-snug text-slate-500">{detail}</span>
                     </span>
-                    <span className="shrink-0 text-right text-xs font-semibold text-slate-800">
+                    <span className="shrink-0 text-right text-xs font-semibold text-slate-800 tabular-nums">
                       <span className="text-[10px] font-medium text-slate-400">H </span>
                       {day.tempMax}°
                       <span className="ml-1 text-[10px] font-medium text-slate-400">L </span>
@@ -174,14 +174,14 @@ export function WeatherChip({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-2xl bg-white/90 px-3 py-2.5 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
+          className="flex items-center gap-2 rounded-2xl bg-white/85 px-3 py-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl transition-all duration-150 hover:bg-white hover:shadow-xl active:scale-[0.97]"
           title={pillTooltip}
           aria-label="Show weather outlook"
           aria-expanded={open}
         >
           <PillIcon className="h-5 w-5 text-gakit-maroon" />
-          <span className="hidden text-sm font-medium text-slate-700 md:inline">{pillLabel}</span>
-          <span className="text-sm font-medium text-slate-700 md:hidden">{numericLabel}</span>
+          <span className="hidden text-sm font-semibold text-slate-700 tabular-nums md:inline">{pillLabel}</span>
+          <span className="text-sm font-semibold text-slate-700 tabular-nums md:hidden">{numericLabel}</span>
         </button>
       )}
 

@@ -67,9 +67,9 @@ const PRESET_CHIP_BASE_CLASSES =
   'bg-white text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08),0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-slate-900 active:scale-95';
 
 const CRITICALITY_CHIP_SELECTED: Record<DepthCriticality, string> = {
-  low: 'bg-emerald-50 text-emerald-800 shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-emerald-300 font-bold',
-  medium: 'bg-amber-50 text-amber-800 shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-amber-300 font-bold',
-  critical: 'bg-rose-50 text-rose-800 shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-rose-300 font-bold',
+  low: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-300 font-bold shadow-xs',
+  medium: 'bg-amber-50 text-amber-800 ring-1 ring-amber-300 font-bold shadow-xs',
+  critical: 'bg-rose-50 text-rose-800 ring-1 ring-rose-300 font-bold shadow-xs',
 };
 
 export function ReportModal({
@@ -262,8 +262,13 @@ export function ReportModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-[1300] flex items-end md:fixed md:right-0 md:top-0 md:bottom-0 md:items-center md:justify-end md:w-auto md:pointer-events-none">
-      <div className="bg-white rounded-t-2xl shadow-2xl w-full max-h-[78vh] flex flex-col md:rounded-2xl md:max-h-[calc(100vh-12rem)] md:h-auto md:max-w-96 md:mr-6 md:pointer-events-auto">
+    <div className="fixed inset-0 z-[1400] flex items-end justify-center pointer-events-none md:items-center md:justify-end md:p-6">
+      {/* Mobile backdrop */}
+      <div
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs pointer-events-auto md:hidden"
+        onClick={handleClose}
+      />
+      <div className="relative z-10 bg-white rounded-t-3xl shadow-2xl w-full max-h-[82vh] flex flex-col pointer-events-auto md:rounded-2xl md:max-h-[calc(100vh-8rem)] md:h-auto md:max-w-96">
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-canvas-grey">
           <div>
             <h2 className="text-xl font-bold text-slate-900">
@@ -465,7 +470,7 @@ export function ReportModal({
                       );
                     })}
                     <span className="text-xs font-medium text-slate-400">or</span>
-                    <label className="flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/90 transition-all duration-150 focus-within:bg-[#eef2f6] focus-within:shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,1)] focus-within:ring-slate-300">
+                    <label className="flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/90 transition-all duration-150 focus-within:ring-2 focus-within:ring-gakit-maroon">
                       <input
                         type="text"
                         inputMode="numeric"
@@ -492,7 +497,7 @@ export function ReportModal({
 
         </div>
 
-        <div className="p-4 md:p-6 border-t border-canvas-grey bg-canvas-light/50">
+        <div className="p-4 pb-8 sm:pb-4 md:p-6 border-t border-canvas-grey bg-canvas-light/50">
           {step === 'confirm' ? (
             <button
               onClick={() => setStep('depth')}

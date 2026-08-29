@@ -15,15 +15,20 @@ import { SignOutConfirmDialog } from './SideBar';
 import { NotificationBell } from './NotificationBell';
 import type { NotificationItem } from './NotificationBell';
 import { WeatherAlertModal } from './WeatherAlertModal';
+import { LocationSearch, type SearchedLocation } from '@/app/public-view/components/LocationSearch';
 
 export function PublicHeader({
   activeSection,
   initialAuth,
   onNavigateSection,
+  onSearchSelect,
+  onLocate,
 }: {
   activeSection?: 'hazard-map' | 'about';
   initialAuth?: AuthSnapshot;
   onNavigateSection?: (id: 'hazard-map' | 'about') => void;
+  onSearchSelect?: (location: SearchedLocation) => void;
+  onLocate?: () => void | Promise<void>;
 }) {
   const router = useRouter();
   const { navigate, loadingOverlay } = useRouteLoader();
@@ -213,38 +218,62 @@ export function PublicHeader({
 
   return (
     <>
-    <header className="fixed top-0 left-0 right-0 z-[1200] isolate bg-white opacity-100 shadow-md border-b border-canvas-grey">
-      <div className="relative mx-auto flex h-16 items-center justify-center px-6 md:px-10">
-        <div className="flex items-center justify-center gap-8 lg:gap-14">
+    <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-5xl z-[1200] isolate rounded-full bg-white/90 backdrop-blur-xl border border-white/80 shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-900/5 transition-all duration-200">
+      <div className="flex h-12 md:h-14 items-center justify-between px-3.5 md:px-5">
+        {/* Left: Brand Logo & Title */}
+        <div className="flex items-center gap-3">
           <button
             type="button"
             onClick={() => scrollToSection('hazard-map')}
             className="group flex items-center rounded-lg transition-transform duration-200 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
             aria-label="Go to the GAKIT hazard map"
           >
-            <div className="flex h-10 items-center justify-center">
+            <div className="flex h-8 md:h-9 items-center justify-center">
               <Image
                 src="/images/gakit_logo_adobe.svg"
                 alt="GAKIT logo"
-                width={160}
-                height={48}
+                width={140}
+                height={40}
                 priority
-                className="h-10 w-auto object-contain"
+                className="h-7 md:h-8 w-auto object-contain"
               />
             </div>
-            <div className="hidden h-10 pl-2 flex-col justify-center gap-0.5 text-left font-heading text-[9.5px] font-bold uppercase tracking-wider leading-tight text-slate-500 xl:flex">
+            <div className="hidden h-9 pl-2 flex-col justify-center text-left font-heading text-[9px] font-bold uppercase tracking-wider leading-tight text-slate-500 xl:flex">
               <div>Geohazard Assessment &amp;</div>
               <div>Knowledge Integration Tool</div>
             </div>
           </button>
+        </div>
 
-          <nav className="hidden items-center gap-3 text-sm font-semibold md:flex">
+        {/* Center: Integrated Location Search */}
+        {onSearchSelect && (
+          <LocationSearch
+            variant="header-compact"
+            onSelect={onSearchSelect}
+            onLocate={onLocate}
+            className="mx-2 hidden md:flex md:w-64 lg:w-80"
+          />
+        )}
+
+        {/* Mobile search */}
+        {onSearchSelect && (
+          <LocationSearch
+            variant="header-compact"
+            onSelect={onSearchSelect}
+            onLocate={onLocate}
+            className="mx-1.5 flex flex-1 min-w-0 md:hidden"
+          />
+        )}
+
+        {/* Desktop Navigation & Actions */}
+        <div className="hidden items-center gap-2 md:flex">
+          <nav className="flex items-center gap-1.5 text-sm font-semibold">
             <button
               onClick={() => scrollToSection('about')}
-              className={`inline-flex items-center justify-center rounded-full px-5 py-2 font-heading text-xs font-bold transition-all duration-150 ${
+              className={`inline-flex items-center justify-center rounded-full px-4 py-1.5 font-heading text-xs font-bold transition-all duration-150 active:scale-95 ${
                 activeSection === 'about'
-                  ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80'
-                  : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
+                  ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
+                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
               }`}
             >
               About
@@ -252,97 +281,174 @@ export function PublicHeader({
             {!isChecking && (
               <button
                 onClick={handleAccountClick}
-                className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-5 py-2 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28),inset_0_1px_1px_rgba(255,255,255,0.25)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:opacity-90"
+                className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-4 py-1.5 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:scale-95"
               >
                 <span className="tracking-wide">{accountLabel}</span>
               </button>
             )}
           </nav>
+
+          <span className="mx-1 h-5 w-px bg-slate-200/80" />
+
+          {/* Right cluster: info, notifications, account */}
+          <div className="flex items-center gap-1">
+            <div ref={infoRef} className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsInfoOpen((open) => !open);
+                  setIsMenuOpen(false);
+                  setIsNotifOpen(false);
+                }}
+                className={`rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-100/80 hover:text-gakit-maroon active:scale-95 ${
+                  isInfoOpen
+                    ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+                    : ''
+                }`}
+                aria-expanded={isInfoOpen}
+                aria-label="How to report guide"
+              >
+                <Info className="h-4.5 w-4.5" />
+              </button>
+              {isInfoOpen && (
+                <div className="absolute right-0 top-12 w-72 z-[1201]">
+                  <div className="rounded-2xl border border-white/80 bg-white/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] backdrop-blur-xl ring-1 ring-slate-200/80">
+                    <div className="mb-2.5 flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-maroon-50 text-gakit-maroon font-bold text-[11px]">
+                        ?
+                      </div>
+                      <div className="text-xs font-bold text-slate-900">How to report a flood hazard</div>
+                    </div>
+                    <div className="space-y-2 text-xs text-slate-600">
+                      <div className="flex items-start gap-2">
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">1</span>
+                        <span>Set location (search, tap, or use GPS).</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">2</span>
+                        <span>Choose scale reference & estimate waterline.</span>
+                      </div>
+                      <div className="flex items-start gap-2">
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">3</span>
+                        <span>Submit report to alert responders & community.</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            <NotificationBell
+              notifications={weatherNotifications}
+              onSelectAlert={setSelectedAlert}
+              onMarkRead={markAlertRead}
+              variant="header"
+              isOpen={isNotifOpen}
+              onOpenChange={(next) => {
+                setIsNotifOpen(next);
+                if (next) {
+                  setIsMenuOpen(false);
+                  setIsInfoOpen(false);
+                }
+              }}
+            />
+            {email && (
+              <div ref={userMenuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMenuOpen((isOpen) => !isOpen);
+                    setIsNotifOpen(false);
+                    setIsInfoOpen(false);
+                  }}
+                  className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-100/80 hover:text-gakit-maroon active:scale-95 ${
+                    isMenuOpen
+                      ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+                      : ''
+                  }`}
+                  aria-expanded={isMenuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Account menu"
+                >
+                  <UserRound className="h-4.5 w-4.5" />
+                </button>
+                {isMenuOpen && (
+                  <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-white/80 bg-white/95 p-2 shadow-[0_12px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl ring-1 ring-slate-200/80">
+                    {userMenuContent}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right-edge cluster: info, notifications, account */}
-        <div className="absolute right-6 top-1/2 z-[1201] hidden -translate-y-1/2 items-center gap-2 md:flex md:right-10">
-          <div ref={infoRef} className="relative">
+        {/* Mobile top-right cluster */}
+        <div className="flex items-center gap-1 md:hidden">
+          <div ref={mobileInfoRef} className="relative">
             <button
               type="button"
               onClick={() => {
-                setIsInfoOpen((open) => !open);
+                setIsInfoOpen((v) => !v);
                 setIsMenuOpen(false);
                 setIsNotifOpen(false);
               }}
-              className={`rounded-full p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
+              className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-100/80 hover:text-gakit-maroon active:scale-95 ${
                 isInfoOpen
-                  ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+                  ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
                   : ''
               }`}
-              aria-expanded={isInfoOpen}
               aria-label="How to report guide"
             >
-              <Info className="h-5 w-5" />
+              <Info className="h-4.5 w-4.5" />
             </button>
             {isInfoOpen && (
-              <div className="absolute right-0 top-12 w-72 z-[1201]">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xl ring-1 ring-slate-900/5">
-                  <div className="mb-2.5 flex items-center gap-2 border-b border-slate-100 pb-2">
+              <div className="absolute right-0 top-12 w-64 z-[1201]">
+                <div className="rounded-2xl border border-white/80 bg-white/95 p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl ring-1 ring-slate-200/80">
+                  <div className="mb-2 flex items-center gap-2 border-b border-slate-100 pb-1.5">
                     <div className="flex h-5 w-5 items-center justify-center rounded-md bg-maroon-50 text-gakit-maroon font-bold text-[11px]">
                       ?
                     </div>
-                    <div className="text-xs font-bold text-slate-900">How to report a flood hazard</div>
+                    <div className="text-xs font-bold text-slate-900">How to report a hazard</div>
                   </div>
-                  <div className="space-y-2 text-xs text-slate-600">
-                    <div className="flex items-start gap-2">
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">1</span>
-                      <span>Set location (search, tap, or use GPS).</span>
+                  <div className="space-y-1.5 text-xs text-slate-600">
+                    <div className="flex items-start gap-1.5">
+                      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">1</span>
+                      <span>Set location by tapping map or GPS.</span>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">2</span>
-                      <span>Choose scale reference & estimate waterline.</span>
+                    <div className="flex items-start gap-1.5">
+                      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">2</span>
+                      <span>Estimate waterline reference depth.</span>
                     </div>
-                    <div className="flex items-start gap-2">
-                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">3</span>
-                      <span>Submit report to alert responders & community.</span>
+                    <div className="flex items-start gap-1.5">
+                      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">3</span>
+                      <span>Submit to alert community.</span>
                     </div>
                   </div>
                 </div>
               </div>
             )}
           </div>
-          <NotificationBell
-            notifications={weatherNotifications}
-            onSelectAlert={setSelectedAlert}
-            onMarkRead={markAlertRead}
-            variant="header"
-            isOpen={isNotifOpen}
-            onOpenChange={(next) => {
-              setIsNotifOpen(next);
-              if (next) {
-                setIsMenuOpen(false);
-                setIsInfoOpen(false);
-              }
-            }}
-          />
           {email && (
-            <div ref={userMenuRef} className="relative">
+            <div ref={mobileUserMenuRef} className="relative">
               <button
                 type="button"
                 onClick={() => {
                   setIsMenuOpen((isOpen) => !isOpen);
-                  setIsNotifOpen(false);
                   setIsInfoOpen(false);
+                  setIsNotifOpen(false);
                 }}
-                className={`flex items-center justify-center rounded-full p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
+                className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-100/80 hover:text-gakit-maroon active:scale-95 ${
                   isMenuOpen
-                    ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+                    ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
                     : ''
                 }`}
                 aria-expanded={isMenuOpen}
                 aria-haspopup="menu"
                 aria-label="Account menu"
               >
-                <UserRound className="h-5 w-5" />
+                <UserRound className="h-4.5 w-4.5" />
               </button>
               {isMenuOpen && (
-                <div className="absolute right-0 top-12 z-50 w-56 rounded-lg border border-canvas-grey bg-white p-2 shadow-lg">
+                <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-white/80 bg-white/95 p-2 shadow-[0_12px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl ring-1 ring-slate-200/80">
                   {userMenuContent}
                 </div>
               )}
@@ -350,130 +456,55 @@ export function PublicHeader({
           )}
         </div>
       </div>
+    </header>
 
-      {/* Mobile top-right cluster: info > account (alerts live in bottom nav) */}
-      <div className="absolute right-4 top-3 z-[1201] flex items-center gap-1.5 md:hidden">
-        <div ref={mobileInfoRef} className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              setIsInfoOpen((v) => !v);
+    <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-2 md:hidden">
+      <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white/85 p-1.5 shadow-[0_12px_40px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl">
+        <button
+          onClick={() => scrollToSection('hazard-map')}
+          className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
+            activeSection === 'hazard-map'
+              ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
+          }`}
+        >
+          <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
+          <span className="text-[10px] font-semibold">Map</span>
+        </button>
+        <button
+          onClick={() => scrollToSection('about')}
+          className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
+            activeSection === 'about'
+              ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
+          }`}
+        >
+          <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
+          <span className="text-[10px] font-semibold">About</span>
+        </button>
+        <NotificationBell
+          notifications={weatherNotifications}
+          onSelectAlert={setSelectedAlert}
+          onMarkRead={markAlertRead}
+          variant="mobile-nav"
+          onOpenChange={(next) => {
+            if (next) {
               setIsMenuOpen(false);
-              setIsNotifOpen(false);
-            }}
-            className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
-              isInfoOpen
-                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80'
-                : ''
-            }`}
-            aria-label="How to report guide"
+              setIsInfoOpen(false);
+            }
+          }}
+        />
+        {!isChecking && (
+          <button
+            onClick={handleAccountClick}
+            className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70 active:scale-95"
           >
-            <Info className="h-5 w-5" />
+            <UserRound className="h-5 w-5" />
+            <span className="text-[10px] font-semibold">{accountLabel}</span>
           </button>
-          {isInfoOpen && (
-            <div className="absolute right-0 top-12 w-64 z-[1201]">
-              <div className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xl ring-1 ring-slate-900/5">
-                <div className="mb-2 flex items-center gap-2 border-b border-slate-100 pb-1.5">
-                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-maroon-50 text-gakit-maroon font-bold text-[11px]">
-                    ?
-                  </div>
-                  <div className="text-xs font-bold text-slate-900">How to report a hazard</div>
-                </div>
-                <div className="space-y-1.5 text-xs text-slate-600">
-                  <div className="flex items-start gap-1.5">
-                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">1</span>
-                    <span>Set location by tapping map or GPS.</span>
-                  </div>
-                  <div className="flex items-start gap-1.5">
-                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">2</span>
-                    <span>Estimate waterline reference depth.</span>
-                  </div>
-                  <div className="flex items-start gap-1.5">
-                    <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">3</span>
-                    <span>Submit to alert community.</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-        {email && (
-          <div ref={mobileUserMenuRef} className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setIsMenuOpen((isOpen) => !isOpen);
-                setIsInfoOpen(false);
-                setIsNotifOpen(false);
-              }}
-              className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon ${
-                isMenuOpen
-                  ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80'
-                  : ''
-              }`}
-              aria-expanded={isMenuOpen}
-              aria-haspopup="menu"
-              aria-label="Account menu"
-            >
-              <UserRound className="h-5 w-5" />
-            </button>
-            {isMenuOpen && (
-              <div className="absolute right-0 top-12 z-50 w-56 rounded-lg border border-canvas-grey bg-white p-2 shadow-lg">
-                {userMenuContent}
-              </div>
-            )}
-          </div>
         )}
       </div>
-
-      <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-2 md:hidden">
-        <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white/95 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
-          <button
-            onClick={() => scrollToSection('hazard-map')}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
-              activeSection === 'hazard-map'
-                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80'
-            }`}
-          >
-            <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
-            <span className="text-[10px] font-semibold">Map</span>
-          </button>
-          <button
-            onClick={() => scrollToSection('about')}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
-              activeSection === 'about'
-                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80'
-            }`}
-          >
-            <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
-            <span className="text-[10px] font-semibold">About</span>
-          </button>
-          <NotificationBell
-            notifications={weatherNotifications}
-            onSelectAlert={setSelectedAlert}
-            onMarkRead={markAlertRead}
-            variant="mobile-nav"
-            onOpenChange={(next) => {
-              if (next) {
-                setIsMenuOpen(false);
-                setIsInfoOpen(false);
-              }
-            }}
-          />
-          {!isChecking && (
-            <button
-              onClick={handleAccountClick}
-              className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80"
-            >
-              <UserRound className="h-5 w-5" />
-              <span className="text-[10px] font-semibold">{accountLabel}</span>
-            </button>
-          )}
-        </div>
-      </nav>
-    </header>
+    </nav>
     <SignOutConfirmDialog
       isOpen={showSignOutConfirm}
       isSigningOut={isSigningOut}

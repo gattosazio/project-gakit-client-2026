@@ -72,12 +72,12 @@ function PillToggle({
       />
       {/* Pill track */}
       <span
-        className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full shadow-[inset_1px_1.5px_3px_rgba(15,23,42,0.18),inset_-1px_-1px_2px_rgba(255,255,255,0.7)] transition-colors duration-200"
-        style={{ backgroundColor: checked ? color : '#e2e8f0' }}
+        className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/80 transition-colors duration-200"
+        style={{ backgroundColor: checked ? color : '#cbd5e1' }}
       >
         {/* Circle thumb */}
         <span
-          className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.22)] ring-1 ring-black/5 transition-transform duration-200 ${
+          className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${
             checked ? 'translate-x-[15px]' : 'translate-x-[2px]'
           }`}
         />
@@ -109,24 +109,27 @@ function Card({
   onToggle,
   icon: Icon,
   title,
+  badge,
   children,
 }: {
   open: boolean;
   onToggle: (v: boolean) => void;
   icon: typeof Layers;
   title: string;
+  badge?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return open ? (
-    <div className="w-72 rounded-2xl bg-white/95 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
+    <div className="w-72 rounded-2xl bg-white/90 shadow-[0_12px_40px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl">
       <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
         <div className="flex items-center gap-2">
           <Icon className="w-3.5 h-3.5" />
           {title}
+          {badge}
         </div>
         <button
           onClick={() => onToggle(false)}
-          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
+          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors active:scale-95"
           aria-label={`Collapse ${title}`}
         >
           <ChevronUp className="w-4 h-4" />
@@ -139,12 +142,13 @@ function Card({
   ) : (
     <button
       onClick={() => onToggle(true)}
-      className="flex items-center gap-2 rounded-2xl bg-white/90 px-3 py-3 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-xl md:backdrop-blur"
+      className="flex items-center gap-2 rounded-2xl bg-white/85 px-3.5 py-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl transition-all duration-150 hover:bg-white hover:shadow-xl active:scale-[0.97]"
       title={`Show ${title}`}
       aria-label={`Show ${title}`}
     >
       <Icon className="w-5 h-5 text-gakit-maroon" />
-      <span className="text-sm font-medium text-slate-700">{title}</span>
+      <span className="text-sm font-semibold text-slate-700">{title}</span>
+      {badge}
     </button>
   );
 }
@@ -181,7 +185,7 @@ export function MapViewToggle({
   const activeKey = VIEW_PRESETS.find((v) => v.basemap === basemap && v.mode === mode)?.key;
   return (
     <div
-      className={`${className} flex items-center rounded-lg bg-[#eef2f6] shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.12),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-slate-300/80 p-0.5`}
+      className={`${className} flex items-center rounded-2xl bg-white/85 p-1 shadow-[0_8px_24px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl`}
     >
       {VIEW_PRESETS.map((v) => {
         const disabled = v.needsTerrain && !hasMaptiler;
@@ -198,12 +202,12 @@ export function MapViewToggle({
                 ? `${v.label} requires a MapTiler API key`
                 : `${v.label} view`
             }
-            className={`rounded-md px-2.5 py-1 text-[11px] font-bold leading-none transition-all duration-150 ${
+            className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-all duration-150 active:scale-[0.96] ${
               active
-                ? 'bg-gakit-maroon text-white shadow-[0_1px_3px_rgba(123,17,19,0.35)]'
+                ? 'bg-gakit-maroon text-white shadow-xs'
                 : disabled
                   ? 'cursor-not-allowed text-slate-300'
-                  : 'text-slate-600 hover:text-slate-900 active:scale-95'
+                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
             }`}
           >
             {v.label}
@@ -313,8 +317,16 @@ export function DataLayerControls({
   onShowBarangayBoundariesChange,
 }: DataLayerControlsProps) {
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
+  const hasLiveActive = showHimawariIR;
+  const layerBadge = hasLiveActive ? (
+    <span className="relative ml-1 flex h-2 w-2" title="Live Himawari-9 satellite feed active">
+      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+    </span>
+  ) : null;
+
   return (
-    <Card open={open} onToggle={onToggle} icon={Layers} title="Layers">
+    <Card open={open} onToggle={onToggle} icon={Layers} title="Layers" badge={layerBadge}>
       <div className="space-y-1.5">
         <PillToggle
           label="Flood Susceptibility"
@@ -431,8 +443,15 @@ export function DataLayerControls({
         />
         {showHimawariIR && (
           <div className="pl-9 pt-1 pb-1 space-y-1.5">
-            <div className="text-[10px] leading-snug text-slate-400">
-              Last hour · 10-min frames
+            <div className="flex items-center gap-1.5 text-[10px] leading-snug text-slate-400">
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-300/70">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                </span>
+                LIVE
+              </span>
+              <span>Last hour · 10-min frames</span>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
