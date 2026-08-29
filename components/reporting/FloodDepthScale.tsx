@@ -4,7 +4,6 @@ import { useRef, useState } from 'react';
 import {
   MAX_DEPTH_CM,
   SCENE_CM,
-  criticalityStripRgb,
   depthCodeFromCm,
   fallbackCategoryLabel,
 } from '@/lib/reports/depthReferences';
@@ -38,7 +37,6 @@ export function FloodDepthScale({
 }) {
   const shownCm = preview ?? value;
   const overflowing = value != null && value > MAX_DEPTH_CM;
-  const resting = value == null && preview == null;
   const chipHigh = shownCm != null && pctOfScale(shownCm) > 88;
 
   const thumbBottomFor = (cm: number) =>
@@ -47,18 +45,13 @@ export function FloodDepthScale({
 
   const thumbRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
+  const lastEmittedCmRef = useRef<number | null>(null);
+  const rafIdRef = useRef<number | null>(null);
   const [pressed, setPressed] = useState(false);
 
   const applyThumb = (cm: number) => {
     if (thumbRef.current) thumbRef.current.style.bottom = thumbBottomFor(cm);
   };
-
-  const pillColor =
-    value != null
-      ? `rgb(${criticalityStripRgb(Math.min(value, MAX_DEPTH_CM)).join(' ')})`
-      : preview != null
-        ? '#0ea5e9'
-        : '#cbd5e1';
 
   const cmFromPointer = (element: HTMLElement, clientY: number) => {
     const rect = element.getBoundingClientRect();
@@ -115,27 +108,46 @@ export function FloodDepthScale({
               draggingRef.current = true;
               setPressed(true);
               const next = cmFromPointer(event.currentTarget, event.clientY);
+              lastEmittedCmRef.current = next;
               applyThumb(next);
               onPreview(next);
               onSelect(next);
             }}
             onPointerMove={(event) => {
               if (!draggingRef.current && !(event.buttons & 1)) return;
-              const next = cmFromPointer(event.currentTarget, event.clientY);
-              applyThumb(next);
-              onPreview(next);
-              onSelect(next);
+              const target = event.currentTarget;
+              const clientY = event.clientY;
+              if (rafIdRef.current !== null) return;
+              rafIdRef.current = requestAnimationFrame(() => {
+                rafIdRef.current = null;
+                const next = cmFromPointer(target, clientY);
+                if (next === lastEmittedCmRef.current) return;
+                lastEmittedCmRef.current = next;
+                applyThumb(next);
+                onPreview(next);
+                onSelect(next);
+              });
             }}
             onPointerUp={(event) => {
               if (event.currentTarget.hasPointerCapture(event.pointerId)) {
                 event.currentTarget.releasePointerCapture(event.pointerId);
               }
+              if (rafIdRef.current !== null) {
+                cancelAnimationFrame(rafIdRef.current);
+                rafIdRef.current = null;
+              }
               draggingRef.current = false;
+              lastEmittedCmRef.current = null;
               setPressed(false);
               onPreview(null);
             }}
             onPointerCancel={() => {
+              if (rafIdRef.current !== null) {
+                cancelAnimationFrame(rafIdRef.current);
+                rafIdRef.current = null;
+              }
               draggingRef.current = false;
+              lastEmittedCmRef.current = null;
               setPressed(false);
             }}
             onPointerLeave={() => {
@@ -166,21 +178,15 @@ export function FloodDepthScale({
             className="pointer-events-none absolute left-1/2 h-5 w-8 -ml-4"
             style={{ bottom: thumbBottom }}
           >
-            {resting && (
-              <span
-                aria-hidden
-                className="absolute inset-0 animate-ping rounded-full border-2 border-sky-400/60"
-              />
-            )}
-
             <div
-              className={`flex h-full w-full items-center justify-center rounded-full border border-white transition-shadow duration-150 ease-out ${
+              className={`flex h-full w-full items-center justify-center rounded-full bg-white ring-1 ring-slate-300/80 transition-shadow duration-150 ease-out ${
                 pressed
-                  ? 'scale-95 shadow-[inset_2px_3px_6px_rgba(15,23,42,0.3),inset_-2px_-2px_5px_rgba(255,255,255,0.8)]'
-                  : 'scale-100 shadow-[3px_4px_8px_rgba(15,23,42,0.25),-2px_-3px_6px_rgba(255,255,255,0.95),0_1px_2px_rgba(15,23,42,0.1)]'
+                  ? 'scale-95 shadow-[inset_1px_2px_4px_rgba(15,23,42,0.2),0_1px_2px_rgba(15,23,42,0.1)]'
+                  : 'scale-100 shadow-[0_2px_6px_rgba(15,23,42,0.22),0_1px_2px_rgba(15,23,42,0.12)]'
               }`}
-              style={{ backgroundColor: pillColor }}
-            />
+            >
+              <div className="h-1 w-3 rounded-full bg-slate-300" />
+            </div>
 
             {preview != null && (
               <div

@@ -8,7 +8,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Loader2, Locate, Minus, Plus } from 'lucide-react';
+import { Loader2, Locate, Minus, Navigation, Plus } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import * as maplibregl from 'maplibre-gl';
@@ -101,7 +101,6 @@ import {
 import {
   buildReportPopupHtml,
   buildReportsGeoJson,
-  buildSelectedGeoJson,
 } from '@/lib/map/reportMarkers';
 import type { DepthCategory, MapReportFilters, ReportStatus } from '@/types/report';
 import { ReportControls, DataLayerControls, MapViewToggle } from '@/components/map/MapControls';
@@ -225,7 +224,19 @@ export function PublicMap({
   const pendingInspectRef = useRef<MapReportToShow | null>(null);
   const inspectTargetRef = useRef<MapReportToShow | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [mapBearing, setMapBearing] = useState(0);
   const [isShareLocating, setIsShareLocating] = useState(false);
+
+  const handleResetNorth = useCallback(() => {
+    if (!mapRef.current) return;
+    mapRef.current.easeTo({
+      center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
+      zoom: 13,
+      pitch: 35,
+      bearing: 0,
+      duration: 800,
+    });
+  }, []);
 
   // ─── Overlay card state ────────────────────────────────────────────────────
   const [showFloodHazard, setShowFloodHazard] = useState(false);
@@ -885,13 +896,79 @@ export function PublicMap({
     }
   }, [reportsRef]);
 
+function createSelectedPinElement(): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'gakit-selected-pin-container relative flex flex-col items-center pointer-events-none select-none';
+  container.style.width = '24px';
+  container.style.height = '32px';
+
+  container.innerHTML = `
+    <div class="relative flex flex-col items-center">
+      <!-- Pin Body with Neumorphic Drop Shadow & Specular Modeling -->
+      <div class="relative z-10 flex h-8 w-6 items-start justify-center drop-shadow-[0_4px_6px_rgba(15,23,42,0.38)]">
+        <svg viewBox="0 0 24 32" class="h-full w-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <!-- 3D Directional Light Gradient for Pin Body -->
+            <linearGradient id="gakitPinGrad" x1="20%" y1="0%" x2="80%" y2="100%">
+              <stop offset="0%" stop-color="#A81C20" />
+              <stop offset="45%" stop-color="#7B1113" />
+              <stop offset="100%" stop-color="#45080A" />
+            </linearGradient>
+
+            <!-- Debossed Well Inner Gradient -->
+            <linearGradient id="debossedWellGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#D1D5DB" />
+              <stop offset="35%" stop-color="#E5E7EB" />
+              <stop offset="100%" stop-color="#FFFFFF" />
+            </linearGradient>
+
+            <!-- Maroon Center Dot Gradient -->
+            <linearGradient id="dotGrad" x1="20%" y1="0%" x2="80%" y2="100%">
+              <stop offset="0%" stop-color="#B91C1C" />
+              <stop offset="100%" stop-color="#59080A" />
+            </linearGradient>
+          </defs>
+
+          <!-- Outer Droplet Pin -->
+          <path
+            d="M12 0.75C5.78 0.75 0.75 5.78 0.75 12c0 8.2 10.5 18.7 10.8 19a0.7 0.7 0 0 0 0.9 0c0.3-0.3 10.8-10.8 10.8-19 0-6.22-5.03-11.25-11.25-11.25z"
+            fill="url(#gakitPinGrad)"
+            stroke="#FFFFFF"
+            stroke-width="1.35"
+          />
+
+          <!-- Top-Left Specular Light Sheen -->
+          <path
+            d="M4.5 9.5C5.2 5.5 8.5 2.5 12 2.2"
+            stroke="#FFFFFF"
+            stroke-width="0.9"
+            stroke-linecap="round"
+            stroke-opacity="0.55"
+          />
+
+          <!-- Debossed Recessed Well (Inner Ring & Shadow) -->
+          <circle cx="12" cy="11.5" r="4.2" fill="url(#debossedWellGrad)" />
+          <circle cx="12" cy="11.5" r="4.2" stroke="#9CA3AF" stroke-width="0.5" stroke-opacity="0.6" />
+
+          <!-- Tactile Maroon Center Bead -->
+          <circle cx="12" cy="11.5" r="2" fill="url(#dotGrad)" />
+          <circle cx="11.4" cy="10.9" r="0.5" fill="#FFFFFF" fill-opacity="0.8" />
+        </svg>
+      </div>
+
+      <!-- Dual Ground Ambient Occlusion Shadow -->
+      <div class="absolute bottom-0 z-0 flex items-center justify-center">
+        <span class="h-1.5 w-3.5 -translate-y-1/2 rounded-full bg-slate-950/25 blur-[1px]"></span>
+        <span class="absolute h-1 w-1.5 -translate-y-1/2 rounded-full bg-slate-950/60"></span>
+      </div>
+    </div>
+  `;
+
+  return container;
+}
+
   const applySelectedMarker = useCallback(
     (map: any) => {
-      const selectedSource = map?.getSource?.('selected-location');
-      if (selectedSource) {
-        selectedSource.setData(buildSelectedGeoJson(selectedLocationRef.current));
-      }
-
       const location = selectedLocationRef.current;
       if (!location || !maplibregl) {
         selectedMarkerRef.current?.remove();
@@ -900,9 +977,10 @@ export function PublicMap({
       }
 
       if (!selectedMarkerRef.current) {
+        const pinElement = createSelectedPinElement();
         const marker = new maplibregl.Marker({
-          color: '#7A0019',
-          scale: 0.7,
+          element: pinElement,
+          anchor: 'bottom',
         })
           .setLngLat([location.lng, location.lat])
           .addTo(map);
@@ -1003,11 +1081,10 @@ export function PublicMap({
     (e: any) => {
       const map = mapRef.current;
       if (!map || !e.features?.length || !showBarangayBoundariesRef.current) return;
-      // A report pin/cluster/selected-location marker draws over the barangay
-      // underneath, so suppress the highlight + label while one is under the
-      // pointer — showing it would just be noise behind the marker.
+      // A report pin/cluster draws over the barangay underneath, so suppress
+      // the highlight + label while one is under the pointer.
       const overInteractive = map.queryRenderedFeatures(e.point, {
-        layers: ['report-points', 'report-clusters', 'selected-location'],
+        layers: ['report-points', 'report-clusters'],
       });
       if (overInteractive.length) {
         clearBarangayHover();
@@ -1261,10 +1338,17 @@ export function PublicMap({
       }
     });
 
+    map.on('rotate', () => {
+      setMapBearing(map.getBearing());
+    });
+    map.on('rotateend', () => {
+      setMapBearing(map.getBearing());
+    });
+
     map.on('click', (e: any) => {
       // Click-to-report only fires on empty map space (pins own their clicks).
       const hit = map.queryRenderedFeatures(e.point, {
-        layers: ['report-points', 'report-clusters', 'selected-location'],
+        layers: ['report-points', 'report-clusters'],
       });
       if (hit.length) return;
       handleLocationSelectRef.current(e.lngLat.lat, e.lngLat.lng);
@@ -1376,26 +1460,6 @@ export function PublicMap({
         hasMaptiler={HAS_MAPTILER}
       />
 
-      <div className="absolute top-4 left-4 md:left-6 z-[1000] flex h-[52px] w-8 flex-col overflow-hidden rounded-2xl bg-white/90 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
-        <button
-          type="button"
-          onClick={() => mapRef.current?.zoomIn()}
-          aria-label="Zoom in"
-          className="flex flex-1 items-center justify-center text-gakit-maroon transition-colors hover:bg-maroon-50 active:bg-maroon-100"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-        <span className="h-px w-full bg-slate-200" />
-        <button
-          type="button"
-          onClick={() => mapRef.current?.zoomOut()}
-          aria-label="Zoom out"
-          className="flex flex-1 items-center justify-center text-gakit-maroon transition-colors hover:bg-maroon-50 active:bg-maroon-100"
-        >
-          <Minus className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
       <div
         ref={controlsContainerRef}
         className={`absolute left-4 md:left-6 z-[1000] flex flex-col items-start gap-3 transition-opacity duration-200 ${
@@ -1448,29 +1512,78 @@ export function PublicMap({
           onShowBarangayBoundariesChange={handleShowBarangayBoundariesChange}
         />
 
-        {!hideShareLocation && (
-          <button
-            onClick={() => {
-              setIsShareLocating(true);
-              void handleShareLocation().finally(() => setIsShareLocating(false));
-            }}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-white/90 p-2 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
-            title="Share my location"
-            aria-label="Share my location"
-          >
-            {isShareLocating ? (
-              <Loader2 className="h-5 w-5 animate-spin text-gakit-maroon" />
-            ) : (
-              <Locate className="h-5 w-5 text-gakit-maroon" />
-            )}
-          </button>
-        )}
-
         <div
           ref={controlsSentinelRef}
           aria-hidden
           className="absolute bottom-0 right-0 h-px w-px"
         />
+      </div>
+
+      {/* Bottom-right Navigation & Location Cluster */}
+      <div
+        className={`absolute ${
+          fullScreen ? 'bottom-24 md:bottom-10' : 'bottom-24 md:bottom-8'
+        } right-3 md:right-4 z-[1000] flex flex-col items-center gap-2`}
+      >
+        {!hideShareLocation && (
+          <button
+            type="button"
+            onClick={() => {
+              setIsShareLocating(true);
+              void handleShareLocation().finally(() => setIsShareLocating(false));
+            }}
+            disabled={isShareLocating}
+            title="Locate my position"
+            aria-label="Locate my position"
+            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/95 text-slate-700 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-none transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:scale-95 disabled:cursor-not-allowed md:backdrop-blur"
+          >
+            {isShareLocating ? (
+              <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
+            ) : (
+              <Locate className="h-4 w-4" strokeWidth={2.5} />
+            )}
+          </button>
+        )}
+
+        {/* Zoom & Compass Widget */}
+        <div className="flex h-[84px] w-8 flex-col overflow-hidden rounded-xl bg-white/95 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-none md:backdrop-blur">
+          <button
+            type="button"
+            onClick={() => mapRef.current?.zoomIn()}
+            aria-label="Zoom in"
+            title="Zoom in"
+            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </button>
+          <span className="h-px w-full bg-slate-200/80" />
+          <button
+            type="button"
+            onClick={() => mapRef.current?.zoomOut()}
+            aria-label="Zoom out"
+            title="Zoom out"
+            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon"
+          >
+            <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
+          </button>
+          <span className="h-px w-full bg-slate-200/80" />
+          <button
+            type="button"
+            onClick={handleResetNorth}
+            aria-label="Reset orientation and view to Iligan City"
+            title="Reset to North / Iligan City view"
+            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon"
+          >
+            <Navigation
+              className="h-3.5 w-3.5 transition-transform duration-200 ease-out"
+              strokeWidth={2.5}
+              style={{
+                transform: `rotate(${-mapBearing}deg)`,
+                color: Math.abs(mapBearing) > 1 ? '#7B1113' : '#64748b',
+              }}
+            />
+          </button>
+        </div>
       </div>
 
       {!hideAttribution && (

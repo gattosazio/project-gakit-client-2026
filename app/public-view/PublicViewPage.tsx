@@ -5,7 +5,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from '@/components/ReportModal';
-import { Building2, Handshake, Loader2, Locate, LocateFixed, Mail, MapPin } from 'lucide-react';
+import { Building2, Handshake, Loader2, Mail, MapPin } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth } from './actions/public.view';
 import { reverseGeocode } from '@/lib/map/geoUtils';
@@ -48,8 +48,6 @@ export function PublicViewPage({
   const [lastSubmittedReport, setLastSubmittedReport] = useState<SubmittedReport | null>(null);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Fetching reports…');
-  const [isLocating, setIsLocating] = useState(false);
-  const [isLocated, setIsLocated] = useState(false);
   const [rainfallHours, setRainfallHours] = useState(1);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
@@ -78,40 +76,56 @@ export function PublicViewPage({
     smoothScrollTo(sectionId);
   }, [smoothScrollTo]);
 
-  const getSectionFromScroll = useCallback(
-    (scrollTop: number, viewportHeight: number, totalHeight: number): SectionId => {
-      const adjustedPosition = scrollTop + 120;
-
-      if (scrollTop + viewportHeight >= totalHeight - 8) {
-        return 'about';
-      }
-
-      return (
-        [...SECTION_ORDER].reverse().find((sectionId) => {
-          const element = document.getElementById(sectionId);
-          return element ? element.offsetTop <= adjustedPosition : false;
-        }) ?? 'hazard-map'
-      );
-    },
-    []
-  );
-
-  // Track which section is in view (drives header/nav highlight). The page is
-  // its own scroll container with native scroll-snap (see the root <div>), so
-  // scroll events and section detection read from that container, not window.
+  // Track which section is in view using IntersectionObserver + rAF top/bottom checks.
   useEffect(() => {
     const scroller = scrollContainerRef.current;
     if (!scroller) return;
 
+    const sections = SECTION_ORDER.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+    if (!sections.length) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const targetId = entry.target.id as SectionId;
+            if (SECTION_ORDER.includes(targetId)) {
+              setActiveSection(targetId);
+            }
+          }
+        });
+      },
+      {
+        root: scroller,
+        rootMargin: '-20% 0px -40% 0px',
+        threshold: 0,
+      }
+    );
+
+    sections.forEach((el) => observer.observe(el));
+
+    let rafId: number | null = null;
     const onScroll = () => {
-      setActiveSection(
-        getSectionFromScroll(scroller.scrollTop, scroller.clientHeight, scroller.scrollHeight)
-      );
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        if (!scroller) return;
+        if (scroller.scrollTop < 80) {
+          setActiveSection('hazard-map');
+        } else if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 60) {
+          setActiveSection('about');
+        }
+      });
     };
-    onScroll();
+
     scroller.addEventListener('scroll', onScroll, { passive: true });
-    return () => scroller.removeEventListener('scroll', onScroll);
-  }, [getSectionFromScroll]);
+
+    return () => {
+      observer.disconnect();
+      scroller.removeEventListener('scroll', onScroll);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
+  }, []);
 
   // Open on the map: scroll it into view after mount (snap settles it cleanly).
   useEffect(() => {
@@ -240,7 +254,6 @@ export function PublicViewPage({
   const handleSearchedLocationSelect = useCallback((location: SelectedLocation) => {
     if (isModalOpen) return;
     setIsLocationPromptOpen(false);
-    setIsLocated(false);
     mapRef.current?.focusLocation(location);
     setSelectedLocation(location);
     setIsModalOpen(true);
@@ -293,8 +306,9 @@ export function PublicViewPage({
   return (
     <div
       ref={scrollContainerRef}
-      className="h-[100dvh] snap-y snap-proximity overflow-y-auto bg-canvas-grey"
-    >      <PublicHeader
+      className="h-[100dvh] overflow-y-auto bg-canvas-grey scroll-smooth overscroll-y-contain md:snap-y md:snap-proximity"
+    >
+      <PublicHeader
         activeSection={activeSection}
         initialAuth={initialAuth}
         onNavigateSection={scrollToSection}
@@ -310,39 +324,16 @@ export function PublicViewPage({
         <section id="hazard-map" className="min-h-[calc(100dvh-4rem)] scroll-mt-16 snap-start">
           <div className="flex h-[calc(100dvh-4rem)] overflow-hidden bg-white">
             <div className="relative isolate flex-1 w-full h-full min-h-0">
-              <div className="absolute left-14 md:left-16 top-4 z-[1100] flex w-[calc(100%-4.5rem)] max-w-none md:max-w-sm md:w-[calc(100%-5rem)] items-center gap-2">
-                <div className="min-w-0 flex-1">
-                  <LocationSearch onSelect={handleSearchedLocationSelect} />
-                </div>
-                <button
-                  onClick={async () => {
-                    setIsLocating(true);
-                    try {
-                      const ok = (await mapRef.current?.shareMyLocation()) ?? false;
-                      if (ok) setIsLocated(true);
-                    } finally {
-                      setIsLocating(false);
-                    }
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 md:left-6 md:translate-x-0 z-[1100] w-[calc(100%-2rem)] max-w-[310px] md:w-72 md:max-w-none">
+                <LocationSearch
+                  onSelect={handleSearchedLocationSelect}
+                  onLocate={async () => {
+                    await mapRef.current?.shareMyLocation();
                   }}
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-150 ${
-                    isLocated
-                      ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
-                      : 'bg-white/95 text-slate-700 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-gakit-maroon hover:shadow-2xl'
-                  }`}
-                  title={isLocated ? 'Using your current location' : 'Use my current location'}
-                  aria-label={isLocated ? 'Using your current location' : 'Use my current location'}
-                >
-                  {isLocating ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
-                  ) : isLocated ? (
-                    <LocateFixed className="h-4.5 w-4.5 text-gakit-maroon" />
-                  ) : (
-                    <Locate className="h-4.5 w-4.5 text-gakit-maroon" />
-                  )}
-                </button>
+                />
               </div>
               {isLoadingReports && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 md:top-4 z-[1000] bg-white/95 border border-canvas-grey rounded-2xl shadow-lg px-4 py-3 flex items-center gap-2">
+                <div className="absolute top-20 left-1/2 -translate-x-1/2 md:top-4 z-[1000] bg-white border border-canvas-grey rounded-2xl shadow-lg px-4 py-3 flex items-center gap-2">
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
                   <span className="text-sm font-medium text-slate-700">{loadingMessage}</span>
                 </div>
@@ -358,7 +349,6 @@ export function PublicViewPage({
                 defaultVisibleReportStatuses={{ ANOMALY: false, REJECTED: false }}
                 searchOverlayActive={isManualLocationMode}
                 weatherExpandedByDefault
-                hideShareLocation
                 fullScreen
               />
 
@@ -371,20 +361,18 @@ export function PublicViewPage({
               />
             </div>
 
-              <ReportModal
-                isOpen={isModalOpen}
-                onClose={() => {
-                  setIsModalOpen(false);
-                  setSelectedLocation(null);
-                  setIsManualLocationMode(true);
-                  setIsLocated(false);
-                }}
+            <ReportModal
+              isOpen={isModalOpen}
+              onClose={() => {
+                setIsModalOpen(false);
+                setSelectedLocation(null);
+                setIsManualLocationMode(true);
+              }}
               selectedLocation={selectedLocation}
               onSubmit={handleReportSubmit}
               onSuccess={() => {
-                  setIsLocated(false);
-                  setIsSuccessOpen(true);
-                }}
+                setIsSuccessOpen(true);
+              }}
               onCheckLocation={handleCheckLocation}
               rainfallHours={rainfallHours}
             />
@@ -392,7 +380,7 @@ export function PublicViewPage({
         </section>
 
         <section id="about" className="border-t border-maroon-900/40 bg-gakit-maroon scroll-mt-16 snap-start">
-          <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 md:gap-10 md:py-16 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
+          <div className="mx-auto grid w-full max-w-6xl gap-3.5 px-4 py-8 sm:gap-6 sm:px-6 md:gap-10 md:py-16 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
             <div>
               <div className="mb-2 font-heading text-xs font-bold uppercase tracking-[0.18em] text-rose-200 md:mb-3">
                 About Project GAKIT
@@ -408,7 +396,7 @@ export function PublicViewPage({
               </p>
 
               <div className="mt-5 grid gap-3.5 sm:mt-8 sm:grid-cols-2 sm:gap-5">
-                <div className="group rounded-2xl bg-white/95 p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
+                <div className="group rounded-2xl bg-white p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 transition-transform transition-shadow duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
                   <div className="flex items-start gap-3 sm:gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                       <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -422,7 +410,7 @@ export function PublicViewPage({
                     </div>
                   </div>
                 </div>
-                <div className="group rounded-2xl bg-white/95 p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
+                <div className="group rounded-2xl bg-white p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 transition-transform transition-shadow duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
                   <div className="flex items-start gap-3 sm:gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                       <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -440,9 +428,15 @@ export function PublicViewPage({
             </div>
 
             <div className="space-y-3.5 sm:space-y-5 lg:space-y-6 lg:pt-7">
-              <div className="group rounded-2xl bg-white/95 p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
+              <div className="group rounded-2xl bg-white p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 transition-transform transition-shadow duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
                 <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center">
+                  <a
+                    href="https://www.msuiit.edu.ph"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 rounded-lg"
+                    aria-label="Visit MSU-IIT official website"
+                  >
                     <Image
                       src="/images/iit-logo.png"
                       alt="MSU-IIT Logo"
@@ -450,13 +444,20 @@ export function PublicViewPage({
                       height={56}
                       className="h-full w-full object-contain"
                     />
-                  </div>
+                  </a>
                   <div>
                     <div className="font-heading text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gakit-maroon">
                       A project of
                     </div>
                     <h3 className="mt-0.5 font-heading text-base font-bold leading-snug text-slate-900 sm:text-lg md:text-xl">
-                      Mindanao State University–Iligan Institute of Technology
+                      <a
+                        href="https://www.msuiit.edu.ph"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="transition-colors hover:text-gakit-maroon"
+                      >
+                        Mindanao State University–Iligan Institute of Technology
+                      </a>
                     </h3>
                   </div>
                 </div>
@@ -466,7 +467,7 @@ export function PublicViewPage({
                 </p>
               </div>
 
-              <div className="group rounded-2xl bg-white/95 p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
+              <div className="group rounded-2xl bg-white p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 transition-transform transition-shadow duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
                 <div className="flex items-start gap-3 sm:gap-4">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                     <Mail className="h-4 w-4 sm:h-5 sm:w-5" />

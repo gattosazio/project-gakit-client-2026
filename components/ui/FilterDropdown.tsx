@@ -16,15 +16,17 @@ export function FilterDropdown<T extends string>({
   options,
   triggerLabel,
   triggerIcon,
+  size = 'md',
 }: {
   value: T;
   onSelect: (value: T) => void;
   options: FilterDropdownOption<T>[];
   triggerLabel: string;
   triggerIcon: ReactNode;
+  size?: 'sm' | 'md';
 }) {
   const [open, setOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0, width: 192 });
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -50,14 +52,17 @@ export function FilterDropdown<T extends string>({
     }
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
-      const width = 192;
+      const width = Math.max(rect.width, 192);
       setMenuPos({
         top: rect.bottom + 4,
         left: Math.max(8, Math.min(rect.left, window.innerWidth - width - 8)),
+        width,
       });
     }
     setOpen(true);
   };
+
+  const isSm = size === 'sm';
 
   return (
     <>
@@ -67,13 +72,15 @@ export function FilterDropdown<T extends string>({
         onClick={toggle}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className="flex w-full items-center justify-between gap-2 rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none hover:bg-canvas-light"
+        className={`flex w-full items-center justify-between gap-1.5 rounded-lg border border-slate-200 bg-white font-medium text-slate-700 outline-none transition-colors hover:bg-canvas-light ${
+          isSm ? 'px-2.5 py-1 text-xs' : 'px-3 py-2 text-sm'
+        }`}
       >
-        <span className="flex items-center gap-2">
+        <span className="flex min-w-0 items-center gap-1.5 truncate">
           {triggerIcon}
-          {triggerLabel}
+          <span className="truncate">{triggerLabel}</span>
         </span>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`shrink-0 text-slate-400 transition-transform ${isSm ? 'h-3.5 w-3.5' : 'h-4 w-4'} ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {open &&
@@ -81,8 +88,8 @@ export function FilterDropdown<T extends string>({
           <div
             ref={menuRef}
             role="listbox"
-            style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: 192 }}
-            className="z-[1400] overflow-hidden rounded-lg border border-canvas-grey bg-white py-1 shadow-lg"
+            style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: menuPos.width }}
+            className="z-[1400] max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
           >
             {options.map((option, index) => {
               const isSelected = option.value === value;
@@ -96,11 +103,13 @@ export function FilterDropdown<T extends string>({
                     onSelect(option.value);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-canvas-light ${index > 0 ? 'border-t border-canvas-grey' : ''} ${isSelected ? 'bg-canvas-light text-gakit-maroon' : 'text-slate-700'}`}
+                  className={`flex w-full items-center gap-2.5 text-left font-medium hover:bg-canvas-light ${
+                    isSm ? 'px-3 py-2 text-xs' : 'px-4 py-2.5 text-sm'
+                  } ${index > 0 ? 'border-t border-slate-100' : ''} ${isSelected ? 'bg-canvas-light text-gakit-maroon' : 'text-slate-700'}`}
                 >
                   {option.icon}
                   <span className="flex-1 text-left">{option.label}</span>
-                  {isSelected && <CheckCircle2 className="w-4 h-4 shrink-0 text-gakit-maroon" />}
+                  {isSelected && <CheckCircle2 className={`shrink-0 text-gakit-maroon ${isSm ? 'h-3.5 w-3.5' : 'h-4 w-4'}`} />}
                 </button>
               );
             })}

@@ -117,13 +117,18 @@ export function PillSlider({
       <div
         ref={thumbRef}
         aria-hidden
-        className={`pointer-events-none absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full border border-white transition-shadow duration-150 ease-out ${
+        className={`pointer-events-none absolute top-1/2 h-5 w-5 -translate-y-1/2 rounded-full bg-white ring-1 ring-slate-300/80 transition-shadow duration-150 ease-out flex items-center justify-center ${
           pressed
-            ? 'scale-95 shadow-[inset_2px_3px_6px_rgba(15,23,42,0.3),inset_-2px_-2px_5px_rgba(255,255,255,0.8)]'
-            : 'scale-100 shadow-[3px_4px_8px_rgba(15,23,42,0.25),-2px_-3px_6px_rgba(255,255,255,0.95),0_1px_2px_rgba(15,23,42,0.1)]'
+            ? 'scale-95 shadow-[inset_1px_2px_4px_rgba(15,23,42,0.2),0_1px_2px_rgba(15,23,42,0.1)]'
+            : 'scale-100 shadow-[0_2px_6px_rgba(15,23,42,0.22),0_1px_2px_rgba(15,23,42,0.12)]'
         }`}
-        style={{ left: thumbLeftFor(value), backgroundColor: accent }}
-      />
+        style={{ left: thumbLeftFor(value) }}
+      >
+        <div
+          className="h-2 w-2 rounded-full"
+          style={{ backgroundColor: accent }}
+        />
+      </div>
     </div>
   );
 }

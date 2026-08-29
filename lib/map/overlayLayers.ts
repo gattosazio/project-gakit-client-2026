@@ -275,72 +275,7 @@ export const setupOverlayLayers = async (
     });
   }
 
-  if (!map.getSource('selected-location')) {
-    map.addSource('selected-location', {
-      type: 'geojson',
-      data: { type: 'FeatureCollection', features: [] },
-    });
 
-    map.addLayer({
-      id: 'selected-location-shadow',
-      type: 'circle',
-      source: 'selected-location',
-      paint: {
-        'circle-color': '#260008',
-        'circle-opacity': 0.32,
-        'circle-radius': 23,
-        'circle-blur': 0.7,
-        'circle-translate': [0, 7],
-      },
-    });
-
-    map.addLayer({
-      id: 'selected-location',
-      type: 'circle',
-      source: 'selected-location',
-      paint: {
-        'circle-color': '#7A0019',
-        'circle-opacity': 0.24,
-        'circle-radius': 21,
-        'circle-stroke-width': 2,
-        'circle-stroke-color': '#7A0019',
-        'circle-stroke-opacity': 0.55,
-      },
-    });
-
-    map.addLayer({
-      id: 'selected-location-highlight',
-      type: 'circle',
-      source: 'selected-location',
-      paint: {
-        'circle-color': '#ffffff',
-        'circle-opacity': 0.18,
-        'circle-radius': 13,
-        'circle-blur': 0.45,
-        'circle-translate': [-4, -4],
-      },
-    });
-
-    map.addLayer({
-      id: 'selected-location-label',
-      type: 'symbol',
-      source: 'selected-location',
-      layout: {
-        'text-field': 'Selected location',
-        'text-size': 12,
-        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-        'text-offset': [0, 1.9],
-        'text-anchor': 'top',
-        'text-allow-overlap': true,
-        'text-ignore-placement': true,
-      },
-      paint: {
-        'text-color': '#7A0019',
-        'text-halo-color': '#ffffff',
-        'text-halo-width': 2,
-      },
-    });
-  }
 
   // --- Iligan barangay boundaries ---
   if (!map.getSource('barangay-boundaries')) {

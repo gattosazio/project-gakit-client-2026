@@ -72,13 +72,13 @@ function PillToggle({
       />
       {/* Pill track */}
       <span
-        className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full transition-colors duration-200"
-        style={{ backgroundColor: checked ? color : '#cbd5e1' }}
+        className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full shadow-[inset_1px_1.5px_3px_rgba(15,23,42,0.18),inset_-1px_-1px_2px_rgba(255,255,255,0.7)] transition-colors duration-200"
+        style={{ backgroundColor: checked ? color : '#e2e8f0' }}
       >
         {/* Circle thumb */}
         <span
-          className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
-            checked ? 'translate-x-[16px]' : 'translate-x-[3px]'
+          className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.22)] ring-1 ring-black/5 transition-transform duration-200 ${
+            checked ? 'translate-x-[15px]' : 'translate-x-[2px]'
           }`}
         />
       </span>
@@ -181,7 +181,7 @@ export function MapViewToggle({
   const activeKey = VIEW_PRESETS.find((v) => v.basemap === basemap && v.mode === mode)?.key;
   return (
     <div
-      className={`${className} flex items-center rounded-md bg-white/90 border border-canvas-grey shadow-lg shadow-slate-900/10 p-0.5`}
+      className={`${className} flex items-center rounded-lg bg-[#eef2f6] shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.12),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-slate-300/80 p-0.5`}
     >
       {VIEW_PRESETS.map((v) => {
         const disabled = v.needsTerrain && !hasMaptiler;
@@ -198,12 +198,12 @@ export function MapViewToggle({
                 ? `${v.label} requires a MapTiler API key`
                 : `${v.label} view`
             }
-            className={`rounded px-2 py-1 text-[10px] font-semibold leading-none transition-colors ${
+            className={`rounded-md px-2.5 py-1 text-[11px] font-bold leading-none transition-all duration-150 ${
               active
-                ? 'bg-gakit-maroon text-white'
+                ? 'bg-gakit-maroon text-white shadow-[0_1px_3px_rgba(123,17,19,0.35)]'
                 : disabled
                   ? 'cursor-not-allowed text-slate-300'
-                  : 'text-slate-600 hover:bg-canvas-light'
+                  : 'text-slate-600 hover:text-slate-900 active:scale-95'
             }`}
           >
             {v.label}
@@ -374,10 +374,10 @@ export function DataLayerControls({
                   type="button"
                   onClick={() => onRainfallHoursChange(hours)}
                   aria-pressed={rainfallHours === hours}
-                  className={`rounded-md border py-1 text-xs font-bold transition-colors ${
+                  className={`rounded-lg py-1 text-xs font-bold transition-all duration-150 ${
                     rainfallHours === hours
-                      ? 'bg-gakit-maroon border-gakit-maroon text-white shadow-sm'
-                      : 'bg-white border-slate-200 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon'
+                      ? 'bg-gakit-maroon text-white shadow-[0_2px_4px_rgba(123,17,19,0.35)] ring-1 ring-gakit-maroon'
+                      : 'bg-white text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-slate-900 active:scale-95'
                   }`}
                 >
                   {hours}h

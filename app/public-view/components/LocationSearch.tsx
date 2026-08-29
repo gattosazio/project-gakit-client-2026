@@ -1,7 +1,5 @@
-'use client';
-
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Loader2, MapPin, Search, X } from 'lucide-react';
+import { Loader2, Locate, MapPin, Search, X } from 'lucide-react';
 import { searchLocations } from '@/lib/map/geoUtils';
 import type { LocationSearchResult } from '@/lib/map/geoUtils';
 
@@ -13,14 +11,30 @@ export interface SearchedLocation {
 
 export function LocationSearch({
   onSelect,
+  onLocate,
+  isLocating = false,
 }: {
   onSelect: (location: SearchedLocation) => void;
+  onLocate?: () => void | Promise<void>;
+  isLocating?: boolean;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const searchAbortRef = useRef<AbortController | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsFocused(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   useEffect(() => {
     return () => searchAbortRef.current?.abort();
@@ -95,67 +109,109 @@ export function LocationSearch({
     setSearchError(null);
   };
 
+  const showDropdown =
+    isFocused &&
+    (Boolean(onLocate) || searchResults.length > 0 || Boolean(searchError));
+
   return (
-    <div className="relative flex h-[52px] items-center rounded-2xl bg-white/95 p-1 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-none transition-all duration-150 md:backdrop-blur">
-      <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-1">
-        <label className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50/70 px-3 ring-1 ring-slate-200/70 transition-all duration-150 hover:bg-slate-100/60 focus-within:bg-[#eef2f6] focus-within:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] focus-within:ring-1 focus-within:ring-slate-300/90">
-          <input
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.target.value);
-              setSearchResults([]);
-              setSearchError(null);
-            }}
-            placeholder="Search street, barangay, or landmark"
-            className="min-w-0 flex-1 bg-transparent py-1 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400"
-            aria-label="Search for a location in Iligan City"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={handleClear}
-              aria-label="Clear search"
-              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200/80 hover:text-slate-700"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          )}
-          {isSearching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gakit-maroon" />}
-        </label>
+    <div
+      ref={containerRef}
+      className="relative flex h-[52px] items-center rounded-2xl bg-white/95 px-3.5 py-1.5 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-none transition-all duration-150 md:backdrop-blur"
+    >
+      <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-2">
+        <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} />
+        <input
+          value={searchQuery}
+          onFocus={() => setIsFocused(true)}
+          onChange={(event) => {
+            setSearchQuery(event.target.value);
+            setSearchResults([]);
+            setSearchError(null);
+            setIsFocused(true);
+          }}
+          placeholder="Search street, barangay, or landmark"
+          className="min-w-0 flex-1 bg-transparent py-1 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400"
+          aria-label="Search for a location in Iligan City"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={handleClear}
+            aria-label="Clear search"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={2} />
+          </button>
+        )}
+        {isSearching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gakit-maroon" />}
+
+        <span className="h-5 w-px shrink-0 bg-slate-200/80" />
+
         <button
           type="submit"
           disabled={isSearching}
           aria-label="Search location"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-gakit-maroon ring-1 ring-slate-200/80 shadow-xs transition-all duration-150 hover:bg-maroon-50 hover:ring-maroon-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-all duration-150 hover:bg-maroon-50 hover:text-gakit-maroon active:bg-maroon-100 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Search className="h-4.5 w-4.5 text-gakit-maroon" />
+          <Search className="h-4 w-4" strokeWidth={2} />
         </button>
       </form>
 
-      {(searchError || searchResults.length > 0) && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-2">
+      {showDropdown && (
+        <div className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xl ring-1 ring-slate-900/5">
           {searchError && (
             <p
-              className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-red-600 shadow-xl ring-1 ring-slate-900/5"
+              className="px-3.5 py-2.5 text-xs text-red-600 border-b border-slate-100"
               role="status"
             >
               {searchError}
             </p>
           )}
 
+          {onLocate && (
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={async () => {
+                setIsFocused(false);
+                await onLocate();
+              }}
+              disabled={isLocating}
+              className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left font-medium transition-colors hover:bg-maroon-50/70 border-b border-slate-100/80 group"
+            >
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-maroon-50 text-gakit-maroon group-hover:bg-maroon-100">
+                {isLocating ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Locate className="h-4 w-4 text-gakit-maroon" strokeWidth={2.5} />
+                )}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-semibold text-slate-800 group-hover:text-gakit-maroon">
+                  {isLocating ? 'Locating your device…' : 'Use your current location'}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  Share GPS position on map
+                </span>
+              </div>
+            </button>
+          )}
+
           {searchResults.length > 0 && (
-            <div className="max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl ring-1 ring-slate-900/5">
+            <div className="max-h-48 divide-y divide-slate-100 overflow-y-auto">
               {searchResults.map((result) => (
                 <button
                   key={`${result.lat}-${result.lng}`}
                   type="button"
-                  onClick={() =>
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    setIsFocused(false);
                     onSelect({
                       lat: result.lat,
                       lng: result.lng,
                       address: result.displayName,
-                    })
-                  }
+                    });
+                  }}
                   className="flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-colors hover:bg-maroon-50"
                 >
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gakit-maroon" />
