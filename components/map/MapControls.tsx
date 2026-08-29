@@ -118,7 +118,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return open ? (
-    <div className="rounded-2xl bg-white/95 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
+    <div className="rounded-2xl bg-white/95 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur animate-[weatherGrow_160ms_ease-out] origin-bottom">
       <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
         <div className="flex items-center gap-2">
           <Icon className="w-3.5 h-3.5" />

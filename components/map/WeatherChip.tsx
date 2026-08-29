@@ -2,7 +2,7 @@
 
 import { useState, useRef, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronUp } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useActiveAlerts, useCurrentWeather } from '@/lib/weather/weatherStore';
 import { formatDayForecast, getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
 import { WeatherAttribution } from '../weather/WeatherAttribution';
@@ -61,6 +61,7 @@ export function WeatherChip({
 
   useLayoutEffect(() => {
     if (!open) return;
+    const margin = 8;
     const place = () => {
       const anchor = anchorRef.current;
       const panel = panelRef.current;
@@ -68,16 +69,19 @@ export function WeatherChip({
       const a = anchor.getBoundingClientRect();
       const ph = panel.offsetHeight;
       const pw = panel.offsetWidth;
-      const margin = 8;
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      let top = a.bottom + 8;
-      if (a.top - ph - 8 >= margin) top = a.top - ph - 8;
-      if (top + ph > vh - margin) top = Math.max(margin, vh - margin - ph);
+
+      // Grow upward from the pill: bottom edge sits just above the pill.
+      let top = a.bottom - ph - 8;
       if (top < margin) top = margin;
+      // If even top-aligned it overflows the viewport, clamp to stay on screen.
+      if (top + ph > vh - margin) top = Math.max(margin, vh - margin - ph);
+
       let left = a.left;
       if (left + pw > vw - margin) left = vw - margin - pw;
       if (left < margin) left = margin;
+
       panel.style.top = `${top}px`;
       panel.style.left = `${left}px`;
       panel.style.visibility = 'visible';
@@ -118,11 +122,12 @@ export function WeatherChip({
     : `${days[0].rainChance}%`;
 
   return (
-    <div className={className}>
+    <div className={`relative ${className}`}>
       <button
         ref={anchorRef}
         onClick={() => setOpen(true)}
         className="flex items-center gap-2 rounded-2xl bg-white/90 px-3 py-2.5 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl md:backdrop-blur"
+        style={{ visibility: open ? 'hidden' : 'visible' }}
         title={pillTooltip}
         aria-label="Show weather outlook"
         aria-expanded={open}
@@ -142,10 +147,11 @@ export function WeatherChip({
               left: 0,
               visibility: 'hidden',
             }}
-            className="z-[1400] max-h-[18rem] w-72 overflow-y-auto rounded-2xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur"
+            className="z-[1400] w-72 origin-bottom rounded-2xl bg-white/95 p-3 shadow-2xl shadow-slate-900/20 ring-1 ring-slate-200 backdrop-blur-none animate-[weatherGrow_160ms_ease-out] md:backdrop-blur"
           >
             <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-900">
               <div className="flex min-w-0 items-center gap-2">
+                <PillIcon className="h-4 w-4 shrink-0 text-gakit-maroon" />
                 <span className="shrink-0">Weather Outlook</span>
                 {issuedAt && (
                   <span className="truncate text-[10px] font-medium text-slate-400">
@@ -162,7 +168,7 @@ export function WeatherChip({
                 className="rounded-md p-1 text-slate-400 transition-colors hover:bg-canvas-light hover:text-slate-700"
                 aria-label="Collapse weather outlook"
               >
-                <ChevronUp className="h-4 w-4" />
+                <ChevronDown className="h-4 w-4" />
               </button>
             </div>
             {current && (

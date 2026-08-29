@@ -850,10 +850,16 @@ export function PublicMap({
     setMapMode(next.mode);
     mapModeRef.current = next.mode;
     // maplibre keeps terrain across setStyle; while the new style is loading
-    // its projection is undefined, so the depth pass would crash in
-    // useProgram. Clear terrain first — it's re-added on the new style's
-    // 'load' event when 3D is active.
-    if (map.isStyleLoaded()) map.setTerrain(null);
+    // its projection is undefined, so the depth pass would crash in useProgram
+    // (reads `shaderPreludeCode` off an undefined projection). Clear terrain
+    // first — UNCONDITIONALLY, including mid-swap while the previous style is
+    // still loading — so no terrain depth draw runs during the swap. It is
+    // re-added on the new style's 'load' event when 3D is active.
+    try {
+      map.setTerrain(null);
+    } catch {
+      /* terrain not yet initialised; nothing to clear */
+    }
     const style =
       next.mode === '3d' && next.basemap === 'light' ? MAPTILER_STYLE : BASEMAP_STYLES[next.basemap];
     map.setStyle(style, { diff: false });
