@@ -80,10 +80,11 @@ function bboxChanged(
 import { getBackendStatus } from '@/lib/backend/backendStatus';
 import { getElevation } from '@/lib/map/elevation';
 import {
+  BASEMAP_STYLES,
   HAS_MAPTILER,
   MAP_MAX_BOUNDS,
   MAPTILER_STYLE,
-  OPENFREEMAP_STYLE,
+  type BasemapId,
 } from '@/constants/publicMap';
 import { ILIGAN_CENTER, reverseGeocode } from '@/lib/map/geoUtils';
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
@@ -101,7 +102,7 @@ import {
   buildSelectedGeoJson,
 } from '@/lib/map/reportMarkers';
 import type { DepthCategory, MapReportFilters, ReportStatus } from '@/types/report';
-import { ReportControls, DataLayerControls, MapModeToggle } from '@/components/map/MapControls';
+import { ReportControls, DataLayerControls, MapViewToggle } from '@/components/map/MapControls';
 import { WeatherChip } from '@/components/map/WeatherChip';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
@@ -240,6 +241,7 @@ export function PublicMap({
     initialVisibleReportStatuses
   );
   const [mapMode, setMapMode] = useState<MapMode>('2d');
+  const [basemap, setBasemap] = useState<BasemapId>('light');
   const layersReadyRef = useRef(false);
   const onReadyFiredRef = useRef(false);
 
@@ -263,6 +265,7 @@ export function PublicMap({
   // Refs mirror toggle state so the style-load handler (which runs on every
   // basemap switch) can read the latest values without re-creating the map.
   const mapModeRef = useRef<MapMode>('2d');
+  const basemapRef = useRef<BasemapId>('light');
   const showFloodHazardRef = useRef(false);
   const showRainfallRef = useRef(false);
   const visibleRiskLevelsRef = useRef<Record<string, boolean>>({
@@ -838,21 +841,23 @@ export function PublicMap({
   // Swaps the basemap without tearing the map down: setStyle({ diff: false })
   // keeps the same maplibre instance (camera, markers, workers), reloading only
   // the style + project layers (re-added by handleStyleLoad on 'load').
-  const handleModeChange = useCallback(
-    (mode: MapMode) => {
-      const map = mapRef.current;
-      if (!map || mode === mapMode) return;
-      setMapMode(mode);
-      mapModeRef.current = mode;
-      // maplibre keeps terrain across setStyle; while the new style is loading
-      // its projection is undefined, so the depth pass would crash in
-      // useProgram. Clear terrain first — it's re-added on the new style's
-      // 'load' event when 3D is active.
-      if (map.isStyleLoaded()) map.setTerrain(null);
-      map.setStyle(mode === '3d' ? MAPTILER_STYLE : OPENFREEMAP_STYLE, { diff: false });
-    },
-    [mapMode]
-  );
+  const handleViewChange = useCallback((next: { basemap: BasemapId; mode: MapMode }) => {
+    const map = mapRef.current;
+    if (!map) return;
+    if (next.basemap === basemapRef.current && next.mode === mapModeRef.current) return;
+    setBasemap(next.basemap);
+    basemapRef.current = next.basemap;
+    setMapMode(next.mode);
+    mapModeRef.current = next.mode;
+    // maplibre keeps terrain across setStyle; while the new style is loading
+    // its projection is undefined, so the depth pass would crash in
+    // useProgram. Clear terrain first — it's re-added on the new style's
+    // 'load' event when 3D is active.
+    if (map.isStyleLoaded()) map.setTerrain(null);
+    const style =
+      next.mode === '3d' && next.basemap === 'light' ? MAPTILER_STYLE : BASEMAP_STYLES[next.basemap];
+    map.setStyle(style, { diff: false });
+  }, []);
 
   useEffect(() => {
     if (mapRef.current) {
@@ -885,7 +890,7 @@ export function PublicMap({
     // MapTiler view is applied later via map.setStyle in handleModeChange.
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: OPENFREEMAP_STYLE,
+      style: BASEMAP_STYLES.light,
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 13,
       pitch: 35,
@@ -1046,25 +1051,21 @@ export function PublicMap({
     <div className="relative w-full h-full bg-canvas-grey">
       <div ref={mapContainer} className="w-full h-full touch-action-none" />
 
-      <MapModeToggle
+      <MapViewToggle
         className="absolute top-4 right-4 md:right-6 z-[1000] hidden md:flex"
+        basemap={basemap}
         mode={mapMode}
-        onModeChange={handleModeChange}
+        onViewChange={handleViewChange}
         hasMaptiler={HAS_MAPTILER}
       />
 
-      <WeatherChip
-        defaultExpanded={weatherExpandedByDefault}
-        className={`absolute right-4 md:right-6 z-[1001] flex transition-[top] duration-200 ${
-          searchOverlayActive ? 'top-[5.5rem]' : 'top-4'
-        } md:top-[3.25rem]`}
-      />
-
       <div
-        className={`absolute right-4 md:right-6 z-[1000] flex flex-col items-end gap-3 transition-opacity duration-200 ${
+        className={`absolute left-4 md:left-6 z-[1000] flex flex-col items-start gap-3 transition-opacity duration-200 ${
           `${fullScreen ? 'bottom-24' : 'bottom-4'} md:bottom-8`
         } ${controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
       >
+        <WeatherChip />
+
         <ReportControls
           open={reportsOpen}
           onToggle={setReportsOpen}

@@ -447,18 +447,13 @@ export const setupOverlayLayers = async (
       });
     }
     map.setTerrain({ source: 'terrain', exaggeration: 1 });
-    // Hillshade needs its own DEM source (separate cache from terrain).
-    if (!map.getSource('hillshade-dem')) {
-      map.addSource('hillshade-dem', {
-        type: 'raster-dem',
-        url: MAPTILER_TERRAIN_STYLE,
-        tileSize: MAPTILER_TERRAIN_TILE_SIZE,
-        maxzoom: MAPTILER_TERRAIN_MAX_ZOOM,
-      });
+    // Hillshade reuses the same DEM source as terrain, so the elevation
+    // tiles are fetched only once instead of twice per view.
+    if (!map.getLayer('hillshade')) {
       map.addLayer({
         id: 'hillshade',
         type: 'hillshade',
-        source: 'hillshade-dem',
+        source: 'terrain',
         // Shade only the basemap/terrain — keep it below the data overlays so
         // report pins, flood fills, and rainfall aren't washed out by the relief.
         before: 'flood-hazard-fill',
@@ -472,7 +467,6 @@ export const setupOverlayLayers = async (
   } else {
     map.setTerrain(null);
     if (map.getLayer('hillshade')) map.removeLayer('hillshade');
-    if (map.getSource('hillshade-dem')) map.removeSource('hillshade-dem');
   }
 
   // Pulse only in 2D. In 3D the halo layers are draped on terrain, so
