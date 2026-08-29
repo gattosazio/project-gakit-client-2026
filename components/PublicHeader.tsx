@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Info, LogOut, MapPinned, UserRound, BookOpen, Activity, Shield, LogIn, ChevronRight } from 'lucide-react';
+import { BookOpen, Info, LogOut, MapPinned, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
@@ -182,11 +182,6 @@ export function PublicHeader({
   usePrefetchRoute(home ?? '/login');
   const accountLabel =
     home === '/admin' ? 'Admin' : home === '/monitoring' ? 'Monitoring' : 'Login';
-  const AccountIcon = useMemo(() => {
-    if (home === '/monitoring') return Activity;
-    if (home === '/admin') return Shield;
-    return LogIn;
-  }, [home]);
 
   const handleAccountClick = () => {
     navigate(home ?? '/login');
@@ -224,33 +219,29 @@ export function PublicHeader({
           <button
             type="button"
             onClick={() => scrollToSection('hazard-map')}
-            className="group flex items-center gap-2 rounded-lg transition-transform duration-200 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
+            className="group flex items-center rounded-lg transition-transform duration-200 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
             aria-label="Go to the GAKIT hazard map"
           >
-            <div className="flex h-10 w-24 items-center justify-center sm:w-28">
+            <div className="flex h-10 items-center justify-center">
               <Image
                 src="/images/gakit_logo_adobe.svg"
                 alt="GAKIT logo"
                 width={160}
                 height={48}
                 priority
-                className="h-full w-full object-contain"
+                className="h-10 w-auto object-contain"
               />
             </div>
-            <div className="hidden border-l border-slate-300/80 pl-3 text-left xl:block">
-              <div className="text-[11px] font-bold tracking-tight text-slate-800 leading-none">MSU-IIT</div>
-              <div className="mt-0.5 text-[10px] font-medium leading-tight text-slate-500">
-                Geohazard Assessment &amp;
-                <br />
-                Knowledge Integration Tool
-              </div>
+            <div className="hidden h-10 pl-2 flex-col justify-center gap-0.5 text-left font-heading text-[9.5px] font-bold uppercase tracking-wider leading-tight text-slate-500 xl:flex">
+              <div>Geohazard Assessment &amp;</div>
+              <div>Knowledge Integration Tool</div>
             </div>
           </button>
 
           <nav className="hidden items-center gap-3 text-sm font-semibold md:flex">
             <button
               onClick={() => scrollToSection('about')}
-              className={`inline-flex items-center justify-center rounded-full px-5 py-2 text-xs font-bold transition-all duration-150 ${
+              className={`inline-flex items-center justify-center rounded-full px-5 py-2 font-heading text-xs font-bold transition-all duration-150 ${
                 activeSection === 'about'
                   ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80'
                   : 'text-slate-600 hover:bg-slate-100/70 hover:text-slate-900'
@@ -261,15 +252,9 @@ export function PublicHeader({
             {!isChecking && (
               <button
                 onClick={handleAccountClick}
-                className="group relative inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-5 py-2 text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28),inset_0_1px_1px_rgba(255,255,255,0.25)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:opacity-90"
+                className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-5 py-2 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28),inset_0_1px_1px_rgba(255,255,255,0.25)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:opacity-90"
               >
-                {home === '/monitoring' ? (
-                  <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
-                ) : (
-                  <AccountIcon className="h-3.5 w-3.5 text-maroon-100" />
-                )}
                 <span className="tracking-wide">{accountLabel}</span>
-                <ChevronRight className="h-3.5 w-3.5 text-maroon-200" />
               </button>
             )}
           </nav>
@@ -447,8 +432,8 @@ export function PublicHeader({
             onClick={() => scrollToSection('hazard-map')}
             className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
               activeSection === 'hazard-map'
-                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.12),inset_-1.5px_-1.5px_3px_rgba(255,255,255,1)] ring-1 ring-slate-300/60 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon'
+                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80'
             }`}
           >
             <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
@@ -458,8 +443,8 @@ export function PublicHeader({
             onClick={() => scrollToSection('about')}
             className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
               activeSection === 'about'
-                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.12),inset_-1.5px_-1.5px_3px_rgba(255,255,255,1)] ring-1 ring-slate-300/60 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon'
+                ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80'
             }`}
           >
             <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
@@ -480,7 +465,7 @@ export function PublicHeader({
           {!isChecking && (
             <button
               onClick={handleAccountClick}
-              className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-colors hover:bg-maroon-50 hover:text-gakit-maroon"
+              className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-[#eef2f6] active:text-gakit-maroon active:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] active:ring-1 active:ring-slate-300/80"
             >
               <UserRound className="h-5 w-5" />
               <span className="text-[10px] font-semibold">{accountLabel}</span>

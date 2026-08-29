@@ -152,10 +152,22 @@ export function PublicViewPage({
     setIsLocationPromptOpen(true);
   }, [scrollToMap]);
 
-  // Open the location prompt only once the basemap + overlay layers are ready,
-  // so it never appears over a still-loading (blank) map.
+  const hasOpenedPromptRef = useRef(false);
+
+  // Open the location prompt only once on first load when the map is ready
   const handleMapReady = useCallback(() => {
-    setIsLocationPromptOpen(true);
+    if (!hasOpenedPromptRef.current) {
+      hasOpenedPromptRef.current = true;
+      try {
+        const alreadyShown = sessionStorage.getItem('gakit:location-prompt-shown');
+        if (!alreadyShown) {
+          setIsLocationPromptOpen(true);
+          sessionStorage.setItem('gakit:location-prompt-shown', 'true');
+        }
+      } catch {
+        setIsLocationPromptOpen(true);
+      }
+    }
     setRainfallHours(mapRef.current?.getRainfallHours?.() ?? 1);
   }, [setRainfallHours]);
 
@@ -289,46 +301,46 @@ export function PublicViewPage({
       />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
+        showDown={activeSection !== 'about'}
         onMoveUp={() => scrollToSection('hazard-map')}
+        onMoveDown={() => scrollToSection('about')}
       />
 
       <main className="pt-16 pb-14 md:pb-0">
         <section id="hazard-map" className="min-h-[calc(100dvh-4rem)] scroll-mt-16 snap-start">
           <div className="flex h-[calc(100dvh-4rem)] overflow-hidden bg-white">
             <div className="relative isolate flex-1 w-full h-full min-h-0">
-              {isManualLocationMode && (
-                <div className="absolute left-14 md:left-16 top-4 z-[1100] flex w-[calc(100%-4.5rem)] max-w-none md:max-w-sm md:w-[calc(100%-5rem)] items-center gap-2">
-                  <div className="min-w-0 flex-1">
-                    <LocationSearch onSelect={handleSearchedLocationSelect} />
-                  </div>
-                  <button
-                    onClick={async () => {
-                      setIsLocating(true);
-                      try {
-                        const ok = (await mapRef.current?.shareMyLocation()) ?? false;
-                        if (ok) setIsLocated(true);
-                      } finally {
-                        setIsLocating(false);
-                      }
-                    }}
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-150 ${
-                      isLocated
-                        ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
-                        : 'bg-white/95 text-slate-700 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-gakit-maroon hover:shadow-2xl'
-                    }`}
-                    title={isLocated ? 'Using your current location' : 'Use my current location'}
-                    aria-label={isLocated ? 'Using your current location' : 'Use my current location'}
-                  >
-                    {isLocating ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
-                    ) : isLocated ? (
-                      <LocateFixed className="h-4.5 w-4.5 text-gakit-maroon" />
-                    ) : (
-                      <Locate className="h-4.5 w-4.5 text-gakit-maroon" />
-                    )}
-                  </button>
+              <div className="absolute left-14 md:left-16 top-4 z-[1100] flex w-[calc(100%-4.5rem)] max-w-none md:max-w-sm md:w-[calc(100%-5rem)] items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <LocationSearch onSelect={handleSearchedLocationSelect} />
                 </div>
-              )}
+                <button
+                  onClick={async () => {
+                    setIsLocating(true);
+                    try {
+                      const ok = (await mapRef.current?.shareMyLocation()) ?? false;
+                      if (ok) setIsLocated(true);
+                    } finally {
+                      setIsLocating(false);
+                    }
+                  }}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-all duration-150 ${
+                    isLocated
+                      ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.14),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 font-bold'
+                      : 'bg-white/95 text-slate-700 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-gakit-maroon hover:shadow-2xl'
+                  }`}
+                  title={isLocated ? 'Using your current location' : 'Use my current location'}
+                  aria-label={isLocated ? 'Using your current location' : 'Use my current location'}
+                >
+                  {isLocating ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
+                  ) : isLocated ? (
+                    <LocateFixed className="h-4.5 w-4.5 text-gakit-maroon" />
+                  ) : (
+                    <Locate className="h-4.5 w-4.5 text-gakit-maroon" />
+                  )}
+                </button>
+              </div>
               {isLoadingReports && (
                 <div className="absolute top-20 left-1/2 -translate-x-1/2 md:top-4 z-[1000] bg-white/95 border border-canvas-grey rounded-2xl shadow-lg px-4 py-3 flex items-center gap-2">
                   <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
@@ -379,16 +391,16 @@ export function PublicViewPage({
           </div>
         </section>
 
-        <section id="about" className="border-t border-slate-300/70 bg-[#e9edf2] scroll-mt-16 snap-start">
+        <section id="about" className="border-t border-maroon-900/40 bg-gakit-maroon scroll-mt-16 snap-start">
           <div className="mx-auto grid w-full max-w-6xl gap-6 px-4 py-8 sm:px-6 md:gap-10 md:py-16 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
             <div>
-              <div className="mb-2 text-xs font-bold uppercase tracking-[0.18em] text-gakit-maroon md:mb-3">
+              <div className="mb-2 font-heading text-xs font-bold uppercase tracking-[0.18em] text-rose-200 md:mb-3">
                 About Project GAKIT
               </div>
-              <h2 className="max-w-2xl text-2xl font-extrabold leading-tight text-slate-900 sm:text-3xl md:text-4xl">
+              <h2 className="max-w-2xl font-heading text-2xl font-extrabold leading-tight text-white sm:text-3xl md:text-4xl">
                 Community flood reports help others make safer decisions.
               </h2>
-              <p className="mt-3 max-w-2xl text-sm font-medium leading-relaxed text-slate-600 sm:text-base sm:leading-7 md:mt-5">
+              <p className="mt-3 max-w-2xl text-sm font-medium leading-relaxed text-rose-100/90 sm:text-base sm:leading-7 md:mt-5">
                 GAKIT combines community observations, geospatial information,
                 and environmental data to support local flood awareness in
                 Iligan City. Public reports help responders and researchers see
@@ -396,13 +408,13 @@ export function PublicViewPage({
               </p>
 
               <div className="mt-5 grid gap-3.5 sm:mt-8 sm:grid-cols-2 sm:gap-5">
-                <div className="group rounded-2xl border border-white/90 bg-gradient-to-br from-white via-white/95 to-slate-50/90 p-4 shadow-[-8px_-8px_20px_rgba(255,255,255,1),8px_8px_22px_rgba(15,23,42,0.11),1px_3px_6px_rgba(15,23,42,0.05)] ring-1 ring-slate-200/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-[-10px_-10px_24px_rgba(255,255,255,1),10px_10px_28px_rgba(15,23,42,0.12)] sm:hover:-translate-y-1.5">
+                <div className="group rounded-2xl bg-white/95 p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
                   <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-[#ebf0f5] text-gakit-maroon shadow-[inset_2px_2px_5px_rgba(15,23,42,0.12),inset_-2px_-2px_5px_rgba(255,255,255,1)] transition-transform duration-200 group-hover:scale-105 sm:h-12 sm:w-12 sm:rounded-2xl sm:shadow-[inset_3px_3px_6px_rgba(15,23,42,0.14),inset_-3px_-3px_6px_rgba(255,255,255,1)]">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                       <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Local reporting</h3>
+                      <h3 className="font-heading text-base font-bold tracking-tight text-slate-900 sm:text-lg">Local reporting</h3>
                       <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:mt-1.5 sm:text-sm sm:leading-6">
                         Residents can mark a flooded location and share the observed
                         water depth.
@@ -410,13 +422,13 @@ export function PublicViewPage({
                     </div>
                   </div>
                 </div>
-                <div className="group rounded-2xl border border-white/90 bg-gradient-to-br from-white via-white/95 to-slate-50/90 p-4 shadow-[-8px_-8px_20px_rgba(255,255,255,1),8px_8px_22px_rgba(15,23,42,0.11),1px_3px_6px_rgba(15,23,42,0.05)] ring-1 ring-slate-200/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-[-10px_-10px_24px_rgba(255,255,255,1),10px_10px_28px_rgba(15,23,42,0.12)] sm:hover:-translate-y-1.5">
+                <div className="group rounded-2xl bg-white/95 p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
                   <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-[#ebf0f5] text-gakit-maroon shadow-[inset_2px_2px_5px_rgba(15,23,42,0.12),inset_-2px_-2px_5px_rgba(255,255,255,1)] transition-transform duration-200 group-hover:scale-105 sm:h-12 sm:w-12 sm:rounded-2xl sm:shadow-[inset_3px_3px_6px_rgba(15,23,42,0.14),inset_-3px_-3px_6px_rgba(255,255,255,1)]">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                       <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Decision support</h3>
+                      <h3 className="font-heading text-base font-bold tracking-tight text-slate-900 sm:text-lg">Decision support</h3>
                       <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:mt-1.5 sm:text-sm sm:leading-6">
                         Reports complement hazard, rainfall, and terrain data for
                         safer local decisions.
@@ -428,22 +440,22 @@ export function PublicViewPage({
             </div>
 
             <div className="space-y-3.5 sm:space-y-5 lg:space-y-6 lg:pt-7">
-              <div className="group rounded-2xl border border-white/90 bg-gradient-to-br from-white via-white/95 to-slate-50/90 p-4 shadow-[-8px_-8px_20px_rgba(255,255,255,1),8px_8px_22px_rgba(15,23,42,0.11),1px_3px_6px_rgba(15,23,42,0.05)] ring-1 ring-slate-200/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-[-10px_-10px_26px_rgba(255,255,255,1),12px_12px_30px_rgba(15,23,42,0.13)] sm:hover:-translate-y-1.5">
+              <div className="group rounded-2xl bg-white/95 p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
                 <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-white p-2 shadow-[-4px_-4px_10px_rgba(255,255,255,1),5px_5px_12px_rgba(15,23,42,0.12)] sm:h-18 sm:w-18 sm:rounded-2xl sm:p-2.5 sm:shadow-[-5px_-5px_12px_rgba(255,255,255,1),6px_6px_16px_rgba(15,23,42,0.14)]">
+                  <div className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center">
                     <Image
                       src="/images/iit-logo.png"
                       alt="MSU-IIT Logo"
-                      width={48}
-                      height={48}
-                      className="object-contain"
+                      width={56}
+                      height={56}
+                      className="h-full w-full object-contain"
                     />
                   </div>
                   <div>
-                    <span className="inline-flex items-center rounded-full border border-maroon-200 bg-maroon-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-gakit-maroon shadow-sm sm:px-2.5 sm:text-[11px]">
-                      Project of
-                    </span>
-                    <h3 className="mt-1 text-base font-bold leading-snug text-slate-900 sm:mt-1.5 sm:text-lg md:text-xl">
+                    <div className="font-heading text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gakit-maroon">
+                      A project of
+                    </div>
+                    <h3 className="mt-0.5 font-heading text-base font-bold leading-snug text-slate-900 sm:text-lg md:text-xl">
                       Mindanao State University–Iligan Institute of Technology
                     </h3>
                   </div>
@@ -454,20 +466,20 @@ export function PublicViewPage({
                 </p>
               </div>
 
-              <div className="group rounded-2xl border border-white/90 bg-gradient-to-br from-white via-white/95 to-slate-50/90 p-4 shadow-[-8px_-8px_20px_rgba(255,255,255,1),8px_8px_22px_rgba(15,23,42,0.11),1px_3px_6px_rgba(15,23,42,0.05)] ring-1 ring-slate-200/50 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-[-10px_-10px_24px_rgba(255,255,255,1),10px_10px_28px_rgba(15,23,42,0.12)] sm:hover:-translate-y-1.5">
+              <div className="group rounded-2xl bg-white/95 p-4 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-md transition-all duration-300 hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
                 <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200/80 bg-[#ebf0f5] text-gakit-maroon shadow-[inset_2px_2px_5px_rgba(15,23,42,0.12),inset_-2px_-2px_5px_rgba(255,255,255,1)] sm:h-12 sm:w-12 sm:rounded-2xl sm:shadow-[inset_3px_3px_6px_rgba(15,23,42,0.14),inset_-3px_-3px_6px_rgba(255,255,255,1)]">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-gakit-maroon shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 sm:h-12 sm:w-12 sm:rounded-2xl">
                     <Mail className="h-4 w-4 sm:h-5 sm:w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-base font-bold tracking-tight text-slate-900 sm:text-lg">Contact and collaborate</div>
+                    <div className="font-heading text-base font-bold tracking-tight text-slate-900 sm:text-lg">Contact and collaborate</div>
                     <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:text-sm sm:leading-6">
                       For research, data-sharing, community, or deployment
                       partnership inquiries.
                     </p>
                     <a
                       href="mailto:support@gakit.ph?subject=Project%20GAKIT%20Inquiry"
-                      className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gakit-maroon px-4 py-2 text-xs font-bold text-white shadow-[-2px_-2px_6px_rgba(255,255,255,0.9),4px_4px_12px_rgba(123,17,19,0.35)] transition-all duration-200 hover:bg-maroon-800 sm:mt-4 sm:px-5 sm:py-2.5 sm:text-sm"
+                      className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gakit-maroon px-4 py-2 font-heading text-xs font-bold text-white shadow-md shadow-maroon-950/30 transition-all duration-150 hover:bg-maroon-800 active:scale-95 sm:mt-4 sm:px-5 sm:py-2.5 sm:text-sm"
                     >
                       support@gakit.ph
                     </a>

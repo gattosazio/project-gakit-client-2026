@@ -67,6 +67,15 @@ export function LocationSearch({
     return () => clearTimeout(timer);
   }, [searchQuery, runSearch]);
 
+  // Auto-dismiss validation / search errors after 3 seconds
+  useEffect(() => {
+    if (!searchError) return;
+    const timer = setTimeout(() => {
+      setSearchError(null);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [searchError]);
+
   const handleSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -89,7 +98,7 @@ export function LocationSearch({
   return (
     <div className="relative flex h-[52px] items-center rounded-2xl bg-white/95 p-1 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-none transition-all duration-150 md:backdrop-blur">
       <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-1">
-        <label className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-xl bg-[#eef2f6] px-3 shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 transition-all focus-within:ring-2 focus-within:ring-gakit-maroon/40">
+        <label className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-xl bg-slate-50/70 px-3 ring-1 ring-slate-200/70 transition-all duration-150 hover:bg-slate-100/60 focus-within:bg-[#eef2f6] focus-within:shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] focus-within:ring-1 focus-within:ring-slate-300/90">
           <input
             value={searchQuery}
             onChange={(event) => {

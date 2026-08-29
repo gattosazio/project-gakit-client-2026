@@ -1,5 +1,6 @@
 import { toast } from 'react-toastify';
 import {
+  BasemapId,
   MAPTILER_TERRAIN_MAX_ZOOM,
   MAPTILER_TERRAIN_STYLE,
   MAPTILER_TERRAIN_TILE_SIZE,
@@ -34,10 +35,25 @@ export interface OverlayLayerState {
   showFloodHazard: boolean;
   showRainfall: boolean;
   showHimawariIR: boolean;
+  showBarangayBoundaries?: boolean;
   visibleRiskLevels: Record<string, boolean>;
   mapMode: MapMode;
   rainfallHours: number;
+  basemap?: BasemapId;
 }
+
+// Toggles visibility for all barangay boundary layers.
+export const applyBarangayBoundariesVisibility = (map: any, visible: boolean) => {
+  const vis = visible ? 'visible' : 'none';
+  ['barangay-outline-casing', 'barangay-outline', 'barangay-fill'].forEach((id) => {
+    if (map?.getLayer(id)) {
+      map.setLayoutProperty(id, 'visibility', vis);
+    }
+  });
+  if (!visible && map?.getLayer('barangay-label')) {
+    map.setLayoutProperty('barangay-label', 'visibility', 'none');
+  }
+};
 
 // Recolors the rainfall grid for the currently selected accumulation window.
 export const applyRainfallPaint = (map: any, hours: number) => {
@@ -150,6 +166,9 @@ export const setupOverlayLayers = async (
   const initialLayers: Array<[string, boolean]> = [
     ['flood-hazard-fill', state.showFloodHazard],
     ['rainfall-grid', state.showRainfall],
+    ['barangay-outline-casing', state.showBarangayBoundaries ?? false],
+    ['barangay-outline', state.showBarangayBoundaries ?? false],
+    ['barangay-fill', state.showBarangayBoundaries ?? false],
   ];
   initialLayers.forEach(([id, visible]) => {
     if (map.getLayer(id)) {
@@ -331,44 +350,86 @@ export const setupOverlayLayers = async (
       // Use the barangay PSGC code as the feature id so setFeatureState
       // (used for hover highlighting) can resolve and update each polygon.
       promoteId: 'adm4_psgc',
+      attribution:
+        'Boundaries: <a href="https://data.humdata.org/dataset/cod-ab-phl" target="_blank" rel="noopener">HDX / UN OCHA</a>',
     });
 
-    // Subtle outline; hover bumps width/opacity. Kept below report pins.
+    const isSatellite = state.basemap === 'satellite';
+    const boundaryColor = '#06b6d4';
+    const boundaryCasingColor = isSatellite ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.9)';
+    const boundaryFillColor = '#06b6d4';
+    const labelColor = isSatellite ? '#22d3ee' : '#0891b2';
+    const labelHaloColor = isSatellite ? '#0f172a' : '#ffffff';
+    const boundaryVisibility = (state.showBarangayBoundaries ?? false) ? 'visible' : 'none';
+
+    // High-contrast casing line below the boundary stroke; grows prominently on hover.
     map.addLayer({
-      id: 'barangay-outline',
+      id: 'barangay-outline-casing',
       type: 'line',
       source: 'barangay-boundaries',
       before: 'report-clusters',
+      layout: {
+        visibility: boundaryVisibility,
+      },
       paint: {
-        'line-color': 'rgba(56, 189, 248, 0.5)',
+        'line-color': boundaryCasingColor,
         'line-width': [
           'case',
           ['boolean', ['feature-state', 'hover'], false],
-          2,
-          1,
+          5,
+          2.5,
         ],
         'line-opacity': [
           'case',
           ['boolean', ['feature-state', 'hover'], false],
-          0.9,
+          0.95,
           0.6,
         ],
       },
     });
 
-    // Subtle fill; also the hover hit-target (thin outline is missable).
+    // Main boundary outline; grows from 1.25px to 3px on hover.
+    map.addLayer({
+      id: 'barangay-outline',
+      type: 'line',
+      source: 'barangay-boundaries',
+      before: 'report-clusters',
+      layout: {
+        visibility: boundaryVisibility,
+      },
+      paint: {
+        'line-color': boundaryColor,
+        'line-width': [
+          'case',
+          ['boolean', ['feature-state', 'hover'], false],
+          3,
+          1.25,
+        ],
+        'line-opacity': [
+          'case',
+          ['boolean', ['feature-state', 'hover'], false],
+          1.0,
+          0.85,
+        ],
+      },
+    });
+
+    // Boundary fill: provides an evident translucent highlight across the hovered polygon.
     map.addLayer({
       id: 'barangay-fill',
       type: 'fill',
       source: 'barangay-boundaries',
       before: 'report-clusters',
+      layout: {
+        visibility: boundaryVisibility,
+      },
       paint: {
-        'fill-color': 'rgba(56, 189, 248, 0.04)',
+        'fill-color': boundaryFillColor,
         'fill-opacity': [
           'case',
           ['boolean', ['feature-state', 'hover'], false],
-          1.0,
-          0.04,
+          isSatellite ? 0.22 : 0.16,
+          0.02,
         ],
       },
     });
@@ -380,6 +441,10 @@ export const setupOverlayLayers = async (
       type: 'geojson',
       data: { type: 'FeatureCollection', features: [] },
     });
+
+    const isSatellite = state.basemap === 'satellite';
+    const labelColor = isSatellite ? '#22d3ee' : '#0891b2';
+    const labelHaloColor = isSatellite ? '#0f172a' : '#ffffff';
 
     map.addLayer({
       id: 'barangay-label',
@@ -395,8 +460,9 @@ export const setupOverlayLayers = async (
         'text-ignore-placement': true,
       },
       paint: {
-        // Same hue as the boundary line.
-        'text-color': '#38bdf8'
+        'text-color': labelColor,
+        'text-halo-color': labelHaloColor,
+        'text-halo-width': 2,
       },
     });
 
@@ -433,6 +499,9 @@ export const setupOverlayLayers = async (
   if (map.getLayer('barangay-outline') && map.getLayer('report-clusters')) {
     map.moveLayer('barangay-fill', 'report-clusters');
     map.moveLayer('barangay-label', 'report-clusters');
+    if (map.getLayer('barangay-outline-casing')) {
+      map.moveLayer('barangay-outline-casing', 'report-clusters');
+    }
     map.moveLayer('barangay-outline', 'report-clusters');
   }
 
