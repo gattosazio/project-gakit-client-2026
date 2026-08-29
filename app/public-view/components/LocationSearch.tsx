@@ -171,8 +171,8 @@ export function LocationSearch({
       </form>
 
       {showDropdown && (
-        <div className={`absolute z-50 mt-2 overflow-hidden rounded-2xl border border-white/80 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.14),inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/80 backdrop-blur-xl ${
-          isCompact ? 'left-0 sm:left-auto sm:right-0 top-full w-72 sm:w-80 md:w-96' : 'left-0 right-0 top-full'
+        <div className={`absolute z-50 mt-2 overflow-hidden rounded-2xl border border-white/80 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.14),inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/80 backdrop-blur-xl left-1/2 -translate-x-1/2 top-full ${
+          isCompact ? 'w-[calc(100vw-2.5rem)] max-w-[340px] sm:max-w-[380px] md:w-96 md:max-w-none' : 'w-full'
         }`}>
           {searchError && (
             <p
