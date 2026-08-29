@@ -64,12 +64,12 @@ const HAZARD_META: Record<
 };
 
 const PRESET_CHIP_BASE_CLASSES =
-  'border-slate-200 bg-white text-slate-600 hover:bg-slate-100';
+  'bg-white text-slate-700 shadow-[0_1px_3px_rgba(15,23,42,0.08),0_1px_2px_rgba(15,23,42,0.04)] ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-slate-900 active:scale-95';
 
 const CRITICALITY_CHIP_SELECTED: Record<DepthCriticality, string> = {
-  low: 'border-green-500 bg-green-100 text-green-800',
-  medium: 'border-amber-500 bg-amber-100 text-amber-800',
-  critical: 'border-red-500 bg-red-100 text-red-800',
+  low: 'bg-emerald-50 text-emerald-800 shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-emerald-300 font-bold',
+  medium: 'bg-amber-50 text-amber-800 shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-amber-300 font-bold',
+  critical: 'bg-rose-50 text-rose-800 shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,0.9)] ring-1 ring-rose-300 font-bold',
 };
 
 export function ReportModal({
@@ -106,19 +106,6 @@ export function ReportModal({
       cancelled = true;
     };
   }, [isOpen]);
-
-  // Keep the exact-centimeter input in step with any selection source
-  // (strips, presets, or typing into the input itself).
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.resolve().then(() => {
-      if (cancelled) return;
-      if (selectedCm != null) setCustomCm(String(selectedCm));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedCm]);
 
   useEffect(() => {
     if (!isOpen || step !== 'confirm' || !selectedLocation) return;
@@ -192,6 +179,7 @@ export function ReportModal({
   const resetForm = () => {
     setStep('confirm');
     setSelectedCm(null);
+    setCustomCm('');
     setSelectedReference('adult');
     setHoveredCm(null);
     lastElevationKey.current = '';
@@ -207,21 +195,25 @@ export function ReportModal({
   const setReference = (reference: FloodReference) => {
     setSelectedReference(reference);
     setSelectedCm(null);
+    setCustomCm('');
     setHoveredCm(null);
   };
 
   const selectDepth = (cm: number) => {
     setSelectedCm(cm);
+    setCustomCm(String(cm));
   };
 
   /** Exact-centimeter input: any depth 1–999 cm; readings past the scale's
    * 250 cm top clamp the visual but still map to a category on submit. */
   const handleCustomCmChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = event.target.value;
+    const raw = event.target.value.replace(/\D/g, '').slice(0, 3);
     setCustomCm(raw);
     const parsed = Number.parseInt(raw, 10);
     if (Number.isFinite(parsed) && parsed >= 1) {
       setSelectedCm(Math.min(parsed, 999));
+    } else if (raw === '') {
+      setSelectedCm(null);
     }
   };
 
@@ -396,11 +388,11 @@ export function ReportModal({
           {step === 'depth' && (
             <div className="space-y-5">
               <div>
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-sm font-semibold text-slate-900">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="shrink-0 whitespace-nowrap text-sm font-semibold text-slate-900">
                     Choose a reference:
                   </h3>
-                  <div className="w-40 shrink-0">
+                  <div className="w-40 sm:w-44 shrink-0">
                     <FilterDropdown<FloodReference>
                       value={selectedReference}
                       onSelect={(id) => setReference(id)}
@@ -417,6 +409,7 @@ export function ReportModal({
                         return <Icon className="h-3.5 w-3.5 shrink-0" />;
                       })()}
                       triggerLabel={referenceMeta?.label ?? 'Choose a reference'}
+                      size="sm"
                     />
                   </div>
                 </div>
@@ -461,36 +454,37 @@ export function ReportModal({
                           onClick={() => selectDepth(preset.cm)}
                           aria-pressed={isSelected}
                           title={`About ${preset.cm} cm — sets the waterline at ${preset.shortLabel.toLowerCase()} level`}
-                          className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${isSelected ? CRITICALITY_CHIP_SELECTED[criticality] : PRESET_CHIP_BASE_CLASSES
-                            }`}
+                          className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-all duration-150 ${
+                            isSelected
+                              ? CRITICALITY_CHIP_SELECTED[criticality]
+                              : PRESET_CHIP_BASE_CLASSES
+                          }`}
                         >
                           {preset.shortLabel}
                         </button>
                       );
                     })}
-                    <span className="text-xs text-slate-400">or</span>
-                    <label className="flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5">
+                    <span className="text-xs font-medium text-slate-400">or</span>
+                    <label className="flex items-center gap-1 rounded-full bg-white px-2.5 py-0.5 shadow-[0_1px_3px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/90 transition-all duration-150 focus-within:bg-[#eef2f6] focus-within:shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.14),inset_-1.5px_-1.5px_3px_rgba(255,255,255,1)] focus-within:ring-slate-300">
                       <input
-                        type="number"
-                        min={1}
-                        max={999}
+                        type="text"
                         inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={3}
                         value={customCm}
                         onChange={handleCustomCmChange}
+                        onKeyDown={(event) => {
+                          if (['e', 'E', '+', '-', '.', ','].includes(event.key)) {
+                            event.preventDefault();
+                          }
+                        }}
                         aria-label="Exact water depth in centimeters"
-                        className="w-14 bg-transparent text-xs font-semibold text-slate-800 outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        placeholder="0"
+                        className="w-8 bg-transparent text-center text-xs font-bold text-slate-800 outline-none [appearance:textfield]"
                       />
-                      <span className="text-xs text-slate-400">cm</span>
+                      <span className="text-[11px] font-medium text-slate-400">cm</span>
                     </label>
                   </div>
-
-
-                  {selectedCm != null && selectedCode && (
-                    <p className="mt-3 text-center text-sm font-semibold text-slate-900">
-                      Approx. depth: ~{selectedCm} cm
-                      {selectedDepthCategory ? `  (${selectedDepthCategory.label})` : ` (${fallbackCategoryLabel(selectedCode)})`}
-                    </p>
-                  )}
                 </section>
               )}
             </div>

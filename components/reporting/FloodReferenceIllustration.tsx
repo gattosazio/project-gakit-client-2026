@@ -58,17 +58,17 @@ export function FloodReferenceIllustration({
       />
 
       <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-10"
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-10 will-change-[height]"
         style={{ height: `${waterPct}%` }}
       >
+        {/* Solid waterline edge for precise depth reading */}
         <div
-          className={`absolute inset-0 transition-colors duration-300 ${isCritical ? 'bg-red-400/40' : 'bg-sky-400/40'}`}
+          className={`absolute inset-x-0 top-0 h-[2px] ${isCritical ? 'bg-rose-500' : 'bg-sky-500'}`}
         />
+
+        {/* Translucent water fill */}
         <div
-          className={`absolute inset-x-0 top-0 h-[3px] transition-colors duration-300 ${isCritical ? 'bg-red-600' : 'bg-sky-600'}`}
-        />
-        <div
-          className={`absolute inset-x-0 top-[7px] border-t-2 border-dashed transition-colors duration-300 ${isCritical ? 'border-red-300' : 'border-sky-300'}`}
+          className={`absolute inset-0 ${isCritical ? 'bg-rose-500/30' : 'bg-sky-400/35'}`}
         />
       </div>
 
