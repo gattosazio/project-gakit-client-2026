@@ -33,10 +33,10 @@ export function MobileBottomNav<T extends string>({
                 key={feature.id}
                 onClick={() => onTabChange(feature.id)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-colors ${
+                className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 ${
                   isActive
-                    ? 'bg-maroon-50 text-gakit-maroon'
-                    : 'text-slate-500 hover:bg-maroon-50 hover:text-gakit-maroon'
+                    ? 'bg-[#eef2f6] text-gakit-maroon shadow-[inset_1.5px_1.5px_3px_rgba(15,23,42,0.12),inset_-1.5px_-1.5px_3px_rgba(255,255,255,1)] ring-1 ring-slate-300/60 font-bold'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon'
                 }`}
               >
                 <Icon className={`h-5 w-5 ${isActive ? 'text-gakit-maroon' : ''}`} />

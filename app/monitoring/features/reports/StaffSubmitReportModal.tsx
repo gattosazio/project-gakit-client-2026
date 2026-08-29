@@ -65,6 +65,7 @@ export function StaffSubmitReportModal({
               mapApiRef={mapRef}
               onLocationSelect={onLocationSelect}
               selectedLocation={selectedLocation}
+              hideWeather
             />
           </div>
 

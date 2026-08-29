@@ -20,22 +20,24 @@ export function CurrentConditions({ current }: { current: CurrentWeather }) {
   });
 
   return (
-    <div className="flex items-center gap-3 rounded-lg bg-white p-2 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/80">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-canvas-light ring-1 ring-canvas-grey">
+    <div className="flex items-center gap-2.5 rounded-xl bg-slate-50/80 px-2.5 py-2 ring-1 ring-slate-200/60">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-xs ring-1 ring-slate-200/70">
         <Icon className="h-4 w-4 text-gakit-maroon" />
       </span>
       <span className="min-w-0 flex-1 leading-tight">
-        <span className="block text-xs font-semibold text-slate-900">Now</span>
-        <span className="block truncate text-[11px] text-slate-500">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-bold text-slate-900">Now</span>
+          <span className="text-[10px] font-medium text-slate-400">· as of {observed}</span>
+        </div>
+        <span className="block truncate text-[11px] font-medium text-slate-500">
           {condition.label}
           {current.precipitation > 0 && ` · ${current.precipitation.toFixed(1)} mm`}
         </span>
       </span>
-      <span className="shrink-0 text-right leading-tight">
-        <span className="block text-sm font-semibold text-slate-800">
+      <span className="shrink-0 text-right">
+        <span className="text-sm font-bold text-slate-900">
           {Math.round(current.temperature)}°
         </span>
-        <span className="block text-[10px] font-medium text-slate-400">as of {observed}</span>
       </span>
     </div>
   );

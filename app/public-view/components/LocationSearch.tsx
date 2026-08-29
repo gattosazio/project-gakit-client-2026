@@ -87,9 +87,9 @@ export function LocationSearch({
   };
 
   return (
-    <div className="relative rounded-2xl bg-white/90 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur-sm">
-      <form onSubmit={handleSearch} className="flex items-center gap-1.5">
-        <label className="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-3 transition-shadow focus-within:ring-2 focus-within:ring-gakit-maroon/40">
+    <div className="relative flex h-[52px] items-center rounded-2xl bg-white/95 p-1 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-none transition-all duration-150 md:backdrop-blur">
+      <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-1">
+        <label className="flex h-full min-w-0 flex-1 items-center gap-2 rounded-xl bg-[#eef2f6] px-3 shadow-[inset_2px_2px_4px_rgba(15,23,42,0.12),inset_-2px_-2px_4px_rgba(255,255,255,1)] ring-1 ring-slate-300/80 transition-all focus-within:ring-2 focus-within:ring-gakit-maroon/40">
           <input
             value={searchQuery}
             onChange={(event) => {
@@ -98,7 +98,7 @@ export function LocationSearch({
               setSearchError(null);
             }}
             placeholder="Search street, barangay, or landmark"
-            className="min-w-0 flex-1 bg-transparent py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+            className="min-w-0 flex-1 bg-transparent py-1 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400"
             aria-label="Search for a location in Iligan City"
           />
           {searchQuery && (
@@ -106,9 +106,9 @@ export function LocationSearch({
               type="button"
               onClick={handleClear}
               aria-label="Clear search"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+              className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200/80 hover:text-slate-700"
             >
-              <X className="h-4 w-4" />
+              <X className="h-3.5 w-3.5" />
             </button>
           )}
           {isSearching && <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gakit-maroon" />}
@@ -117,17 +117,17 @@ export function LocationSearch({
           type="submit"
           disabled={isSearching}
           aria-label="Search location"
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-gakit-maroon transition-colors hover:bg-maroon-50 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-50 text-gakit-maroon ring-1 ring-slate-200/80 shadow-xs transition-all duration-150 hover:bg-maroon-50 hover:ring-maroon-200 active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <Search className="h-4 w-4" />
+          <Search className="h-4.5 w-4.5 text-gakit-maroon" />
         </button>
       </form>
 
       {(searchError || searchResults.length > 0) && (
-        <div className="absolute left-0 right-0 top-full z-20 mt-1">
+        <div className="absolute left-0 right-0 top-full z-20 mt-2">
           {searchError && (
             <p
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-red-600 shadow-sm"
+              className="rounded-2xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-red-600 shadow-xl ring-1 ring-slate-900/5"
               role="status"
             >
               {searchError}
@@ -135,7 +135,7 @@ export function LocationSearch({
           )}
 
           {searchResults.length > 0 && (
-            <div className="max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="max-h-48 divide-y divide-slate-100 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl ring-1 ring-slate-900/5">
               {searchResults.map((result) => (
                 <button
                   key={`${result.lat}-${result.lng}`}
@@ -147,7 +147,7 @@ export function LocationSearch({
                       address: result.displayName,
                     })
                   }
-                  className="flex w-full items-start gap-2.5 px-3 py-3 text-left transition-colors hover:bg-maroon-50"
+                  className="flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-colors hover:bg-maroon-50"
                 >
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gakit-maroon" />
                   <span className="text-sm text-slate-700">
