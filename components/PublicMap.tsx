@@ -1535,7 +1535,7 @@ function createSelectedPinElement(): HTMLElement {
             disabled={isShareLocating}
             title="Locate my position"
             aria-label="Locate my position"
-            className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/95 text-slate-700 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-none transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95 disabled:cursor-not-allowed md:backdrop-blur"
+            className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/85 text-slate-700 shadow-[0_8px_24px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl transition-all duration-150 hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94] disabled:cursor-not-allowed"
           >
             {isShareLocating ? (
               <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
@@ -1546,13 +1546,13 @@ function createSelectedPinElement(): HTMLElement {
         )}
 
         {/* Zoom & Compass Widget */}
-        <div className="flex h-[84px] w-8 flex-col overflow-hidden rounded-xl bg-white/95 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200/90 backdrop-blur-none md:backdrop-blur">
+        <div className="flex h-[96px] w-9 flex-col overflow-hidden rounded-2xl bg-white/85 shadow-[0_8px_24px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl">
           <button
             type="button"
             onClick={() => mapRef.current?.zoomIn()}
             aria-label="Zoom in"
             title="Zoom in"
-            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon"
+            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95"
           >
             <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
           </button>
@@ -1562,7 +1562,7 @@ function createSelectedPinElement(): HTMLElement {
             onClick={() => mapRef.current?.zoomOut()}
             aria-label="Zoom out"
             title="Zoom out"
-            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon"
+            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95"
           >
             <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
           </button>
@@ -1572,7 +1572,7 @@ function createSelectedPinElement(): HTMLElement {
             onClick={handleResetNorth}
             aria-label="Reset orientation and view to Iligan City"
             title="Reset to North / Iligan City view"
-            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon"
+            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95"
           >
             <Navigation
               className="h-3.5 w-3.5 transition-transform duration-200 ease-out"

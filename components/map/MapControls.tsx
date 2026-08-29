@@ -118,7 +118,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return open ? (
-    <div className="w-72 rounded-2xl bg-white/95 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
+    <div className="w-72 rounded-2xl bg-white/90 shadow-[0_12px_40px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl">
       <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
         <div className="flex items-center gap-2">
           <Icon className="w-3.5 h-3.5" />
@@ -126,7 +126,7 @@ function Card({
         </div>
         <button
           onClick={() => onToggle(false)}
-          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
+          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors active:scale-95"
           aria-label={`Collapse ${title}`}
         >
           <ChevronUp className="w-4 h-4" />
@@ -139,12 +139,12 @@ function Card({
   ) : (
     <button
       onClick={() => onToggle(true)}
-      className="flex items-center gap-2 rounded-2xl bg-white/90 px-3 py-3 shadow-lg shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-xl md:backdrop-blur"
+      className="flex items-center gap-2 rounded-2xl bg-white/85 px-3.5 py-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl transition-all duration-150 hover:bg-white hover:shadow-xl active:scale-[0.97]"
       title={`Show ${title}`}
       aria-label={`Show ${title}`}
     >
       <Icon className="w-5 h-5 text-gakit-maroon" />
-      <span className="text-sm font-medium text-slate-700">{title}</span>
+      <span className="text-sm font-semibold text-slate-700">{title}</span>
     </button>
   );
 }
@@ -181,7 +181,7 @@ export function MapViewToggle({
   const activeKey = VIEW_PRESETS.find((v) => v.basemap === basemap && v.mode === mode)?.key;
   return (
     <div
-      className={`${className} flex items-center rounded-xl bg-white/95 p-1 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 backdrop-blur-md`}
+      className={`${className} flex items-center rounded-2xl bg-white/85 p-1 shadow-[0_8px_24px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl`}
     >
       {VIEW_PRESETS.map((v) => {
         const disabled = v.needsTerrain && !hasMaptiler;
@@ -198,7 +198,7 @@ export function MapViewToggle({
                 ? `${v.label} requires a MapTiler API key`
                 : `${v.label} view`
             }
-            className={`rounded-lg px-3 py-1.5 text-xs font-bold leading-none transition-all duration-150 active:scale-95 ${
+            className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-all duration-150 active:scale-[0.96] ${
               active
                 ? 'bg-gakit-maroon text-white shadow-xs'
                 : disabled

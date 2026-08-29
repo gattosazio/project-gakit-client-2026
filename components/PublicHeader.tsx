@@ -213,7 +213,7 @@ export function PublicHeader({
 
   return (
     <>
-    <header className="fixed top-0 left-0 right-0 z-[1200] isolate bg-white opacity-100 shadow-md border-b border-canvas-grey">
+    <header className="fixed top-0 left-0 right-0 z-[1200] isolate bg-white/85 backdrop-blur-xl shadow-[0_4px_20px_-4px_rgba(15,23,42,0.06)] border-b border-slate-200/80">
       <div className="relative mx-auto flex h-16 items-center justify-center px-6 md:px-10">
         <div className="flex items-center justify-center gap-8 lg:gap-14">
           <button
@@ -425,55 +425,55 @@ export function PublicHeader({
           </div>
         )}
       </div>
-
-      <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-2 md:hidden">
-        <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white/95 p-1.5 shadow-xl shadow-slate-900/10 ring-1 ring-slate-200 backdrop-blur-none md:backdrop-blur">
-          <button
-            onClick={() => scrollToSection('hazard-map')}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
-              activeSection === 'hazard-map'
-                ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
-            }`}
-          >
-            <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
-            <span className="text-[10px] font-semibold">Map</span>
-          </button>
-          <button
-            onClick={() => scrollToSection('about')}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
-              activeSection === 'about'
-                ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
-            }`}
-          >
-            <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
-            <span className="text-[10px] font-semibold">About</span>
-          </button>
-          <NotificationBell
-            notifications={weatherNotifications}
-            onSelectAlert={setSelectedAlert}
-            onMarkRead={markAlertRead}
-            variant="mobile-nav"
-            onOpenChange={(next) => {
-              if (next) {
-                setIsMenuOpen(false);
-                setIsInfoOpen(false);
-              }
-            }}
-          />
-          {!isChecking && (
-            <button
-              onClick={handleAccountClick}
-              className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70 active:scale-95"
-            >
-              <UserRound className="h-5 w-5" />
-              <span className="text-[10px] font-semibold">{accountLabel}</span>
-            </button>
-          )}
-        </div>
-      </nav>
     </header>
+
+    <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-2 md:hidden">
+      <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white/85 p-1.5 shadow-[0_12px_40px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl">
+        <button
+          onClick={() => scrollToSection('hazard-map')}
+          className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
+            activeSection === 'hazard-map'
+              ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
+          }`}
+        >
+          <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
+          <span className="text-[10px] font-semibold">Map</span>
+        </button>
+        <button
+          onClick={() => scrollToSection('about')}
+          className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
+            activeSection === 'about'
+              ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
+          }`}
+        >
+          <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
+          <span className="text-[10px] font-semibold">About</span>
+        </button>
+        <NotificationBell
+          notifications={weatherNotifications}
+          onSelectAlert={setSelectedAlert}
+          onMarkRead={markAlertRead}
+          variant="mobile-nav"
+          onOpenChange={(next) => {
+            if (next) {
+              setIsMenuOpen(false);
+              setIsInfoOpen(false);
+            }
+          }}
+        />
+        {!isChecking && (
+          <button
+            onClick={handleAccountClick}
+            className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70 active:scale-95"
+          >
+            <UserRound className="h-5 w-5" />
+            <span className="text-[10px] font-semibold">{accountLabel}</span>
+          </button>
+        )}
+      </div>
+    </nav>
     <SignOutConfirmDialog
       isOpen={showSignOutConfirm}
       isSigningOut={isSigningOut}
