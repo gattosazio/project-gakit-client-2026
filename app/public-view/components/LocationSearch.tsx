@@ -139,7 +139,7 @@ export function LocationSearch({
             setSearchError(null);
             setIsFocused(true);
           }}
-          placeholder={isCompact ? 'Search location…' : 'Search street, barangay, or landmark'}
+          placeholder="Search street, barangay, or landmark"
           className="min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400"
           aria-label="Search for a location in Iligan City"
         />
