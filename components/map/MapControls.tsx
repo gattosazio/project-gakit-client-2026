@@ -328,9 +328,9 @@ export function DataLayerControls({
   onShowBarangayBoundariesChange,
 }: DataLayerControlsProps) {
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
-  const hasLiveActive = showHimawariIR || showRainfall;
+  const hasLiveActive = showHimawariIR;
   const layerBadge = hasLiveActive ? (
-    <span className="relative ml-1 flex h-2 w-2" title="Live meteorological feed active">
+    <span className="relative ml-1 flex h-2 w-2" title="Live Himawari-9 satellite feed active">
       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
       <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
     </span>
@@ -371,7 +371,6 @@ export function DataLayerControls({
           color="#0284C7"
           checked={showRainfall}
           onChange={onShowRainfallChange}
-          live
           credit={{
             href: JAXA_GSMAP_URL,
             label: 'JAXA GSMaP',
