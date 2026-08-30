@@ -129,7 +129,7 @@ export function LocationSearch({
       className={
         isCompact
           ? `relative flex h-8 md:h-9 items-center rounded-full bg-slate-100/90 px-3 py-1 ring-1 ring-slate-200/90 transition-all duration-150 focus-within:bg-white focus-within:ring-2 focus-within:ring-gakit-maroon/50 focus-within:shadow-md ${className}`
-          : `relative flex h-[52px] items-center rounded-2xl bg-white/90 px-3.5 py-1.5 shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/80 ring-1 ring-slate-200/80 md:bg-white/85 md:backdrop-blur-xl md:border-white/60 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)] transition-all duration-150 focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
+          : `relative flex h-[52px] items-center rounded-2xl bg-white/90 px-3.5 py-1.5 shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/80 ring-1 ring-slate-900/5 md:bg-white/85 md:backdrop-blur-xl md:border-white/60 md:ring-slate-200/80 transition-all duration-150 focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
       }
     >
       <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-1.5 md:gap-2">
@@ -144,38 +144,35 @@ export function LocationSearch({
             setIsFocused(true);
           }}
           placeholder="Search street, barangay, or landmark"
-          className="min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400"
           aria-label="Search for a location in Iligan City"
+          className="min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400"
         />
         {searchQuery && (
           <button
             type="button"
             onClick={handleClear}
             aria-label="Clear search"
-            className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-200/80 hover:text-slate-700 active:scale-90"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600 active:scale-95"
           >
-            <X className="h-3 w-3" strokeWidth={2} />
+            <X className="h-3 w-3" />
           </button>
         )}
-        {isSearching && <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-gakit-maroon" />}
-
-        {!isCompact && (
-          <>
-            <span className="h-5 w-px shrink-0 bg-slate-200/80" />
-            <button
-              type="submit"
-              disabled={isSearching}
-              aria-label="Search location"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-all duration-150 hover:bg-maroon-50 hover:text-gakit-maroon active:bg-maroon-100 active:scale-[0.94] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              <Search className="h-4 w-4" strokeWidth={2} />
-            </button>
-          </>
-        )}
+        <button
+          type="submit"
+          disabled={isSearching}
+          aria-label="Submit search"
+          className="flex h-7 w-7 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-xl bg-gakit-maroon text-white shadow-xs transition-colors hover:bg-maroon-800 active:scale-95 disabled:opacity-50"
+        >
+          {isSearching ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Search className="h-3.5 w-3.5" strokeWidth={2.5} />
+          )}
+        </button>
       </form>
 
       {showDropdown && (
-        <div className={`absolute z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.14)] md:bg-white/90 md:backdrop-blur-xl ring-1 ring-slate-200/80 md:border-white/60 md:shadow-[0_16px_48px_rgba(15,23,42,0.14),inset_0_1px_0_0_rgba(255,255,255,0.9)] left-1/2 -translate-x-1/2 top-full ${
+        <div className={`absolute z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.14)] ring-1 ring-slate-900/5 md:bg-white/95 md:backdrop-blur-xl md:border-white/80 md:ring-slate-200/80 left-1/2 -translate-x-1/2 top-full ${
           isCompact ? 'w-[calc(100vw-2.5rem)] max-w-[340px] sm:max-w-[380px] md:w-96 md:max-w-none' : 'w-full'
         }`}>
           {searchError && (

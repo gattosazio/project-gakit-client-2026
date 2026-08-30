@@ -337,7 +337,7 @@ export function PublicViewPage({
             <div className="flex h-[100dvh] overflow-hidden bg-white">
               <div className="relative isolate flex-1 w-full h-full min-h-0">
                 {isLoadingReports && (
-                  <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1000] bg-white md:bg-white/90 md:backdrop-blur-xl border border-slate-200/90 md:border-white/80 rounded-2xl shadow-md md:shadow-[0_8px_24px_rgba(0,0,0,0.08)] px-4 py-2 flex items-center gap-2">
+                  <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 shadow-md border border-slate-200/80 ring-1 ring-slate-900/5 md:bg-white/90 md:backdrop-blur-xl md:border-white/80 md:shadow-[0_8px_24px_rgba(0,0,0,0.08)] rounded-2xl px-4 py-2 flex items-center gap-2">
                     <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
                     <span className="text-sm font-medium text-slate-700">{loadingMessage}</span>
                   </div>
