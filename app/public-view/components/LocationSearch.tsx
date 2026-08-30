@@ -129,7 +129,7 @@ export function LocationSearch({
       className={
         isCompact
           ? `relative flex h-8 md:h-9 items-center rounded-full bg-slate-100/90 px-3 py-1 ring-1 ring-slate-200/90 transition-all duration-150 focus-within:bg-white focus-within:ring-2 focus-within:ring-gakit-maroon/50 focus-within:shadow-md ${className}`
-          : `relative flex h-[52px] items-center px-3.5 py-1.5 hud-pill focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
+          : `relative flex h-[52px] items-center pl-4 pr-1.5 py-1.5 hud-pill focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
       }
     >
       <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-1.5 md:gap-2">
@@ -161,7 +161,7 @@ export function LocationSearch({
           type="submit"
           disabled={isSearching}
           aria-label="Submit search"
-          className="flex h-7 w-7 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-full bg-gakit-maroon text-white shadow-xs transition-colors hover:bg-maroon-800 active:scale-95 disabled:opacity-50"
+          className="flex h-8 w-8 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-full bg-gakit-maroon text-white shadow-xs transition-colors hover:bg-maroon-800 active:scale-95 disabled:opacity-50"
         >
           {isSearching ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
