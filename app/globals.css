@@ -20,9 +20,10 @@
    * Map HUD Surface Tokens
    * Tweak desktop translucency, blur depth, and borders in this single place!
    */
-  --hud-bg-desktop: rgba(255, 255, 255, 0.82);
+  --hud-bg-desktop: rgba(255, 255, 255, 0.6);
   --hud-blur-desktop: 16px;
   --hud-border-desktop: rgba(255, 255, 255, 0.65);
+  --hud-inner-bg-desktop: rgba(248, 250, 252, 0.65);
 }
 
 @layer utilities {
@@ -50,6 +51,16 @@
       backdrop-filter: blur(var(--hud-blur-desktop));
       -webkit-backdrop-filter: blur(var(--hud-blur-desktop));
       border-color: var(--hud-border-desktop);
+    }
+  }
+
+  /* Inner sub-tiles & nested cards (Now tile, Today row, mini-cards, expand toggle) */
+  .hud-tile {
+    @apply rounded-xl bg-canvas-light ring-1 ring-canvas-grey transition-all duration-150;
+  }
+  @media (min-width: 768px) {
+    .hud-tile {
+      background-color: var(--hud-inner-bg-desktop);
     }
   }
 }
