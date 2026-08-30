@@ -77,22 +77,6 @@ function friendlyShortDay(iso: string): string {
   });
 }
 
-/** Human-friendly period covered by the alert, e.g. "Today – Tomorrow".
- *  Returns null when the period is obvious (today through tomorrow). */
-function friendlyPeriod(validFrom: string, validTo: string): string | null {
-  const from = new Date(validFrom);
-  const to = new Date(validTo);
-  const dayDiffFromToday = Math.round((startOfDay(from) - startOfDay(new Date())) / 86_400_000);
-  const spansTwoDays =
-    Math.round((startOfDay(to) - startOfDay(from)) / 86_400_000) === 1;
-
-  // Digest-style window: covered by the title/description already
-  if (dayDiffFromToday === 0 && spansTwoDays) return null;
-
-  const fromLabel = friendlyDay(validFrom);
-  return fromLabel === friendlyDay(validTo) ? fromLabel : `${fromLabel} – ${friendlyDay(validTo)}`;
-}
-
 interface WeatherAlertModalProps {
   alert: WeatherAlert;
   /** ISO date of the day to emphasize (e.g. the card the user clicked). */
@@ -114,7 +98,6 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
 
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
-  const period = friendlyPeriod(alert.validFrom, alert.validTo);
   const heading = alertTitle(alert);
 
   if (!mounted || typeof document === 'undefined') {
@@ -274,13 +257,6 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
             <p className="whitespace-pre-line text-sm text-slate-600 leading-relaxed mb-4">
               {alertDescription(alert)}
             </p>
-          )}
-
-          {period && (
-            <div className="flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light p-3 text-sm text-slate-700">
-              <span className="font-medium">When:</span>
-              <span>{period}</span>
-            </div>
           )}
         </div>
 
