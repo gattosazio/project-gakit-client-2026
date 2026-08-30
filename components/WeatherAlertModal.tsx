@@ -93,8 +93,15 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
 
   useEffect(() => {
     setMounted(true);
-    return () => setMounted(false);
-  }, []);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      setMounted(false);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
