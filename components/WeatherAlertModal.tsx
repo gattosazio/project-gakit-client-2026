@@ -176,22 +176,22 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
                       onClick={() => setSelectedDate(day.date)}
                       className={`flex flex-col items-center justify-between rounded-xl p-2 text-center transition-all duration-150 active:scale-95 ${
                         isSelected
-                          ? 'bg-gakit-maroon text-white shadow-sm ring-1 ring-gakit-maroon'
-                          : 'bg-canvas-light text-slate-700 hover:bg-slate-100 ring-1 ring-canvas-grey'
+                          ? 'bg-white text-slate-900 shadow-md ring-2 ring-gakit-maroon font-bold'
+                          : 'bg-canvas-light text-slate-600 hover:bg-slate-100/80 ring-1 ring-canvas-grey'
                       }`}
                     >
-                      <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-rose-100' : 'text-slate-500'}`}>
+                      <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${isSelected ? 'text-gakit-maroon' : 'text-slate-400'}`}>
                         {shortName}
                       </span>
-                      <div className={`my-1.5 flex h-7 w-7 items-center justify-center rounded-lg ${isSelected ? 'bg-white/20' : 'bg-white shadow-2xs ring-1 ring-canvas-grey'}`}>
-                        <DayIcon className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-slate-700'}`} />
+                      <div className={`my-1.5 flex h-7 w-7 items-center justify-center rounded-lg transition-transform ${isSelected ? 'bg-maroon-50/80 ring-1 ring-maroon-200/60 scale-105' : 'bg-white shadow-2xs ring-1 ring-canvas-grey'}`}>
+                        <DayIcon className={`h-4 w-4 ${isSelected ? 'text-gakit-maroon' : 'text-slate-600'}`} />
                       </div>
                       <div className="flex items-center gap-0.5 text-[10px] tabular-nums font-bold leading-none">
-                        <span>{day.tempMax}°</span>
-                        <span className={isSelected ? 'text-rose-200 font-normal text-[9px]' : 'text-slate-400 font-normal text-[9px]'}>{day.tempMin}°</span>
+                        <span className="text-slate-900">{day.tempMax}°</span>
+                        <span className="text-slate-400 font-normal text-[9px]">{day.tempMin}°</span>
                       </div>
-                      <span className={`mt-1 flex items-center justify-center gap-0.5 text-[9px] font-semibold tabular-nums leading-none ${isSelected ? 'text-rose-100' : day.rainChance > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
-                        {day.rainChance > 0 && <Droplet className={`h-2.5 w-2.5 shrink-0 ${isSelected ? 'text-rose-200 fill-rose-200/40' : 'text-sky-500 fill-sky-500/30'}`} />}
+                      <span className={`mt-1 flex items-center justify-center gap-0.5 text-[9px] font-semibold tabular-nums leading-none ${day.rainChance > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
+                        {day.rainChance > 0 && <Droplet className="h-2.5 w-2.5 text-sky-500 fill-sky-500/30 shrink-0" />}
                         <span>{day.rainChance}%</span>
                       </span>
                     </button>
