@@ -217,11 +217,9 @@ export function WeatherChip({
                           <span>{day.tempMax}°</span>
                           <span className="text-[9px] font-medium text-slate-400">{day.tempMin}°</span>
                         </div>
-                        {day.rainChance > 20 && (
-                          <span className="mt-0.5 text-[9px] font-bold text-sky-600">
-                            {day.rainChance}%
-                          </span>
-                        )}
+                        <span className={`mt-0.5 text-[9px] font-semibold tabular-nums ${day.rainChance > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
+                          {day.rainChance ?? 0}%
+                        </span>
                       </button>
                     );
                   })}
