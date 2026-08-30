@@ -15,6 +15,54 @@
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /*
+   * Map HUD Surface Tokens
+   * Tweak desktop translucency, blur depth, and borders in this single place!
+   */
+  --hud-bg-desktop: rgba(255, 255, 255, 0.88);
+  --hud-blur-desktop: 12px;
+  --hud-border-desktop: rgba(255, 255, 255, 0.90);
+  --hud-inner-bg-desktop: rgba(248, 250, 252, 0.80);
+}
+
+@layer utilities {
+  /* Large expanded card (WeatherChip, ReportControls, DataLayerControls, Search Dropdowns) */
+  .hud-card {
+    @apply rounded-2xl bg-white shadow-xl border border-slate-200/90 ring-1 ring-slate-200/80;
+  }
+  @media (min-width: 768px) {
+    .hud-card {
+      background-color: var(--hud-bg-desktop);
+      backdrop-filter: blur(var(--hud-blur-desktop));
+      -webkit-backdrop-filter: blur(var(--hud-blur-desktop));
+      border-color: var(--hud-border-desktop);
+      box-shadow: 0 12px 36px rgba(15, 23, 42, 0.1), inset 0 1px 0 0 rgba(255, 255, 255, 0.9);
+    }
+  }
+
+  /* Compact collapsed pill / button / toggle bar (Weather pill, Layers pill, Locate button, Zoom widget) */
+  .hud-pill {
+    @apply rounded-2xl bg-white shadow-md border border-slate-200/90 ring-1 ring-slate-200/80 transition-all duration-150;
+  }
+  @media (min-width: 768px) {
+    .hud-pill {
+      background-color: var(--hud-bg-desktop);
+      backdrop-filter: blur(var(--hud-blur-desktop));
+      -webkit-backdrop-filter: blur(var(--hud-blur-desktop));
+      border-color: var(--hud-border-desktop);
+    }
+  }
+
+  /* Inner sub-tiles & nested cards (Now tile, Today row, mini-cards, expand toggle) */
+  .hud-tile {
+    @apply rounded-xl bg-canvas-light ring-1 ring-canvas-grey transition-all duration-150;
+  }
+  @media (min-width: 768px) {
+    .hud-tile {
+      background-color: var(--hud-inner-bg-desktop);
+    }
+  }
 }
 
 html,

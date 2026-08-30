@@ -121,7 +121,7 @@ export function WeatherChip({
   return (
     <div className={className}>
       {open ? (
-        <div className="w-72 rounded-2xl bg-white shadow-xl border border-slate-200/90 md:bg-white/90 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80 animate-[weatherGrow_160ms_ease-out]">
+        <div className="w-72 hud-card">
           {/* Standard MapControls Card Header */}
           <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
             <div className="flex min-w-0 items-center gap-2">
@@ -164,7 +164,7 @@ export function WeatherChip({
                   onClick={() => setSelectedDayDate(today.date)}
                   title="Click to view detailed hourly rainfall breakdown for Today"
                   aria-label="Open detailed weather breakdown for Today"
-                  className="group flex flex-col w-full rounded-xl bg-canvas-light p-2.5 text-left ring-1 ring-canvas-grey transition-all duration-150 hover:bg-slate-100/80 active:scale-[0.99] cursor-pointer"
+                  className="group flex flex-col w-full p-2.5 text-left hud-tile hover:bg-slate-100/80 active:scale-[0.99] cursor-pointer"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -204,7 +204,7 @@ export function WeatherChip({
                         onClick={() => setSelectedDayDate(day.date)}
                         title={`Click to view hourly rain breakdown for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
                         aria-label={`Open detailed weather breakdown for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
-                        className="group flex flex-col items-center justify-between rounded-xl bg-canvas-light p-2 text-center ring-1 ring-canvas-grey transition-all duration-150 hover:bg-white hover:shadow-xs active:scale-95 cursor-pointer"
+                        className="group flex flex-col items-center justify-between p-2 text-center hud-tile hover:bg-white hover:shadow-xs active:scale-95 cursor-pointer"
                       >
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 group-hover:text-gakit-maroon transition-colors">
                           {shortName}
@@ -231,7 +231,7 @@ export function WeatherChip({
               <button
                 type="button"
                 onClick={() => setShowAllDays((prev) => !prev)}
-                className="flex w-full items-center justify-between rounded-xl bg-canvas-light px-3 py-2 text-xs font-semibold text-slate-700 ring-1 ring-canvas-grey hover:bg-slate-100 hover:text-gakit-maroon active:scale-[0.98] transition-colors"
+                className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-slate-700 hud-tile hover:bg-slate-100 hover:text-gakit-maroon active:scale-[0.98] transition-colors"
               >
                 <span>{showAllDays ? 'Hide upcoming days' : '5-Day Forecast'}</span>
                 <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showAllDays ? 'rotate-180 text-gakit-maroon' : 'text-slate-400'}`} />
@@ -246,7 +246,7 @@ export function WeatherChip({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2.5 shadow-md border border-slate-200/90 md:bg-white/85 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80 transition-all duration-150 hover:bg-white hover:shadow-lg active:scale-[0.97]"
+          className="flex items-center gap-2 px-3 py-2.5 hud-pill hover:bg-white hover:shadow-lg active:scale-[0.97]"
           title={pillTooltip}
           aria-label="Show weather outlook"
           aria-expanded={open}

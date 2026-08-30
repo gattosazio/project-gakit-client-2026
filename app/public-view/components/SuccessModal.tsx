@@ -1,6 +1,7 @@
 'use client';
 
-import { CheckCircle2 } from 'lucide-react';
+import { useEffect } from 'react';
+import { CheckCircle2, X } from 'lucide-react';
 import { REPORT_STATUS_LABELS } from '@/constants/publicMap';
 import type { DepthCategory, ReportStatus } from '@/types/report';
 
@@ -27,13 +28,39 @@ export function SuccessModal({
   report: SubmittedReport | null;
   onClose: () => void;
   onViewMap: () => void;
-  onSubmitAnother: () => void;
+  onSubmitAnother?: () => void;
 }) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1400] bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center">
+    <div className="fixed inset-0 z-[1400] flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
+        onClick={onClose}
+      />
+
+      {/* Modal Dialog */}
+      <div className="relative z-10 bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center border border-slate-200/90 ring-1 ring-slate-900/5 animate-[scaleIn_150ms_ease-out]">
+        <button
+          onClick={onClose}
+          aria-label="Close success dialog"
+          className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors active:scale-95"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
         <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
           <CheckCircle2 className="w-7 h-7 text-green-600" />
         </div>
@@ -43,10 +70,10 @@ export function SuccessModal({
         </p>
 
         {report && (
-          <div className="mt-5 text-left rounded-lg border border-canvas-grey bg-canvas-light p-4 space-y-3">
+          <div className="mt-5 text-left rounded-xl border border-slate-200/90 bg-slate-50/80 p-4 space-y-3">
             <div>
               <div className="text-xs font-semibold text-slate-500">Reference ID</div>
-              <div className="text-sm font-semibold text-slate-900">{report.id}</div>
+              <div className="text-sm font-semibold text-slate-900 font-mono">{report.id}</div>
             </div>
             <div>
               <div className="text-xs font-semibold text-slate-500">Location</div>
@@ -61,7 +88,7 @@ export function SuccessModal({
               </div>
               <div>
                 <div className="text-xs font-semibold text-slate-500">Status</div>
-                <div className="text-sm font-semibold text-hazard-pending">
+                <div className="text-sm font-semibold text-amber-600">
                   {REPORT_STATUS_LABELS[report.status]}
                 </div>
               </div>
@@ -81,18 +108,12 @@ export function SuccessModal({
           </div>
         )}
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
+        <div className="mt-6">
           <button
             onClick={onViewMap}
-            className="py-3 px-4 rounded-lg font-semibold bg-gakit-maroon hover:bg-maroon-800 text-white transition-colors"
+            className="w-full py-3 px-4 rounded-xl font-semibold bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white transition-all shadow-xs"
           >
             View on Map
-          </button>
-          <button
-            onClick={onSubmitAnother}
-            className="py-3 px-4 rounded-lg font-semibold border border-canvas-grey text-slate-700 hover:bg-canvas-light transition-colors"
-          >
-            Submit Another
           </button>
         </div>
       </div>
