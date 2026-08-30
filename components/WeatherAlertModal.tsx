@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { CloudRain, AlertTriangle, Flame, Thermometer, X, Droplet } from 'lucide-react';
 import type { CurrentWeather, WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
@@ -6,6 +6,15 @@ import { alertDescription, alertTitle, digestPeriod, formatDayForecast, getWeath
 import { WeatherAttribution } from './weather/WeatherAttribution';
 import { CurrentConditions } from './weather/CurrentConditions';
 import { RainStrip } from './weather/RainStrip';
+
+const emptySubscribe = () => () => {};
+function useMounted(): boolean {
+  return useSyncExternalStore(
+    emptySubscribe,
+    () => true,
+    () => false
+  );
+}
 
 const SEVERITY_CONFIG: Record<
   AlertSeverity,
@@ -87,18 +96,16 @@ interface WeatherAlertModalProps {
 }
 
 export function WeatherAlertModal({ alert, highlightDate, current, onClose }: WeatherAlertModalProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const days = alert.data?.days ?? [];
   const [selectedDate, setSelectedDate] = useState<string>(() => highlightDate || (days[0]?.date ?? ''));
 
   useEffect(() => {
-    setMounted(true);
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => {
-      setMounted(false);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [onClose]);
