@@ -31,6 +31,12 @@ const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ 
 const SECTION_ORDER = ['hazard-map', 'about'] as const;
 type SectionId = (typeof SECTION_ORDER)[number];
 
+const REPORT_STATUS_TOGGLE_STATUSES: ReportStatus[] = ['UNVERIFIED', 'VERIFIED'];
+const DEFAULT_VISIBLE_REPORT_STATUSES: Partial<Record<ReportStatus, boolean>> = {
+  ANOMALY: false,
+  REJECTED: false,
+};
+
 export function PublicViewPage({
   initialAuth,
 }: {
@@ -258,6 +264,10 @@ export function PublicViewPage({
     setIsModalOpen(true);
   }, [isModalOpen]);
 
+  const handleLocate = useCallback(async () => {
+    await mapRef.current?.shareMyLocation();
+  }, []);
+
   // Stable identity so the ReportModal hazard-check effect doesn't re-run on
   // every parent re-render while the modal is open.
   const handleCheckLocation = useCallback(
@@ -303,18 +313,13 @@ export function PublicViewPage({
   };
 
   return (
-    <div
-      ref={scrollContainerRef}
-      className="h-[100dvh] overflow-y-auto bg-canvas-grey overscroll-y-contain [-webkit-overflow-scrolling:touch] md:snap-y md:snap-proximity"
-    >
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-canvas-grey">
       <PublicHeader
         activeSection={activeSection}
         initialAuth={initialAuth}
         onNavigateSection={scrollToSection}
         onSearchSelect={handleSearchedLocationSelect}
-        onLocate={async () => {
-          await mapRef.current?.shareMyLocation();
-        }}
+        onLocate={handleLocate}
       />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
@@ -323,34 +328,38 @@ export function PublicViewPage({
         onMoveDown={() => scrollToSection('about')}
       />
 
-      <main className="pb-14 md:pb-0">
-        <section id="hazard-map" className="min-h-[100dvh] snap-start transform-gpu">
-          <div className="flex h-[100dvh] overflow-hidden bg-white">
-            <div className="relative isolate flex-1 w-full h-full min-h-0 transform-gpu">
-              {isLoadingReports && (
-                <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1000] bg-white/90 backdrop-blur-xl border border-white/80 rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.08)] px-4 py-2.5 flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
-                  <span className="text-sm font-medium text-slate-700">{loadingMessage}</span>
-                </div>
-              )}
-              <PublicMap
-                mapApiRef={mapRef}
-                onReady={handleMapReady}
-                onRainfallHoursChange={setRainfallHours}
-                onLoadingChange={setIsLoadingReports}
-                onLocationSelect={handleLocationSelect}
-                selectedLocation={selectedLocation}
-                reportStatusToggleStatuses={['UNVERIFIED', 'VERIFIED']}
-                defaultVisibleReportStatuses={{ ANOMALY: false, REJECTED: false }}
-                searchOverlayActive={isManualLocationMode}
-                weatherExpandedByDefault
-                fullScreen
-              />
+      <div
+        ref={scrollContainerRef}
+        className="h-full w-full overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch] md:snap-y md:snap-proximity"
+      >
+        <main className="pb-14 md:pb-0">
+          <section id="hazard-map" className="min-h-[100dvh] snap-start">
+            <div className="flex h-[100dvh] overflow-hidden bg-white">
+              <div className="relative isolate flex-1 w-full h-full min-h-0">
+                {isLoadingReports && (
+                  <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1000] bg-white md:bg-white/90 md:backdrop-blur-xl border border-slate-200/90 md:border-white/80 rounded-2xl shadow-md md:shadow-[0_8px_24px_rgba(0,0,0,0.08)] px-4 py-2 flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
+                    <span className="text-sm font-medium text-slate-700">{loadingMessage}</span>
+                  </div>
+                )}
+                <PublicMap
+                  mapApiRef={mapRef}
+                  onReady={handleMapReady}
+                  onRainfallHoursChange={setRainfallHours}
+                  onLoadingChange={setIsLoadingReports}
+                  onLocationSelect={handleLocationSelect}
+                  selectedLocation={selectedLocation}
+                  reportStatusToggleStatuses={REPORT_STATUS_TOGGLE_STATUSES}
+                  defaultVisibleReportStatuses={DEFAULT_VISIBLE_REPORT_STATUSES}
+                  searchOverlayActive={isManualLocationMode}
+                  weatherExpandedByDefault
+                  fullScreen
+                />
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section id="about" className="border-t border-maroon-900/40 bg-gakit-maroon scroll-mt-16 snap-start [content-visibility:auto] [contain-intrinsic-size:700px] transform-gpu">
+          <section id="about" className="border-t border-maroon-900/40 bg-gakit-maroon scroll-mt-16 snap-start">
           <div className="mx-auto grid w-full max-w-6xl gap-3.5 px-4 py-8 sm:gap-6 sm:px-6 md:gap-10 md:py-16 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
             <div>
               <div className="mb-2 font-heading text-xs font-bold uppercase tracking-[0.18em] text-rose-200 md:mb-3">
@@ -463,6 +472,7 @@ export function PublicViewPage({
           </div>
         </section>
       </main>
+      </div>
 
       <LocationPromptModal
         isOpen={isLocationPromptOpen}

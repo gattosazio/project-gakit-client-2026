@@ -50,7 +50,7 @@ export function PublicHeader({
 
   useEffect(() => {
     if (!isMenuOpen && !isInfoOpen) return;
-    const handleClick = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent | TouchEvent) => {
       const target = e.target as Node;
       if (
         userMenuRef.current &&
@@ -70,7 +70,11 @@ export function PublicHeader({
       }
     };
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+    };
   }, [isMenuOpen, isInfoOpen]);
 
   useEffect(() => {
@@ -218,7 +222,7 @@ export function PublicHeader({
 
   return (
     <>
-    <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-5xl z-[1200] isolate rounded-full bg-white/90 backdrop-blur-xl border border-white/80 shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-900/5 transition-all duration-200">
+    <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-5xl z-[1200] isolate rounded-full bg-white md:bg-white/90 md:backdrop-blur-xl border border-slate-200/90 md:border-white/80 shadow-[0_4px_20px_rgba(15,23,42,0.08)] md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-900/5">
       <div className="flex h-12 md:h-14 items-center justify-between px-3.5 md:px-5">
         {/* Left: Brand Logo & Title */}
         <div className="flex items-center gap-3">
@@ -245,23 +249,13 @@ export function PublicHeader({
           </button>
         </div>
 
-        {/* Center: Integrated Location Search */}
+        {/* Center: Integrated Location Search (Single Responsive Instance) */}
         {onSearchSelect && (
           <LocationSearch
             variant="header-compact"
             onSelect={onSearchSelect}
             onLocate={onLocate}
-            className="mx-2 hidden md:flex md:w-64 lg:w-80"
-          />
-        )}
-
-        {/* Mobile search */}
-        {onSearchSelect && (
-          <LocationSearch
-            variant="header-compact"
-            onSelect={onSearchSelect}
-            onLocate={onLocate}
-            className="mx-1.5 flex flex-1 min-w-0 md:hidden"
+            className="mx-1.5 flex-1 min-w-0 md:mx-2 md:flex-initial md:w-64 lg:w-80"
           />
         )}
 
@@ -459,7 +453,7 @@ export function PublicHeader({
     </header>
 
     <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-2 md:hidden">
-      <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white/85 p-1.5 shadow-[0_12px_40px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl">
+      <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white p-1.5 shadow-[0_8px_30px_rgba(15,23,42,0.12)] border border-slate-200/90 md:bg-white/85 md:backdrop-blur-xl ring-1 ring-slate-200/80">
         <button
           onClick={() => scrollToSection('hazard-map')}
           className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${

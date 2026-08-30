@@ -102,7 +102,7 @@ export function WeatherChip({
   return (
     <div className={className}>
       {open ? (
-        <div className="w-72 rounded-2xl bg-white/90 p-3 shadow-[0_12px_40px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl animate-[weatherGrow_160ms_ease-out] origin-bottom">
+        <div className="w-72 rounded-2xl bg-white p-3 shadow-xl border border-slate-200/90 md:bg-white/90 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80 animate-[weatherGrow_160ms_ease-out] origin-bottom">
           <div className="mb-2 flex items-center justify-between gap-3 text-xs font-bold text-slate-900">
             <div className="flex min-w-0 items-center gap-2">
               <span className="shrink-0">Weather Outlook</span>
@@ -174,7 +174,7 @@ export function WeatherChip({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-2xl bg-white/85 px-3 py-2.5 shadow-[0_8px_24px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl transition-all duration-150 hover:bg-white hover:shadow-xl active:scale-[0.97]"
+          className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2.5 shadow-md border border-slate-200/90 md:bg-white/85 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80 transition-all duration-150 hover:bg-white hover:shadow-lg active:scale-[0.97]"
           title={pillTooltip}
           aria-label="Show weather outlook"
           aria-expanded={open}

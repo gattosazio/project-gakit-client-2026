@@ -31,13 +31,17 @@ export function LocationSearch({
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsFocused(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   useEffect(() => {
@@ -125,7 +129,7 @@ export function LocationSearch({
       className={
         isCompact
           ? `relative flex h-8 md:h-9 items-center rounded-full bg-slate-100/90 px-3 py-1 ring-1 ring-slate-200/90 transition-all duration-150 focus-within:bg-white focus-within:ring-2 focus-within:ring-gakit-maroon/50 focus-within:shadow-md ${className}`
-          : `relative flex h-[52px] items-center rounded-2xl bg-white/85 px-3.5 py-1.5 shadow-[0_8px_30px_rgb(0,0,0,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl transition-all duration-150 focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
+          : `relative flex h-[52px] items-center rounded-2xl bg-white px-3.5 py-1.5 shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-200/80 md:bg-white/85 md:backdrop-blur-xl transition-all duration-150 focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
       }
     >
       <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-1.5 md:gap-2">
@@ -171,7 +175,7 @@ export function LocationSearch({
       </form>
 
       {showDropdown && (
-        <div className={`absolute z-50 mt-2 overflow-hidden rounded-2xl border border-white/80 bg-white/95 shadow-[0_12px_40px_rgba(0,0,0,0.14),inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-200/80 backdrop-blur-xl left-1/2 -translate-x-1/2 top-full ${
+        <div className={`absolute z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_40px_rgba(0,0,0,0.14)] md:bg-white/95 md:backdrop-blur-xl ring-1 ring-slate-200/80 left-1/2 -translate-x-1/2 top-full ${
           isCompact ? 'w-[calc(100vw-2.5rem)] max-w-[340px] sm:max-w-[380px] md:w-96 md:max-w-none' : 'w-full'
         }`}>
           {searchError && (
