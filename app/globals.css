@@ -90,16 +90,11 @@ body {
 .maplibregl-popup {
   background: transparent !important;
   border: none !important;
-}
-
-/* Popups are read-only, so let panning drag pass through under them */
-.maplibregl-popup,
-.maplibregl-popup * {
   pointer-events: none !important;
 }
 
 .maplibregl-popup-content {
-  background: rgba(255, 255, 255, 0.92) !important;
+  background: rgba(255, 255, 255, 0.94) !important;
   border: 1px solid #e2e8f0 !important;
   border-radius: 8px !important;
   box-shadow: 0 4px 12px -1px rgba(15, 23, 42, 0.1) !important;
@@ -107,6 +102,33 @@ body {
   margin: 0 !important;
   overflow: hidden !important;
   font-family: var(--font-inter), system-ui, sans-serif !important;
+  pointer-events: auto !important;
+}
+
+.maplibregl-popup-close-button {
+  pointer-events: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 22px !important;
+  height: 22px !important;
+  top: 6px !important;
+  right: 6px !important;
+  border-radius: 6px !important;
+  color: #64748b !important;
+  font-size: 16px !important;
+  font-family: system-ui, sans-serif !important;
+  line-height: 1 !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.maplibregl-popup-close-button:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
 }
 
 .maplibregl-popup-tip {

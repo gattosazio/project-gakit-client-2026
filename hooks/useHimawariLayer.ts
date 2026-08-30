@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
-import { ILIGAN_CENTER } from '@/lib/map/geoUtils';
 import {
   fetchHimawariFrame,
   himawariFrameTimes,
@@ -158,9 +157,7 @@ export function useHimawariLayer(
     }
   }, [himawariOpacity, mapRef, layersReadyRef]);
 
-  // Zoom out to fit the full Himawari se2 swath (flat, top-down — a tilt reads
-  // wrong on satellite imagery). Turning it off always returns to the standard
-  // tilted Iligan view.
+  // Zoom out to fit the full Himawari swath (flat, top-down).
   const toggleHimawariIR = useCallback(
     (next: boolean) => {
       setShowHimawariIR(next);
@@ -169,8 +166,6 @@ export function useHimawariLayer(
       if (next) {
         const { center, zoom } = map.cameraForBounds(HIMAWARI_IMAGE_BOUNDS, { padding: 0 });
         map.flyTo({ center, zoom, pitch: 0, duration: 1000 });
-      } else {
-        map.flyTo({ center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat], zoom: 12, pitch: 35, duration: 1000 });
       }
     },
     [mapRef]

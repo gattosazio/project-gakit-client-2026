@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronUp, Layers, ListFilter, RotateCwFadingClock } from 'lucide-react';
+import { useState } from 'react';
+import { ChevronUp, Info, Layers, ListFilter, RotateCwFadingClock } from 'lucide-react';
 import {
   REPORT_MARKER_COLORS,
   REPORT_STATUS_LEGEND,
@@ -19,6 +20,13 @@ import type { MapMode } from '@/lib/map/overlayLayers';
 import type { ReportStatus } from '@/types/report';
 import { PillSlider } from '@/components/ui/PillSlider';
 import type { BasemapId } from '@/constants/publicMap';
+import {
+  PRIMARY_TYPHOON_CATEGORIES,
+  TYPHOON_CATEGORY_CONFIG,
+  getTyphoonCategoryColor,
+} from '@/lib/map/typhoon';
+import type { ActiveStormSummary } from '@/types/typhoon';
+import { TyphoonScaleModal } from '@/components/TyphoonScaleModal';
 
 const JAXA_GSMAP_URL = 'https://sharaku.eorc.jaxa.jp/GSMaP/';
 
@@ -292,6 +300,12 @@ interface DataLayerControlsProps {
   onShowHimawariIRChange: (checked: boolean) => void;
   himawariOpacity: number;
   onHimawariOpacityChange: (value: number) => void;
+  showTyphoonTrack?: boolean;
+  onShowTyphoonTrackChange?: (checked: boolean) => void;
+  activeTyphoonName?: string | null;
+  hasActiveTyphoon?: boolean;
+  activeStorms?: ActiveStormSummary[];
+  onFocusStorm?: (stormName?: string) => void;
   showBarangayBoundaries?: boolean;
   onShowBarangayBoundariesChange?: (checked: boolean) => void;
 }
@@ -313,9 +327,16 @@ export function DataLayerControls({
   onShowHimawariIRChange,
   himawariOpacity,
   onHimawariOpacityChange,
+  showTyphoonTrack = false,
+  onShowTyphoonTrackChange,
+  activeTyphoonName,
+  hasActiveTyphoon = false,
+  activeStorms,
+  onFocusStorm,
   showBarangayBoundaries = false,
   onShowBarangayBoundariesChange,
 }: DataLayerControlsProps) {
+  const [showScaleModal, setShowScaleModal] = useState(false);
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
   return (
     <Card open={open} onToggle={onToggle} icon={Layers} title="Layers">
@@ -455,6 +476,93 @@ export function DataLayerControls({
                 <span className="text-[10px] font-semibold text-slate-600 w-7 text-right">{Math.round(himawariOpacity * 100)}%</span>
               </div>
             </div>
+          </div>
+        )}
+
+
+        <PillToggle
+          label="Typhoon Tracker"
+          color="#ef4444"
+          checked={showTyphoonTrack}
+          onChange={(checked) => onShowTyphoonTrackChange?.(checked)}
+          credit={{
+            href: 'https://bagong.pagasa.dost.gov.ph/',
+            label: 'DOST-PAGASA',
+          }}
+        />
+        {showTyphoonTrack && (
+          <div className="pl-9 pt-1 pb-1 space-y-1.5">
+            <div className="text-[10px] leading-snug text-slate-400">
+              {hasActiveTyphoon
+                ? (activeTyphoonName ? `Tracking ${activeTyphoonName} · PAR extent` : 'Active storm tracked inside/near PAR')
+                : 'No active storm inside PAR (showing PAR boundary)'}
+            </div>
+            <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
+              <div className="flex items-center gap-1">
+                {PRIMARY_TYPHOON_CATEGORIES.map((code) => {
+                  const cfg = TYPHOON_CATEGORY_CONFIG[code];
+                  if (!cfg) return null;
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setShowScaleModal(true)}
+                      className="inline-flex items-center justify-center w-6 h-4 rounded text-[8px] font-bold text-white shrink-0 shadow-xs hover:scale-105 active:scale-95 transition-transform"
+                      style={{ backgroundColor: cfg.color }}
+                      title={`${cfg.name} · Click to view legend`}
+                    >
+                      {code}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowScaleModal(true)}
+                className="inline-flex items-center gap-0.5 text-[9.5px] font-semibold text-slate-500 hover:text-rose-600 transition-colors px-1 py-0.5 rounded hover:bg-slate-100"
+                title="View full typhoon track legend & wind scale"
+              >
+                <Info className="w-3 h-3 text-slate-400" />
+                <span>Legend</span>
+              </button>
+            </div>
+
+            {activeStorms && activeStorms.length > 1 && (
+              <div className="pt-1.5 border-t border-slate-100 space-y-1">
+                <div className="text-[9.5px] uppercase tracking-wider text-slate-400 font-bold">
+                  Focus storm ({activeStorms.length})
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {activeStorms.map((storm) => (
+                    <button
+                      key={storm.name}
+                      type="button"
+                      onClick={() => onFocusStorm?.(storm.name)}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon active:scale-95 transition-all shadow-2xs"
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: getTyphoonCategoryColor(storm.category) }}
+                      />
+                      <span className="truncate max-w-[100px]">{storm.localName || storm.name}</span>
+                      {storm.category ? <span className="text-[9px] text-slate-400 font-mono">[{storm.category}]</span> : null}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => onFocusStorm?.()}
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-slate-50 border border-slate-200 text-[10px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition-colors"
+                  >
+                    View All
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <TyphoonScaleModal
+              isOpen={showScaleModal}
+              onClose={() => setShowScaleModal(false)}
+            />
           </div>
         )}
 

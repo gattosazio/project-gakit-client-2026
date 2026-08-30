@@ -110,6 +110,8 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useRainfallLayer } from '@/hooks/useRainfallLayer';
 import { useReportsLayer } from '@/hooks/useReportsLayer';
 import { useHimawariLayer } from '@/hooks/useHimawariLayer';
+import { useTyphoonLayer } from '@/hooks/useTyphoonLayer';
+import { buildTyphoonPopupHtml } from '@/lib/map/typhoon';
 
 export interface LocationRiskInfo {
   hazardLevel: FloodRiskLevel | null;
@@ -212,6 +214,7 @@ export function PublicMap({
   const hideAttributionRef = useRef(hideAttribution);
   const loadMapReportsRef = useRef<(() => void | Promise<void>) | null>(null);
   const loadRainfallRef = useRef<((hours?: any) => Promise<void> | void) | null>(null);
+  const loadTyphoonRef = useRef<(() => Promise<void> | void) | null>(null);
   const onMapLoadRef = useRef<(() => void) | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -404,6 +407,12 @@ export function PublicMap({
     [rainfall, onRainfallHoursChange]
   );
   const himawari = useHimawariLayer(mapRef, layersReadyRef);
+  const typhoon = useTyphoonLayer(mapRef, layersReadyRef);
+  const typhoonPopupRef = useRef<any>(null);
+
+  useEffect(() => {
+    loadTyphoonRef.current = typhoon.loadData;
+  }, [typhoon.loadData]);
 
   // ─── Card toggle handlers ──────────────────────────────────────────────────
 
@@ -485,6 +494,21 @@ export function PublicMap({
   const handleShowRainfallChange = useCallback(
     (checked: boolean) => {
       setShowRainfall(checked);
+      if (checked) {
+        const map = mapRef.current;
+        if (map) {
+          const camera = map.cameraForBounds(
+            [
+              [116.0, 4.5],
+              [127.5, 21.5],
+            ],
+            { padding: 24 }
+          );
+          if (camera) {
+            map.flyTo({ center: camera.center, zoom: camera.zoom, pitch: 0, duration: 1000 });
+          }
+        }
+      }
       const proposed: OverlayState = {
         weatherOpen,
         reportsOpen,
@@ -518,6 +542,25 @@ export function PublicMap({
       setLayersOpen(safe.layersOpen);
     },
     [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari, collapseToFit]
+  );
+
+  const handleShowTyphoonTrackChange = useCallback(
+    (checked: boolean) => {
+      typhoon.setShowTyphoonTrack(checked);
+      const proposed: OverlayState = {
+        weatherOpen,
+        reportsOpen,
+        layersOpen,
+        flood: showFloodHazard,
+        rain: showRainfall,
+        himawari: himawari.showHimawariIR,
+      };
+      const safe = checked ? collapseToFit(proposed, 'layers') : proposed;
+      setWeatherOpen(safe.weatherOpen);
+      setReportsOpen(safe.reportsOpen);
+      setLayersOpen(safe.layersOpen);
+    },
+    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, typhoon, collapseToFit]
   );
 
   // ─── Pre-paint DOM boundary guard: ensures stack NEVER surpasses search bar ─
@@ -1125,6 +1168,52 @@ function createSelectedPinElement(): HTMLElement {
     clearBarangayHover();
   }, [clearBarangayHover]);
 
+
+  const showTyphoonPopup = useCallback(
+    (feature: Record<string, any>, lngLat: any) => {
+      const map = mapRef.current;
+      if (!maplibregl || !map) return;
+      if (!typhoonPopupRef.current) {
+        typhoonPopupRef.current = new maplibregl.Popup({
+          closeButton: true,
+          closeOnClick: false,
+          anchor: 'bottom',
+          offset: 14,
+          maxWidth: '260px',
+        });
+      }
+
+      typhoonPopupRef.current
+        .setLngLat(lngLat)
+        .setHTML(buildTyphoonPopupHtml(feature.properties || {}))
+        .addTo(map);
+    },
+    []
+  );
+
+  const handleTyphoonPointClick = useCallback(
+    (e: any) => {
+      if (e.features?.length) {
+        showTyphoonPopup(e.features[0], e.lngLat);
+      }
+    },
+    [showTyphoonPopup]
+  );
+  const handleTyphoonPointMouseEnter = useCallback(() => {
+    const map = mapRef.current;
+    if (map) map.getCanvas().style.cursor = 'pointer';
+  }, []);
+  const handleTyphoonPointMouseLeave = useCallback(() => {
+    const map = mapRef.current;
+    if (map) map.getCanvas().style.cursor = '';
+  }, []);
+
+  useEffect(() => {
+    if (!typhoon.showTyphoonTrack) {
+      typhoonPopupRef.current?.remove();
+    }
+  }, [typhoon.showTyphoonTrack]);
+
   // Re-attach layer event handlers whenever the map style reloads.
   const attachLayerEvents = useCallback(
     (map: any) => {
@@ -1139,6 +1228,18 @@ function createSelectedPinElement(): HTMLElement {
         { event: 'mouseleave', layer: 'report-clusters', handler: handleReportPointsCursorLeave },
         { event: 'mousemove', layer: 'barangay-fill', handler: handleBarangayMouseMove },
         { event: 'mouseleave', layer: 'barangay-fill', handler: clearBarangayHover },
+        { event: 'click', layer: 'typhoon-track-point-circle', handler: handleTyphoonPointClick },
+        { event: 'mouseenter', layer: 'typhoon-track-point-circle', handler: handleTyphoonPointMouseEnter },
+        { event: 'mouseleave', layer: 'typhoon-track-point-circle', handler: handleTyphoonPointMouseLeave },
+        { event: 'click', layer: 'typhoon-track-point-dot', handler: handleTyphoonPointClick },
+        { event: 'mouseenter', layer: 'typhoon-track-point-dot', handler: handleTyphoonPointMouseEnter },
+        { event: 'mouseleave', layer: 'typhoon-track-point-dot', handler: handleTyphoonPointMouseLeave },
+        { event: 'click', layer: 'typhoon-track-point-halo', handler: handleTyphoonPointClick },
+        { event: 'mouseenter', layer: 'typhoon-track-point-halo', handler: handleTyphoonPointMouseEnter },
+        { event: 'mouseleave', layer: 'typhoon-track-point-halo', handler: handleTyphoonPointMouseLeave },
+        { event: 'click', layer: 'typhoon-track-point-label', handler: handleTyphoonPointClick },
+        { event: 'mouseenter', layer: 'typhoon-track-point-label', handler: handleTyphoonPointMouseEnter },
+        { event: 'mouseleave', layer: 'typhoon-track-point-label', handler: handleTyphoonPointMouseLeave },
       ];
       layerListeners.forEach(({ event, layer, handler }) => {
         if (map.getLayer(layer)) {
@@ -1155,6 +1256,9 @@ function createSelectedPinElement(): HTMLElement {
       handleReportClustersClick,
       handleBarangayMouseMove,
       clearBarangayHover,
+      handleTyphoonPointClick,
+      handleTyphoonPointMouseEnter,
+      handleTyphoonPointMouseLeave,
     ]
   );
 
@@ -1169,6 +1273,7 @@ function createSelectedPinElement(): HTMLElement {
           showFloodHazard: showFloodHazardRef.current,
           showRainfall: showRainfallRef.current,
           showHimawariIR: himawari.visibleRef.current,
+          showTyphoonTrack: typhoon.visibleRef.current,
           showBarangayBoundaries: showBarangayBoundariesRef.current,
           visibleRiskLevels: visibleRiskLevelsRef.current,
           mapMode: mapModeRef.current,
@@ -1193,6 +1298,7 @@ function createSelectedPinElement(): HTMLElement {
 
         // Apply rainfall data that was fetched before the map finished loading.
         applyPreloaded(map);
+        typhoon.applyPreloaded(map);
       })();
 
       void loadMapReportsRef.current?.();
@@ -1203,6 +1309,7 @@ function createSelectedPinElement(): HTMLElement {
       applySelectedMarker,
       applyPreloaded,
       himawari.visibleRef,
+      typhoon,
       hoursRef,
     ]
   );
@@ -1315,13 +1422,19 @@ function createSelectedPinElement(): HTMLElement {
       if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
         window.requestIdleCallback(
           () => {
-            if (mapRef.current === map) void loadRainfallRef.current?.();
+            if (mapRef.current === map) {
+              void loadRainfallRef.current?.();
+              void loadTyphoonRef.current?.();
+            }
           },
           { timeout: 5000 }
         );
       } else {
         setTimeout(() => {
-          if (mapRef.current === map) void loadRainfallRef.current?.();
+          if (mapRef.current === map) {
+            void loadRainfallRef.current?.();
+            void loadTyphoonRef.current?.();
+          }
         }, 1000);
       }
     });
@@ -1334,9 +1447,18 @@ function createSelectedPinElement(): HTMLElement {
     });
 
     map.on('click', (e: any) => {
-      // Click-to-report only fires on empty map space (pins own their clicks).
+      // Click-to-report only fires on empty map space (pins and interactive features own their clicks).
+      const interactiveLayers = [
+        'report-points',
+        'report-clusters',
+        'typhoon-track-point-circle',
+        'typhoon-track-point-dot',
+        'typhoon-track-point-halo',
+        'typhoon-track-point-label',
+      ].filter((id) => Boolean(map.getLayer(id)));
+
       const hit = map.queryRenderedFeatures(e.point, {
-        layers: ['report-points', 'report-clusters'],
+        layers: interactiveLayers,
       });
       if (hit.length) return;
       handleLocationSelectRef.current(e.lngLat.lat, e.lngLat.lng);
@@ -1370,6 +1492,10 @@ function createSelectedPinElement(): HTMLElement {
       resizeObserver.disconnect();
       selectedMarkerRef.current?.remove();
       selectedMarkerRef.current = null;
+      reportPopupRef.current?.remove();
+      reportPopupRef.current = null;
+      typhoonPopupRef.current?.remove();
+      typhoonPopupRef.current = null;
       stopClusterPulse(map);
       setMapReady(false);
       map.remove();
@@ -1492,6 +1618,12 @@ function createSelectedPinElement(): HTMLElement {
           onShowHimawariIRChange={handleShowHimawariIRChange}
           himawariOpacity={himawari.opacity}
           onHimawariOpacityChange={himawari.setOpacity}
+          showTyphoonTrack={typhoon.showTyphoonTrack}
+          onShowTyphoonTrackChange={handleShowTyphoonTrackChange}
+          activeTyphoonName={typhoon.typhoonData?.stormName}
+          hasActiveTyphoon={typhoon.typhoonData?.hasActiveTyphoon}
+          activeStorms={typhoon.typhoonData?.activeStorms}
+          onFocusStorm={typhoon.focusStorm}
           visibleRiskLevels={visibleRiskLevels}
           onRiskLevelChange={(key, checked) =>
             setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
