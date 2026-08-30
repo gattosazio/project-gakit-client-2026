@@ -24,10 +24,14 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# System Files
+# System & IDE Files
 .DS_Store
 *.local
 tsconfig.tsbuildinfo
+.vscode/
+.idea/
+*.swp
+*.swo
 
 # Shapefile source data (large binaries — flood-zones.pmtiles in public/data/ is committed)
 /data
