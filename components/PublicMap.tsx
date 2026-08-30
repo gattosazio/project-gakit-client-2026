@@ -923,11 +923,9 @@ function createSelectedPinElement(): HTMLElement {
         </svg>
       </div>
 
-      <!-- Precision Ground Focal Halo & Contact Shadow -->
-      <div class="absolute -bottom-1 left-1/2 -translate-x-1/2 z-0 flex items-center justify-center pointer-events-none">
-        <span class="h-6 w-6 -translate-y-1/2 rounded-full bg-rose-500/15 ring-1 ring-rose-500/30"></span>
-        <span class="h-1.5 w-4 -translate-y-1/2 rounded-full bg-slate-950/35 blur-[1px]"></span>
-        <span class="absolute h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-gakit-maroon ring-1 ring-white shadow-xs"></span>
+      <!-- Ground Contact Shadow -->
+      <div class="absolute -bottom-0.5 left-1/2 -translate-x-1/2 z-0 flex items-center justify-center pointer-events-none">
+        <span class="h-1 w-3 -translate-y-1/2 rounded-full bg-slate-950/30 blur-[0.5px]"></span>
       </div>
     </div>
   `;
