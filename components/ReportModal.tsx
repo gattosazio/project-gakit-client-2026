@@ -108,6 +108,20 @@ export function ReportModal({
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        resetForm();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
     if (!isOpen || step !== 'confirm' || !selectedLocation) return;
     const key = `${selectedLocation.lat},${selectedLocation.lng}`;
     if (key === lastElevationKey.current) return;
@@ -268,7 +282,7 @@ export function ReportModal({
         className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs pointer-events-auto md:hidden"
         onClick={handleClose}
       />
-      <div className="relative z-10 bg-white rounded-t-3xl shadow-2xl w-full max-h-[82vh] flex flex-col pointer-events-auto md:rounded-2xl md:max-h-[calc(100vh-8rem)] md:h-auto md:max-w-96">
+      <div className="relative z-10 bg-white rounded-t-3xl shadow-2xl w-full max-h-[82vh] flex flex-col pointer-events-auto md:rounded-2xl md:max-h-[calc(100vh-8rem)] md:h-auto md:max-w-96 border border-slate-200/90 ring-1 ring-slate-900/5">
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-canvas-grey">
           <div>
             <h2 className="text-xl font-bold text-slate-900">
@@ -280,9 +294,10 @@ export function ReportModal({
           </div>
           <button
             onClick={handleClose}
-            className="p-1 hover:bg-canvas-light rounded-lg transition-colors"
+            aria-label="Close report modal"
+            className="p-1.5 hover:bg-canvas-light text-slate-400 hover:text-slate-700 rounded-xl transition-colors active:scale-95"
           >
-            <X className="w-5 h-5 text-slate-500" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -502,7 +517,7 @@ export function ReportModal({
             <button
               onClick={() => setStep('depth')}
               disabled={!selectedLocation}
-              className="w-full py-3 px-6 rounded-lg font-semibold transition-all duration-200 bg-gakit-maroon hover:bg-maroon-800 text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
+              className="w-full py-3 px-6 rounded-xl font-semibold transition-all duration-150 bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
             >
               Confirm location
             </button>
@@ -510,14 +525,14 @@ export function ReportModal({
             <div className="grid grid-cols-2 gap-3">
               <button
                 onClick={() => setStep('confirm')}
-                className="py-3 px-6 rounded-lg font-semibold text-slate-700 bg-canvas-grey hover:bg-canvas-grey/80 transition-colors"
+                className="py-3 px-6 rounded-xl font-semibold text-slate-700 bg-canvas-grey hover:bg-slate-300 active:scale-[0.98] transition-all"
               >
                 Back
               </button>
               <button
                 onClick={handleSubmit}
                 disabled={selectedCm == null || isSubmitting}
-                className="py-3 px-6 rounded-lg font-semibold transition-all duration-200 bg-gakit-maroon hover:bg-maroon-800 text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
+                className="py-3 px-6 rounded-xl font-semibold transition-all duration-150 bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center gap-2">
