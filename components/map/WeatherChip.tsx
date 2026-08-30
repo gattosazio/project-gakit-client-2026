@@ -27,6 +27,18 @@ function friendlyDay(iso: string): string {
   });
 }
 
+function friendlyShortDay(iso: string): string {
+  const target = new Date(iso);
+  const dayDiff = Math.round((startOfDay(target) - startOfDay(new Date())) / 86_400_000);
+
+  if (dayDiff === 0) return 'Today';
+  if (dayDiff === 1) return 'Tom';
+
+  return target.toLocaleDateString('en-PH', {
+    weekday: 'short',
+  });
+}
+
 /**
  * Floating weather-outlook control for the map. Collapsed by default;
  * `defaultExpanded` opens it on desktop viewports (>=768px) on mount. Hidden
@@ -173,44 +185,35 @@ export function WeatherChip({
               );
             })()}
 
-            {/* Expandable Upcoming Days (Clean Major Weather Summary) */}
+            {/* Expandable Upcoming Days (Horizontal Mini-Cards Stack) */}
             {showAllDays && (
-              <div className="space-y-0.5 pt-1">
-                {upcomingDays.map((day) => {
-                  const condition = getWeatherCondition(day.conditionCode);
-                  const Icon = condition.icon;
-                  const detail = formatDayForecast(day);
+              <div className="pt-2 border-t border-slate-100/90">
+                <div className="grid grid-cols-4 gap-1.5">
+                  {upcomingDays.map((day) => {
+                    const condition = getWeatherCondition(day.conditionCode);
+                    const Icon = condition.icon;
+                    const shortName = friendlyShortDay(`${day.date}T00:00:00+08:00`);
 
-                  return (
-                    <button
-                      key={day.date}
-                      type="button"
-                      onClick={() => setSelectedDayDate(day.date)}
-                      aria-label={`Open detailed weather breakdown for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
-                      className="-mx-1 flex w-[calc(100%+0.5rem)] items-center justify-between rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-canvas-light active:scale-[0.98]"
-                    >
-                      <div className="flex min-w-0 items-center gap-2.5">
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-canvas-light ring-1 ring-canvas-grey">
-                          <Icon className="h-3.5 w-3.5 text-slate-600" />
-                        </span>
-                        <div className="min-w-0">
-                          <span className="block text-xs font-semibold text-slate-900 leading-tight">
-                            {friendlyDay(`${day.date}T00:00:00+08:00`)}
-                          </span>
-                          <span className="block text-[10px] text-slate-500 truncate max-w-[120px] leading-tight">
-                            {detail}
-                          </span>
+                    return (
+                      <button
+                        key={day.date}
+                        type="button"
+                        onClick={() => setSelectedDayDate(day.date)}
+                        aria-label={`Open detailed weather breakdown for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
+                        className="group flex flex-col items-center justify-between rounded-xl bg-canvas-light/80 py-2 px-1 text-center transition-all duration-150 hover:bg-slate-100 hover:shadow-xs active:scale-95"
+                      >
+                        <span className="text-[10px] font-bold text-slate-600 group-hover:text-gakit-maroon">{shortName}</span>
+                        <div className="my-1 flex h-6 w-6 items-center justify-center rounded-lg bg-white shadow-2xs ring-1 ring-slate-200/60">
+                          <Icon className="h-3.5 w-3.5 text-slate-700" />
                         </div>
-                      </div>
-                      <span className="shrink-0 text-right text-xs font-semibold text-slate-800 tabular-nums">
-                        <span className="text-[10px] font-medium text-slate-400">H </span>
-                        {day.tempMax}°
-                        <span className="ml-1 text-[10px] font-medium text-slate-400">L </span>
-                        {day.tempMin}°
-                      </span>
-                    </button>
-                  );
-                })}
+                        <div className="flex flex-col items-center text-[10px] leading-tight font-semibold text-slate-800 tabular-nums">
+                          <span>{day.tempMax}°</span>
+                          <span className="text-[9px] font-normal text-slate-400">{day.tempMin}°</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
