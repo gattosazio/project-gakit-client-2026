@@ -222,7 +222,7 @@ export function PublicHeader({
 
   return (
     <>
-    <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-5xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:bg-white/95 md:backdrop-blur-md md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
+    <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-5xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
       <div className="flex h-12 md:h-14 items-center justify-between px-3.5 md:px-5">
         {/* Left: Brand Logo & Title */}
         <div className="flex items-center gap-3">
@@ -453,7 +453,7 @@ export function PublicHeader({
     </header>
 
     <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-2 md:hidden">
-      <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 rounded-2xl bg-white p-1.5 shadow-[0_8px_30px_rgba(15,23,42,0.12)] border border-slate-200/90 ring-1 ring-slate-200/80 md:bg-white/95 md:backdrop-blur-md md:border-white/80">
+      <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 p-1.5 hud-card">
         <button
           onClick={() => scrollToSection('hazard-map')}
           className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${

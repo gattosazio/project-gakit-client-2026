@@ -121,7 +121,7 @@ export function WeatherChip({
   return (
     <div className={className}>
       {open ? (
-        <div className="w-72 rounded-2xl bg-white shadow-xl border border-slate-200/90 ring-1 ring-slate-200/80 md:bg-white/95 md:backdrop-blur-md md:border-white/80 animate-[weatherGrow_160ms_ease-out]">
+        <div className="w-72 hud-card animate-[weatherGrow_160ms_ease-out]">
           {/* Standard MapControls Card Header */}
           <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
             <div className="flex min-w-0 items-center gap-2">
@@ -246,7 +246,7 @@ export function WeatherChip({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2.5 shadow-md border border-slate-200/90 ring-1 ring-slate-200/80 md:bg-white/95 md:backdrop-blur-md md:border-white/80 transition-all duration-150 hover:bg-white hover:shadow-lg active:scale-[0.97]"
+          className="flex items-center gap-2 px-3 py-2.5 hud-pill hover:bg-white hover:shadow-lg active:scale-[0.97]"
           title={pillTooltip}
           aria-label="Show weather outlook"
           aria-expanded={open}
