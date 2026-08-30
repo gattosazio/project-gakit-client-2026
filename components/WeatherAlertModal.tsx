@@ -112,14 +112,6 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
     return () => setMounted(false);
   }, []);
 
-  useEffect(() => {
-    if (highlightDate) {
-      setSelectedDate(highlightDate);
-    } else if (days.length > 0 && !selectedDate) {
-      setSelectedDate(days[0].date);
-    }
-  }, [highlightDate, days, selectedDate]);
-
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
   const period = friendlyPeriod(alert.validFrom, alert.validTo);
