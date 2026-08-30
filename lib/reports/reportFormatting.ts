@@ -55,3 +55,19 @@ export function formatDateTime(iso: string): string {
     minute: '2-digit',
   });
 }
+
+export function formatReportDepth(
+  depth: { code: FloodDepthCode; label?: string; approximateCm?: number } | FloodDepthCode,
+  depthCm?: number | null
+): string {
+  const code = typeof depth === 'string' ? depth : depth.code;
+  const label = DEPTH_LABELS[code] || code;
+  const approx = typeof depth === 'object' ? depth.approximateCm : undefined;
+  const cm = depthCm ?? approx;
+
+  if (cm != null) {
+    return code === 'overhead' ? `${label} (${cm}+ cm)` : `${label} (${cm} cm)`;
+  }
+  return label;
+}
+

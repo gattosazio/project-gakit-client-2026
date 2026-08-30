@@ -192,7 +192,7 @@ export function FloodDepthScale({
                   chipHigh ? 'top-1' : 'bottom-1'
                 }`}
               >
-                ~{preview} cm
+                {preview} cm
                 <span className="ml-1 font-normal text-white/70">
                   {fallbackCategoryLabel(depthCodeFromCm(Math.min(preview, MAX_DEPTH_CM)))}
                 </span>

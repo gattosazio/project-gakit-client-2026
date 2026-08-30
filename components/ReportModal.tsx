@@ -123,29 +123,36 @@ export function ReportModal({
 
   useEffect(() => {
     if (!isOpen || step !== 'confirm' || !selectedLocation) return;
-    const key = `${selectedLocation.lat},${selectedLocation.lng}`;
-    if (key === lastElevationKey.current) return;
+    const key = `${selectedLocation.lat.toFixed(5)},${selectedLocation.lng.toFixed(5)}`;
+    if (key === lastElevationKey.current && elevation !== null) {
+      setIsCheckingElevation(false);
+      return;
+    }
     lastElevationKey.current = key;
 
     let cancelled = false;
     const abort = new AbortController();
-    void (async () => {
-      setIsCheckingElevation(true);
-      try {
-        const elev = await getElevation(selectedLocation.lat, selectedLocation.lng, abort.signal);
-        if (!cancelled) setElevation(elev);
-      } catch {
-        if (!cancelled) setElevation(null);
-      } finally {
-        if (!cancelled) setIsCheckingElevation(false);
-      }
-    })();
+    setIsCheckingElevation(true);
+
+    void getElevation(selectedLocation.lat, selectedLocation.lng, abort.signal)
+      .then((elev) => {
+        if (!cancelled) {
+          setElevation(elev);
+          setIsCheckingElevation(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setElevation(null);
+          setIsCheckingElevation(false);
+        }
+      });
 
     return () => {
       cancelled = true;
       abort.abort();
     };
-  }, [isOpen, step, selectedLocation]);
+  }, [isOpen, step, selectedLocation, elevation]);
 
   useEffect(() => {
     if (!isOpen || step !== 'confirm' || !selectedLocation || !onCheckLocation) {
@@ -250,7 +257,7 @@ export function ReportModal({
         reference: {
           id: selectedReference,
           label: referenceMeta.label,
-          landmark: `~${selectedCm} cm`,
+          landmark: `${selectedCm} cm`,
         },
       });
       resetForm();
@@ -346,7 +353,7 @@ export function ReportModal({
                           </div>
                           {elevation != null && (
                             <div className="text-[10px] text-slate-400">
-                              SRTM 30m
+                              Copernicus 30m
                             </div>
                           )}
                         </>

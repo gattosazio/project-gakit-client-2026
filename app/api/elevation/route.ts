@@ -1,55 +1,90 @@
 import { NextResponse } from 'next/server';
+import fs from 'fs';
+import path from 'path';
 
-const OPENTOPO_API = 'https://api.opentopodata.org/v1/srtm30m';
+interface ElevationMeta {
+  min_lat: number;
+  max_lat: number;
+  min_lng: number;
+  max_lng: number;
+  rows: number;
+  cols: number;
+  scale: number;
+}
 
-// OpenTopoData's free tier allows only 1 request/second and 1000/day, so
-// uncached client traffic would silently exhaust the quota and every report
-// pin would get elevation: null. Cache at two levels:
-//   1. Next's data cache (survives across serverless invocations)
-//   2. A small in-memory map keyed by ~11m-rounded coordinates, so repeated
-//      pins in the same area never leave this process at all.
-const CACHE_TTL_SECONDS = 300;
-const MEMORY_CACHE_MAX_ENTRIES = 500;
+let elevationBuffer: Buffer | null = null;
+let elevationMeta: ElevationMeta | null = null;
 
-const memoryCache = new Map<string, { elevation: number | null; at: number }>();
-
-const cacheKeyFor = (lat: string, lng: string) =>
-  `${Number(lat).toFixed(4)}|${Number(lng).toFixed(4)}`;
-
-export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const lat = searchParams.get('lat');
-  const lng = searchParams.get('lng');
-
-  if (!lat || !lng) {
-    return NextResponse.json({ error: 'lat and lng required' }, { status: 400 });
-  }
-
-  const key = cacheKeyFor(lat, lng);
-  const cached = memoryCache.get(key);
-  if (cached && Date.now() - cached.at < CACHE_TTL_SECONDS * 1000) {
-    return NextResponse.json({ elevation: cached.elevation });
+function loadElevationData(): { buffer: Buffer; meta: ElevationMeta } | null {
+  if (elevationBuffer && elevationMeta) {
+    return { buffer: elevationBuffer, meta: elevationMeta };
   }
 
   try {
-    const res = await fetch(
-      `${OPENTOPO_API}?locations=${lat},${lng}`,
-      { next: { revalidate: CACHE_TTL_SECONDS } }
-    );
-    if (!res.ok) {
-      return NextResponse.json({ elevation: null });
-    }
-    const data = await res.json();
-    const elevation = data.results?.[0]?.elevation ?? null;
+    const binPath = path.join(process.cwd(), 'public', 'data', 'iligan-elevation.bin');
+    const metaPath = path.join(process.cwd(), 'public', 'data', 'iligan-elevation-meta.json');
 
-    if (memoryCache.size >= MEMORY_CACHE_MAX_ENTRIES) {
-      // Drop the oldest entry (Map preserves insertion order).
-      memoryCache.delete(memoryCache.keys().next().value as string);
+    if (fs.existsSync(binPath) && fs.existsSync(metaPath)) {
+      elevationBuffer = fs.readFileSync(binPath);
+      elevationMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8')) as ElevationMeta;
+      return { buffer: elevationBuffer, meta: elevationMeta };
     }
-    memoryCache.set(key, { elevation, at: Date.now() });
+  } catch (err) {
+    console.warn('Failed to load local elevation grid:', err);
+  }
 
-    return NextResponse.json({ elevation });
-  } catch {
+  return null;
+}
+
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const latStr = searchParams.get('lat');
+  const lngStr = searchParams.get('lng');
+
+  if (!latStr || !lngStr) {
+    return NextResponse.json({ error: 'lat and lng required' }, { status: 400 });
+  }
+
+  const lat = Number(latStr);
+  const lng = Number(lngStr);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return NextResponse.json({ elevation: null });
   }
+
+  const data = loadElevationData();
+  if (!data) {
+    return NextResponse.json({ elevation: null });
+  }
+
+  const { buffer, meta } = data;
+
+  // Check bounds
+  if (lat < meta.min_lat || lat > meta.max_lat || lng < meta.min_lng || lng > meta.max_lng) {
+    return NextResponse.json({ elevation: null });
+  }
+
+  const rowRatio = (meta.max_lat - lat) / (meta.max_lat - meta.min_lat);
+  const colRatio = (lng - meta.min_lng) / (meta.max_lng - meta.min_lng);
+
+  const row = Math.max(0, Math.min(meta.rows - 1, Math.round(rowRatio * (meta.rows - 1))));
+  const col = Math.max(0, Math.min(meta.cols - 1, Math.round(colRatio * (meta.cols - 1))));
+
+  const index = (row * meta.cols + col) * 2;
+  if (index + 1 >= buffer.length) {
+    return NextResponse.json({ elevation: null });
+  }
+
+  const rawVal = buffer.readInt16LE(index);
+  const elevation = Math.round((rawVal * meta.scale) * 10) / 10;
+
+  return NextResponse.json(
+    { elevation, source: 'copernicus-dem-glo30' },
+    {
+      headers: {
+        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
+      },
+    }
+  );
 }
+

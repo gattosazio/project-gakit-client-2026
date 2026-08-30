@@ -216,10 +216,10 @@ export function LocationSearch({
           )}
 
           {searchResults.length > 0 && (
-            <div className="max-h-48 divide-y divide-slate-100 overflow-y-auto">
+            <div className="max-h-56 divide-y divide-slate-100 overflow-y-auto">
               {searchResults.map((result) => (
                 <button
-                  key={`${result.lat}-${result.lng}`}
+                  key={`${result.lat}-${result.lng}-${result.displayName}`}
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
@@ -230,12 +230,26 @@ export function LocationSearch({
                       address: result.displayName,
                     });
                   }}
-                  className="flex w-full items-start gap-2.5 px-3.5 py-3 text-left transition-colors hover:bg-maroon-50"
+                  className="flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-maroon-50"
                 >
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gakit-maroon" />
-                  <span className="text-sm text-slate-700">
-                    {result.displayName}
-                  </span>
+                  <MapPin className="mt-1 h-3.5 w-3.5 shrink-0 text-gakit-maroon" />
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-xs font-semibold text-slate-800">
+                        {result.displayName.split(',')[0]}
+                      </span>
+                      {result.category && (
+                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">
+                          {result.category}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-slate-400 truncate">
+                      {result.displayName.includes(',')
+                        ? result.displayName.substring(result.displayName.indexOf(',') + 2)
+                        : 'Iligan City'}
+                    </span>
+                  </div>
                 </button>
               ))}
             </div>

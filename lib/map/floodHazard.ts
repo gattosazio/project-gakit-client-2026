@@ -2,7 +2,7 @@ import { VectorTile } from '@mapbox/vector-tile';
 import { PbfReader } from 'pbf';
 import { PMTiles } from 'pmtiles';
 
-const FLOOD_TILES_URL = '/data/flood-zones.pmtiles';
+const FLOOD_TILES_URL = '/data/lanao-del-norte-flood-zones.pmtiles';
 const FLOOD_SOURCE_LAYER = 'flood-zones';
 
 // Bounded result cache: repeated checks at the same spot (modal re-opens,

@@ -10,7 +10,12 @@ import {
 } from 'lucide-react';
 import { fetchReportStats, listReports as fetchReports } from '../reports/actions/reports';
 import type { Report, ReportStats } from '@/types/report';
-import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reports/reportFormatting';
+import {
+  DEPTH_LABELS,
+  STATUS_META,
+  formatDateTime,
+  formatReportDepth,
+} from '@/lib/reports/reportFormatting';
 import './DashboardOverview.css';
 
 const CURRENT_YEAR = String(new Date().getFullYear());
@@ -179,7 +184,9 @@ export function DashboardOverview({
                       <td className="px-5 py-4 text-slate-600">
                         {report.location.address || `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`}
                       </td>
-                      <td className="px-5 py-4 text-slate-600">{DEPTH_LABELS[report.depth.code]}</td>
+                      <td className="px-5 py-4 text-slate-600">
+                        {formatReportDepth(report.depth, report.depthCm)}
+                      </td>
                       <td className="px-5 py-4">
                         <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
                           {status.label}
@@ -212,7 +219,7 @@ export function DashboardOverview({
                     <div className="text-sm text-slate-600 mt-1">
                       {report.location.address || `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`}
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">{DEPTH_LABELS[report.depth.code]}</div>
+                    <div className="text-xs text-slate-500 mt-1">{formatReportDepth(report.depth, report.depthCm)}</div>
                     <div className="text-xs text-slate-500 mt-1">{formatDateTime(report.createdAt)}</div>
                   </div>
                   <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
