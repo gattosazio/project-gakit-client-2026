@@ -20,22 +20,22 @@ export function CurrentConditions({ current }: { current: CurrentWeather }) {
   });
 
   return (
-    <div className="flex items-center gap-2.5 rounded-xl bg-slate-50/80 px-2.5 py-2 ring-1 ring-slate-200/60">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-xs ring-1 ring-slate-200/70">
-        <Icon className="h-4 w-4 text-gakit-maroon" />
+    <div className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-slate-50 via-rose-50/30 to-slate-50/80 p-2.5 ring-1 ring-slate-200/70">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white shadow-2xs ring-1 ring-slate-200/80">
+        <Icon className="h-4.5 w-4.5 text-gakit-maroon" />
       </span>
       <span className="min-w-0 flex-1 leading-tight">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-slate-900">Now</span>
-          <span className="text-[10px] font-medium text-slate-400">· as of {observed}</span>
+          <span className="text-xs font-bold text-slate-900">Right Now</span>
+          <span className="text-[10px] font-medium text-slate-400">· {observed}</span>
         </div>
-        <span className="block truncate text-[11px] font-medium text-slate-500">
+        <span className="block truncate text-[11px] font-medium text-slate-500 mt-0.5">
           {condition.label}
           {current.precipitation > 0 && ` · ${current.precipitation.toFixed(1)} mm`}
         </span>
       </span>
       <span className="shrink-0 text-right">
-        <span className="text-sm font-bold text-slate-900">
+        <span className="text-base font-black tracking-tight text-slate-900 tabular-nums">
           {Math.round(current.temperature)}°
         </span>
       </span>
