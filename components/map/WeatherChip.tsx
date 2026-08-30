@@ -106,43 +106,6 @@ export function WeatherChip({
   const today = days[0];
   const upcomingDays = days.slice(1);
 
-  const renderDayRow = (day: typeof days[number]) => {
-    const condition = getWeatherCondition(day.conditionCode);
-    const Icon = condition.icon;
-    const detail = formatDayForecast(day);
-
-    return (
-      <button
-        key={day.date}
-        type="button"
-        onClick={() => setSelectedDayDate(day.date)}
-        aria-label={`Open weather details for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
-        className="-mx-1 w-[calc(100%+0.5rem)] rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-canvas-light active:scale-[0.98]"
-      >
-        <span className="flex items-center gap-2.5">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-canvas-light ring-1 ring-canvas-grey">
-            <Icon className="h-4 w-4 text-slate-600" />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-xs font-semibold leading-tight text-slate-900">
-              {friendlyDay(`${day.date}T00:00:00+08:00`)}
-            </span>
-            <span className="block text-[11px] leading-snug text-slate-500">{detail}</span>
-          </span>
-          <span className="shrink-0 text-right text-xs font-semibold text-slate-800 tabular-nums">
-            <span className="text-[10px] font-medium text-slate-400">H </span>
-            {day.tempMax}°
-            <span className="ml-1 text-[10px] font-medium text-slate-400">L </span>
-            {day.tempMin}°
-          </span>
-        </span>
-        <span className="mt-1 block">
-          <RainStrip hours={day.hours} />
-        </span>
-      </button>
-    );
-  };
-
   return (
     <div className={className}>
       {open ? (
@@ -175,11 +138,81 @@ export function WeatherChip({
           )}
 
           <div className="space-y-1">
-            {/* Always show Today */}
-            {renderDayRow(today)}
+            {/* Today's Forecast with Hourly Rain Timeline */}
+            {(() => {
+              const condition = getWeatherCondition(today.conditionCode);
+              const Icon = condition.icon;
+              const detail = formatDayForecast(today);
 
-            {/* Expandable 5-Day Outlook */}
-            {showAllDays && upcomingDays.map(renderDayRow)}
+              return (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDayDate(today.date)}
+                  aria-label="Open detailed weather breakdown for Today"
+                  className="-mx-1 w-[calc(100%+0.5rem)] rounded-lg px-1 py-1.5 text-left transition-colors hover:bg-canvas-light active:scale-[0.98]"
+                >
+                  <span className="flex items-center gap-2.5">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-canvas-light ring-1 ring-canvas-grey">
+                      <Icon className="h-4 w-4 text-slate-600" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-xs font-semibold leading-tight text-slate-900">Today</span>
+                      <span className="block text-[11px] leading-snug text-slate-500">{detail}</span>
+                    </span>
+                    <span className="shrink-0 text-right text-xs font-semibold text-slate-800 tabular-nums">
+                      <span className="text-[10px] font-medium text-slate-400">H </span>
+                      {today.tempMax}°
+                      <span className="ml-1 text-[10px] font-medium text-slate-400">L </span>
+                      {today.tempMin}°
+                    </span>
+                  </span>
+                  <span className="mt-1 block">
+                    <RainStrip hours={today.hours} />
+                  </span>
+                </button>
+              );
+            })()}
+
+            {/* Expandable Upcoming Days (Clean Major Weather Summary) */}
+            {showAllDays && (
+              <div className="space-y-0.5 pt-1">
+                {upcomingDays.map((day) => {
+                  const condition = getWeatherCondition(day.conditionCode);
+                  const Icon = condition.icon;
+                  const detail = formatDayForecast(day);
+
+                  return (
+                    <button
+                      key={day.date}
+                      type="button"
+                      onClick={() => setSelectedDayDate(day.date)}
+                      aria-label={`Open detailed weather breakdown for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
+                      className="-mx-1 flex w-[calc(100%+0.5rem)] items-center justify-between rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-canvas-light active:scale-[0.98]"
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-canvas-light ring-1 ring-canvas-grey">
+                          <Icon className="h-3.5 w-3.5 text-slate-600" />
+                        </span>
+                        <div className="min-w-0">
+                          <span className="block text-xs font-semibold text-slate-900 leading-tight">
+                            {friendlyDay(`${day.date}T00:00:00+08:00`)}
+                          </span>
+                          <span className="block text-[10px] text-slate-500 truncate max-w-[120px] leading-tight">
+                            {detail}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-right text-xs font-semibold text-slate-800 tabular-nums">
+                        <span className="text-[10px] font-medium text-slate-400">H </span>
+                        {day.tempMax}°
+                        <span className="ml-1 text-[10px] font-medium text-slate-400">L </span>
+                        {day.tempMin}°
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {upcomingDays.length > 0 && (
