@@ -218,7 +218,7 @@ export function PublicHeader({
 
   return (
     <>
-    <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-5xl z-[1200] isolate rounded-full bg-white md:bg-white/90 md:backdrop-blur-xl border border-slate-200/90 md:border-white/80 shadow-[0_4px_20px_rgba(15,23,42,0.08)] md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-900/5 transition-all duration-200">
+    <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-5xl z-[1200] isolate rounded-full bg-white md:bg-white/90 md:backdrop-blur-xl border border-slate-200/90 md:border-white/80 shadow-[0_4px_20px_rgba(15,23,42,0.08)] md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)] ring-1 ring-slate-900/5">
       <div className="flex h-12 md:h-14 items-center justify-between px-3.5 md:px-5">
         {/* Left: Brand Logo & Title */}
         <div className="flex items-center gap-3">
@@ -245,23 +245,13 @@ export function PublicHeader({
           </button>
         </div>
 
-        {/* Center: Integrated Location Search */}
+        {/* Center: Integrated Location Search (Single Responsive Instance) */}
         {onSearchSelect && (
           <LocationSearch
             variant="header-compact"
             onSelect={onSearchSelect}
             onLocate={onLocate}
-            className="mx-2 hidden md:flex md:w-64 lg:w-80"
-          />
-        )}
-
-        {/* Mobile search */}
-        {onSearchSelect && (
-          <LocationSearch
-            variant="header-compact"
-            onSelect={onSearchSelect}
-            onLocate={onLocate}
-            className="mx-1.5 flex flex-1 min-w-0 md:hidden"
+            className="mx-1.5 flex-1 min-w-0 md:mx-2 md:flex-initial md:w-64 lg:w-80"
           />
         )}
 

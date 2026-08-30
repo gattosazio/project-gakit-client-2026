@@ -1418,7 +1418,7 @@ function createSelectedPinElement(): HTMLElement {
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
-      <div ref={mapContainer} className="w-full h-full touch-action-none" />
+      <div ref={mapContainer} className="w-full h-full touch-none select-none" />
 
       <MapViewToggle
         className="absolute top-4 right-4 md:right-6 z-[1000] hidden md:flex"

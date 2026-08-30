@@ -258,6 +258,10 @@ export function PublicViewPage({
     setIsModalOpen(true);
   }, [isModalOpen]);
 
+  const handleLocate = useCallback(async () => {
+    await mapRef.current?.shareMyLocation();
+  }, []);
+
   // Stable identity so the ReportModal hazard-check effect doesn't re-run on
   // every parent re-render while the modal is open.
   const handleCheckLocation = useCallback(
@@ -312,9 +316,7 @@ export function PublicViewPage({
         initialAuth={initialAuth}
         onNavigateSection={scrollToSection}
         onSearchSelect={handleSearchedLocationSelect}
-        onLocate={async () => {
-          await mapRef.current?.shareMyLocation();
-        }}
+        onLocate={handleLocate}
       />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
