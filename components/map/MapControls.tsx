@@ -123,7 +123,7 @@ function Card({
     <div className="w-72 rounded-2xl bg-white shadow-xl border border-slate-200/90 md:bg-white/90 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80">
       <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
         <div className="flex items-center gap-2">
-          <Icon className="w-3.5 h-3.5" />
+          <Icon className="w-3.5 h-3.5 text-gakit-maroon shrink-0" />
           {title}
           {badge}
         </div>
