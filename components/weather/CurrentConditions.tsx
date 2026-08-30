@@ -20,8 +20,8 @@ export function CurrentConditions({ current }: { current: CurrentWeather }) {
   });
 
   return (
-    <div className="flex items-center gap-2.5 rounded-xl bg-slate-50/80 px-2.5 py-2 ring-1 ring-slate-200/60">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-xs ring-1 ring-slate-200/70">
+    <div className="flex items-center gap-2.5 rounded-xl bg-canvas-light p-2.5 ring-1 ring-canvas-grey">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-xs ring-1 ring-canvas-grey">
         <Icon className="h-4 w-4 text-gakit-maroon" />
       </span>
       <span className="min-w-0 flex-1 leading-tight">
@@ -35,7 +35,7 @@ export function CurrentConditions({ current }: { current: CurrentWeather }) {
         </span>
       </span>
       <span className="shrink-0 text-right">
-        <span className="text-sm font-bold text-slate-900">
+        <span className="text-sm font-bold text-slate-900 tabular-nums">
           {Math.round(current.temperature)}°
         </span>
       </span>

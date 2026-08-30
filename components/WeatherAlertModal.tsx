@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
+import { CloudRain, AlertTriangle, Flame, Thermometer, X, Droplet } from 'lucide-react';
 import type { CurrentWeather, WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
 import { alertDescription, alertTitle, digestPeriod, formatDayForecast, getWeatherCondition } from '@/lib/weather/weatherCodes';
 import { WeatherAttribution } from './weather/WeatherAttribution';
@@ -65,55 +65,16 @@ function friendlyDay(iso: string): string {
   });
 }
 
-function DayRow({ day, highlighted }: { day: WeatherDayData; highlighted?: boolean }) {
-  const condition = getWeatherCondition(day.conditionCode);
-  const Icon = condition.icon;
-  const detail = formatDayForecast(day);
+function friendlyShortDay(iso: string): string {
+  const target = new Date(iso);
+  const dayDiff = Math.round((startOfDay(target) - startOfDay(new Date())) / 86_400_000);
 
-  return (
-    <div
-      className={`rounded-lg border p-3 ${
-        highlighted
-          ? 'border-transparent bg-white shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/80'
-          : 'border-canvas-grey bg-canvas-light'
-      }`}
-    >
-      <span className="flex items-center gap-3">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white ring-1 ring-canvas-grey">
-          <Icon className="h-5 w-5 text-slate-600" />
-        </span>
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-slate-900">{friendlyDay(`${day.date}T00:00:00+08:00`)}</span>
-          <span className="block text-xs text-slate-500">{detail}</span>
-        </span>
-        <span className="shrink-0 text-right text-sm font-semibold text-slate-800">
-          <span className="text-xs font-medium text-slate-400">H </span>
-          {day.tempMax}°
-          <span className="ml-1.5 text-xs font-medium text-slate-400">L </span>
-          {day.tempMin}°
-        </span>
-      </span>
-      <div className="mt-2">
-        <RainStrip hours={day.hours} />
-      </div>
-    </div>
-  );
-}
+  if (dayDiff === 0) return 'Today';
+  if (dayDiff === 1) return 'Tom';
 
-/** Human-friendly period covered by the alert, e.g. "Today – Tomorrow".
- *  Returns null when the period is obvious (today through tomorrow). */
-function friendlyPeriod(validFrom: string, validTo: string): string | null {
-  const from = new Date(validFrom);
-  const to = new Date(validTo);
-  const dayDiffFromToday = Math.round((startOfDay(from) - startOfDay(new Date())) / 86_400_000);
-  const spansTwoDays =
-    Math.round((startOfDay(to) - startOfDay(from)) / 86_400_000) === 1;
-
-  // Digest-style window: covered by the title/description already
-  if (dayDiffFromToday === 0 && spansTwoDays) return null;
-
-  const fromLabel = friendlyDay(validFrom);
-  return fromLabel === friendlyDay(validTo) ? fromLabel : `${fromLabel} – ${friendlyDay(validTo)}`;
+  return target.toLocaleDateString('en-PH', {
+    weekday: 'short',
+  });
 }
 
 interface WeatherAlertModalProps {
@@ -127,6 +88,8 @@ interface WeatherAlertModalProps {
 
 export function WeatherAlertModal({ alert, highlightDate, current, onClose }: WeatherAlertModalProps) {
   const [mounted, setMounted] = useState(false);
+  const days = alert.data?.days ?? [];
+  const [selectedDate, setSelectedDate] = useState<string>(() => highlightDate || (days[0]?.date ?? ''));
 
   useEffect(() => {
     setMounted(true);
@@ -135,20 +98,24 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
 
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
-  const period = friendlyPeriod(alert.validFrom, alert.validTo);
   const heading = alertTitle(alert);
 
   if (!mounted || typeof document === 'undefined') {
     return null;
   }
 
+  const activeDay = days.find((d) => d.date === selectedDate) ?? days[0];
+  const activeCondition = activeDay ? getWeatherCondition(activeDay.conditionCode) : null;
+  const ActiveIcon = activeCondition ? activeCondition.icon : CloudRain;
+  const activeDetail = activeDay ? formatDayForecast(activeDay) : '';
+
   return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-md rounded-2xl border border-canvas-grey bg-white shadow-2xl">
+      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-canvas-grey p-4 md:p-5">
+        <div className="flex items-center justify-between border-b border-canvas-grey p-4 md:px-5 md:py-4">
           <div className="flex items-center gap-3">
             <span className={`rounded-xl p-2.5 ${config.badge}`}>
               <Icon className={`h-5 w-5 ${config.icon}`} />
@@ -171,49 +138,125 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-4 md:p-5">
-          <h3 className="text-base font-bold text-slate-900">{heading}</h3>
-          <p className="mb-2 text-[10px] text-slate-400">
-            {alert.alertType === 'daily_digest' && digestPeriod(alert)
-              ? `${digestPeriod(alert)} · Issued ${new Date(alert.createdAt).toLocaleTimeString(
-                  [],
-                  { hour: '2-digit', minute: '2-digit' }
-                )}`
-              : `Issued ${new Date(alert.createdAt).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}`}
-          </p>
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">{heading}</h3>
+            <p className="text-[10px] text-slate-400">
+              {alert.alertType === 'daily_digest' && digestPeriod(alert)
+                ? `${digestPeriod(alert)} · Issued ${new Date(alert.createdAt).toLocaleTimeString(
+                    [],
+                    { hour: '2-digit', minute: '2-digit' }
+                  )}`
+                : `Issued ${new Date(alert.createdAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}`}
+            </p>
+          </div>
 
           {current && (
-            <div className="mb-2">
-              <CurrentConditions current={current} />
-            </div>
+            <CurrentConditions current={current} />
           )}
 
-          {alert.data?.days?.length ? (
-            <div className="space-y-2">
-              {alert.data.days.map((day) => (
-                <DayRow key={day.date} day={day} highlighted={highlightDate === day.date} />
-              ))}
+          {days.length > 0 ? (
+            <div className="space-y-3">
+              {/* 5-Day Horizontal Tab Selector */}
+              <div className="grid grid-cols-5 gap-1.5">
+                {days.map((day) => {
+                  const isSelected = day.date === (activeDay?.date ?? '');
+                  const dayCondition = getWeatherCondition(day.conditionCode);
+                  const DayIcon = dayCondition.icon;
+                  const shortName = friendlyShortDay(`${day.date}T00:00:00+08:00`);
+
+                  return (
+                    <button
+                      key={day.date}
+                      type="button"
+                      onClick={() => setSelectedDate(day.date)}
+                      className={`flex flex-col items-center justify-between rounded-xl p-2 text-center transition-all duration-150 active:scale-95 ${
+                        isSelected
+                          ? 'bg-white text-slate-900 shadow-md ring-2 ring-gakit-maroon font-bold'
+                          : 'bg-canvas-light text-slate-600 hover:bg-slate-100/80 ring-1 ring-canvas-grey'
+                      }`}
+                    >
+                      <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${isSelected ? 'text-gakit-maroon' : 'text-slate-400'}`}>
+                        {shortName}
+                      </span>
+                      <div className={`my-1.5 flex h-7 w-7 items-center justify-center rounded-lg transition-transform ${isSelected ? 'bg-maroon-50/80 ring-1 ring-maroon-200/60 scale-105' : 'bg-white shadow-2xs ring-1 ring-canvas-grey'}`}>
+                        <DayIcon className={`h-4 w-4 ${isSelected ? 'text-gakit-maroon' : 'text-slate-600'}`} />
+                      </div>
+                      <div className="flex items-center gap-0.5 text-[10px] tabular-nums font-bold leading-none">
+                        <span className="text-slate-900">{day.tempMax}°</span>
+                        <span className="text-slate-400 font-normal text-[9px]">{day.tempMin}°</span>
+                      </div>
+                      <span className={`mt-1 flex items-center justify-center gap-0.5 text-[9px] font-semibold tabular-nums leading-none ${day.rainChance > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
+                        {day.rainChance > 0 && <Droplet className="h-2.5 w-2.5 text-sky-500 fill-sky-500/30 shrink-0" />}
+                        <span>{day.rainChance}%</span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Active Day Detail Card */}
+              {activeDay && (
+                <div className="rounded-xl bg-canvas-light p-3.5 ring-1 ring-canvas-grey space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-xs ring-1 ring-canvas-grey">
+                        <ActiveIcon className="h-5 w-5 text-gakit-maroon" />
+                      </span>
+                      <div>
+                        <span className="block text-sm font-bold text-slate-900">
+                          {friendlyDay(`${activeDay.date}T00:00:00+08:00`)}
+                        </span>
+                        <span className="block text-xs font-medium text-slate-500">
+                          {activeDetail}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="text-right tabular-nums">
+                      <div className="text-base font-bold text-slate-900">
+                        {activeDay.tempMax}°
+                        <span className="ml-1 text-xs font-normal text-slate-400">/ {activeDay.tempMin}°</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hourly Rain Timeline */}
+                  {activeDay.hours && activeDay.hours.length > 0 && (
+                    <div className="pt-2 border-t border-slate-200/60">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                        Hourly Rainfall Timeline (mm)
+                      </div>
+                      <RainStrip hours={activeDay.hours} />
+                    </div>
+                  )}
+
+                  {/* Key Day Metrics */}
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 text-center">
+                    <div className="rounded-lg bg-white p-2 shadow-2xs ring-1 ring-canvas-grey">
+                      <span className="block text-[10px] text-slate-400 font-medium">Precipitation</span>
+                      <span className="text-xs font-bold text-slate-800 tabular-nums">{activeDay.rainMm.toFixed(1)} mm</span>
+                    </div>
+                    <div className="rounded-lg bg-white p-2 shadow-2xs ring-1 ring-canvas-grey">
+                      <span className="block text-[10px] text-slate-400 font-medium">Peak Wind</span>
+                      <span className="text-xs font-bold text-slate-800 tabular-nums">{activeDay.windMax} km/h</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <p className="whitespace-pre-line text-sm text-slate-600 leading-relaxed mb-4">
               {alertDescription(alert)}
             </p>
           )}
-
-          {period && (
-            <div className="mt-4 flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light p-3 text-sm text-slate-700">
-              <span className="font-medium">When:</span>
-              <span>{period}</span>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 border-t border-canvas-grey p-4 md:p-5">
+        <div className="flex items-center justify-between gap-3 border-t border-canvas-grey p-4 md:px-5 md:py-3.5">
           <WeatherAttribution />
           <button
             onClick={onClose}
