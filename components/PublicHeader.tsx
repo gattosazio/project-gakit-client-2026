@@ -50,7 +50,7 @@ export function PublicHeader({
 
   useEffect(() => {
     if (!isMenuOpen && !isInfoOpen) return;
-    const handleClick = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent | TouchEvent) => {
       const target = e.target as Node;
       if (
         userMenuRef.current &&
@@ -70,7 +70,11 @@ export function PublicHeader({
       }
     };
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+    };
   }, [isMenuOpen, isInfoOpen]);
 
   useEffect(() => {
