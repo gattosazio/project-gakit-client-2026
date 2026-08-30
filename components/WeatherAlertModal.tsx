@@ -216,11 +216,9 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
                       </div>
                     </div>
                     <div className="text-right tabular-nums">
-                      <div className="text-sm font-bold text-slate-900">
-                        {activeDay.tempMax}° <span className="text-xs font-normal text-slate-400">/ {activeDay.tempMin}°</span>
-                      </div>
-                      <div className="text-[11px] font-semibold text-sky-600">
-                        {activeDay.rainChance}% Rain Chance
+                      <div className="text-base font-bold text-slate-900">
+                        {activeDay.tempMax}°
+                        <span className="ml-1 text-xs font-normal text-slate-400">/ {activeDay.tempMin}°</span>
                       </div>
                     </div>
                   </div>
@@ -236,14 +234,10 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
                   )}
 
                   {/* Key Day Metrics */}
-                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-center">
+                  <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 text-center">
                     <div className="rounded-lg bg-white p-2 shadow-2xs ring-1 ring-canvas-grey">
                       <span className="block text-[10px] text-slate-400 font-medium">Precipitation</span>
                       <span className="text-xs font-bold text-slate-800 tabular-nums">{activeDay.rainMm.toFixed(1)} mm</span>
-                    </div>
-                    <div className="rounded-lg bg-white p-2 shadow-2xs ring-1 ring-canvas-grey">
-                      <span className="block text-[10px] text-slate-400 font-medium">Rain Chance</span>
-                      <span className="text-xs font-bold text-slate-800 tabular-nums">{activeDay.rainChance}%</span>
                     </div>
                     <div className="rounded-lg bg-white p-2 shadow-2xs ring-1 ring-canvas-grey">
                       <span className="block text-[10px] text-slate-400 font-medium">Peak Wind</span>
