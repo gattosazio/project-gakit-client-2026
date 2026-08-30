@@ -121,7 +121,7 @@ export function WeatherChip({
   return (
     <div className={className}>
       {open ? (
-        <div className="w-72 hud-card animate-[weatherGrow_160ms_ease-out]">
+        <div className="w-72 hud-card">
           {/* Standard MapControls Card Header */}
           <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
             <div className="flex min-w-0 items-center gap-2">
