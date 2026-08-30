@@ -100,6 +100,14 @@ export async function listReports(
   );
 }
 
+export async function getReport(
+  reportId: string,
+  signal?: AbortSignal
+): Promise<Report> {
+  const url = `/api/v1/reports/${reportId}`;
+  return cachedGet<Report>(url, 30_000, () => request<Report>(url, { signal }));
+}
+
 export async function fetchReportStats(signal?: AbortSignal): Promise<ReportStats> {
   const url = '/api/v1/reports/stats';
   return cachedGet<ReportStats>(url, 30_000, () => request<ReportStats>(url, { signal }));

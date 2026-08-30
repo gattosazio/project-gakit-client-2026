@@ -53,9 +53,9 @@ npm run lint
 npm test
 ```
 
-## Regenerating flood-zones.pmtiles
+## Regenerating lanao-del-norte-flood-zones.pmtiles
 
-The flood hazard overlay (`public/data/flood-zones.pmtiles`) is a PMTiles
+The flood hazard overlay (`public/data/lanao-del-norte-flood-zones.pmtiles`) is a PMTiles
 archive built from the Project NOAH shapefiles. The source shapefiles are
 distributed via this Google Drive folder (Provided by NOAH):
 
@@ -67,7 +67,7 @@ feature (`high` / `medium` / `low` matching the 100/25/5-year layers), then run
 tippecanoe:
 
 ```powershell
-tippecanoe -o public/data/flood-zones.pmtiles `
+tippecanoe -o public/data/lanao-del-norte-flood-zones.pmtiles `
   --layer=flood-zones `
   --minimum-zoom=4 --maximum-zoom=10 `
   --drop-densest-as-needed `
@@ -99,7 +99,7 @@ types/                   Shared TypeScript types
 scripts/                 Maintenance scripts (MapLibre worker sync)
 tests/                   Vitest unit tests
 public/                  Static assets served from site root
-  data/                  flood-zones.pmtiles archive
+  data/                  lanao-del-norte-flood-zones.pmtiles archive
   vendor/maplibre-gl/    MapLibre worker bundle (synced via postinstall)
 ```
 

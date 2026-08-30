@@ -34,7 +34,7 @@ describe('buildReportsGeoJson', () => {
     expect(feature.properties).toMatchObject({
       kind: 'report',
       address: 'Quezon Ave',
-      depthLabel: 'Knee deep (~45 cm)',
+      depthLabel: 'Knee deep (45 cm)',
       statusLabel: 'Pending validation',
     });
     // The backend id is copied onto map features so pin clicks can resolve the report.
@@ -131,9 +131,9 @@ describe('buildReportPopupHtml', () => {
 describe('formatDepth', () => {
   const depth = (code: any) => ({ code, label: 'Waist deep', approximateCm: 90 });
 
-  it('appends the "or deeper" qualifier only for overhead', () => {
-    expect(formatDepth(depth('overhead'))).toContain('or deeper');
-    expect(formatDepth(depth('waist'))).not.toContain('or deeper');
+  it('appends the "+" qualifier only for overhead', () => {
+    expect(formatDepth(depth('overhead'))).toContain('+ cm');
+    expect(formatDepth(depth('waist'))).not.toContain('+ cm');
     expect(formatDepth(depth('waist'))).toContain('90 cm');
   });
 });

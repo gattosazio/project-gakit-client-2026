@@ -55,11 +55,11 @@ export const createReportMarkerImage = (color: string): ImageData | null => {
 };
 
 export const formatDepth = (depth: DepthCategory, depthCm?: number | null) => {
-  const exact = depthCm != null ? `~${depthCm} cm` : null;
+  const cm = depthCm ?? depth.approximateCm;
   if (depth.code === 'overhead') {
-    return exact ? `${depth.label} (${exact} or deeper)` : `${depth.label} (~${depth.approximateCm} cm or deeper)`;
+    return cm != null ? `${depth.label} (${cm}+ cm)` : `${depth.label} (200+ cm)`;
   }
-  return exact ? `${depth.label} (${exact})` : `${depth.label} (~${depth.approximateCm} cm)`;
+  return cm != null ? `${depth.label} (${cm} cm)` : depth.label;
 };
 
 const escapeHtml = (value: string) =>

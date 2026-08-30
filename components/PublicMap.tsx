@@ -639,9 +639,31 @@ export function PublicMap({
           maxWidth: '240px',
         });
       }
-      reportPopupRef.current.setLngLat(lngLat).setHTML(buildReportPopupHtml(feature));
-      if (!reportPopupRef.current.isOpen()) {
-        reportPopupRef.current.addTo(map);
+
+      const coords = feature.geometry?.coordinates || [lngLat.lng, lngLat.lat];
+      const [lng, lat] = coords;
+
+      const render = () => {
+        reportPopupRef.current.setLngLat(lngLat).setHTML(buildReportPopupHtml(feature));
+        if (!reportPopupRef.current.isOpen()) {
+          reportPopupRef.current.addTo(map);
+        }
+      };
+
+      if (
+        feature.properties &&
+        feature.properties.elevation == null &&
+        typeof lat === 'number' &&
+        typeof lng === 'number'
+      ) {
+        void getElevation(lat, lng).then((elev) => {
+          if (feature.properties) {
+            feature.properties.elevation = elev;
+          }
+          render();
+        });
+      } else {
+        render();
       }
     },
     []

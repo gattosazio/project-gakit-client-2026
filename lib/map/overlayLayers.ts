@@ -111,7 +111,7 @@ export const setupOverlayLayers = async (
     if (!map.getSource('flood-hazard')) {
       map.addSource('flood-hazard', {
         type: 'vector',
-        url: 'pmtiles:///data/flood-zones.pmtiles',
+        url: 'pmtiles:///data/lanao-del-norte-flood-zones.pmtiles',
         attribution:
           'Flood data: <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">Project NOAH</a> (ODbL)',
       });

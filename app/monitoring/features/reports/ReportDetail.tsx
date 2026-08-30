@@ -1,10 +1,15 @@
-'use client';
-
+import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle2, ChevronDown, FileImage, X, XCircle } from 'lucide-react';
-import { DEPTH_LABELS, STATUS_META, formatDateTime } from '@/lib/reports/reportFormatting';
+import {
+  DEPTH_LABELS,
+  REFERENCE_LABELS,
+  STATUS_META,
+  formatDateTime,
+  formatReportDepth,
+} from '@/lib/reports/reportFormatting';
+import { getElevation } from '@/lib/map/elevation';
 import type { Report, ReportStatus } from '@/types/report';
-import { useState, useRef } from 'react';
 
 export function ReportDetail({
   report,
@@ -21,12 +26,37 @@ export function ReportDetail({
 }) {
   const status = STATUS_META[report.status];
   const address = report.location.address || `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`;
+  const [elevation, setElevation] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getElevation(report.location.latitude, report.location.longitude).then((elev) => {
+      if (!cancelled) setElevation(elev);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [report.location.latitude, report.location.longitude]);
+
+  useEffect(() => {
+    if (!modal) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [modal, onClose]);
+
   const content = (
     <div className={modal ? 'max-h-[85vh] overflow-y-auto' : ''}>
       <div className="flex items-start justify-between gap-3 border-b border-canvas-grey p-5">
         <div>
           <h3 className="font-bold text-slate-900">Report Details</h3>
-          <p className="mt-1 break-all text-sm text-slate-500">{report.id}</p>
+          <p className="mt-1 break-all text-sm text-slate-500 font-mono">{report.id}</p>
         </div>
         <div className="flex items-center gap-2">
           <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
@@ -36,7 +66,7 @@ export function ReportDetail({
             type="button"
             onClick={onClose}
             aria-label="Close report details"
-            className="rounded-lg border border-canvas-grey p-2 text-slate-500 hover:bg-canvas-light hover:text-slate-900"
+            className="rounded-lg border border-canvas-grey p-2 text-slate-500 hover:bg-canvas-light hover:text-slate-900 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>
@@ -51,11 +81,18 @@ export function ReportDetail({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
           <DetailItem label="Location" value={address} />
-          <DetailItem label="Depth" value={DEPTH_LABELS[report.depth.code]} />
+          <DetailItem label="Depth" value={formatReportDepth(report.depth, report.depthCm)} />
           <DetailItem label="Status" value={status.label} />
           <DetailItem label="Coordinates" value={`${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`} />
+          <DetailItem
+            label="Elevation"
+            value={elevation != null ? `${elevation.toFixed(1)} m (Copernicus 30m)` : 'Checking...'}
+          />
+          {report.reference && (
+            <DetailItem label="Reference" value={REFERENCE_LABELS[report.reference] || report.reference} />
+          )}
           <DetailItem label="Submitted" value={formatDateTime(report.createdAt)} />
           <DetailItem label="Observed" value={formatDateTime(report.observedAt)} />
         </div>
@@ -67,14 +104,21 @@ export function ReportDetail({
 
   if (modal) {
     return createPortal(
-      <div className="fixed inset-0 z-[1300] flex items-end justify-center bg-slate-950/50 p-3 sm:items-center sm:p-6">
-        <div className="w-full max-w-xl overflow-hidden rounded-xl bg-white shadow-2xl">{content}</div>
+      <div
+        className="fixed inset-0 z-[1300] flex items-end justify-center bg-slate-950/50 p-3 sm:items-center sm:p-6 backdrop-blur-xs"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="w-full max-w-xl overflow-hidden rounded-2xl bg-white shadow-2xl border border-slate-200/80 ring-1 ring-slate-900/5">
+          {content}
+        </div>
       </div>,
       document.body
     );
   }
 
-  return <aside className="overflow-hidden rounded-lg border border-canvas-grey bg-white shadow-sm">{content}</aside>;
+  return <aside className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">{content}</aside>;
 }
 
 function StatusActionMenu({

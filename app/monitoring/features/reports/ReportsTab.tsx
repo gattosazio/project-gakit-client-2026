@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Loader2, PlusCircle, RotateCcw, Search } from 'lucide-react';
-import { DEPTH_LABELS, REFERENCE_LABELS, STATUS_META, formatDateTime } from '@/lib/reports/reportFormatting';
+import {
+  DEPTH_LABELS,
+  REFERENCE_LABELS,
+  STATUS_META,
+  formatDateTime,
+  formatReportDepth,
+} from '@/lib/reports/reportFormatting';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type {
   FloodDepthCode,
@@ -15,7 +21,7 @@ import type {
 } from '@/types/report';
 import { toast } from 'react-toastify';
 import { FeaturePageShell } from '@/components/FeaturePageShell';
-import { createReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
+import { createReport, getReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
 import { ReportDetail } from './ReportDetail';
 import {
   DepthsFilterDropdown,
@@ -56,7 +62,7 @@ export function ReportsTab({
   const [statusFilter, setStatusFilter] = useState<'All' | ReportStatus>('All');
   const [depthFilter, setDepthFilter] = useState<'All' | FloodDepthCode>('All');
   const [timeFilter, setTimeFilter] = useState('48h');
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isSubmitOpen, setIsSubmitOpen] = useState(false);
@@ -140,11 +146,11 @@ export function ReportsTab({
           setReports(result.items);
           setTotal(result.total);
           setTotalPages(Math.max(1, result.totalPages));
-          setSelectedReportId((currentId) =>
-            currentId && result.items.some((report) => report.id === currentId)
-              ? currentId
-              : null
-          );
+          setSelectedReport((current) => {
+            if (!current) return null;
+            const updated = result.items.find((report) => report.id === current.id);
+            return updated ?? current;
+          });
         })
         .catch((err: unknown) => {
           if (seq !== requestSeqRef.current) return;
@@ -163,9 +169,6 @@ export function ReportsTab({
 
   // Background auto-refresh, paused while the tab is hidden.
   useVisibleInterval(() => setRefreshKey((key) => key + 1), 30_000, active);
-
-  const selectedReport =
-    reports.find((report) => report.id === selectedReportId) || null;
 
   const canReset =
     (query || '').trim() !== '' ||
@@ -256,22 +259,27 @@ export function ReportsTab({
       address:
         report.location.address ||
         `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`,
-      depthLabel: DEPTH_LABELS[report.depth.code],
+      depthLabel: formatReportDepth(report.depth, report.depthCm),
       statusLabel: STATUS_META[report.status].label,
       createdAt: formatDateTime(report.createdAt),
     });
     mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const handleMapPinClick = useCallback((reportId: string) => {
-    setActiveHighlightedId(reportId);
-    setSelectedReportId(null);
-    setCurrentPage(1);
-    setQuery(reportId);
-    setTimeout(() => {
-      tableSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
-  }, []);
+  const handleMapPinClick = useCallback(
+    (reportId: string) => {
+      setActiveHighlightedId(reportId);
+      const existing = reports.find((r) => r.id === reportId);
+      if (existing) {
+        setSelectedReport(existing);
+      } else {
+        void getReport(reportId).then((r) => {
+          if (r) setSelectedReport(r);
+        });
+      }
+    },
+    [reports]
+  );
 
   const handleUpdateStatus = async (report: Report, toStatus: ReportStatus) => {
     setUpdatingId(report.id);
@@ -434,7 +442,12 @@ export function ReportsTab({
                                 {report.location.address || 'Unknown location'}
                               </div>
                             </td>
-                            <td className="px-5 py-4 text-slate-700">{DEPTH_LABELS[report.depth.code]}</td>
+                            <td className="px-5 py-4 text-slate-700">
+                              <div>{DEPTH_LABELS[report.depth.code]}</div>
+                              <div className="text-xs text-slate-400">
+                                {report.depthCm != null ? `${report.depthCm} cm` : `~${report.depth.approximateCm} cm`}
+                              </div>
+                            </td>
                             <td className="px-5 py-4 text-slate-700">
                               {report.reference ? REFERENCE_LABELS[report.reference] : '—'}
                             </td>
@@ -450,7 +463,7 @@ export function ReportsTab({
                               <ReportActions
                                 report={report}
                                 onInspect={() => handleInspect(report)}
-                                onViewDetails={() => setSelectedReportId(report.id)}
+                                onViewDetails={() => setSelectedReport(report)}
                               />
                             </td>
                           </tr>
@@ -491,7 +504,7 @@ export function ReportsTab({
                               {report.location.address || 'Unknown location'}
                             </div>
                             <div className="text-xs text-slate-500 mt-1">
-                              {DEPTH_LABELS[report.depth.code]}
+                              {formatReportDepth(report.depth, report.depthCm)}
                               {report.reference && <span className="ml-1.5 text-slate-400">· {REFERENCE_LABELS[report.reference]}</span>}
                             </div>
                             <div className="text-xs text-slate-500 mt-1">{formatDateTime(report.createdAt)}</div>
@@ -506,7 +519,7 @@ export function ReportsTab({
                           report={report}
                           showInspect={false}
                           onInspect={() => handleInspect(report)}
-                          onViewDetails={() => setSelectedReportId(report.id)}
+                          onViewDetails={() => setSelectedReport(report)}
                         />
                       </div>
                     );
@@ -530,7 +543,7 @@ export function ReportsTab({
               report={selectedReport}
               onUpdateStatus={handleUpdateStatus}
               isUpdating={updatingId === selectedReport.id}
-              onClose={() => setSelectedReportId(null)}
+              onClose={() => setSelectedReport(null)}
               modal
             />
           </div>
