@@ -1501,7 +1501,7 @@ function createSelectedPinElement(): HTMLElement {
             disabled={isShareLocating}
             title="Locate my position"
             aria-label="Locate my position"
-            className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white/90 text-slate-700 shadow-md border border-slate-200/80 ring-1 ring-slate-900/5 md:bg-white/85 md:backdrop-blur-xl md:border-white/60 md:ring-slate-200/80 transition-all duration-150 hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94] disabled:cursor-not-allowed"
+            className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-md border border-slate-200/90 ring-1 ring-slate-200/80 md:bg-white/95 md:backdrop-blur-md md:border-white/80 transition-all duration-150 hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94] disabled:cursor-not-allowed"
           >
             {isShareLocating ? (
               <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
@@ -1512,7 +1512,7 @@ function createSelectedPinElement(): HTMLElement {
         )}
 
         {/* Zoom & Compass Widget */}
-        <div className="flex h-[96px] w-9 flex-col overflow-hidden rounded-2xl bg-white/90 shadow-md border border-slate-200/80 ring-1 ring-slate-900/5 md:bg-white/85 md:backdrop-blur-xl md:border-white/60 md:ring-slate-200/80">
+        <div className="flex h-[96px] w-9 flex-col overflow-hidden rounded-2xl bg-white shadow-md border border-slate-200/90 ring-1 ring-slate-200/80 md:bg-white/95 md:backdrop-blur-md md:border-white/80">
           <button
             type="button"
             onClick={() => mapRef.current?.zoomIn()}
