@@ -317,16 +317,8 @@ export function DataLayerControls({
   onShowBarangayBoundariesChange,
 }: DataLayerControlsProps) {
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
-  const hasLiveActive = showHimawariIR;
-  const layerBadge = hasLiveActive ? (
-    <span className="relative ml-1 flex h-2 w-2" title="Live Himawari-9 satellite feed active">
-      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-    </span>
-  ) : null;
-
   return (
-    <Card open={open} onToggle={onToggle} icon={Layers} title="Layers" badge={layerBadge}>
+    <Card open={open} onToggle={onToggle} icon={Layers} title="Layers">
       <div className="space-y-1.5">
         <PillToggle
           label="Flood Susceptibility"
@@ -443,15 +435,8 @@ export function DataLayerControls({
         />
         {showHimawariIR && (
           <div className="pl-9 pt-1 pb-1 space-y-1.5">
-            <div className="flex items-center gap-1.5 text-[10px] leading-snug text-slate-400">
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700 ring-1 ring-emerald-300/70">
-                <span className="relative flex h-1.5 w-1.5">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                </span>
-                LIVE
-              </span>
-              <span>Last hour · 10-min frames</span>
+            <div className="text-[10px] leading-snug text-slate-400">
+              Last hour · 10-min satellite frames
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
