@@ -128,7 +128,7 @@ export function LocationSearch({
       ref={containerRef}
       className={
         isCompact
-          ? `relative flex h-8 md:h-9 items-center rounded-full bg-slate-100/90 pl-3 pr-1 py-1 ring-1 ring-slate-200/90 transition-all duration-150 focus-within:bg-white focus-within:ring-2 focus-within:ring-gakit-maroon/50 focus-within:shadow-md ${className}`
+          ? `relative flex h-8 md:h-9 items-center rounded-full bg-slate-100/90 md:[background-color:var(--hud-inner-bg-desktop)] pl-3 pr-1 py-1 ring-1 ring-slate-200/90 transition-all duration-150 focus-within:!bg-white focus-within:ring-2 focus-within:ring-gakit-maroon/50 focus-within:shadow-md ${className}`
           : `relative flex h-[52px] items-center pl-4 pr-1.5 py-1.5 hud-pill focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
       }
     >

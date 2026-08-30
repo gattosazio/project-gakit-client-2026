@@ -20,10 +20,10 @@
    * Map HUD Surface Tokens
    * Tweak desktop translucency, blur depth, and borders in this single place!
    */
-  --hud-bg-desktop: rgba(255, 255, 255, 0.6);
-  --hud-blur-desktop: 16px;
-  --hud-border-desktop: rgba(255, 255, 255, 0.65);
-  --hud-inner-bg-desktop: rgba(248, 250, 252, 0.65);
+  --hud-bg-desktop: rgba(255, 255, 255, 0.88);
+  --hud-blur-desktop: 12px;
+  --hud-border-desktop: rgba(255, 255, 255, 0.90);
+  --hud-inner-bg-desktop: rgba(248, 250, 252, 0.80);
 }
 
 @layer utilities {
