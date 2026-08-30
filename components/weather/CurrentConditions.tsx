@@ -26,7 +26,10 @@ export function CurrentConditions({ current }: { current: CurrentWeather }) {
       </span>
       <span className="min-w-0 flex-1 leading-tight">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-slate-900">Now</span>
+          <span className="flex items-center gap-1">
+            <span className="h-1.5 w-1.5 rounded-full bg-gakit-maroon animate-pulse shrink-0" />
+            <span className="text-xs font-bold text-slate-900">Now</span>
+          </span>
           <span className="text-[10px] font-medium text-slate-400">· {observed}</span>
         </div>
         <span className="block truncate text-[11px] font-medium text-slate-500">

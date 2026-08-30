@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
+import { CloudRain, AlertTriangle, Flame, Thermometer, X, Droplet } from 'lucide-react';
 import type { CurrentWeather, WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
 import { alertDescription, alertTitle, digestPeriod, formatDayForecast, getWeatherCondition } from '@/lib/weather/weatherCodes';
 import { WeatherAttribution } from './weather/WeatherAttribution';
@@ -190,8 +190,9 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
                         <span>{day.tempMax}°</span>
                         <span className={isSelected ? 'text-rose-200 font-normal text-[9px]' : 'text-slate-400 font-normal text-[9px]'}>{day.tempMin}°</span>
                       </div>
-                      <span className={`mt-1 text-[9px] font-semibold tabular-nums leading-none ${isSelected ? 'text-rose-100' : day.rainChance > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
-                        {day.rainChance}%
+                      <span className={`mt-1 flex items-center justify-center gap-0.5 text-[9px] font-semibold tabular-nums leading-none ${isSelected ? 'text-rose-100' : day.rainChance > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
+                        {day.rainChance > 0 && <Droplet className={`h-2.5 w-2.5 shrink-0 ${isSelected ? 'text-rose-200 fill-rose-200/40' : 'text-sky-500 fill-sky-500/30'}`} />}
+                        <span>{day.rainChance}%</span>
                       </span>
                     </button>
                   );

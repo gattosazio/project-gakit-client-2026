@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, Droplet } from 'lucide-react';
 import { useActiveAlerts, useCurrentWeather } from '@/lib/weather/weatherStore';
 import { formatDayForecast, getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
 import { WeatherAttribution } from '../weather/WeatherAttribution';
@@ -162,8 +162,9 @@ export function WeatherChip({
                 <button
                   type="button"
                   onClick={() => setSelectedDayDate(today.date)}
+                  title="Click to view detailed hourly rainfall breakdown for Today"
                   aria-label="Open detailed weather breakdown for Today"
-                  className="group flex flex-col w-full rounded-xl bg-canvas-light p-2.5 text-left ring-1 ring-canvas-grey transition-all duration-150 hover:bg-slate-100/80 active:scale-[0.99]"
+                  className="group flex flex-col w-full rounded-xl bg-canvas-light p-2.5 text-left ring-1 ring-canvas-grey transition-all duration-150 hover:bg-slate-100/80 active:scale-[0.99] cursor-pointer"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -201,8 +202,9 @@ export function WeatherChip({
                         key={day.date}
                         type="button"
                         onClick={() => setSelectedDayDate(day.date)}
+                        title={`Click to view hourly rain breakdown for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
                         aria-label={`Open detailed weather breakdown for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
-                        className="group flex flex-col items-center justify-between rounded-xl bg-canvas-light p-2 text-center ring-1 ring-canvas-grey transition-all duration-150 hover:bg-white hover:shadow-xs active:scale-95"
+                        className="group flex flex-col items-center justify-between rounded-xl bg-canvas-light p-2 text-center ring-1 ring-canvas-grey transition-all duration-150 hover:bg-white hover:shadow-xs active:scale-95 cursor-pointer"
                       >
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 group-hover:text-gakit-maroon transition-colors">
                           {shortName}
@@ -214,8 +216,9 @@ export function WeatherChip({
                           <span>{day.tempMax}°</span>
                           <span className="text-[9px] font-normal text-slate-400">{day.tempMin}°</span>
                         </div>
-                        <span className={`mt-0.5 text-[9px] font-semibold tabular-nums ${day.rainChance > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
-                          {day.rainChance ?? 0}%
+                        <span className={`mt-0.5 flex items-center justify-center gap-0.5 text-[9px] font-semibold tabular-nums ${day.rainChance > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
+                          {day.rainChance > 0 && <Droplet className="h-2.5 w-2.5 text-sky-500 fill-sky-500/30 shrink-0" />}
+                          <span>{day.rainChance ?? 0}%</span>
                         </span>
                       </button>
                     );
