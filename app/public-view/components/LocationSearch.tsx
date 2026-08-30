@@ -161,7 +161,7 @@ export function LocationSearch({
           type="submit"
           disabled={isSearching}
           aria-label="Submit search"
-          className="flex h-7 w-7 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-xl bg-gakit-maroon text-white shadow-xs transition-colors hover:bg-maroon-800 active:scale-95 disabled:opacity-50"
+          className="flex h-7 w-7 md:h-8 md:w-8 shrink-0 items-center justify-center rounded-full bg-gakit-maroon text-white shadow-xs transition-colors hover:bg-maroon-800 active:scale-95 disabled:opacity-50"
         >
           {isSearching ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
