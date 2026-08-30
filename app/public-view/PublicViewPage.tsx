@@ -506,10 +506,6 @@ export function PublicViewPage({
           setIsSuccessOpen(false);
           scrollToMap();
         }}
-        onSubmitAnother={() => {
-          setIsSuccessOpen(false);
-          handleStartReport();
-        }}
       />
     </div>
   );

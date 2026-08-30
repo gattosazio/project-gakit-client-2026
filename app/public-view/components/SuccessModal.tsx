@@ -28,7 +28,7 @@ export function SuccessModal({
   report: SubmittedReport | null;
   onClose: () => void;
   onViewMap: () => void;
-  onSubmitAnother: () => void;
+  onSubmitAnother?: () => void;
 }) {
   useEffect(() => {
     if (!isOpen) return;
@@ -108,18 +108,12 @@ export function SuccessModal({
           </div>
         )}
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
+        <div className="mt-6">
           <button
             onClick={onViewMap}
-            className="py-2.5 px-4 rounded-xl font-semibold bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white transition-all shadow-xs"
+            className="w-full py-3 px-4 rounded-xl font-semibold bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white transition-all shadow-xs"
           >
             View on Map
-          </button>
-          <button
-            onClick={onSubmitAnother}
-            className="py-2.5 px-4 rounded-xl font-semibold border border-slate-200/90 text-slate-700 bg-white hover:bg-slate-50 active:scale-[0.98] transition-all shadow-xs"
-          >
-            Submit Another
           </button>
         </div>
       </div>
