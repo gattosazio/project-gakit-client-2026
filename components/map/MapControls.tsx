@@ -120,7 +120,7 @@ function Card({
   children: React.ReactNode;
 }) {
   return open ? (
-    <div className="w-72 rounded-2xl bg-white shadow-xl border border-slate-200/90 md:bg-white/90 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80">
+    <div className="w-72 rounded-2xl bg-white/95 shadow-xl border border-slate-200/80 md:bg-white/90 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
       <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
         <div className="flex items-center gap-2">
           <Icon className="w-3.5 h-3.5 text-gakit-maroon shrink-0" />
@@ -142,7 +142,7 @@ function Card({
   ) : (
     <button
       onClick={() => onToggle(true)}
-      className="flex items-center gap-2 rounded-2xl bg-white px-3.5 py-2.5 shadow-md border border-slate-200/90 md:bg-white/85 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80 transition-all duration-150 hover:bg-white hover:shadow-lg active:scale-[0.97]"
+      className="flex items-center gap-2 rounded-2xl bg-white/90 px-3.5 py-2.5 shadow-md border border-slate-200/80 md:bg-white/85 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80 md:shadow-[0_8px_24px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)] transition-all duration-150 hover:bg-white hover:shadow-lg active:scale-[0.97]"
       title={`Show ${title}`}
       aria-label={`Show ${title}`}
     >
@@ -185,7 +185,7 @@ export function MapViewToggle({
   const activeKey = VIEW_PRESETS.find((v) => v.basemap === basemap && v.mode === mode)?.key;
   return (
     <div
-      className={`${className} flex items-center rounded-2xl bg-white p-1 shadow-md border border-slate-200/90 md:bg-white/85 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80`}
+      className={`${className} flex items-center rounded-2xl bg-white/90 p-1 shadow-md border border-slate-200/80 md:bg-white/85 md:backdrop-blur-xl md:border-white/60 ring-1 ring-slate-200/80 md:shadow-[0_8px_24px_rgba(15,23,42,0.08),inset_0_1px_0_0_rgba(255,255,255,0.9)]`}
     >
       {VIEW_PRESETS.map((v) => {
         const disabled = v.needsTerrain && !hasMaptiler;
