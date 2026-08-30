@@ -10,6 +10,11 @@ import {
 } from '@/constants/publicMap';
 import { buildRainfallPaintExpression, FLOOD_HAZARD_COLORS } from '@/lib/map/colorScales';
 import { HIMAWARI_COORDINATES, HIMAWARI_PLACEHOLDER_DATA_URL } from '@/lib/map/himawari';
+import {
+  PAR_BOUNDARY_GEOJSON,
+  TYPHOON_CATEGORY_CONFIG,
+  DEFAULT_TYPHOON_COLOR,
+} from '@/lib/map/typhoon';
 import { createReportMarkerImage } from '@/lib/map/reportMarkers';
 
 export type MapMode = '2d' | '3d';
@@ -35,6 +40,7 @@ export interface OverlayLayerState {
   showFloodHazard: boolean;
   showRainfall: boolean;
   showHimawariIR: boolean;
+  showTyphoonTrack?: boolean;
   showBarangayBoundaries?: boolean;
   visibleRiskLevels: Record<string, boolean>;
   mapMode: MapMode;
@@ -162,8 +168,248 @@ export const setupOverlayLayers = async (
     });
   }
 
-  // Apply current toggle state (handles case where user toggled before load)
+
+// --- PAR (Philippine Area of Responsibility) boundary ---
+  if (!map.getSource('par-outline')) {
+    map.addSource('par-outline', {
+      type: 'geojson',
+      data: PAR_BOUNDARY_GEOJSON,
+      attribution:
+        'Typhoon & PAR: <a href="https://bagong.pagasa.dost.gov.ph/" target="_blank" rel="noopener">DOST-PAGASA</a> / <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">NOAH</a>',
+    });
+
+    map.addLayer({
+      id: 'par-boundary-line',
+      type: 'line',
+      source: 'par-outline',
+      before: 'report-clusters',
+      paint: {
+        'line-color': '#d97706',
+        'line-width': 1.2,
+        'line-dasharray': [5, 4],
+        'line-opacity': 0.7,
+      },
+    });
+
+    map.addLayer({
+      id: 'par-boundary-label',
+      type: 'symbol',
+      source: 'par-outline',
+      before: 'report-clusters',
+      layout: {
+        'text-field': 'PAR Boundary (PAGASA)',
+        'text-size': 10,
+        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+        'symbol-placement': 'line',
+        'text-offset': [0, -0.8],
+        'text-allow-overlap': false,
+      },
+      paint: {
+        'text-color': '#b45309',
+        'text-halo-color': 'rgba(255, 255, 255, 0.85)',
+        'text-halo-width': 1.2,
+      },
+    });
+  }
+
+  // --- Official Typhoon Feed Source & Layers ---
+  if (!map.getSource('typhoon-track')) {
+    map.addSource('typhoon-track', {
+      type: 'geojson',
+      data: { type: 'FeatureCollection', features: [] },
+    });
+
+    // 1. Official Forecast Cone (subtle shaded envelope)
+    map.addLayer({
+      id: 'typhoon-forecast-cone-fill',
+      type: 'fill',
+      source: 'typhoon-track',
+      before: 'report-clusters',
+      filter: ['==', ['get', 'type'], 'smoothed_hull'],
+      paint: {
+        'fill-color': 'rgba(244, 63, 94, 0.09)',
+        'fill-opacity': 1,
+      },
+    });
+
+    map.addLayer({
+      id: 'typhoon-forecast-cone-outline',
+      type: 'line',
+      source: 'typhoon-track',
+      before: 'report-clusters',
+      filter: ['==', ['get', 'type'], 'smoothed_hull'],
+      paint: {
+        'line-color': '#f43f5e',
+        'line-width': 1.1,
+        'line-dasharray': [4, 3],
+        'line-opacity': 0.5,
+      },
+    });
+
+    // 2. Track Line (Clean, high-definition storm polyline)
+    map.addLayer({
+      id: 'typhoon-track-line-glow',
+      type: 'line',
+      source: 'typhoon-track',
+      before: 'report-clusters',
+      filter: ['==', ['geometry-type'], 'LineString'],
+      paint: {
+        'line-color': '#e11d48',
+        'line-width': 3,
+        'line-blur': 1,
+        'line-opacity': 0.35,
+      },
+    });
+
+    map.addLayer({
+      id: 'typhoon-track-line',
+      type: 'line',
+      source: 'typhoon-track',
+      before: 'report-clusters',
+      filter: ['==', ['geometry-type'], 'LineString'],
+      paint: {
+        'line-color': '#e11d48',
+        'line-width': 2,
+        'line-dasharray': [4, 2],
+        'line-opacity': 0.9,
+      },
+    });
+
+    // 3. Track Milestone Nodes (Prominent radar milestone discs)
+    // Only renders nodes for official classifications ('STY', 'TY', 'STS', 'TS', 'TD', 'LPA')
+    const officialCategoryFilter = [
+      'all',
+      ['==', ['geometry-type'], 'Point'],
+      [
+        'in',
+        ['upcase', ['coalesce', ['get', 'typhoon_type'], '']],
+        ['literal', ['STY', 'TY', 'STS', 'TS', 'TD', 'LPA']],
+      ],
+    ];
+
+    map.addLayer({
+      id: 'typhoon-track-point-halo',
+      type: 'circle',
+      source: 'typhoon-track',
+      before: 'report-clusters',
+      filter: officialCategoryFilter,
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          3, 9,
+          6, 12.5,
+          9, 16,
+        ],
+        'circle-color': [
+          'match',
+          ['upcase', ['coalesce', ['get', 'typhoon_type'], 'TY']],
+          'STY', TYPHOON_CATEGORY_CONFIG.STY.color,
+          'TY', TYPHOON_CATEGORY_CONFIG.TY.color,
+          'STS', TYPHOON_CATEGORY_CONFIG.STS.color,
+          'TS', TYPHOON_CATEGORY_CONFIG.TS.color,
+          'TD', TYPHOON_CATEGORY_CONFIG.TD.color,
+          'LPA', TYPHOON_CATEGORY_CONFIG.LPA.color,
+          DEFAULT_TYPHOON_COLOR,
+        ],
+        'circle-opacity': 0.28,
+        'circle-blur': 0.5,
+      },
+    });
+
+    map.addLayer({
+      id: 'typhoon-track-point-circle',
+      type: 'circle',
+      source: 'typhoon-track',
+      before: 'report-clusters',
+      filter: officialCategoryFilter,
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          3, 6,
+          6, 7.5,
+          9, 9.5,
+        ],
+        'circle-color': [
+          'match',
+          ['upcase', ['coalesce', ['get', 'typhoon_type'], 'TY']],
+          'STY', TYPHOON_CATEGORY_CONFIG.STY.color,
+          'TY', TYPHOON_CATEGORY_CONFIG.TY.color,
+          'STS', TYPHOON_CATEGORY_CONFIG.STS.color,
+          'TS', TYPHOON_CATEGORY_CONFIG.TS.color,
+          'TD', TYPHOON_CATEGORY_CONFIG.TD.color,
+          'LPA', TYPHOON_CATEGORY_CONFIG.LPA.color,
+          DEFAULT_TYPHOON_COLOR,
+        ],
+        'circle-stroke-width': 1.5,
+        'circle-stroke-color': 'rgba(255, 255, 255, 0.95)',
+      },
+    });
+
+    map.addLayer({
+      id: 'typhoon-track-point-dot',
+      type: 'circle',
+      source: 'typhoon-track',
+      before: 'report-clusters',
+      filter: officialCategoryFilter,
+      paint: {
+        'circle-radius': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          3, 2,
+          6, 2.5,
+          9, 3.2,
+        ],
+        'circle-color': '#ffffff',
+      },
+    });
+
+    map.addLayer({
+      id: 'typhoon-track-point-label',
+      type: 'symbol',
+      source: 'typhoon-track',
+      before: 'report-clusters',
+      filter: officialCategoryFilter,
+      layout: {
+        'text-field': ['get', 'typhoon_type'],
+        'text-size': [
+          'interpolate',
+          ['linear'],
+          ['zoom'],
+          3, 9.5,
+          6, 11,
+          9, 12.5,
+        ],
+        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+        'text-offset': [0, 1.4],
+        'text-anchor': 'top',
+        'text-allow-overlap': false,
+      },
+      paint: {
+        'text-color': '#1e293b',
+        'text-halo-color': 'rgba(255, 255, 255, 0.95)',
+        'text-halo-width': 1.5,
+      },
+    });
+  }
+
+    // Apply current toggle state (handles case where user toggled before load)
+  const typhoonVis = state.showTyphoonTrack ?? false;
   const initialLayers: Array<[string, boolean]> = [
+    ['par-boundary-line', typhoonVis],
+    ['par-boundary-label', typhoonVis],
+    ['typhoon-forecast-cone-fill', typhoonVis],
+    ['typhoon-forecast-cone-outline', typhoonVis],
+    ['typhoon-track-line-glow', typhoonVis],
+    ['typhoon-track-line', typhoonVis],
+    ['typhoon-track-point-halo', typhoonVis],
+    ['typhoon-track-point-circle', typhoonVis],
+    ['typhoon-track-point-dot', typhoonVis],
+    ['typhoon-track-point-label', typhoonVis],
     ['flood-hazard-fill', state.showFloodHazard],
     ['rainfall-grid', state.showRainfall],
     ['barangay-outline-casing', state.showBarangayBoundaries ?? false],
@@ -425,19 +671,39 @@ export const setupOverlayLayers = async (
         // never settles at the ~167 ms loop interval and smears every swap.
         'raster-fade-duration': 0,
       },
-    }, 'report-clusters');
+    }, map.getLayer('flood-hazard-fill') ? 'flood-hazard-fill' : 'report-clusters');
 
     map.setLayoutProperty('himawari-ir-layer', 'visibility', state.showHimawariIR ? 'visible' : 'none');
   }
 
-  // Keep barangay layer below all report overlays regardless of add order.
-  if (map.getLayer('barangay-outline') && map.getLayer('report-clusters')) {
-    map.moveLayer('barangay-fill', 'report-clusters');
-    map.moveLayer('barangay-label', 'report-clusters');
-    if (map.getLayer('barangay-outline-casing')) {
-      map.moveLayer('barangay-outline-casing', 'report-clusters');
-    }
-    map.moveLayer('barangay-outline', 'report-clusters');
+// Guarantee layer stacking order:
+  // Base -> Himawari Satellite -> Flood Hazard -> Rainfall Grid -> Barangay -> PAR -> Typhoon Cone -> Typhoon Track -> Typhoon Points -> Report Pins
+  const orderedLayers = [
+    'himawari-ir-layer',
+    'flood-hazard-fill',
+    'rainfall-grid',
+    'barangay-fill',
+    'barangay-outline-casing',
+    'barangay-outline',
+    'barangay-label',
+    'par-boundary-line',
+    'par-boundary-label',
+    'typhoon-forecast-cone-fill',
+    'typhoon-forecast-cone-outline',
+    'typhoon-track-line-glow',
+    'typhoon-track-line',
+    'typhoon-track-point-halo',
+    'typhoon-track-point-circle',
+    'typhoon-track-point-dot',
+    'typhoon-track-point-label',
+  ];
+
+  if (map.getLayer('report-clusters')) {
+    orderedLayers.forEach((layerId) => {
+      if (map.getLayer(layerId)) {
+        map.moveLayer(layerId, 'report-clusters');
+      }
+    });
   }
 
   // --- 3D terrain + hillshade (MapTiler view) ---
