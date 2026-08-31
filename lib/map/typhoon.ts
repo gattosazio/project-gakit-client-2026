@@ -45,7 +45,6 @@ export const TYPHOON_CATEGORY_CONFIG: Record<
     name: string;
     color: string;
     windRange: string;
-    windKnots?: string;
     description?: string;
   }
 > = {
@@ -54,7 +53,6 @@ export const TYPHOON_CATEGORY_CONFIG: Record<
     name: 'Super Typhoon',
     color: '#a855f7', // Purple
     windRange: '≥ 185 km/h',
-    windKnots: '≥ 100 kts',
     description: 'Catastrophic sustained winds capable of widespread severe structural destruction and storm surges.',
   },
   TY: {
@@ -62,7 +60,6 @@ export const TYPHOON_CATEGORY_CONFIG: Record<
     name: 'Typhoon',
     color: '#ef4444', // Red
     windRange: '118–184 km/h',
-    windKnots: '64–99 kts',
     description: 'Destructive to very destructive winds causing substantial roof, tree, and infrastructure damage.',
   },
   STS: {
@@ -70,7 +67,6 @@ export const TYPHOON_CATEGORY_CONFIG: Record<
     name: 'Severe Tropical Storm',
     color: '#f97316', // Orange
     windRange: '89–117 km/h',
-    windKnots: '48–63 kts',
     description: 'Damaging gale to storm-force winds with hazardous sea conditions and rough coastal waters.',
   },
   TS: {
@@ -78,7 +74,6 @@ export const TYPHOON_CATEGORY_CONFIG: Record<
     name: 'Tropical Storm',
     color: '#eab308', // Yellow
     windRange: '62–88 km/h',
-    windKnots: '34–47 kts',
     description: 'Strong to gale-force winds capable of light to moderate structural strain and marine hazards.',
   },
   TD: {
@@ -86,7 +81,6 @@ export const TYPHOON_CATEGORY_CONFIG: Record<
     name: 'Tropical Depression',
     color: '#22c55e', // Green
     windRange: '≤ 61 km/h',
-    windKnots: '≤ 33 kts',
     description: 'Strong breeze to near-gale winds producing dense cloud clusters and moderate to heavy rainfall.',
   },
   LPA: {
@@ -94,19 +88,18 @@ export const TYPHOON_CATEGORY_CONFIG: Record<
     name: 'Low Pressure Area',
     color: '#0284c7', // Blue
     windRange: 'Developing Low',
-    windKnots: 'Unorganized',
     description: 'Developing low pressure system or tropical disturbance with unorganized atmospheric circulation.',
   },
 };
 
-/** Exact 6 categories in NOAH legend */
+/** Official 6 DOST-PAGASA cyclone categories */
 export const PRIMARY_TYPHOON_CATEGORIES = ['STY', 'TY', 'STS', 'TS', 'TD', 'LPA'] as const;
 
 export const DEFAULT_TYPHOON_COLOR = '#ef4444';
 
 /**
  * Normalizes raw agency acronyms or upstream typos (e.g. 'AA', 'LOW', 'TC')
- * into the official 6 PAGASA / NOAH classifications.
+ * into the official 6 DOST-PAGASA classifications.
  */
 export function normalizeTyphoonCategory(category?: string): string {
   if (!category) return 'LPA';
@@ -167,45 +160,45 @@ export function buildTyphoonPopupHtml(props: TyphoonProperties): string {
     : `${props.date || ''} ${props.time || ''}`.trim() || 'Active';
 
   return `
-    <div class="typhoon-popup p-1 text-slate-800 font-sans text-xs">
-      <div class="flex items-center gap-1.5 mb-1.5 pb-1.5 border-b border-slate-100 pr-6">
-        <span class="inline-flex items-center justify-center px-1.5 py-0.5 rounded text-[10px] font-bold text-white shadow-xs" style="background-color: ${typeConfig.color}">
+    <div class="gakit-tooltip typhoon-popup min-w-[260px] sm:min-w-[280px] text-slate-800" style="font-family: var(--font-inter), system-ui, sans-serif;">
+      <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100 pr-6">
+        <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-bold text-white shadow-2xs shrink-0" style="background-color: ${typeConfig.color}">
           ${typeCode}
         </span>
-        <div class="font-bold text-slate-900 truncate leading-tight">${name}</div>
+        <div class="font-bold text-xs text-slate-900 truncate leading-tight">${name}</div>
       </div>
-      <div class="space-y-1 text-[11px] text-slate-600">
-        <div class="flex justify-between">
-          <span class="text-slate-400">Classification:</span>
-          <span class="font-semibold text-slate-700">${typeConfig.name}</span>
+      <div class="space-y-1.5 text-[11px] leading-relaxed">
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-slate-500 shrink-0">Classification:</span>
+          <span class="font-semibold text-slate-900 text-right">${typeConfig.name}</span>
         </div>
         ${
           props.windspeed
-            ? `<div class="flex justify-between">
-                <span class="text-slate-400">Max Sustained Winds:</span>
-                <span class="font-semibold text-slate-700">${props.windspeed} km/h</span>
+            ? `<div class="flex items-center justify-between gap-4">
+                <span class="text-slate-500 shrink-0">Max Sustained Winds:</span>
+                <span class="font-semibold text-slate-900 text-right tabular-nums">${props.windspeed} km/h</span>
               </div>`
             : ''
         }
         ${
           props.pressure
-            ? `<div class="flex justify-between">
-                <span class="text-slate-400">Central Pressure:</span>
-                <span class="font-semibold text-slate-700">${props.pressure} hPa</span>
+            ? `<div class="flex items-center justify-between gap-4">
+                <span class="text-slate-500 shrink-0">Central Pressure:</span>
+                <span class="font-semibold text-slate-900 text-right tabular-nums">${props.pressure} hPa</span>
               </div>`
             : ''
         }
         ${
           isForecast && props.radius
-            ? `<div class="flex justify-between">
-                <span class="text-slate-400">Forecast Radius:</span>
-                <span class="font-semibold text-amber-600">± ${Math.round(props.radius)} km</span>
+            ? `<div class="flex items-center justify-between gap-4">
+                <span class="text-slate-500 shrink-0">Forecast Radius:</span>
+                <span class="font-semibold text-slate-900 text-right tabular-nums">± ${Math.round(props.radius)} km</span>
               </div>`
             : ''
         }
-        <div class="flex justify-between">
-          <span class="text-slate-400">Position:</span>
-          <span class="font-mono text-[10px] text-slate-700">
+        <div class="flex items-center justify-between gap-4">
+          <span class="text-slate-500 shrink-0">Position:</span>
+          <span class="font-mono text-[10.5px] font-semibold text-slate-900 text-right">
             ${
               typeof props.latitude === 'number' && typeof props.longitude === 'number'
                 ? `${props.latitude.toFixed(1)}°N, ${props.longitude.toFixed(1)}°E`
@@ -213,9 +206,9 @@ export function buildTyphoonPopupHtml(props: TyphoonProperties): string {
             }
           </span>
         </div>
-        <div class="flex justify-between pt-1 border-t border-slate-100 text-[10px] text-slate-400">
-          <span>Date/Time:</span>
-          <span class="font-medium text-slate-600">${dateStr}</span>
+        <div class="flex items-center justify-between gap-4 pt-1.5 border-t border-slate-100 text-[10px] text-slate-400">
+          <span class="shrink-0">Date/Time:</span>
+          <span class="font-medium text-slate-600 text-right">${dateStr}</span>
         </div>
       </div>
     </div>

@@ -188,7 +188,7 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
                       key={day.date}
                       type="button"
                       onClick={() => setSelectedDate(day.date)}
-                      className={`flex flex-col items-center justify-between rounded-xl p-2 text-center transition-all duration-150 active:scale-95 ${
+                      className={`flex flex-col items-center justify-between rounded-xl p-2 text-center transition-colors duration-150 ${
                         isSelected
                           ? 'bg-white text-slate-900 shadow-md ring-2 ring-gakit-maroon font-bold'
                           : 'bg-canvas-light text-slate-600 hover:bg-slate-100/80 ring-1 ring-canvas-grey'
@@ -197,7 +197,7 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
                       <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${isSelected ? 'text-gakit-maroon' : 'text-slate-400'}`}>
                         {shortName}
                       </span>
-                      <div className={`my-1.5 flex h-7 w-7 items-center justify-center rounded-lg transition-transform ${isSelected ? 'bg-maroon-50/80 ring-1 ring-maroon-200/60 scale-105' : 'bg-white shadow-2xs ring-1 ring-canvas-grey'}`}>
+                      <div className={`my-1.5 flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${isSelected ? 'bg-maroon-50/80 ring-1 ring-maroon-200/60' : 'bg-white shadow-2xs ring-1 ring-canvas-grey'}`}>
                         <DayIcon className={`h-4 w-4 ${isSelected ? 'text-gakit-maroon' : 'text-slate-600'}`} />
                       </div>
                       <div className="flex items-center gap-0.5 text-[10px] tabular-nums font-bold leading-none">

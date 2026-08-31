@@ -123,7 +123,7 @@ export function WeatherChip({
       {open ? (
         <div className="w-72 hud-card">
           {/* Standard MapControls Card Header */}
-          <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
+          <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-1 text-xs font-bold text-slate-900">
             <div className="flex min-w-0 items-center gap-2">
               <PillIcon className="w-3.5 h-3.5 text-gakit-maroon shrink-0" />
               <span className="truncate">Weather Outlook</span>
@@ -138,7 +138,7 @@ export function WeatherChip({
             </div>
             <button
               onClick={() => setOpen(false)}
-              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors active:scale-95"
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
               aria-label="Collapse weather outlook"
             >
               <ChevronUp className="w-4 h-4" />
@@ -146,7 +146,7 @@ export function WeatherChip({
           </div>
 
           {/* Card Content Area */}
-          <div className="max-h-[46vh] overflow-y-auto px-3 pb-3 space-y-2">
+          <div className="max-h-[46vh] overflow-y-auto px-3 pb-3 pt-1 space-y-2">
             {/* Current Conditions ("Now") */}
             {current && (
               <CurrentConditions current={current} />
@@ -164,15 +164,15 @@ export function WeatherChip({
                   onClick={() => setSelectedDayDate(today.date)}
                   title="Click to view detailed hourly rainfall breakdown for Today"
                   aria-label="Open detailed weather breakdown for Today"
-                  className="group flex flex-col w-full p-2.5 text-left hud-tile hover:bg-slate-100/80 active:scale-[0.99] cursor-pointer"
+                  className="group flex flex-col w-full p-2.5 text-left rounded-xl bg-slate-50/80 border border-slate-200/70 shadow-2xs hover:bg-slate-100/90 hover:border-slate-300/80 cursor-pointer transition-all"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white shadow-xs ring-1 ring-canvas-grey">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white border border-slate-200/60 shadow-xs">
                         <Icon className="h-3.5 w-3.5 text-slate-700" />
                       </span>
                       <div>
-                        <span className="block text-xs font-bold text-slate-900 group-hover:text-gakit-maroon transition-colors">Today</span>
+                        <span className="block text-xs font-bold text-slate-900">Today</span>
                         <span className="block text-[10px] text-slate-500 font-medium leading-tight">{detail}</span>
                       </div>
                     </div>
@@ -181,7 +181,7 @@ export function WeatherChip({
                       <span className="ml-1.5 text-[11px] font-medium text-slate-400">{today.tempMin}°</span>
                     </div>
                   </div>
-                  <div className="mt-2 pt-1 border-t border-slate-200/50">
+                  <div className="mt-2 pt-1.5 border-t border-slate-200/60">
                     <RainStrip hours={today.hours} />
                   </div>
                 </button>
@@ -204,12 +204,12 @@ export function WeatherChip({
                         onClick={() => setSelectedDayDate(day.date)}
                         title={`Click to view hourly rain breakdown for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
                         aria-label={`Open detailed weather breakdown for ${friendlyDay(`${day.date}T00:00:00+08:00`)}`}
-                        className="group flex flex-col items-center justify-between p-2 text-center hud-tile hover:bg-white hover:shadow-xs active:scale-95 cursor-pointer"
+                        className="group flex flex-col items-center justify-between p-2 text-center rounded-xl bg-slate-50/80 border border-slate-200/70 shadow-2xs hover:bg-white hover:border-slate-300/80 hover:shadow-xs transition-all cursor-pointer"
                       >
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 group-hover:text-gakit-maroon transition-colors">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                           {shortName}
                         </span>
-                        <div className="my-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white shadow-xs ring-1 ring-canvas-grey group-hover:scale-105 transition-transform">
+                        <div className="my-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white border border-slate-200/60 shadow-2xs">
                           <Icon className="h-4 w-4 text-slate-700" />
                         </div>
                         <div className="flex items-center gap-1 text-[10px] font-bold text-slate-900 tabular-nums">
@@ -231,10 +231,10 @@ export function WeatherChip({
               <button
                 type="button"
                 onClick={() => setShowAllDays((prev) => !prev)}
-                className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-slate-700 hud-tile hover:bg-slate-100 hover:text-gakit-maroon active:scale-[0.98] transition-colors"
+                className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-slate-700 rounded-xl bg-slate-50/80 border border-slate-200/70 hover:bg-slate-100/90 hover:text-slate-900 transition-all"
               >
                 <span>{showAllDays ? 'Hide upcoming days' : '5-Day Forecast'}</span>
-                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showAllDays ? 'rotate-180 text-gakit-maroon' : 'text-slate-400'}`} />
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showAllDays ? 'rotate-180 text-slate-700' : 'text-slate-400'}`} />
               </button>
             )}
 
@@ -246,7 +246,7 @@ export function WeatherChip({
       ) : (
         <button
           onClick={() => setOpen(true)}
-          className="flex items-center gap-2 px-3 py-2.5 hud-pill hover:bg-white hover:shadow-lg active:scale-[0.97]"
+          className="flex items-center gap-2 px-3 py-2.5 hud-pill hover:bg-white hover:shadow-lg transition-all duration-150"
           title={pillTooltip}
           aria-label="Show weather outlook"
           aria-expanded={open}

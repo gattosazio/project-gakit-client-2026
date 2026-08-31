@@ -20,8 +20,8 @@ export function CurrentConditions({ current }: { current: CurrentWeather }) {
   });
 
   return (
-    <div className="flex items-center gap-2.5 p-2.5 hud-tile">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white shadow-xs ring-1 ring-canvas-grey">
+    <div className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50/80 border border-slate-200/70 shadow-2xs transition-colors">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white border border-slate-200/60 shadow-xs text-gakit-maroon">
         <Icon className="h-4 w-4 text-gakit-maroon" />
       </span>
       <span className="min-w-0 flex-1 leading-tight">
