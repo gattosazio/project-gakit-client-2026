@@ -13,8 +13,8 @@ interface CachedTyphoonState {
 }
 
 let inMemoryCache: CachedTyphoonState | null = null;
-const CACHE_FRESH_MS = 180_000; // 3 minutes fresh
-const CACHE_MAX_STALE_MS = 600_000; // 10 minutes max stale
+const CACHE_FRESH_MS = 600_000; // 10 minutes fresh
+const CACHE_MAX_STALE_MS = 1_800_000; // 30 minutes max stale
 
 async function computeTyphoonPayload(): Promise<TyphoonApiResponse> {
   // 1. Try live DOST-PAGASA Panahon portal first (freshest official real-time feed)
@@ -32,8 +32,8 @@ async function computeTyphoonPayload(): Promise<TyphoonApiResponse> {
     try {
       const trackRes = await fetch(NOAH_TYPHOON_URL, {
         headers: { 'User-Agent': 'ProjectGakit/1.0' },
-        signal: AbortSignal.timeout(8000),
-        next: { revalidate: 300 },
+        signal: AbortSignal.timeout(6000),
+        next: { revalidate: 600 },
       });
       if (trackRes.ok) {
         const raw = await trackRes.json();
@@ -50,7 +50,7 @@ async function computeTyphoonPayload(): Promise<TyphoonApiResponse> {
   try {
     const parRes = await fetch(NOAH_PAR_URL, {
       headers: { 'User-Agent': 'ProjectGakit/1.0' },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(6000),
       next: { revalidate: 86400 },
     });
     if (parRes.ok) {
@@ -151,7 +151,7 @@ export async function GET() {
   if (inMemoryCache && now - inMemoryCache.fetchedAt < CACHE_FRESH_MS) {
     return NextResponse.json(inMemoryCache.payload, {
       headers: {
-        'Cache-Control': 'public, max-age=180, stale-while-revalidate=600',
+        'Cache-Control': 'public, max-age=600, stale-while-revalidate=1800',
         'X-Cache-Status': 'HIT',
       },
     });
@@ -162,7 +162,7 @@ export async function GET() {
     void refreshCacheInBackground();
     return NextResponse.json(inMemoryCache.payload, {
       headers: {
-        'Cache-Control': 'public, max-age=180, stale-while-revalidate=600',
+        'Cache-Control': 'public, max-age=600, stale-while-revalidate=1800',
         'X-Cache-Status': 'STALE',
       },
     });
@@ -179,7 +179,7 @@ export async function GET() {
 
     return NextResponse.json(payload, {
       headers: {
-        'Cache-Control': 'public, max-age=180, stale-while-revalidate=600',
+        'Cache-Control': 'public, max-age=600, stale-while-revalidate=1800',
         'X-Cache-Status': 'MISS',
       },
     });
