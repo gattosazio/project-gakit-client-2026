@@ -1,4 +1,4 @@
-interface ElevationMeta {
+export interface ElevationMeta {
   min_lat: number;
   max_lat: number;
   min_lng: number;

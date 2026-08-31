@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronUp, Info, Layers, ListFilter, RotateCwFadingClock } from 'lucide-react';
+import { ChevronUp, Info, Layers, ListFilter, Loader2, RotateCwFadingClock } from 'lucide-react';
 import {
   REPORT_MARKER_COLORS,
   REPORT_STATUS_LEGEND,
@@ -62,6 +62,7 @@ function PillToggle({
   onChange,
   credit,
   subtitle,
+  loading = false,
 }: {
   label: string;
   color: string;
@@ -69,6 +70,7 @@ function PillToggle({
   onChange: (v: boolean) => void;
   credit?: { href: string; label: string };
   subtitle?: string;
+  loading?: boolean;
 }) {
   return (
     <label className="flex items-center gap-2 cursor-pointer select-none group">
@@ -90,9 +92,12 @@ function PillToggle({
           }`}
         />
       </span>
-      <span className="text-xs text-slate-700 font-medium group-hover:text-slate-900">
-        {label}
-        {subtitle && <span className="text-slate-400 ml-0.5">{subtitle}</span>}
+      <span className="flex items-center gap-1.5 min-w-0 text-xs text-slate-700 font-medium group-hover:text-slate-900">
+        <span className="truncate">{label}</span>
+        {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
+        {loading && (
+          <Loader2 className="w-3 h-3 animate-spin text-slate-400 shrink-0" aria-label="Loading layer data" />
+        )}
       </span>
       {credit && (
         <a
@@ -100,7 +105,7 @@ function PillToggle({
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="ml-auto text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline"
+          className="ml-auto text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline shrink-0"
           title={`Data source: ${credit.label}`}
         >
           © {credit.label}
@@ -245,6 +250,7 @@ interface ReportControlsProps {
   onReportStatusChange: (status: ReportStatus, checked: boolean) => void;
   reportStatusToggleStatuses?: ReportStatus[];
   reportWindowHours?: number | null;
+  isLoading?: boolean;
 }
 
 export function ReportControls({
@@ -254,13 +260,24 @@ export function ReportControls({
   onReportStatusChange,
   reportStatusToggleStatuses,
   reportWindowHours,
+  isLoading = false,
 }: ReportControlsProps) {
   const legend =
     reportStatusToggleStatuses ??
     REPORT_STATUS_LEGEND.map(({ status }) => status);
 
   return (
-    <Card open={open} onToggle={onToggle} icon={ListFilter} title="Reports">
+    <Card
+      open={open}
+      onToggle={onToggle}
+      icon={ListFilter}
+      title="Reports"
+      badge={
+        isLoading ? (
+          <Loader2 className="w-3 h-3 animate-spin text-slate-400 shrink-0 ml-1" />
+        ) : undefined
+      }
+    >
       <div className="text-[10px] text-slate-400 font-medium mb-2">
         {formatReportWindowSubtitle(reportWindowHours)}
       </div>
@@ -290,6 +307,7 @@ interface DataLayerControlsProps {
   onShowFloodHazardChange: (checked: boolean) => void;
   showRainfall: boolean;
   onShowRainfallChange: (checked: boolean) => void;
+  isLoadingRainfall?: boolean;
   rainfallObservedAt: string | null;
   rainfallSource: string | null;
   rainfallHours: RainfallAccumulationHours;
@@ -298,10 +316,12 @@ interface DataLayerControlsProps {
   onRiskLevelChange: (key: string, checked: boolean) => void;
   showHimawariIR: boolean;
   onShowHimawariIRChange: (checked: boolean) => void;
+  isLoadingHimawari?: boolean;
   himawariOpacity: number;
   onHimawariOpacityChange: (value: number) => void;
   showTyphoonTrack?: boolean;
   onShowTyphoonTrackChange?: (checked: boolean) => void;
+  isLoadingTyphoon?: boolean;
   activeTyphoonName?: string | null;
   hasActiveTyphoon?: boolean;
   activeStorms?: ActiveStormSummary[];
@@ -317,6 +337,7 @@ export function DataLayerControls({
   onShowFloodHazardChange,
   showRainfall,
   onShowRainfallChange,
+  isLoadingRainfall = false,
   rainfallObservedAt,
   rainfallSource,
   rainfallHours,
@@ -325,10 +346,12 @@ export function DataLayerControls({
   onRiskLevelChange,
   showHimawariIR,
   onShowHimawariIRChange,
+  isLoadingHimawari = false,
   himawariOpacity,
   onHimawariOpacityChange,
   showTyphoonTrack = false,
   onShowTyphoonTrackChange,
+  isLoadingTyphoon = false,
   activeTyphoonName,
   hasActiveTyphoon = false,
   activeStorms,
@@ -373,6 +396,7 @@ export function DataLayerControls({
           color="#0284C7"
           checked={showRainfall}
           onChange={onShowRainfallChange}
+          loading={showRainfall && isLoadingRainfall}
           credit={{
             href: JAXA_GSMAP_URL,
             label: 'JAXA GSMaP',
@@ -449,6 +473,7 @@ export function DataLayerControls({
           color="#6366f1"
           checked={showHimawariIR}
           onChange={onShowHimawariIRChange}
+          loading={showHimawariIR && isLoadingHimawari}
           credit={{
             href: 'https://www.data.jma.go.jp/mscweb/data/himawari/',
             label: 'JMA Himawari-9',
@@ -485,6 +510,7 @@ export function DataLayerControls({
           color="#ef4444"
           checked={showTyphoonTrack}
           onChange={(checked) => onShowTyphoonTrackChange?.(checked)}
+          loading={showTyphoonTrack && isLoadingTyphoon}
           credit={{
             href: 'https://bagong.pagasa.dost.gov.ph/',
             label: 'DOST-PAGASA',

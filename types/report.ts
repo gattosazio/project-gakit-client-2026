@@ -50,6 +50,16 @@ export interface MapReportsResponse {
   features: MapReportFeature[];
 }
 
+export interface MapReportToShow {
+  id: string;
+  lat: number;
+  lng: number;
+  address: string;
+  depthLabel: string;
+  statusLabel: string;
+  createdAt: string;
+}
+
 export interface MapBounds {
   west: number;
   south: number;

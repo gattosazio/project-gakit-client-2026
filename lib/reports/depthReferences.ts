@@ -1,6 +1,6 @@
-import type { FloodDepthCode } from '@/types/report';
+import type { FloodDepthCode, FloodReference } from '@/types/report';
 
-export type FloodReference = 'adult' | 'motorcycle' | 'sedan' | 'suv' | 'jeepney' | 'bus';
+export type { FloodReference };
 
 /**
  * Vertical span of the illustration scene, in centimeters. Every reference and

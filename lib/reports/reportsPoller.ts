@@ -3,7 +3,7 @@ import { getBackendStatus } from '@/lib/backend/backendStatus';
 import {
   buildMapReportsUrl,
   fetchMapReports,
-} from '@/app/public-view/actions/public.view';
+} from '@/app/public-view/actions/publicView';
 import { ILIGAN_REPORT_BOUNDS } from '@/constants/publicMap';
 import type { MapReportFeature, MapReportFilters } from '@/types/report';
 

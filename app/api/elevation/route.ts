@@ -1,16 +1,7 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-
-interface ElevationMeta {
-  min_lat: number;
-  max_lat: number;
-  min_lng: number;
-  max_lng: number;
-  rows: number;
-  cols: number;
-  scale: number;
-}
+import type { ElevationMeta } from '@/lib/map/elevation';
 
 let elevationBuffer: Buffer | null = null;
 let elevationMeta: ElevationMeta | null = null;
