@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from '@/components/ReportModal';
-import { Building2, Handshake, Loader2, Mail, MapPin } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth } from './actions/publicView';
 import { reverseGeocode } from '@/lib/map/geoUtils';
@@ -13,6 +12,8 @@ import type { PublicMapHandle } from '@/components/PublicMap';
 import type { CreateReportInput, DepthCategory, FloodReference, Report, ReportStatus } from '@/types/report';
 import type { AuthSnapshot } from '@/lib/auth/roles';
 import { SectionJumpControls } from './components/SectionJumpControls';
+import { AboutSection } from './components/AboutSection';
+import { DataPrivacySection } from './components/DataPrivacySection';
 import {
   LocationPromptModal,
   type SelectedLocation,
@@ -21,6 +22,7 @@ import {
   SuccessModal,
   type SubmittedReport,
 } from './components/SuccessModal';
+import { TopoBackground } from './components/TopoBackground';
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
@@ -47,6 +49,7 @@ export function PublicViewPage({
   const [isManualLocationMode, setIsManualLocationMode] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<SectionId>('hazard-map');
+  const [aboutTab, setAboutTab] = useState<'about' | 'privacy'>('about');
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(
     null
   );
@@ -359,118 +362,52 @@ export function PublicViewPage({
             </div>
           </section>
 
-          <section id="about" className="border-t border-maroon-900/40 bg-gakit-maroon scroll-mt-16 snap-start">
-          <div className="mx-auto grid w-full max-w-6xl gap-3.5 px-4 py-8 sm:gap-6 sm:px-6 md:gap-10 md:py-16 lg:grid-cols-[1.15fr_0.85fr] lg:py-20">
-            <div>
-              <div className="mb-2 font-heading text-xs font-bold uppercase tracking-[0.18em] text-rose-200 md:mb-3">
-                About Project GAKIT
-              </div>
-              <h2 className="max-w-2xl font-heading text-2xl font-extrabold leading-tight text-white sm:text-3xl md:text-4xl">
-                Community flood reports help others make safer decisions.
-              </h2>
-              <p className="mt-3 max-w-2xl text-sm font-medium leading-relaxed text-rose-100/90 sm:text-base sm:leading-7 md:mt-5">
-                GAKIT combines community observations, geospatial information,
-                and environmental data to support local flood awareness in
-                Iligan City. Public reports help responders and researchers see
-                where flooding is being experienced on the ground.
-              </p>
-
-              <div className="mt-5 grid gap-3.5 sm:mt-8 sm:grid-cols-2 sm:gap-5">
-                <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
-                  <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon shadow-xs ring-1 ring-maroon-200/80 sm:h-12 sm:w-12 sm:rounded-2xl">
-                      <MapPin className="h-5 w-5 sm:h-6 sm:w-6" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-heading text-base font-bold tracking-tight text-slate-900 sm:text-lg">Local reporting</h3>
-                      <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:mt-1.5 sm:text-sm sm:leading-6">
-                        Residents can mark a flooded location and share the observed
-                        water depth.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-6 sm:shadow-2xl">
-                  <div className="flex items-start gap-3 sm:gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon shadow-xs ring-1 ring-maroon-200/80 sm:h-12 sm:w-12 sm:rounded-2xl">
-                      <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-heading text-base font-bold tracking-tight text-slate-900 sm:text-lg">Decision support</h3>
-                      <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:mt-1.5 sm:text-sm sm:leading-6">
-                        Reports complement hazard, rainfall, and terrain data for
-                        safer local decisions.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3.5 sm:space-y-5 lg:space-y-6 lg:pt-7">
-              <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <a
-                    href="https://www.msuiit.edu.ph"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="relative flex h-12 w-12 sm:h-14 sm:w-14 shrink-0 items-center justify-center transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 rounded-lg"
-                    aria-label="Visit MSU-IIT official website"
-                  >
-                    <Image
-                      src="/images/iit-logo.png"
-                      alt="MSU-IIT Logo"
-                      width={56}
-                      height={56}
-                      className="h-full w-full object-contain"
-                    />
-                  </a>
-                  <div>
-                    <div className="font-heading text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-gakit-maroon">
-                      A project of
-                    </div>
-                    <h3 className="mt-0.5 font-heading text-base font-bold leading-snug text-slate-900 sm:text-lg md:text-xl">
-                      <a
-                        href="https://www.msuiit.edu.ph"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="transition-colors hover:text-gakit-maroon"
-                      >
-                        Mindanao State University–Iligan Institute of Technology
-                      </a>
-                    </h3>
-                  </div>
-                </div>
-                <p className="mt-3 text-xs leading-relaxed text-slate-600 sm:mt-4 sm:text-sm sm:leading-6">
-                  GAKIT is an applied geohazard research and community-focused
-                  flood risk information system developed at MSU-IIT.
-                </p>
-              </div>
-
-              <div className="group rounded-2xl bg-white p-4 shadow-lg shadow-slate-900/10 ring-1 ring-slate-200/90 md:transition-all md:duration-200 md:hover:-translate-y-1 sm:rounded-3xl sm:p-7 sm:shadow-2xl">
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon shadow-xs ring-1 ring-maroon-200/80 sm:h-12 sm:w-12 sm:rounded-2xl">
-                    <Mail className="h-4 w-4 sm:h-5 sm:w-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="font-heading text-base font-bold tracking-tight text-slate-900 sm:text-lg">Contact and collaborate</div>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-600 sm:text-sm sm:leading-6">
-                      For research, data-sharing, community, or deployment
-                      partnership inquiries.
-                    </p>
-                    <a
-                      href="mailto:support@gakit.ph?subject=Project%20GAKIT%20Inquiry"
-                      className="mt-3 inline-flex items-center gap-2 rounded-xl bg-gakit-maroon px-4 py-2 font-heading text-xs font-bold text-white shadow-md shadow-maroon-950/30 transition-all duration-150 hover:bg-maroon-800 active:scale-95 sm:mt-4 sm:px-5 sm:py-2.5 sm:text-sm"
+          <section id="about" className="relative min-h-screen overflow-hidden border-t border-maroon-900/30 bg-gakit-maroon scroll-mt-16 snap-start">
+            <TopoBackground className="opacity-[0.55]" />
+            {/* vignette pinned to screen height so topo stays uniform across About / Data & Privacy */}
+            <div aria-hidden className="pointer-events-none absolute top-0 inset-x-0 h-screen bg-gradient-to-b from-black/[0.06] via-transparent to-black/[0.10]" />
+            <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pt-16 pb-24 sm:px-8 sm:pt-20 sm:pb-28 lg:px-8 lg:pt-20 lg:pb-28">
+              {/* ── Tab header — airy, 44px+ ergonomic targets ── */}
+              <div className="flex flex-col gap-5 border-b border-white/[0.10] pb-6 sm:flex-row sm:items-end sm:justify-between sm:pb-7">
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex items-center gap-1.5 rounded-full bg-maroon-950/35 p-1 sm:p-1.5 ring-1 ring-white/10 backdrop-blur-md">
+                    <button
+                      type="button"
+                      onClick={() => setAboutTab('about')}
+                      className={`min-h-[40px] sm:min-h-[42px] rounded-full px-6 font-heading text-[13px] font-bold tracking-wide transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gakit-maroon ${
+                        aboutTab === 'about'
+                          ? 'bg-white text-gakit-maroon shadow-[0_4px_16px_rgba(0,0,0,0.18)]'
+                          : 'text-white/75 hover:bg-white/10 hover:text-white'
+                      }`}
                     >
-                      support@gakit.ph
-                    </a>
+                      About
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAboutTab('privacy')}
+                      className={`min-h-[40px] sm:min-h-[42px] rounded-full px-5 sm:px-6 font-heading text-[13px] font-bold tracking-wide transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-gakit-maroon ${
+                        aboutTab === 'privacy'
+                          ? 'bg-white text-gakit-maroon shadow-[0_4px_16px_rgba(0,0,0,0.18)]'
+                          : 'text-white/75 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      Data &amp; Privacy
+                    </button>
                   </div>
+                  <span className="hidden h-7 w-px bg-white/10 sm:block" aria-hidden />
+                  <span className="hidden font-heading text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55 sm:block">
+                    {aboutTab === 'about' ? 'Project Overview' : 'Data Policy & Attribution'}
+                  </span>
+                </div>
+                <div className="hidden items-center gap-2 text-white/45 lg:flex">
+                  <span className="h-px w-6 bg-white/15" aria-hidden />
+                  <span className="font-heading text-[10px] font-bold uppercase tracking-[0.2em]">Iligan City · MSU-IIT</span>
                 </div>
               </div>
-            </div>
 
-          </div>
-        </section>
+              {aboutTab === 'about' ? <AboutSection /> : <DataPrivacySection />}
+            </div>
+          </section>
       </main>
       </div>
 
