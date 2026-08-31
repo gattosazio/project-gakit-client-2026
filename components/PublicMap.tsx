@@ -897,6 +897,7 @@ export function PublicMap({
           onShowTyphoonTrackChange={handleShowTyphoonTrackChange}
           isLoadingTyphoon={typhoon.isLoading}
           activeTyphoonName={typhoon.typhoonData?.stormName}
+          typhoonObservedAt={typhoon.typhoonData?.latestPosition?.datetime || typhoon.typhoonData?.fetchedAt}
           hasActiveTyphoon={typhoon.typhoonData?.hasActiveTyphoon}
           activeStorms={typhoon.typhoonData?.activeStorms}
           onFocusStorm={typhoon.focusStorm}

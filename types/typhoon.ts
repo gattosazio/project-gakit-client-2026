@@ -53,4 +53,6 @@ export interface TyphoonApiResponse {
     category?: string;
     datetime?: string;
   } | null;
+  fetchedAt?: string | null;
+  source?: string;
 }

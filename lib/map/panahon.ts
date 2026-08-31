@@ -163,7 +163,14 @@ export function convertPanahonToGeoJSON(panahonData: PanahonCycloneItem[]): GeoJ
       : localName;
 
     const info = cyclone.info || {};
-    const sortedKeys = Object.keys(info).sort();
+    const sortedKeys = Object.keys(info).sort((a, b) => {
+      const na = Number(a);
+      const nb = Number(b);
+      if (!Number.isNaN(na) && !Number.isNaN(nb)) {
+        return na - nb;
+      }
+      return a.localeCompare(b);
+    });
 
     const lineCoords: number[][] = [];
     const allMilestones: Array<{ lat: number; lon: number; radius: number }> = [];
@@ -250,7 +257,7 @@ export async function fetchPanahonLiveCyclone(): Promise<GeoJSON.FeatureCollecti
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
       signal: AbortSignal.timeout(10000),
-      next: { revalidate: 600 },
+      cache: 'no-store',
     });
 
     if (!baseRes.ok) return null;

@@ -36,6 +36,21 @@ const formatRainfallTime = (isoUtc: string) => {
   return `as of ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
 };
 
+const formatTyphoonTime = (isoString?: string | null) => {
+  if (!isoString) return null;
+  const raw = isoString.includes('T') ? isoString : isoString.replace(' ', 'T');
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.toLocaleDateString([], {
+    month: 'short',
+    day: 'numeric',
+  })}, ${date.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })}`;
+};
+
 /**
  * Resolves the attribution mode for the current rainfall response.
  *
@@ -323,6 +338,7 @@ interface DataLayerControlsProps {
   onShowTyphoonTrackChange?: (checked: boolean) => void;
   isLoadingTyphoon?: boolean;
   activeTyphoonName?: string | null;
+  typhoonObservedAt?: string | null;
   hasActiveTyphoon?: boolean;
   activeStorms?: ActiveStormSummary[];
   onFocusStorm?: (stormName?: string) => void;
@@ -353,6 +369,7 @@ export function DataLayerControls({
   onShowTyphoonTrackChange,
   isLoadingTyphoon = false,
   activeTyphoonName,
+  typhoonObservedAt,
   hasActiveTyphoon = false,
   activeStorms,
   onFocusStorm,
@@ -520,8 +537,10 @@ export function DataLayerControls({
           <div className="pl-9 pt-1 pb-1 space-y-1.5">
             <div className="text-[10px] leading-snug text-slate-400">
               {hasActiveTyphoon
-                ? (activeTyphoonName ? `Tracking ${activeTyphoonName} · PAR extent` : 'Active storm tracked inside/near PAR')
-                : 'No active storm inside PAR (showing PAR boundary)'}
+                ? (activeTyphoonName
+                    ? `Tracking ${activeTyphoonName}${typhoonObservedAt && formatTyphoonTime(typhoonObservedAt) ? ` · as of ${formatTyphoonTime(typhoonObservedAt)}` : ''}`
+                    : `Active storm tracked${typhoonObservedAt && formatTyphoonTime(typhoonObservedAt) ? ` · as of ${formatTyphoonTime(typhoonObservedAt)}` : ''}`)
+                : `No active storm inside PAR${typhoonObservedAt && formatTyphoonTime(typhoonObservedAt) ? ` · as of ${formatTyphoonTime(typhoonObservedAt)}` : ''}`}
             </div>
             <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
               <div className="flex items-center gap-1">
