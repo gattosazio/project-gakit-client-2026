@@ -1,6 +1,9 @@
 import coreWebVitals from "eslint-config-next/core-web-vitals";
 
 const config = [
+  {
+    ignores: [".next/**", "node_modules/**", "public/**", "dist/**", "coverage/**"],
+  },
   ...coreWebVitals,
   {
     // React Hooks v6 rules newly enabled by eslint-config-next 16. They flag
@@ -12,9 +15,6 @@ const config = [
       "react-hooks/refs": "warn",
       "react-hooks/purity": "warn",
     },
-  },
-  {
-    ignores: [".next/**", "node_modules/**", "public/vendor/**"],
   },
 ];
 

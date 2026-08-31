@@ -29,6 +29,7 @@ export function useRainfallLayer(
   const [rainfallHours, setRainfallHours] = useState<RainfallAccumulationHours>(1);
   const [rainfallObservedAt, setRainfallObservedAt] = useState<string | null>(null);
   const [rainfallSource, setRainfallSource] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
 
   const rainfallHoursRef = useRef<RainfallAccumulationHours>(1);
   const rainfallSourceRef = useRef<RainfallGrid | null>(null);
@@ -41,6 +42,7 @@ export function useRainfallLayer(
 
   const loadRainfall = useCallback(async (hours?: RainfallAccumulationHours) => {
     const window = hours ?? rainfallHoursRef.current;
+    setIsLoading(true);
     try {
       const rainfall = await fetchRainfall(window);
       // Drop stale responses if the user switched windows mid-request.
@@ -67,6 +69,8 @@ export function useRainfallLayer(
       setRainfallSource(rainfall.properties.source ?? null);
     } catch (error) {
       console.error('Failed to load near real-time rainfall', error);
+    } finally {
+      setIsLoading(false);
     }
   }, [mapRef]);
 
@@ -140,6 +144,7 @@ export function useRainfallLayer(
     rainfallObservedAt,
     rainfallSource,
     hoursRef: rainfallHoursRef,
+    isLoading,
     loadRainfall,
     lookupPrecip,
     applyPreloaded,

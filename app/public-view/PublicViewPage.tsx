@@ -7,7 +7,7 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from '@/components/ReportModal';
 import { Building2, Handshake, Loader2, Mail, MapPin } from 'lucide-react';
 import { toast } from 'react-toastify';
-import { createReport, pingHealth } from './actions/public.view';
+import { createReport, pingHealth } from './actions/publicView';
 import { reverseGeocode } from '@/lib/map/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type { CreateReportInput, DepthCategory, FloodReference, Report, ReportStatus } from '@/types/report';

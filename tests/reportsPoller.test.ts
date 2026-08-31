@@ -5,16 +5,16 @@ import {
   getMapReportsPoller,
   resetMapReportsPollersForTests,
 } from '@/lib/reports/reportsPoller';
-import { fetchMapReports } from '@/app/public-view/actions/public.view';
+import { fetchMapReports } from '@/app/public-view/actions/publicView';
 import type { MapReportFeature } from '@/types/report';
 
 vi.mock('@/lib/backend/apiCache', () => ({
   invalidateApiCache: vi.fn(),
 }));
 
-vi.mock('@/app/public-view/actions/public.view', async (importOriginal) => {
+vi.mock('@/app/public-view/actions/publicView', async (importOriginal) => {
   const actual =
-    await importOriginal<typeof import('@/app/public-view/actions/public.view')>();
+    await importOriginal<typeof import('@/app/public-view/actions/publicView')>();
   return {
     ...actual,
     fetchMapReports: vi.fn(),

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { BookOpen, Info, LogOut, MapPinned, UserRound } from 'lucide-react';
+import { BookOpen, MapPinned, UserRound } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
@@ -16,6 +16,8 @@ import { NotificationBell } from './NotificationBell';
 import type { NotificationItem } from './NotificationBell';
 import { WeatherAlertModal } from './WeatherAlertModal';
 import { LocationSearch, type SearchedLocation } from '@/app/public-view/components/LocationSearch';
+import { HowToReportPopover } from '@/components/header/HowToReportPopover';
+import { UserNavMenu } from '@/components/header/UserNavMenu';
 
 export function PublicHeader({
   activeSection,
@@ -200,26 +202,6 @@ export function PublicHeader({
     onNavigateSection?.(id);
   };
 
-  const userMenuContent = (
-    <>
-      <div className="break-all border-b border-canvas-grey px-3 py-2 text-sm font-semibold text-slate-700">
-        {email}
-      </div>
-      <button
-        type="button"
-        onClick={() => {
-          setIsMenuOpen(false);
-          setShowSignOutConfirm(true);
-        }}
-        disabled={isSigningOut}
-        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
-      >
-        <LogOut className="h-4 w-4 text-red-500" />
-        {isSigningOut ? 'Signing out...' : 'Sign out'}
-      </button>
-    </>
-  );
-
   return (
     <>
     <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-5xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
@@ -286,51 +268,15 @@ export function PublicHeader({
 
           {/* Right cluster: info, notifications, account */}
           <div className="flex items-center gap-1">
-            <div ref={infoRef} className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsInfoOpen((open) => !open);
-                  setIsMenuOpen(false);
-                  setIsNotifOpen(false);
-                }}
-                className={`rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-100/80 hover:text-gakit-maroon active:scale-95 ${
-                  isInfoOpen
-                    ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
-                    : ''
-                }`}
-                aria-expanded={isInfoOpen}
-                aria-label="How to report guide"
-              >
-                <Info className="h-4.5 w-4.5" />
-              </button>
-              {isInfoOpen && (
-                <div className="absolute right-0 top-12 w-72 z-[1201]">
-                  <div className="rounded-2xl border border-white/80 bg-white/95 p-4 shadow-[0_12px_40px_rgba(0,0,0,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] backdrop-blur-xl ring-1 ring-slate-200/80">
-                    <div className="mb-2.5 flex items-center gap-2 border-b border-slate-100 pb-2">
-                      <div className="flex h-5 w-5 items-center justify-center rounded-md bg-maroon-50 text-gakit-maroon font-bold text-[11px]">
-                        ?
-                      </div>
-                      <div className="text-xs font-bold text-slate-900">How to report a flood hazard</div>
-                    </div>
-                    <div className="space-y-2 text-xs text-slate-600">
-                      <div className="flex items-start gap-2">
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">1</span>
-                        <span>Set location (search, tap, or use GPS).</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">2</span>
-                        <span>Choose scale reference & estimate waterline.</span>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[10px] text-slate-700">3</span>
-                        <span>Submit report to alert responders & community.</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <HowToReportPopover
+              isOpen={isInfoOpen}
+              onToggle={() => {
+                setIsInfoOpen((open) => !open);
+                setIsMenuOpen(false);
+                setIsNotifOpen(false);
+              }}
+              containerRef={infoRef}
+            />
             <NotificationBell
               notifications={weatherNotifications}
               onSelectAlert={setSelectedAlert}
@@ -345,109 +291,50 @@ export function PublicHeader({
                 }
               }}
             />
-            {email && (
-              <div ref={userMenuRef} className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsMenuOpen((isOpen) => !isOpen);
-                    setIsNotifOpen(false);
-                    setIsInfoOpen(false);
-                  }}
-                  className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-100/80 hover:text-gakit-maroon active:scale-95 ${
-                    isMenuOpen
-                      ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
-                      : ''
-                  }`}
-                  aria-expanded={isMenuOpen}
-                  aria-haspopup="menu"
-                  aria-label="Account menu"
-                >
-                  <UserRound className="h-4.5 w-4.5" />
-                </button>
-                {isMenuOpen && (
-                  <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-white/80 bg-white/95 p-2 shadow-[0_12px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl ring-1 ring-slate-200/80">
-                    {userMenuContent}
-                  </div>
-                )}
-              </div>
-            )}
+            <UserNavMenu
+              email={email}
+              isOpen={isMenuOpen}
+              onToggle={() => {
+                setIsMenuOpen((isOpen) => !isOpen);
+                setIsNotifOpen(false);
+                setIsInfoOpen(false);
+              }}
+              onSignOutClick={() => {
+                setIsMenuOpen(false);
+                setShowSignOutConfirm(true);
+              }}
+              isSigningOut={isSigningOut}
+              containerRef={userMenuRef}
+            />
           </div>
         </div>
 
         {/* Mobile top-right cluster */}
         <div className="flex items-center gap-1 md:hidden">
-          <div ref={mobileInfoRef} className="relative">
-            <button
-              type="button"
-              onClick={() => {
-                setIsInfoOpen((v) => !v);
-                setIsMenuOpen(false);
-                setIsNotifOpen(false);
-              }}
-              className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-100/80 hover:text-gakit-maroon active:scale-95 ${
-                isInfoOpen
-                  ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
-                  : ''
-              }`}
-              aria-label="How to report guide"
-            >
-              <Info className="h-4.5 w-4.5" />
-            </button>
-            {isInfoOpen && (
-              <div className="absolute right-0 top-12 w-64 z-[1201]">
-                <div className="rounded-2xl border border-white/80 bg-white/95 p-3.5 shadow-[0_12px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl ring-1 ring-slate-200/80">
-                  <div className="mb-2 flex items-center gap-2 border-b border-slate-100 pb-1.5">
-                    <div className="flex h-5 w-5 items-center justify-center rounded-md bg-maroon-50 text-gakit-maroon font-bold text-[11px]">
-                      ?
-                    </div>
-                    <div className="text-xs font-bold text-slate-900">How to report a hazard</div>
-                  </div>
-                  <div className="space-y-1.5 text-xs text-slate-600">
-                    <div className="flex items-start gap-1.5">
-                      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">1</span>
-                      <span>Set location by tapping map or GPS.</span>
-                    </div>
-                    <div className="flex items-start gap-1.5">
-                      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">2</span>
-                      <span>Estimate waterline reference depth.</span>
-                    </div>
-                    <div className="flex items-start gap-1.5">
-                      <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-slate-100 font-bold text-[9px] text-slate-700">3</span>
-                      <span>Submit to alert community.</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-          {email && (
-            <div ref={mobileUserMenuRef} className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMenuOpen((isOpen) => !isOpen);
-                  setIsInfoOpen(false);
-                  setIsNotifOpen(false);
-                }}
-                className={`flex items-center justify-center rounded-full p-2 text-slate-500 transition-all duration-150 hover:bg-slate-100/80 hover:text-gakit-maroon active:scale-95 ${
-                  isMenuOpen
-                    ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
-                    : ''
-                }`}
-                aria-expanded={isMenuOpen}
-                aria-haspopup="menu"
-                aria-label="Account menu"
-              >
-                <UserRound className="h-4.5 w-4.5" />
-              </button>
-              {isMenuOpen && (
-                <div className="absolute right-0 top-12 z-50 w-56 rounded-2xl border border-white/80 bg-white/95 p-2 shadow-[0_12px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl ring-1 ring-slate-200/80">
-                  {userMenuContent}
-                </div>
-              )}
-            </div>
-          )}
+          <HowToReportPopover
+            isOpen={isInfoOpen}
+            onToggle={() => {
+              setIsInfoOpen((v) => !v);
+              setIsMenuOpen(false);
+              setIsNotifOpen(false);
+            }}
+            containerRef={mobileInfoRef}
+          />
+          <UserNavMenu
+            email={email}
+            isOpen={isMenuOpen}
+            onToggle={() => {
+              setIsMenuOpen((isOpen) => !isOpen);
+              setIsInfoOpen(false);
+              setIsNotifOpen(false);
+            }}
+            onSignOutClick={() => {
+              setIsMenuOpen(false);
+              setShowSignOutConfirm(true);
+            }}
+            isSigningOut={isSigningOut}
+            containerRef={mobileUserMenuRef}
+          />
         </div>
       </div>
     </header>

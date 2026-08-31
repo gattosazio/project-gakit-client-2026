@@ -42,6 +42,7 @@ export function useHimawariLayer(
 ) {
   const [showHimawariIR, setShowHimawariIR] = useState(false);
   const [himawariOpacity, setHimawariOpacity] = useState(0.8);
+  const [isLoading, setIsLoading] = useState(false);
   const himawariTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const himawariRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const himawariFramesRef = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -56,17 +57,22 @@ export function useHimawariLayer(
   // freshness-gated 404s) are simply dropped from the rotation instead of
   // flashing blank.
   const preloadHimawariFrames = useCallback(async () => {
-    const candidates = himawariFrameTimes(HIMAWARI_CANDIDATE_COUNT);
-    const loaded = await Promise.allSettled(candidates.map(fetchHimawariFrame));
-    // Candidates are chronological (oldest first); keep at most the newest
-    // FRAME_COUNT that actually loaded so the loop stays forward-in-time.
-    const kept: [string, HTMLImageElement][] = [];
-    candidates.forEach((time, i) => {
-      const result = loaded[i];
-      if (result.status === 'fulfilled') kept.push([time, result.value]);
-    });
-    const cache = new Map(kept.slice(-HIMAWARI_FRAME_COUNT));
-    if (cache.size > 0) himawariFramesRef.current = cache;
+    setIsLoading(true);
+    try {
+      const candidates = himawariFrameTimes(HIMAWARI_CANDIDATE_COUNT);
+      const loaded = await Promise.allSettled(candidates.map(fetchHimawariFrame));
+      // Candidates are chronological (oldest first); keep at most the newest
+      // FRAME_COUNT that actually loaded so the loop stays forward-in-time.
+      const kept: [string, HTMLImageElement][] = [];
+      candidates.forEach((time, i) => {
+        const result = loaded[i];
+        if (result.status === 'fulfilled') kept.push([time, result.value]);
+      });
+      const cache = new Map(kept.slice(-HIMAWARI_FRAME_COUNT));
+      if (cache.size > 0) himawariFramesRef.current = cache;
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   // Pushes the current cached frame into the map's image source.
@@ -176,6 +182,7 @@ export function useHimawariLayer(
     toggleHimawariIR,
     opacity: himawariOpacity,
     setOpacity: setHimawariOpacity,
+    isLoading,
     visibleRef: showHimawariIRRef,
   };
 }

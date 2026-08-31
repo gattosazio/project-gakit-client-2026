@@ -38,49 +38,20 @@ import { SortableHeader } from '@/components/ui/SortableHeader';
 import { ReportsPagination } from '../reports/ReportsPagination';
 import { listReports } from '../reports/actions/reports';
 
+import {
+  NotificationTypeBadge,
+  SeverityBadge,
+  TYPE_META,
+  SEVERITY_CLASS,
+} from './components/AlertBadges';
+import { NotificationRow } from './components/NotificationRow';
+import { NotificationCard } from './components/NotificationCard';
+import { DismissAlertModal } from './components/DismissAlertModal';
+import { EmptyNotifications } from './components/EmptyNotifications';
+
 type SortColumn = 'type' | 'location' | 'severity' | 'depth' | 'sentAt';
 
 const NOTIFICATIONS_PER_PAGE = 25;
-
-const TYPE_META: Record<
-  NotificationType,
-  { label: string; icon: typeof BellRing; className: string }
-> = {
-  'new-report': {
-    label: 'New report',
-    icon: BellRing,
-    className: 'bg-blue-50 text-blue-700',
-  },
-  'needs-review': {
-    label: 'Needs review',
-    icon: ShieldAlert,
-    className: 'bg-amber-50 text-amber-700',
-  },
-  flagged: {
-    label: 'Flagged',
-    icon: AlertTriangle,
-    className: 'bg-orange-50 text-orange-700',
-  },
-  rejected: {
-    label: 'Rejected',
-    icon: CheckCircle2,
-    className: 'bg-slate-100 text-slate-600',
-  },
-  weather: {
-    label: 'Weather alert',
-    icon: CloudRain,
-    className: 'bg-cyan-50 text-cyan-700',
-  },
-};
-
-const SEVERITY_CLASS: Record<Severity, string> = {
-  critical: 'bg-red-50 text-red-700 border-red-200',
-  warning: 'bg-orange-50 text-orange-700 border-orange-200',
-  info: 'bg-blue-50 text-blue-700 border-blue-200',
-  high: 'bg-orange-50 text-orange-700 border-orange-200',
-  medium: 'bg-amber-50 text-amber-700 border-amber-200',
-  low: 'bg-slate-100 text-slate-600 border-slate-200',
-};
 
 const DATE_FILTER_OPTIONS: FilterDropdownOption<'24h' | '7d' | 'all'>[] = [
   { value: '24h', label: 'Last 24 hours', icon: <Clock className="h-4 w-4 shrink-0" /> },
@@ -561,263 +532,14 @@ export function AlertsTab({
           </>
         )}
       </div>
-      {dismissConfirmId && (
-        <div className="fixed inset-0 z-[1500] flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Close dismiss confirmation"
-            className="absolute inset-0 bg-slate-900/50"
-            onClick={() => setDismissConfirmId(null)}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dismiss-confirm-title"
-            className="relative w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
-              <XCircle className="h-6 w-6 text-red-600" />
-            </div>
-            <h3 id="dismiss-confirm-title" className="mt-4 text-center text-base font-bold text-slate-900">
-              Dismiss notification?
-            </h3>
-            <p className="mt-2 text-center text-sm text-slate-600">
-              {dismissTarget ? `“${dismissTarget.title}” will be permanently dismissed.` : 'This notification will be permanently dismissed.'}
-            </p>
-            <div className="mt-6 flex gap-3">
-              <button
-                type="button"
-                onClick={() => setDismissConfirmId(null)}
-                className="flex-1 rounded-lg border border-canvas-grey bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-canvas-light"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (dismissConfirmId) dismiss(dismissConfirmId);
-                  setDismissConfirmId(null);
-                }}
-                className="flex-1 rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <DismissAlertModal
+        notification={dismissConfirmId ? dismissTarget : null}
+        onClose={() => setDismissConfirmId(null)}
+        onConfirm={() => {
+          if (dismissConfirmId) dismiss(dismissConfirmId);
+          setDismissConfirmId(null);
+        }}
+      />
     </section>
-  );
-}
-
-const NotificationRow = memo(function NotificationRow({
-  notification,
-  onOpenReports,
-  onSelectWeatherAlert,
-  onMarkRead,
-  onDismiss,
-  isRead,
-  highlighted,
-}: {
-  notification: Notification;
-  onOpenReports: (reportId?: string) => void;
-  onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
-  onMarkRead: (id: string) => void;
-  onDismiss: (id: string) => void;
-  isRead: boolean;
-  highlighted: boolean;
-}) {
-  const handleView = () => {
-    if (!isRead) onMarkRead(notification.id);
-    if (notification.type === 'weather' && onSelectWeatherAlert && notification.weatherAlert) {
-      onSelectWeatherAlert(notification.weatherAlert);
-    } else {
-      onOpenReports(notification.reportId);
-    }
-  };
-
-  return (
-    <tr
-      data-highlighted-notification={highlighted ? notification.id : undefined}
-      className={`${highlighted ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/60'} transition-colors duration-200`}
-    >
-      <td className="px-6 py-4">
-        <NotificationTypeBadge type={notification.type} />
-      </td>
-      <td
-        className={`max-w-56 truncate px-6 py-4 ${
-          isRead ? 'text-slate-400' : 'text-slate-700'
-        }`}
-      >
-        {notification.location}
-      </td>
-      <td className="px-6 py-4">
-        <SeverityBadge severity={notification.severity} />
-      </td>
-      <td className="px-6 py-4 text-slate-600">
-        {notification.depth ? DEPTH_LABELS[notification.depth] : '—'}
-      </td>
-      <td className="whitespace-nowrap px-6 py-4 text-slate-600">
-        {formatDateTime(notification.sentAt)}
-      </td>
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            aria-label={`View ${notification.title}`}
-            onClick={handleView}
-            className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
-            title="View"
-          >
-            <Eye className="h-4 w-4" />
-          </button>
-          {!isRead && (
-            <button
-              type="button"
-              aria-label={`Mark ${notification.title} as read`}
-              onClick={() => onMarkRead(notification.id)}
-              className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
-              title="Mark as read"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-            </button>
-          )}
-          <button
-            type="button"
-            aria-label={`Dismiss ${notification.title}`}
-            onClick={() => onDismiss(notification.id)}
-            className="inline-flex rounded-lg border border-canvas-grey p-2 text-red-600 hover:border-red-200 hover:bg-red-50"
-            title="Dismiss"
-          >
-            <XCircle className="h-4 w-4" />
-          </button>
-        </div>
-      </td>
-    </tr>
-  );
-});
-
-const NotificationCard = memo(function NotificationCard({
-  notification,
-  onOpenReports,
-  onSelectWeatherAlert,
-  onMarkRead,
-  onDismiss,
-  isRead,
-  highlighted,
-}: {
-  notification: Notification;
-  onOpenReports: (reportId?: string) => void;
-  onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
-  onMarkRead: (id: string) => void;
-  onDismiss: (id: string) => void;
-  isRead: boolean;
-  highlighted: boolean;
-}) {
-  const handleView = () => {
-    if (!isRead) onMarkRead(notification.id);
-    if (notification.type === 'weather' && onSelectWeatherAlert && notification.weatherAlert) {
-      onSelectWeatherAlert(notification.weatherAlert);
-    } else {
-      onOpenReports(notification.reportId);
-    }
-  };
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      data-highlighted-notification={highlighted ? notification.id : undefined}
-      onClick={handleView}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          handleView();
-        }
-      }}
-      className={`flex cursor-pointer gap-3 p-4 active:bg-canvas-light ${
-        highlighted ? 'bg-maroon-100/80' : ''
-      } transition-colors duration-200`}
-    >
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between gap-2">
-          <NotificationTypeBadge type={notification.type} />
-          <SeverityBadge severity={notification.severity} />
-        </div>
-        <p
-          className={`mt-3 font-semibold ${
-            isRead ? 'text-slate-500' : 'text-slate-900'
-          }`}
-        >
-          {notification.title}
-        </p>
-        <p className="mt-1 truncate text-sm text-slate-600">{notification.location}</p>
-        <p className="mt-2 text-xs text-slate-400">
-          {notification.depth ? `${DEPTH_LABELS[notification.depth]} · ` : ''}
-          {formatDateTime(notification.sentAt)}
-        </p>
-      </div>
-      <div className="flex shrink-0 items-start gap-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-        {!isRead && (
-          <button
-            type="button"
-            aria-label={`Mark ${notification.title} as read`}
-            onClick={() => onMarkRead(notification.id)}
-            className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
-            title="Mark as read"
-          >
-            <CheckCircle2 className="h-4 w-4" />
-          </button>
-        )}
-        <button
-          type="button"
-          aria-label={`Dismiss ${notification.title}`}
-          onClick={() => onDismiss(notification.id)}
-          className="inline-flex rounded-lg border border-canvas-grey p-2 text-red-600 hover:border-red-200 hover:bg-red-50"
-          title="Dismiss"
-        >
-          <XCircle className="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-  );
-});
-
-function NotificationTypeBadge({ type }: { type: NotificationType }) {
-  const meta = TYPE_META[type];
-  const Icon = meta.icon;
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold ${meta.className}`}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {meta.label}
-    </span>
-  );
-}
-
-function SeverityBadge({ severity }: { severity: Severity }) {
-  return (
-    <span
-      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${SEVERITY_CLASS[severity]}`}
-    >
-      {severity}
-    </span>
-  );
-}
-
-function EmptyNotifications() {
-  return (
-    <div className="p-10 text-center">
-      <CheckCircle2 className="mx-auto h-8 w-8 text-hazard-safe" />
-      <p className="mt-3 text-sm font-semibold text-slate-700">
-        No matching notifications
-      </p>
-      <p className="mt-1 text-sm text-slate-500">
-        Try another filter or refresh the latest activity.
-      </p>
-    </div>
   );
 }
