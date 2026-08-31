@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
-import { ShieldAlert, X, ExternalLink, Wind } from 'lucide-react';
+import { ShieldAlert, X, Wind } from 'lucide-react';
 import {
   PRIMARY_TYPHOON_CATEGORIES,
   TYPHOON_CATEGORY_CONFIG,
@@ -54,7 +54,7 @@ export function TyphoonScaleModal({ isOpen, onClose }: TyphoonScaleModalProps) {
 
       {/* Modal Container */}
       <div
-        className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-150"
+        className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-2xl animate-in fade-in duration-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -71,7 +71,7 @@ export function TyphoonScaleModal({ isOpen, onClose }: TyphoonScaleModalProps) {
                 Typhoon Track Legend
               </h2>
               <p className="text-[11px] text-slate-500">
-                DOST-PAGASA & Project NOAH official classification scale
+                DOST-PAGASA official classification scale
               </p>
             </div>
           </div>
@@ -113,9 +113,6 @@ export function TyphoonScaleModal({ isOpen, onClose }: TyphoonScaleModalProps) {
                     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 bg-canvas-lighter border border-canvas-grey/80 px-2 py-0.5 rounded-full">
                       <Wind className="w-3 h-3 text-slate-400" />
                       <span>{cfg.windRange}</span>
-                      {cfg.windKnots && (
-                        <span className="text-slate-400 font-normal">({cfg.windKnots})</span>
-                      )}
                     </span>
                   </div>
 
@@ -131,20 +128,16 @@ export function TyphoonScaleModal({ isOpen, onClose }: TyphoonScaleModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 border-t border-canvas-grey p-4 md:px-5 md:py-3.5 bg-canvas-light/40">
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
-            <span>DOST-PAGASA & NOAH</span>
-            <span>·</span>
-            <a
-              href="https://bagong.pagasa.dost.gov.ph/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-gakit-maroon hover:text-gakit-maroon-light font-semibold transition-colors"
-            >
-              PAGASA Portal
-              <ExternalLink className="w-3 h-3" />
-            </a>
-          </div>
+        <div className="flex items-center justify-between gap-3 border-t border-canvas-grey p-4 md:px-5 md:py-3.5">
+          <a
+            href="https://bagong.pagasa.dost.gov.ph/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline"
+            title="Tropical cyclone tracking data by DOST-PAGASA"
+          >
+            © DOST-PAGASA
+          </a>
           <button
             type="button"
             onClick={onClose}

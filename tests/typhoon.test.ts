@@ -76,7 +76,7 @@ describe('typhoon utilities', () => {
     expect(html).not.toContain('()');
   });
 
-  it('contains exactly the 6 official NOAH categories in PRIMARY_TYPHOON_CATEGORIES', () => {
+  it('contains exactly the 6 official DOST-PAGASA categories in PRIMARY_TYPHOON_CATEGORIES', () => {
     expect(PRIMARY_TYPHOON_CATEGORIES).toEqual(['STY', 'TY', 'STS', 'TS', 'TD', 'LPA']);
     PRIMARY_TYPHOON_CATEGORIES.forEach((code) => {
       expect(TYPHOON_CATEGORY_CONFIG[code]).toBeDefined();

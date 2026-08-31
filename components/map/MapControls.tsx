@@ -129,7 +129,7 @@ function Card({
 }) {
   return open ? (
     <div className="w-72 hud-card">
-      <div className="flex items-center justify-between gap-3 px-3 pt-3 text-xs font-bold text-slate-900 mb-2">
+      <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-1 text-xs font-bold text-slate-900">
         <div className="flex items-center gap-2">
           <Icon className="w-3.5 h-3.5 text-gakit-maroon shrink-0" />
           {title}
@@ -137,20 +137,20 @@ function Card({
         </div>
         <button
           onClick={() => onToggle(false)}
-          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors active:scale-95"
+          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
           aria-label={`Collapse ${title}`}
         >
           <ChevronUp className="w-4 h-4" />
         </button>
       </div>
-      <div className="max-h-[42vh] overflow-y-auto px-3 pb-3">
+      <div className="max-h-[42vh] overflow-y-auto px-3 pb-3 pt-1">
         {children}
       </div>
     </div>
   ) : (
     <button
       onClick={() => onToggle(true)}
-      className="flex items-center gap-2 px-3.5 py-2.5 hud-pill hover:bg-white hover:shadow-lg active:scale-[0.97]"
+      className="flex items-center gap-2 px-3.5 py-2.5 hud-pill hover:bg-white hover:shadow-lg transition-all duration-150"
       title={`Show ${title}`}
       aria-label={`Show ${title}`}
     >
@@ -210,7 +210,7 @@ export function MapViewToggle({
                 ? `${v.label} requires a MapTiler API key`
                 : `${v.label} view`
             }
-            className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-all duration-150 active:scale-[0.96] ${
+            className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-colors duration-150 ${
               active
                 ? 'bg-gakit-maroon text-white shadow-xs'
                 : disabled
@@ -399,10 +399,10 @@ export function DataLayerControls({
                   type="button"
                   onClick={() => onRainfallHoursChange(hours)}
                   aria-pressed={rainfallHours === hours}
-                  className={`rounded-lg py-1 text-xs font-bold transition-all duration-150 ${
+                  className={`rounded-lg py-1 text-xs font-bold transition-colors duration-150 ${
                     rainfallHours === hours
                       ? 'bg-gakit-maroon text-white shadow-[0_2px_4px_rgba(123,17,19,0.35)] ring-1 ring-gakit-maroon'
-                      : 'bg-white text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-slate-900 active:scale-95'
+                      : 'bg-white text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                 >
                   {hours}h
@@ -507,7 +507,7 @@ export function DataLayerControls({
                       key={code}
                       type="button"
                       onClick={() => setShowScaleModal(true)}
-                      className="inline-flex items-center justify-center w-6 h-4 rounded text-[8px] font-bold text-white shrink-0 shadow-xs hover:scale-105 active:scale-95 transition-transform"
+                      className="inline-flex items-center justify-center w-6 h-4 rounded text-[8px] font-bold text-white shrink-0 shadow-xs hover:opacity-90 transition-opacity"
                       style={{ backgroundColor: cfg.color }}
                       title={`${cfg.name} · Click to view legend`}
                     >
@@ -538,7 +538,7 @@ export function DataLayerControls({
                       key={storm.name}
                       type="button"
                       onClick={() => onFocusStorm?.(storm.name)}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon active:scale-95 transition-all shadow-2xs"
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon transition-colors shadow-2xs"
                     >
                       <span
                         className="w-1.5 h-1.5 rounded-full shrink-0"

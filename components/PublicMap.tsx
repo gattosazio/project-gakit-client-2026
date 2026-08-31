@@ -235,7 +235,7 @@ export function PublicMap({
     mapRef.current.easeTo({
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 13,
-      pitch: 35,
+      pitch: mapModeRef.current === '3d' ? 45 : 0,
       bearing: 0,
       duration: 800,
     });
@@ -1179,7 +1179,7 @@ function createSelectedPinElement(): HTMLElement {
           closeOnClick: false,
           anchor: 'bottom',
           offset: 14,
-          maxWidth: '260px',
+          maxWidth: '340px',
         });
       }
 
@@ -1329,6 +1329,13 @@ function createSelectedPinElement(): HTMLElement {
     const map = mapRef.current;
     if (!map) return;
     if (next.basemap === basemapRef.current && next.mode === mapModeRef.current) return;
+
+    if (next.mode === '3d' && mapModeRef.current === '2d') {
+      map.easeTo({ pitch: 45, duration: 800 });
+    } else if (next.mode === '2d' && mapModeRef.current === '3d') {
+      map.easeTo({ pitch: 0, duration: 800 });
+    }
+
     setBasemap(next.basemap);
     basemapRef.current = next.basemap;
     setMapMode(next.mode);
@@ -1383,7 +1390,7 @@ function createSelectedPinElement(): HTMLElement {
       style: BASEMAP_STYLES.light,
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 13,
-      pitch: 35,
+      pitch: 0,
       maxZoom: 18,
       maxBounds: MAP_MAX_BOUNDS,
       renderWorldCopies: false,
@@ -1579,7 +1586,7 @@ function createSelectedPinElement(): HTMLElement {
         className={`absolute left-4 md:left-6 z-[1000] flex flex-col items-start gap-3 transition-opacity duration-200 ${
           fullScreen ? 'bottom-24' : 'bottom-4'
         } ${
-          !hideWeather ? 'md:bottom-auto md:top-1/2 md:-translate-y-1/2' : ''
+          !hideWeather ? 'md:bottom-auto md:top-[max(5.5rem,50%)] md:-translate-y-1/2' : ''
         } ${
           controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
