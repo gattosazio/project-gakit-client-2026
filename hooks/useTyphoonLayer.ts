@@ -5,7 +5,7 @@ import type { MutableRefObject } from 'react';
 import { fetchTyphoonTrack, PAR_BOUNDARY_GEOJSON } from '@/lib/map/typhoon';
 import type { TyphoonApiResponse } from '@/types/typhoon';
 
-const TYPHOON_REFRESH_MS = 5 * 60 * 1000; // 5 mins
+const TYPHOON_REFRESH_MS = 10 * 60 * 1000; // 10 mins
 
 export function useTyphoonLayer(
   mapRef: MutableRefObject<any>,

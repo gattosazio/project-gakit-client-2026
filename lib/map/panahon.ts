@@ -249,8 +249,8 @@ export async function fetchPanahonLiveCyclone(): Promise<GeoJSON.FeatureCollecti
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
-      signal: AbortSignal.timeout(8000),
-      next: { revalidate: 300 },
+      signal: AbortSignal.timeout(10000),
+      next: { revalidate: 600 },
     });
 
     if (!baseRes.ok) return null;
@@ -267,14 +267,13 @@ export async function fetchPanahonLiveCyclone(): Promise<GeoJSON.FeatureCollecti
     const csrfToken = csrfMatch[1];
     const apiSig = apiSigMatch[1];
     const cleanPath = 'api/v1/cyclone-track';
-    const ts = String(Math.floor(Date.now() / 1000));
-    const nonce = crypto.randomBytes(16).toString('hex');
-    const message = ['GET', cleanPath, ts, nonce].join('\n');
-    const sig = crypto.createHmac('sha256', apiSig).update(message).digest('hex');
 
-    const apiUrl = `https://www.panahon.gov.ph/${cleanPath}?token=${encodeURIComponent(csrfToken)}`;
-    const apiRes = await fetch(apiUrl, {
-      headers: {
+    const buildSignedHeaders = () => {
+      const ts = String(Math.floor(Date.now() / 1000));
+      const nonce = crypto.randomBytes(16).toString('hex');
+      const message = ['GET', cleanPath, ts, nonce].join('\n');
+      const sig = crypto.createHmac('sha256', apiSig).update(message).digest('hex');
+      return {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         'Referer': 'https://www.panahon.gov.ph/',
         'Cookie': cookieHeader,
@@ -283,9 +282,23 @@ export async function fetchPanahonLiveCyclone(): Promise<GeoJSON.FeatureCollecti
         'X-Ts': ts,
         'X-Nonce': nonce,
         'X-Sig': sig,
-      },
-      signal: AbortSignal.timeout(8000),
+      };
+    };
+
+    const apiUrl = `https://www.panahon.gov.ph/${cleanPath}?token=${encodeURIComponent(csrfToken)}`;
+    let apiRes = await fetch(apiUrl, {
+      headers: buildSignedHeaders(),
+      signal: AbortSignal.timeout(10000),
     });
+
+    // Transient 5xx retry: if Panahon is briefly locking the database during bulletin generation, retry once after 800ms
+    if (!apiRes.ok && apiRes.status >= 500) {
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      apiRes = await fetch(apiUrl, {
+        headers: buildSignedHeaders(),
+        signal: AbortSignal.timeout(8000),
+      });
+    }
 
     if (!apiRes.ok) return null;
     const rawData = await apiRes.json();
