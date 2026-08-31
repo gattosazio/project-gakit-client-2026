@@ -175,7 +175,7 @@ export const setupOverlayLayers = async (
       type: 'geojson',
       data: PAR_BOUNDARY_GEOJSON,
       attribution:
-        'Typhoon & PAR: <a href="https://bagong.pagasa.dost.gov.ph/" target="_blank" rel="noopener">DOST-PAGASA</a> / <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">NOAH</a>',
+        'Typhoon & PAR: <a href="https://panahon.gov.ph/" target="_blank" rel="noopener">DOST-PAGASA (PANaHON)</a>',
     });
 
     map.addLayer({
