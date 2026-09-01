@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Loader2, PlusCircle, RotateCcw, Search } from 'lucide-react';
+import { PlusCircle, RotateCcw, Search } from 'lucide-react';
 import {
   DEPTH_LABELS,
   REFERENCE_LABELS,
@@ -38,9 +38,11 @@ import {
 import { useVisibleInterval } from '@/hooks/useVisibleInterval';
 import { useSortableTable } from '@/hooks/useSortableTable';
 import { SortableHeader } from '@/components/ui/SortableHeader';
+import { Skeleton } from '@/components/ui/Skeleton';
+import { Spinner } from '@/components/ui/Spinner';
 
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
-  loading: () => <div className="w-full h-full bg-canvas-grey flex items-center justify-center">Loading map...</div>,
+  loading: () => <div className="w-full h-full bg-canvas-grey flex items-center justify-center"><Spinner size="md" /></div>,
   ssr: false,
 });
 
@@ -281,10 +283,10 @@ export function ReportsTab({
     [reports]
   );
 
-  const handleUpdateStatus = async (report: Report, toStatus: ReportStatus) => {
+  const handleUpdateStatus = async (report: Report, toStatus: ReportStatus, reason?: string) => {
     setUpdatingId(report.id);
     try {
-      await updateReportStatus(report.id, toStatus);
+      await updateReportStatus(report.id, toStatus, { reason });
       const label =
         toStatus === 'VERIFIED' ? 'Report verified.' : toStatus === 'ANOMALY' ? 'Report marked as anomaly.' : 'Report rejected.';
       toast.success(label, { position: 'top-right', autoClose: 3000 });
@@ -323,7 +325,7 @@ export function ReportsTab({
                 />
               ) : (
                 <div className="w-full h-full bg-canvas-grey flex items-center justify-center">
-                  <Loader2 className="w-5 h-5 animate-spin text-slate-500" />
+                  <Spinner size="md" />
                 </div>
               )}
             </div>
@@ -469,6 +471,21 @@ export function ReportsTab({
                           </tr>
                         );
                       })}
+                      {reports.length === 0 && loading && (
+                        <>
+                          {Array.from({ length: 5 }).map((_, index) => (
+                            <tr key={index}>
+                              <td className="px-5 py-4"><Skeleton className="h-3.5 w-20 rounded-md" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-3.5 w-44 rounded-md" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-3.5 w-16 rounded-md" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-3.5 w-20 rounded-md" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-5 w-24 rounded-full" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-3.5 w-24 rounded-md" /></td>
+                              <td className="px-5 py-4"><Skeleton className="h-8 w-24 rounded-lg" /></td>
+                            </tr>
+                          ))}
+                        </>
+                      )}
                       {reports.length === 0 && !loading && (
                         <tr>
                           <td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-500">
@@ -544,6 +561,10 @@ export function ReportsTab({
               onUpdateStatus={handleUpdateStatus}
               isUpdating={updatingId === selectedReport.id}
               onClose={() => setSelectedReport(null)}
+              onViewOnMap={() => {
+                setSelectedReport(null);
+                requestAnimationFrame(() => handleInspect(selectedReport));
+              }}
               modal
             />
           </div>

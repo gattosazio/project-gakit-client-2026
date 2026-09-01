@@ -7,9 +7,9 @@ import {
   CheckCircle2,
   ChevronDown,
   Info,
-  Loader2,
   XCircle,
 } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { STATUS_META } from '@/lib/reports/reportFormatting';
 import type { Report, ReportStatus } from '@/types/report';
 import { STATUS_ICONS } from './reportFilterOptions';
@@ -135,7 +135,7 @@ export function StatusDropdown({
         className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${status.badgeClass} hover:brightness-95 disabled:cursor-wait disabled:opacity-60`}
       >
         {isUpdating ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Spinner size="sm" />
         ) : (
           <>
             <StatusIcon className="h-4 w-4" style={{ color: status.color }} />

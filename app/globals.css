@@ -177,3 +177,95 @@ body {
 .gakit-pin-drop {
   animation: gakitPinDrop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
+
+/* Skeleton shimmer */
+@keyframes gakitShimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.gakit-skeleton {
+  background: linear-gradient(90deg, #e2e8f0 0%, #eef2f6 40%, #e2e8f0 80%);
+  background-size: 800px 100%;
+  animation: gakitShimmer 1.3s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gakit-skeleton {
+    animation: none;
+  }
+}
+
+/* Loading dots (jumping) */
+@keyframes gakitDotJump {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.5;
+  }
+  40% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+.gakit-dots {
+  display: inline-flex;
+  align-items: baseline;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.gakit-dot {
+  display: inline-block;
+  border-radius: 9999px;
+  animation: gakitDotJump 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gakit-dot {
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+/* Report details modal — open/close transitions */
+@keyframes gakitOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes gakitSheetUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes gakitSheetDown {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(24px) scale(0.98); }
+}
+
+.gakit-modal-overlay {
+  animation: gakitOverlayIn 0.2s ease-out;
+}
+.gakit-modal-open {
+  animation: gakitSheetUp 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gakit-modal-closing .gakit-modal-overlay {
+  animation: gakitOverlayIn 0.18s ease-in reverse forwards;
+}
+.gakit-modal-closing .gakit-modal-open {
+  animation: gakitSheetDown 0.18s ease-in forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gakit-modal-overlay,
+  .gakit-modal-open,
+  .gakit-modal-closing .gakit-modal-overlay,
+  .gakit-modal-closing .gakit-modal-open {
+    animation: none !important;
+  }
+}

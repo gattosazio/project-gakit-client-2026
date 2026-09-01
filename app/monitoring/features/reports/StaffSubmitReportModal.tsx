@@ -4,13 +4,14 @@ import { useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { X } from 'lucide-react';
 import { ReportModal } from '@/components/ReportModal';
+import { Spinner } from '@/components/ui/Spinner';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type { FloodDepthCode, FloodReference, SelectedLocation } from '@/types/report';
 // The elevation-bearing variant of the shared location shape.
 export type { SelectedLocation };
 
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
-  loading: () => <div className="w-full h-full bg-canvas-grey flex items-center justify-center">Loading map...</div>,
+  loading: () => <div className="w-full h-full bg-canvas-grey flex items-center justify-center"><Spinner size="md" /></div>,
   ssr: false,
 });
 

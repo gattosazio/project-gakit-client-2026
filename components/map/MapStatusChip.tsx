@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import type { BackendStatus } from '@/lib/backend/backendStatus';
 import type { MapReportFilters } from '@/types/report';
 
@@ -42,7 +42,7 @@ export function MapStatusChip({
   if (backendStatus === 'warming') {
     return (
       <div className="absolute bottom-8 left-3 z-[1000] flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-900 shadow-lg ring-1 ring-amber-200">
-        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+        <Spinner size="sm" iconClassName="bg-amber-900" />
         <span>Server is waking up — retrying…</span>
       </div>
     );
@@ -51,7 +51,7 @@ export function MapStatusChip({
   if (showLoading) {
     return (
       <div className="absolute bottom-8 left-3 z-[1000] flex items-center gap-2 rounded-lg bg-white/95 px-3 py-2 text-xs font-medium text-slate-600 shadow-lg ring-1 ring-slate-200">
-        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
+        <Spinner size="sm" iconClassName="bg-slate-500" />
         <span>Loading flood reports…</span>
       </div>
     );

@@ -8,7 +8,8 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Loader2, Locate, Minus, Navigation, Plus } from 'lucide-react';
+import { Locate, Minus, Navigation, Plus } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
 
 import * as maplibregl from 'maplibre-gl';
@@ -935,7 +936,7 @@ export function PublicMap({
             className="flex h-9 w-9 items-center justify-center text-slate-700 hud-pill hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94] disabled:cursor-not-allowed"
           >
             {isShareLocating ? (
-              <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
+              <Spinner size="sm" />
             ) : (
               <Locate className="h-4 w-4" strokeWidth={2.5} />
             )}
