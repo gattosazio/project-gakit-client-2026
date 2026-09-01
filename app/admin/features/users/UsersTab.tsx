@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Loader2, PlusCircle, RotateCcw, Search } from 'lucide-react';
+import { PlusCircle, RotateCcw, Search } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { toast } from 'react-toastify';
 import { FeaturePageShell } from '@/components/FeaturePageShell';
 import { AdminPagination } from '../shared/AdminPagination';
@@ -306,7 +308,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
                               >
                                 {savingStatus && (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  <Spinner size="sm" />
                                 )}
                                 Reactivate
                               </button>
@@ -318,7 +320,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                                 className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
                               >
                                 {savingStatus && (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  <Spinner size="sm" />
                                 )}
                                 Deactivate
                               </button>
@@ -327,6 +329,20 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                         </tr>
                       );
                     })}
+                    {users.length === 0 && loading && (
+                      <>
+                        {Array.from({ length: 5 }).map((_, index) => (
+                          <tr key={index}>
+                            <td className="px-5 py-4"><Skeleton className="h-3.5 w-40 rounded-md" /></td>
+                            <td className="px-5 py-4"><Skeleton className="h-3.5 w-24 rounded-md" /></td>
+                            <td className="px-5 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                            <td className="px-5 py-4"><Skeleton className="h-6 w-24 rounded-md" /></td>
+                            <td className="px-5 py-4"><Skeleton className="h-3.5 w-28 rounded-md" /></td>
+                            <td className="px-5 py-4"><Skeleton className="h-8 w-24 rounded-lg" /></td>
+                          </tr>
+                        ))}
+                      </>
+                    )}
                     {users.length === 0 && !loading && (
                       <tr>
                         <td

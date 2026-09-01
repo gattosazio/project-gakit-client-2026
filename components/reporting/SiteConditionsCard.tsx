@@ -1,6 +1,7 @@
 'use client';
 
-import { AlertTriangle, CloudRain, Loader2, Mountain } from 'lucide-react';
+import { AlertTriangle, CloudRain, Mountain } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import type { LocationRiskInfo } from '@/components/PublicMap';
 
 const HAZARD_META: Record<
@@ -42,7 +43,7 @@ export function SiteConditionsCard({
           </div>
           {isCheckingElevation ? (
             <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-0.5">
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <Spinner size="xs" iconClassName="bg-slate-500" />
               ...
             </div>
           ) : (
@@ -64,7 +65,7 @@ export function SiteConditionsCard({
           </div>
           {isCheckingLocation ? (
             <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-0.5">
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <Spinner size="xs" iconClassName="bg-slate-500" />
               ...
             </div>
           ) : (
@@ -94,7 +95,7 @@ export function SiteConditionsCard({
           </div>
           {isCheckingLocation ? (
             <div className="flex items-center gap-1.5 text-sm text-slate-500 mt-0.5">
-              <Loader2 className="w-3 h-3 animate-spin" />
+              <Spinner size="xs" iconClassName="bg-slate-500" />
               ...
             </div>
           ) : (

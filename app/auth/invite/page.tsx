@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2, LockKeyhole } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, CheckCircle2, LockKeyhole } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { createClient } from '@/lib/supabase/client';
 
 /**
@@ -87,7 +88,7 @@ export default function InvitePage() {
     return (
       <main className="flex min-h-screen items-center justify-center bg-canvas-light p-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-slate-500">
-          <Loader2 className="h-5 w-5 animate-spin text-gakit-maroon" />
+          <Spinner size="md" />
           Checking your invite…
         </div>
       </main>

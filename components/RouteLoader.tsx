@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import { PageLoader } from '@/components/ui/LoadingState';
 
 export function useRouteLoader() {
   const router = useRouter();
@@ -27,14 +27,7 @@ export function useRouteLoader() {
     router.push(path);
   };
 
-  const loadingOverlay = isLoading ? (
-    <div className="fixed inset-0 z-[2000] bg-white/70 backdrop-blur-sm flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3 rounded-xl bg-white border border-canvas-grey px-8 py-6 shadow-lg">
-        <Loader2 className="w-8 h-8 text-gakit-maroon animate-spin" />
-        <span className="text-sm font-semibold text-slate-600">Loading…</span>
-      </div>
-    </div>
-  ) : null;
+  const loadingOverlay = isLoading ? <PageLoader /> : null;
 
   return { navigate, loadingOverlay };
 }

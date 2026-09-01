@@ -6,23 +6,20 @@ import { AdminHeader } from '@/components/AdminHeader';
 import { SideBar } from '@/components/SideBar';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { adminFeatures, adminFeatureMap, type AdminFeatureId } from './features/adminFeatureConfig';
+import { TabLoading } from '@/components/ui/TabLoading';
 import type { AuthSnapshot } from '@/lib/auth/roles';
-
-const TabFallback = () => (
-  <div className="flex items-center justify-center py-16 text-sm text-slate-400">Loading…</div>
-);
 
 const UsersTab = dynamic(
   () => import('./features/users/UsersTab').then((m) => ({ default: m.UsersTab })),
-  { loading: () => <TabFallback />, ssr: false }
+  { loading: () => <TabLoading />, ssr: false }
 );
 const RolesTab = dynamic(
   () => import('./features/roles/RolesTab').then((m) => ({ default: m.RolesTab })),
-  { loading: () => <TabFallback />, ssr: false }
+  { loading: () => <TabLoading />, ssr: false }
 );
 const AuditLogsTab = dynamic(
   () => import('./features/audit-logs/AuditLogsTab').then((m) => ({ default: m.AuditLogsTab })),
-  { loading: () => <TabFallback />, ssr: false }
+  { loading: () => <TabLoading />, ssr: false }
 );
 
 export function AdminShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {

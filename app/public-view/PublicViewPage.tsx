@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { ReportModal } from '@/components/ReportModal';
-import { Loader2 } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth } from './actions/publicView';
 import { reverseGeocode } from '@/lib/map/geoUtils';
@@ -26,6 +26,11 @@ import { TopoBackground } from './components/TopoBackground';
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
+  loading: () => (
+    <div className="flex h-full w-full items-center justify-center bg-white">
+      <Spinner size="lg" />
+    </div>
+  ),
   ssr: false,
 });
 
@@ -341,7 +346,7 @@ export function PublicViewPage({
               <div className="relative isolate flex-1 w-full h-full min-h-0">
                 {isLoadingReports && (
                   <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1000] hud-pill px-4 py-2 flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-slate-500" />
+                    <Spinner size="sm" iconClassName="bg-slate-500" />
                     <span className="text-sm font-medium text-slate-700">{loadingMessage}</span>
                   </div>
                 )}

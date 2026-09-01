@@ -9,20 +9,17 @@ import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import type { WeatherAlert } from '@/types/weather';
 import { DashboardOverview } from './features/dashboard/DashboardOverview';
 import { monitoringFeatureMap, monitoringFeatures, type MonitoringFeatureId } from './features/monitoringFeatureConfig';
+import { TabLoading } from '@/components/ui/TabLoading';
 import type { AuthSnapshot } from '@/lib/auth/roles';
 import './Monitoring.css';
 
-const TabFallback = () => (
-  <div className="flex items-center justify-center py-16 text-sm text-slate-400">Loading…</div>
-);
-
 const AlertsTab = dynamic(
   () => import('./features/alerts/AlertsTab').then((m) => ({ default: m.AlertsTab })),
-  { loading: () => <TabFallback />, ssr: false }
+  { loading: () => <TabLoading />, ssr: false }
 );
 const ReportsTab = dynamic(
   () => import('./features/reports/ReportsTab').then((m) => ({ default: m.ReportsTab })),
-  { loading: () => <TabFallback />, ssr: false }
+  { loading: () => <TabLoading />, ssr: false }
 );
 export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {
   const router = useRouter();

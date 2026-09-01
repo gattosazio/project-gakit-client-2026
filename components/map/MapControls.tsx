@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronUp, Info, Layers, ListFilter, Loader2, RotateCwFadingClock } from 'lucide-react';
+import { ChevronUp, Info, Layers, ListFilter, RotateCwFadingClock } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import {
   REPORT_MARKER_COLORS,
   REPORT_STATUS_LEGEND,
@@ -111,7 +112,7 @@ function PillToggle({
         <span className="truncate">{label}</span>
         {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
         {loading && (
-          <Loader2 className="w-3 h-3 animate-spin text-slate-400 shrink-0" aria-label="Loading layer data" />
+          <Spinner size="xs" iconClassName="bg-slate-400" />
         )}
       </span>
       {credit && (
@@ -289,7 +290,7 @@ export function ReportControls({
       title="Reports"
       badge={
         isLoading ? (
-          <Loader2 className="w-3 h-3 animate-spin text-slate-400 shrink-0 ml-1" />
+          <Spinner size="xs" iconClassName="bg-slate-400" className="ml-1" />
         ) : undefined
       }
     >

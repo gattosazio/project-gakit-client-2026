@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, Pencil, PlusCircle } from 'lucide-react';
+import { Pencil, PlusCircle } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
 import { FeaturePageShell } from '@/components/FeaturePageShell';
 import { AdminPagination } from '../shared/AdminPagination';
@@ -175,7 +176,7 @@ export function RolesTab({ active = true }: { active?: boolean }) {
                               }`}
                             >
                               {isToggling && (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                <Spinner size="sm" />
                               )}
                               {role.isActive ? 'Deactivate' : 'Activate'}
                             </button>

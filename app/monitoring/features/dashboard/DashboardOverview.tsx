@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { fetchReportStats, listReports as fetchReports } from '../reports/actions/reports';
 import type { Report, ReportStats } from '@/types/report';
+import { SkeletonCard } from '@/components/ui/Skeleton';
 import {
   DEPTH_LABELS,
   STATUS_META,
@@ -135,8 +136,10 @@ export function DashboardOverview({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center rounded-2xl border border-slate-200 bg-white p-10 text-sm text-slate-500 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
-        Loading dashboard data...
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)]">
+        <SkeletonCard lines={4} className="shadow-[0_12px_30px_rgba(15,23,42,0.06)]" />
+        <SkeletonCard lines={3} className="shadow-[0_12px_30px_rgba(15,23,42,0.06)]" />
+        <SkeletonCard header={false} lines={6} className="xl:col-span-2 shadow-[0_12px_30px_rgba(15,23,42,0.06)]" />
       </div>
     );
   }

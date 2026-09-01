@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Loader2, Locate, MapPin, Search, X } from 'lucide-react';
+import { Locate, MapPin, Search, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { searchLocations } from '@/lib/map/geoUtils';
 import type { LocationSearchResult } from '@/lib/map/geoUtils';
 
@@ -166,7 +167,7 @@ export function LocationSearch({
           }`}
         >
           {isSearching ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <Spinner size="sm" />
           ) : (
             <Search className="h-3.5 w-3.5" strokeWidth={2.5} />
           )}
@@ -199,7 +200,7 @@ export function LocationSearch({
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-maroon-50 text-gakit-maroon group-hover:bg-maroon-100">
                 {isLocating ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Spinner size="sm" />
                 ) : (
                   <Locate className="h-4 w-4 text-gakit-maroon" strokeWidth={2.5} />
                 )}

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Copy, Loader2, Mail, X } from 'lucide-react';
+import { Check, Copy, Mail, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { inviteUser } from '../../actions/admin';
 import type { InviteResult, RoleView } from '@/types/admin';
 
@@ -200,7 +201,7 @@ export function InviteUserModal({
                 disabled={!canSubmit}
                 className="inline-flex items-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                {submitting && <Spinner size="sm" iconClassName="bg-white" />}
                 {submitting ? 'Sending…' : 'Send invitation'}
               </button>
             </div>

@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bike, Bus, Car, Loader2, MapPin, UserRound, X } from 'lucide-react';
+import { Bike, Bus, Car, MapPin, UserRound, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
 import { listDepthCategories } from '@/app/public-view/actions/publicView';
 import { getElevation } from '@/lib/map/elevation';
@@ -465,7 +466,7 @@ export function ReportModal({
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Spinner size="sm" iconClassName="bg-white" />
                     Submitting...
                   </span>
                 ) : (

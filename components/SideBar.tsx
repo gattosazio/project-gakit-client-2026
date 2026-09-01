@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useEffect } from 'react';
 import Image from 'next/image';
-import { Loader2, LogOut, Map, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
+import { LogOut, Map, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { PortalNavItem } from '@/types/portal';
@@ -71,7 +72,7 @@ export function SignOutConfirmDialog({
             disabled={isSigningOut}
             className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
           >
-            {isSigningOut && <Loader2 className="h-4 w-4 animate-spin" />}
+            {isSigningOut && <Spinner size="sm" iconClassName="bg-white" />}
             {isSigningOut ? 'Signing out…' : 'Sign out'}
           </button>
         </div>

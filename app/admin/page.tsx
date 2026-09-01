@@ -1,12 +1,7 @@
-import { Suspense } from 'react';
 import { AdminShell } from './AdminShell';
 import { getServerAuthSnapshot } from '@/lib/supabase/server';
 
 export default async function Page() {
   const auth = await getServerAuthSnapshot();
-  return (
-    <Suspense fallback={null}>
-      <AdminShell initialAuth={auth} />
-    </Suspense>
-  );
+  return <AdminShell initialAuth={auth} />;
 }
