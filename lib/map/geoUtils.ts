@@ -26,6 +26,7 @@ interface GeoJsonPolygonFeature {
   type: 'Feature';
   properties: {
     adm4_en?: string;
+    adm4_psgc?: string | number;
     [key: string]: unknown;
   };
   geometry: {
@@ -34,12 +35,16 @@ interface GeoJsonPolygonFeature {
   };
 }
 
-interface GeoJsonCollection {
-  type: 'FeatureCollection';
-  features: GeoJsonPolygonFeature[];
+/** A barangay boundary matched by a point-in-polygon lookup. */
+export interface BarangayEntry {
+  id: string | number;
+  name: string;
 }
 
-let cachedPlaces: RawPlaceRecord[] | null = null;
+export interface GeoJsonCollection {
+  type: 'FeatureCollection';
+  features: GeoJsonPolygonFeature[];
+}let cachedPlaces: RawPlaceRecord[] | null = null;
 let placesFetchPromise: Promise<RawPlaceRecord[]> | null = null;
 
 let cachedBarangays: GeoJsonCollection | null = null;
@@ -69,7 +74,7 @@ async function getIliganPlaces(): Promise<RawPlaceRecord[]> {
   return placesFetchPromise;
 }
 
-async function getIliganBarangays(): Promise<GeoJsonCollection | null> {
+export async function getIliganBarangays(): Promise<GeoJsonCollection | null> {
   if (cachedBarangays) return cachedBarangays;
   if (barangaysFetchPromise) return barangaysFetchPromise;
 
@@ -110,22 +115,33 @@ function pointInPolygonRing(lng: number, lat: number, ring: number[][]): boolean
 }
 
 function findBarangayName(lng: number, lat: number, geojson: GeoJsonCollection): string | null {
+  return findBarangayEntry(lng, lat, geojson)?.name ?? null;
+}
+
+/**
+ * Locates the barangay polygon containing a point and returns its boundary id
+ * (adm4_psgc, matching MapLibre's promoteId/feature.id) plus the display name.
+ */
+export function findBarangayEntry(
+  lng: number,
+  lat: number,
+  geojson: GeoJsonCollection
+): BarangayEntry | null {
   for (const feature of geojson.features) {
     const geom = feature.geometry;
+    const id = feature.properties?.adm4_psgc;
     const name = feature.properties?.adm4_en;
-    if (!name) continue;
+    if (id == null || !name) continue;
+
+    const matches = (ring: number[][]): boolean => pointInPolygonRing(lng, lat, ring);
 
     if (geom.type === 'Polygon') {
       const rings = geom.coordinates as number[][][];
-      for (const ring of rings) {
-        if (pointInPolygonRing(lng, lat, ring)) return name;
-      }
+      if (rings.some(matches)) return { id, name };
     } else if (geom.type === 'MultiPolygon') {
       const polys = geom.coordinates as number[][][][];
       for (const poly of polys) {
-        for (const ring of poly) {
-          if (pointInPolygonRing(lng, lat, ring)) return name;
-        }
+        if (poly.some(matches)) return { id, name };
       }
     }
   }

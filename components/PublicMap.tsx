@@ -4,6 +4,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type MutableRefObject,
@@ -23,7 +24,13 @@ import {
   MAPTILER_STYLE,
   type BasemapId,
 } from '@/constants/publicMap';
-import { ILIGAN_CENTER, reverseGeocode } from '@/lib/map/geoUtils';
+import {
+  ILIGAN_CENTER,
+  findBarangayEntry,
+  getIliganBarangays,
+  reverseGeocode,
+  type GeoJsonCollection,
+} from '@/lib/map/geoUtils';
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 import { bboxChanged, polygonRepPoint, setSwathZoomFloor } from '@/lib/map/mapGeometry';
 import { queryFloodHazard, type FloodRiskLevel } from '@/lib/map/floodHazard';
@@ -46,6 +53,7 @@ import { createSelectedPinElement } from '@/lib/map/selectedPinElement';
 import { useOverlayCollapse } from '@/hooks/useOverlayCollapse';
 import { useMapGeolocation } from '@/hooks/useMapGeolocation';
 import { useMapPopups } from '@/hooks/useMapPopups';
+import { BarangayMetricsCard, type BarangayMetrics } from '@/components/map/BarangayMetricsCard';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useRainfallLayer } from '@/hooks/useRainfallLayer';
@@ -205,6 +213,25 @@ export function PublicMap({
 
   const reportsLayer = useReportsLayer(reportFilters);
   const { backendReports, isLoadingReports, reportsRef, loadMapReports } = reportsLayer;
+
+  // Barangay hover metrics: the boundary geojson drives a client-side spatial
+  // join (report coordinate -> containing polygon) so we can show per-barangay
+  // stats in the floating metrics card while a polygon is hovered.
+  const [barangayGeojson, setBarangayGeojson] = useState<GeoJsonCollection | null>(null);
+  // Lets the user dismiss the metrics card while still hovering; cleared when a
+  // different barangay is hovered.
+  const [dismissedBarangayId, setDismissedBarangayId] = useState<string | number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getIliganBarangays().then((geo) => {
+      if (!cancelled) setBarangayGeojson(geo);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const rainfall = useRainfallLayer(mapRef, showRainfall);
   const { loadRainfall, lookupPrecip, applyPreloaded, hoursRef } = rainfall;
 
@@ -417,6 +444,7 @@ export function PublicMap({
     hideReportPopup,
     showTyphoonPopup,
     clearBarangayHover,
+    hoveredBarangay,
     attachLayerEvents,
   } = useMapPopups({
     mapRef,
@@ -425,6 +453,50 @@ export function PublicMap({
     showBarangayBoundariesRef,
     onReportClickRef,
   });
+
+  // Aggregate per-barangay report metrics for the hover annotation card. Pure
+  // computation (memoized) — a client-side spatial join matches each report's
+  // coordinate to the hovered polygon so we can show live totals.
+  const barangayMetrics = useMemo<BarangayMetrics | null>(() => {
+    if (!hoveredBarangay || !barangayGeojson) return null;
+
+    let total = 0;
+    let verified = 0;
+    let unverified = 0;
+    let depthSum = 0;
+    let depthCount = 0;
+
+    for (const feature of backendReports) {
+      const status = feature.properties.status;
+      if (!visibleReportStatuses[status]) continue;
+
+      const [lng, lat] = feature.geometry.coordinates;
+      const entry = findBarangayEntry(lng, lat, barangayGeojson);
+      if (!entry || entry.id !== hoveredBarangay.id) continue;
+
+      total += 1;
+      if (status === 'VERIFIED') verified += 1;
+      if (status === 'UNVERIFIED') unverified += 1;
+
+      if (status !== 'REJECTED') {
+        const cm =
+          feature.properties.depthCm ??
+          feature.properties.depth?.approximateCm ??
+          (feature.properties.depth?.code === 'overhead' ? 200 : null);
+        if (cm != null) {
+          depthSum += cm;
+          depthCount += 1;
+        }
+      }
+    }
+
+    return {
+      total,
+      avgDepthLabel: depthCount > 0 ? `${Math.round(depthSum / depthCount)} cm` : '—',
+      verified,
+      unverified,
+    };
+  }, [hoveredBarangay, barangayGeojson, backendReports, visibleReportStatuses]);
 
   const {
     isShareLocating,
@@ -838,6 +910,19 @@ export function PublicMap({
   return (
     <div className="relative w-full h-full bg-canvas-grey">
       <div ref={mapContainer} className="w-full h-full touch-none select-none" />
+
+      {showBarangayBoundaries &&
+        hoveredBarangay &&
+        barangayMetrics &&
+        dismissedBarangayId !== hoveredBarangay.id && (
+          <BarangayMetricsCard
+            barangay={hoveredBarangay}
+            metrics={barangayMetrics}
+            mapRef={mapRef}
+            containerRef={mapContainer}
+            onClose={() => setDismissedBarangayId(hoveredBarangay.id)}
+          />
+        )}
 
       <MapViewToggle
         className="absolute top-4 right-4 md:right-6 z-[1000] hidden md:flex"

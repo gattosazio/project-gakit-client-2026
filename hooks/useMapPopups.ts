@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { getElevation } from '@/lib/map/elevation';
 import { polygonRepPoint } from '@/lib/map/mapGeometry';
@@ -16,6 +16,12 @@ interface UseMapPopupsOptions {
   onReportClickRef: MutableRefObject<((reportId: string) => void) | undefined>;
 }
 
+export interface HoveredBarangay {
+  id: string | number;
+  name: string;
+  centroid: [number, number];
+}
+
 export function useMapPopups({
   mapRef,
   mapReady,
@@ -29,6 +35,7 @@ export function useMapPopups({
   const popupFrameRef = useRef<number | null>(null);
   const pendingInspectRef = useRef<MapReportToShow | null>(null);
   const inspectTargetRef = useRef<MapReportToShow | null>(null);
+  const [hoveredBarangay, setHoveredBarangay] = useState<HoveredBarangay | null>(null);
 
   const showReportPopup = useCallback(
     (feature: Record<string, any>, lngLat: any) => {
@@ -131,6 +138,7 @@ export function useMapPopups({
     if (map.getLayer('barangay-label')) {
       map.setLayoutProperty('barangay-label', 'visibility', 'none');
     }
+    setHoveredBarangay(null);
   }, [mapRef]);
 
   const showReport = useCallback(
@@ -295,6 +303,11 @@ export function useMapPopups({
         if (map.getLayer('barangay-label')) {
           map.setLayoutProperty('barangay-label', 'visibility', 'visible');
         }
+        setHoveredBarangay({
+          id,
+          name: feature.properties?.adm4_en ?? 'Barangay',
+          centroid: [centroid[0], centroid[1]],
+        });
       }
     },
     [mapRef, showBarangayBoundariesRef, clearBarangayHover]
@@ -378,6 +391,7 @@ export function useMapPopups({
     hideReportPopup,
     showTyphoonPopup,
     clearBarangayHover,
+    hoveredBarangay,
     attachLayerEvents,
   };
 }
