@@ -7,7 +7,7 @@ import { ReportModal } from '@/components/ReportModal';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth } from './actions/publicView';
-import { reverseGeocode } from '@/lib/map/geoUtils';
+import { isWithinIligan, reverseGeocode } from '@/lib/map/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type { CreateReportInput, DepthCategory, FloodReference, Report, ReportStatus } from '@/types/report';
 import type { AuthSnapshot } from '@/lib/auth/roles';
@@ -53,6 +53,7 @@ export function PublicViewPage({
   const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
   const [isManualLocationMode, setIsManualLocationMode] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [withinCity, setWithinCity] = useState<boolean | null>(null);
   const [activeSection, setActiveSection] = useState<SectionId>('hazard-map');
   const [aboutTab, setAboutTab] = useState<'about' | 'privacy'>('about');
   const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(
@@ -173,6 +174,34 @@ export function PublicViewPage({
     return { lat, lng, address };
   };
 
+  // Map clicks deliver a coordinate pair twice: once immediately with raw
+  // coords and again ~500ms later with the reverse-geocoded address. Dedupe
+  // same-point decisions within the geocode debounce window so the modal isn't
+  // re-evaluated; the duplicate call only refines the address in place.
+  const lastAssessmentDecision = useRef<{ key: string; at: number } | null>(null);
+
+  // Opens the assessment modal for any location, inside or outside Iligan City.
+  // The server is the authoritative geofence; withinCity only drives courtesy UI
+  // (report CTA enabled vs. outside-city notice).
+  const openReportModalFor = useCallback(async (location: SelectedLocation) => {
+    const key = `${location.lat.toFixed(4)},${location.lng.toFixed(4)}`;
+    const lastDecision = lastAssessmentDecision.current;
+    if (lastDecision && lastDecision.key === key && Date.now() - lastDecision.at < 2000) {
+      setSelectedLocation(location);
+      return;
+    }
+    lastAssessmentDecision.current = { key, at: Date.now() };
+    let within: boolean | null = null;
+    try {
+      within = await isWithinIligan(location.lat, location.lng);
+    } catch {
+      within = null;
+    }
+    setWithinCity(within);
+    setSelectedLocation(location);
+    setIsModalOpen(true);
+  }, []);
+
   const handleStartReport = useCallback(() => {
     scrollToMap();
     setIsManualLocationMode(false);
@@ -220,7 +249,7 @@ export function PublicViewPage({
           };
 
           setSelectedLocation(fallbackLocation);
-          setIsModalOpen(true);
+          void openReportModalFor(fallbackLocation);
           void resolveLocation(latitude, longitude).then(setSelectedLocation);
         },
         (error) => {
@@ -249,7 +278,7 @@ export function PublicViewPage({
       );
     };
     attempt(true);
-  }, []);
+  }, [openReportModalFor]);
 
   const handleChooseLocation = useCallback(() => {
     setIsLocationPromptOpen(false);
@@ -257,20 +286,35 @@ export function PublicViewPage({
     scrollToMap();
   }, [scrollToMap]);
 
-  const handleLocationSelect = useCallback((location: SelectedLocation) => {
-    if (isModalOpen) return;
-    setIsLocationPromptOpen(false);
-    setSelectedLocation(location);
-    setIsModalOpen(true);
-  }, [isModalOpen]);
+  const handleLocationSelect = useCallback(
+    (location: SelectedLocation) => {
+      if (isModalOpen) {
+        // The map delivers raw coords first, then the geocoded address for the
+        // same point ~500ms later; refresh the label in place when they match.
+        if (
+          selectedLocation &&
+          Math.abs(selectedLocation.lat - location.lat) < 1e-4 &&
+          Math.abs(selectedLocation.lng - location.lng) < 1e-4
+        ) {
+          setSelectedLocation(location);
+        }
+        return;
+      }
+      setIsLocationPromptOpen(false);
+      void openReportModalFor(location);
+    },
+    [isModalOpen, openReportModalFor, selectedLocation]
+  );
 
-  const handleSearchedLocationSelect = useCallback((location: SelectedLocation) => {
-    if (isModalOpen) return;
-    setIsLocationPromptOpen(false);
-    mapRef.current?.focusLocation(location);
-    setSelectedLocation(location);
-    setIsModalOpen(true);
-  }, [isModalOpen]);
+  const handleSearchedLocationSelect = useCallback(
+    (location: SelectedLocation) => {
+      if (isModalOpen) return;
+      setIsLocationPromptOpen(false);
+      mapRef.current?.focusLocation(location);
+      void openReportModalFor(location);
+    },
+    [isModalOpen, openReportModalFor]
+  );
 
   const handleLocate = useCallback(async () => {
     await mapRef.current?.shareMyLocation();
@@ -281,7 +325,12 @@ export function PublicViewPage({
   const handleCheckLocation = useCallback(
     (location: { lat: number; lng: number }) =>
       mapRef.current?.checkLocation(location) ??
-      Promise.resolve({ hazardLevel: null, precipMm: null }),
+      Promise.resolve({
+        floodHazard: null,
+        landslide: null,
+        stormSurge: null,
+        precipMm: null,
+      }),
     []
   );
 
@@ -429,6 +478,7 @@ export function PublicViewPage({
         onClose={() => {
           setIsModalOpen(false);
           setSelectedLocation(null);
+          setWithinCity(null);
           setIsManualLocationMode(true);
         }}
         selectedLocation={selectedLocation}
@@ -438,6 +488,7 @@ export function PublicViewPage({
         }}
         onCheckLocation={handleCheckLocation}
         rainfallHours={rainfallHours}
+        withinCity={withinCity}
       />
 
       <SuccessModal

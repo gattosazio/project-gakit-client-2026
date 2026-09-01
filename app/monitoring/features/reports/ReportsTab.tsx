@@ -20,6 +20,7 @@ import type {
   ReportStatus,
 } from '@/types/report';
 import { toast } from 'react-toastify';
+import { isWithinIligan } from '@/lib/map/geoUtils';
 import { FeaturePageShell } from '@/components/FeaturePageShell';
 import { createReport, getReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
 import { ReportDetail } from './ReportDetail';
@@ -212,7 +213,30 @@ export function ReportsTab({
     .filter((part): part is string => Boolean(part))
     .join(' · ');
 
-  const handleLocationSelect = (location: SelectedLocation) => {
+  // Same-point map clicks arrive twice (raw coords, then the geocoded address
+  // ~500ms later); dedupe so an out-of-city rejection toasts only once.
+  const lastGeofenceDecision = useRef<{ key: string; at: number } | null>(null);
+
+  const handleLocationSelect = async (location: SelectedLocation) => {
+    const key = `${location.lat.toFixed(4)},${location.lng.toFixed(4)}`;
+    const lastDecision = lastGeofenceDecision.current;
+    if (lastDecision && lastDecision.key === key && Date.now() - lastDecision.at < 2000) {
+      return;
+    }
+    lastGeofenceDecision.current = { key, at: Date.now() };
+    let within: boolean | null = null;
+    try {
+      within = await isWithinIligan(location.lat, location.lng);
+    } catch {
+      within = null;
+    }
+    if (within === false) {
+      toast.error(
+        'This location is outside Iligan City. Staff reports are only accepted inside the city.',
+        { position: 'top-right', autoClose: 4500 }
+      );
+      return;
+    }
     setSelectedLocation(location);
     setIsReportModalOpen(true);
   };

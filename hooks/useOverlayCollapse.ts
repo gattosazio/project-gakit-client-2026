@@ -18,6 +18,8 @@ export type OverlayState = {
   flood: boolean;
   rain: boolean;
   himawari: boolean;
+  landslide: boolean;
+  stormSurge: boolean;
 };
 
 export type PriorityTarget = 'weather' | 'reports' | 'layers' | 'auto';
@@ -31,6 +33,8 @@ interface UseOverlayCollapseOptions {
   showFloodHazard: boolean;
   showRainfall: boolean;
   showHimawariIR: boolean;
+  showLandslide: boolean;
+  showStormSurge: boolean;
 }
 
 export function useOverlayCollapse({
@@ -42,6 +46,8 @@ export function useOverlayCollapse({
   showFloodHazard,
   showRainfall,
   showHimawariIR,
+  showLandslide,
+  showStormSurge,
 }: UseOverlayCollapseOptions) {
   const [layersOpen, setLayersOpen] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth >= 768 : true
@@ -61,8 +67,10 @@ export function useOverlayCollapse({
       const reportsH = s.reportsOpen ? 150 : 38;
       let layersH = 38;
       if (s.layersOpen) {
-        layersH = 135;
+        layersH = 195;
         if (s.flood) layersH += 75;
+        if (s.landslide) layersH += 75;
+        if (s.stormSurge) layersH += 175;
         if (s.rain) layersH += 125;
         if (s.himawari) layersH += 55;
       }
@@ -170,13 +178,15 @@ export function useOverlayCollapse({
         flood: showFloodHazard,
         rain: showRainfall,
         himawari: showHimawariIR,
+        landslide: showLandslide,
+        stormSurge: showStormSurge,
       };
       const safe = nextOpen ? collapseToFit(proposed, 'weather') : proposed;
       setWeatherOpen(safe.weatherOpen);
       setReportsOpen(safe.reportsOpen);
       setLayersOpen(safe.layersOpen);
     },
-    [reportsOpen, layersOpen, showFloodHazard, showRainfall, showHimawariIR, collapseToFit]
+    [reportsOpen, layersOpen, showFloodHazard, showRainfall, showHimawariIR, showLandslide, showStormSurge, collapseToFit]
   );
 
   const handleToggleReports = useCallback(
@@ -188,13 +198,15 @@ export function useOverlayCollapse({
         flood: showFloodHazard,
         rain: showRainfall,
         himawari: showHimawariIR,
+        landslide: showLandslide,
+        stormSurge: showStormSurge,
       };
       const safe = nextOpen ? collapseToFit(proposed, 'reports') : proposed;
       setWeatherOpen(safe.weatherOpen);
       setReportsOpen(safe.reportsOpen);
       setLayersOpen(safe.layersOpen);
     },
-    [weatherOpen, layersOpen, showFloodHazard, showRainfall, showHimawariIR, collapseToFit]
+    [weatherOpen, layersOpen, showFloodHazard, showRainfall, showHimawariIR, showLandslide, showStormSurge, collapseToFit]
   );
 
   const handleToggleLayers = useCallback(
@@ -206,13 +218,15 @@ export function useOverlayCollapse({
         flood: showFloodHazard,
         rain: showRainfall,
         himawari: showHimawariIR,
+        landslide: showLandslide,
+        stormSurge: showStormSurge,
       };
       const safe = nextOpen ? collapseToFit(proposed, 'layers') : proposed;
       setWeatherOpen(safe.weatherOpen);
       setReportsOpen(safe.reportsOpen);
       setLayersOpen(safe.layersOpen);
     },
-    [weatherOpen, reportsOpen, showFloodHazard, showRainfall, showHimawariIR, collapseToFit]
+    [weatherOpen, reportsOpen, showFloodHazard, showRainfall, showHimawariIR, showLandslide, showStormSurge, collapseToFit]
   );
 
   // Pre-paint DOM boundary guard: ensures stack NEVER surpasses search bar
@@ -238,7 +252,7 @@ export function useOverlayCollapse({
     checkDomOverflow();
     window.addEventListener('resize', checkDomOverflow);
     return () => window.removeEventListener('resize', checkDomOverflow);
-  }, [hideWeather, weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, showHimawariIR, mapContainerRef]);
+  }, [hideWeather, weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, showHimawariIR, showLandslide, showStormSurge, mapContainerRef]);
 
   // Window resize: re-run collapseToFit against current state
   useEffect(() => {
@@ -250,6 +264,8 @@ export function useOverlayCollapse({
         flood: showFloodHazard,
         rain: showRainfall,
         himawari: showHimawariIR,
+        landslide: showLandslide,
+        stormSurge: showStormSurge,
       };
       const safe = collapseToFit(proposed);
       setWeatherOpen(safe.weatherOpen);
@@ -258,7 +274,7 @@ export function useOverlayCollapse({
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, showHimawariIR, collapseToFit]);
+  }, [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, showHimawariIR, showLandslide, showStormSurge, collapseToFit]);
 
   return {
     weatherOpen,

@@ -1,15 +1,58 @@
 // Flood hazard colors — single source of truth for layers + legend
 export const FLOOD_HAZARD_COLORS: Record<string, string> = {
   high: '#1D4ED8',
-  medium: '#0891B2',
-  low: '#BAE6FD',
+  medium: '#3B82F6',
+  low: '#93C5FD',
 };
 
 export const FLOOD_HAZARD_LEGEND: Array<{ key: string; label: string; color: string }> = [
-  { key: 'high', label: 'High hazard', color: FLOOD_HAZARD_COLORS.high },
-  { key: 'medium', label: 'Medium hazard', color: FLOOD_HAZARD_COLORS.medium },
   { key: 'low', label: 'Low hazard', color: FLOOD_HAZARD_COLORS.low },
+  { key: 'medium', label: 'Medium hazard', color: FLOOD_HAZARD_COLORS.medium },
+  { key: 'high', label: 'High hazard', color: FLOOD_HAZARD_COLORS.high },
 ];
+
+// Horizontal gradient strip (low → high) used in the layer legend.
+export const FLOOD_HAZARD_GRADIENT_CSS = `linear-gradient(to right, ${FLOOD_HAZARD_COLORS.low} 0%, ${FLOOD_HAZARD_COLORS.medium} 50%, ${FLOOD_HAZARD_COLORS.high} 100%)`;
+
+// Landslide susceptibility bands (LH field, integer 1..3)
+export const LANDSLIDE_COLORS: Record<string, string> = {
+  high: '#7C2D12',
+  medium: '#C2410C',
+  low: '#FED7AA',
+};
+
+export const LANDSLIDE_LEGEND: Array<{ key: string; label: string; color: string }> = [
+  { key: 'high', label: 'High', color: LANDSLIDE_COLORS.high },
+  { key: 'medium', label: 'Medium', color: LANDSLIDE_COLORS.medium },
+  { key: 'low', label: 'Low', color: LANDSLIDE_COLORS.low },
+];
+
+// Horizontal gradient strip (low → high) used in the layer legend.
+export const LANDSLIDE_GRADIENT_CSS = `linear-gradient(to right, ${LANDSLIDE_COLORS.low} 0%, ${LANDSLIDE_COLORS.medium} 50%, ${LANDSLIDE_COLORS.high} 100%)`;
+
+// Storm surge advisories (HAZ field, one archive per advisory level)
+export const STORM_SURGE_COLORS: Record<1 | 2 | 3 | 4, string> = {
+  1: '#FDE68A',
+  2: '#FB923C',
+  3: '#DC2626',
+  4: '#7F1D1D',
+};
+export const STORM_SURGE_LEGEND: Array<{ key: 1 | 2 | 3 | 4; label: string; color: string }> = [
+  { key: 1, label: 'Advisory 1 (1–2 m)', color: STORM_SURGE_COLORS[1] },
+  { key: 2, label: 'Advisory 2 (2–3 m)', color: STORM_SURGE_COLORS[2] },
+  { key: 3, label: 'Advisory 3 (3–4 m)', color: STORM_SURGE_COLORS[3] },
+  { key: 4, label: 'Advisory 4 (>4 m)', color: STORM_SURGE_COLORS[4] },
+];
+
+// HAZ (surge height) color ramp applied WITHIN each advisory layer.
+export const STORM_SURGE_HAZ_COLORS: Record<1 | 2 | 3, string> = {
+  1: '#FDE68A',
+  2: '#FB923C',
+  3: '#DC2626',
+};
+
+// Horizontal gradient strip (1–3 m) used in the layer legend.
+export const STORM_SURGE_GRADIENT_CSS = `linear-gradient(to right, ${STORM_SURGE_HAZ_COLORS[1]} 0%, ${STORM_SURGE_HAZ_COLORS[2]} 50%, ${STORM_SURGE_HAZ_COLORS[3]} 100%)`;
 
 // JAXA GSMaP official contour palette — 10 classes sampled from the Realtime
 // Rainfall Watch viewer colorbars (sharaku.eorc.jaxa.jp/GSMaP_NOW/img/

@@ -149,6 +149,20 @@ export function findBarangayEntry(
 }
 
 /**
+ * Client-side courtesy geofence check: returns whether a coordinate is inside
+ * any Iligan City barangay. The server remains authoritative for report
+ * submission; callers only use this to give early UX feedback.
+ *
+ * Returns null when the barangay boundary data is unavailable (offline/CDN
+ * hiccup) so the caller can allow the flow through and rely on the server.
+ */
+export async function isWithinIligan(lat: number, lng: number): Promise<boolean | null> {
+  const geojson = await getIliganBarangays();
+  if (!geojson) return null;
+  return findBarangayEntry(lng, lat, geojson) != null;
+}
+
+/**
  * High-precision offline reverse-geocoding for Iligan City:
  * 1. Checks exact Barangay boundary polygon (0ms).
  * 2. Finds nearest named landmark or street within ~75m.

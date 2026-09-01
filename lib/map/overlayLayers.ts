@@ -8,7 +8,12 @@ import {
   REPORT_MARKER_IMAGE_IDS,
   REPORT_STATUS_LEGEND,
 } from '@/constants/publicMap';
-import { buildRainfallPaintExpression, FLOOD_HAZARD_COLORS } from '@/lib/map/colorScales';
+import {
+  buildRainfallPaintExpression,
+  FLOOD_HAZARD_COLORS,
+  LANDSLIDE_COLORS,
+  STORM_SURGE_HAZ_COLORS,
+} from '@/lib/map/colorScales';
 import { HIMAWARI_COORDINATES, HIMAWARI_PLACEHOLDER_DATA_URL } from '@/lib/map/himawari';
 import {
   PAR_BOUNDARY_GEOJSON,
@@ -36,6 +41,18 @@ export const riskLevelFilter = (visible: Record<string, boolean>) => [
   ...Object.keys(FLOOD_HAZARD_COLORS).filter((level) => visible[level]),
 ];
 
+export const landslideFilter = (visible: Record<string, boolean>) => {
+  const allowed: number[] = [];
+  if (visible.low) allowed.push(1);
+  if (visible.medium) allowed.push(2);
+  if (visible.high) allowed.push(3);
+  return [
+    'in',
+    ['to-number', ['get', 'LH']],
+    ['literal', allowed],
+  ];
+};
+
 export interface OverlayLayerState {
   showFloodHazard: boolean;
   showRainfall: boolean;
@@ -43,6 +60,10 @@ export interface OverlayLayerState {
   showTyphoonTrack?: boolean;
   showBarangayBoundaries?: boolean;
   visibleRiskLevels: Record<string, boolean>;
+  showLandslide: boolean;
+  visibleLandslideLevels: Record<string, boolean>;
+  showStormSurge: boolean;
+  stormSurgeAdvisory: 1 | 2 | 3 | 4 | null;
   mapMode: MapMode;
   rainfallHours: number;
   basemap?: BasemapId;
@@ -119,7 +140,7 @@ export const setupOverlayLayers = async (
         type: 'vector',
         url: 'pmtiles:///data/lanao-del-norte-flood-zones.pmtiles',
         attribution:
-          'Flood data: <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">Project NOAH</a> (ODbL)',
+          'Flood data: <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">UP RI NOAH</a> (ODbL)',
       });
 
       map.addLayer({
@@ -136,9 +157,70 @@ export const setupOverlayLayers = async (
             'low',     FLOOD_HAZARD_COLORS.low,
             'rgba(0,0,0,0.15)',
           ],
-          'fill-opacity': 0.25,
+          'fill-opacity': 0.75,
+          'fill-antialias': false,
         },
       });
+    }
+
+    // --- Landslide susceptibility (PMTiles) ---
+    if (!map.getSource('landslide')) {
+      map.addSource('landslide', {
+        type: 'vector',
+        url: 'pmtiles:///data/lanao-del-norte-landslide.pmtiles',
+        attribution:
+          'Landslide data: <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">UP RI NOAH</a>',
+      });
+      map.addLayer({
+        id: 'landslide-fill',
+        type: 'fill',
+        source: 'landslide',
+        'source-layer': 'landslide',
+        paint: {
+          'fill-color': [
+            'match',
+            ['get', 'LH'],
+            1, LANDSLIDE_COLORS.low,
+            2, LANDSLIDE_COLORS.medium,
+            3, LANDSLIDE_COLORS.high,
+            'rgba(0,0,0,0.15)',
+          ],
+          'fill-opacity': 0.75,
+          'fill-antialias': false,
+        },
+      });
+    }
+
+    // --- Storm surge advisories 1..4 (one source per archive; single-active) ---
+    for (const n of [1, 2, 3, 4] as const) {
+      const sourceId = `storm-surge-ssa${n}`;
+      const layerId = `storm-surge-ssa${n}-fill`;
+      if (!map.getSource(sourceId)) {
+        map.addSource(sourceId, {
+          type: 'vector',
+          url: `pmtiles:///data/lanao-del-norte-storm-surge-ssa${n}.pmtiles`,
+          attribution:
+            'Storm surge: <a href="https://noah.upd.edu.ph/" target="_blank" rel="noopener">UP RI NOAH</a>',
+        });
+        map.addLayer({
+          id: layerId,
+          type: 'fill',
+          source: sourceId,
+          'source-layer': `storm_surge_ssa${n}`,
+          paint: {
+            'fill-color': [
+              'match',
+              ['to-number', ['get', 'HAZ']],
+              1, STORM_SURGE_HAZ_COLORS[1],
+              2, STORM_SURGE_HAZ_COLORS[2],
+              3, STORM_SURGE_HAZ_COLORS[3],
+              STORM_SURGE_HAZ_COLORS[1],
+            ],
+            'fill-opacity': 0.75,
+            'fill-antialias': false,
+          },
+        });
+      }
     }
 
     // --- Near real-time rainfall grid (JAXA GSMaP) ---
@@ -157,6 +239,7 @@ export const setupOverlayLayers = async (
         paint: {
           'fill-color': buildRainfallPaintExpression(state.rainfallHours),
           'fill-opacity': 0.6,
+          'fill-antialias': false,
         },
       });
     }
@@ -399,6 +482,11 @@ export const setupOverlayLayers = async (
 
     // Apply current toggle state (handles case where user toggled before load)
   const typhoonVis = state.showTyphoonTrack ?? false;
+  const stormSurgeVis = state.showStormSurge ? state.stormSurgeAdvisory : null;
+  const stormSurgeEntries: Array<[string, boolean]> = [1, 2, 3, 4].map((n) => [
+    `storm-surge-ssa${n}-fill`,
+    stormSurgeVis === n,
+  ]);
   const initialLayers: Array<[string, boolean]> = [
     ['par-boundary-line', typhoonVis],
     ['par-boundary-label', typhoonVis],
@@ -411,6 +499,8 @@ export const setupOverlayLayers = async (
     ['typhoon-track-point-dot', typhoonVis],
     ['typhoon-track-point-label', typhoonVis],
     ['flood-hazard-fill', state.showFloodHazard],
+    ['landslide-fill', state.showLandslide],
+    ...stormSurgeEntries,
     ['rainfall-grid', state.showRainfall],
     ['barangay-outline-casing', state.showBarangayBoundaries ?? false],
     ['barangay-outline', state.showBarangayBoundaries ?? false],
@@ -424,6 +514,8 @@ export const setupOverlayLayers = async (
 
   const initialFilter = riskLevelFilter(state.visibleRiskLevels);
   if (map.getLayer('flood-hazard-fill')) map.setFilter('flood-hazard-fill', initialFilter);
+  const initialLandslideFilter = landslideFilter(state.visibleLandslideLevels);
+  if (map.getLayer('landslide-fill')) map.setFilter('landslide-fill', initialLandslideFilter);
 
   // --- Report markers as clustered GeoJSON (GPU-rendered, no DOM churn) ---
   if (!map.getSource('reports')) {
@@ -532,7 +624,7 @@ export const setupOverlayLayers = async (
       // (used for hover highlighting) can resolve and update each polygon.
       promoteId: 'adm4_psgc',
       attribution:
-        'Boundaries: <a href="https://data.humdata.org/dataset/cod-ab-phl" target="_blank" rel="noopener">HDX / UN OCHA</a>',
+        'Boundaries: <a href="https://namria.gov.ph/" target="_blank" rel="noopener">NAMRIA / PSA</a>',
     });
 
     const isSatellite = state.basemap === 'satellite';
@@ -681,6 +773,11 @@ export const setupOverlayLayers = async (
   const orderedLayers = [
     'himawari-ir-layer',
     'flood-hazard-fill',
+    'landslide-fill',
+    'storm-surge-ssa1-fill',
+    'storm-surge-ssa2-fill',
+    'storm-surge-ssa3-fill',
+    'storm-surge-ssa4-fill',
     'rainfall-grid',
     'barangay-fill',
     'barangay-outline-casing',

@@ -12,7 +12,10 @@ import {
   type RainfallAccumulationHours,
 } from '@/lib/map/rainfall';
 import {
-  FLOOD_HAZARD_LEGEND,
+  FLOOD_HAZARD_GRADIENT_CSS,
+  LANDSLIDE_GRADIENT_CSS,
+  STORM_SURGE_GRADIENT_CSS,
+  STORM_SURGE_LEGEND,
   RAINFALL_GRADIENT_CSS,
   RAINFALL_LEGEND_STOPS,
   rainfallBandValues,
@@ -182,6 +185,21 @@ function Card({
   );
 }
 
+/* ─── Coverage chip (layer extent hint) ──────────────────────────────── */
+
+function CoverageChip({ label, detail }: { label: string; detail: string }) {
+  return (
+    <span className="group relative ml-auto shrink-0" title={detail}>
+      <span className="inline-flex items-center rounded-full bg-white px-1.5 py-0.5 text-[9px] font-semibold normal-case tracking-normal text-slate-500 ring-1 ring-slate-200">
+        {label}
+      </span>
+      <span className="pointer-events-none absolute top-full right-0 z-10 mt-1.5 hidden whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white shadow-lg group-hover:block">
+        {detail}
+      </span>
+    </span>
+  );
+}
+
 /* ─── Map view toggle (2D / 3D / Sat / Sat+T) ────────────────────────── */
 
 type ViewPreset = {
@@ -328,8 +346,6 @@ interface DataLayerControlsProps {
   rainfallSource: string | null;
   rainfallHours: RainfallAccumulationHours;
   onRainfallHoursChange: (hours: RainfallAccumulationHours) => void;
-  visibleRiskLevels: Record<string, boolean>;
-  onRiskLevelChange: (key: string, checked: boolean) => void;
   showHimawariIR: boolean;
   onShowHimawariIRChange: (checked: boolean) => void;
   isLoadingHimawari?: boolean;
@@ -345,6 +361,11 @@ interface DataLayerControlsProps {
   onFocusStorm?: (stormName?: string) => void;
   showBarangayBoundaries?: boolean;
   onShowBarangayBoundariesChange?: (checked: boolean) => void;
+  showLandslide: boolean;
+  onShowLandslideChange: (checked: boolean) => void;
+  showStormSurge: boolean;
+  stormSurgeAdvisory: 1 | 2 | 3 | 4 | null;
+  onStormSurgeAdvisoryChange: (next: 1 | 2 | 3 | 4 | null) => void;
 }
 
 export function DataLayerControls({
@@ -359,8 +380,6 @@ export function DataLayerControls({
   rainfallSource,
   rainfallHours,
   onRainfallHoursChange,
-  visibleRiskLevels,
-  onRiskLevelChange,
   showHimawariIR,
   onShowHimawariIRChange,
   isLoadingHimawari = false,
@@ -376,38 +395,124 @@ export function DataLayerControls({
   onFocusStorm,
   showBarangayBoundaries = false,
   onShowBarangayBoundariesChange,
+  showLandslide,
+  onShowLandslideChange,
+  showStormSurge,
+  stormSurgeAdvisory,
+  onStormSurgeAdvisoryChange,
 }: DataLayerControlsProps) {
   const [showScaleModal, setShowScaleModal] = useState(false);
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
   return (
     <Card open={open} onToggle={onToggle} icon={Layers} title="Layers">
       <div className="space-y-1.5">
+        <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+          Hazards
+          <CoverageChip label="Lanao del Norte" detail="Covers Lanao del Norte only" />
+        </div>
+
         <PillToggle
-          label="Flood Susceptibility"
+          label="Flood"
           color="#3B82F6"
           checked={showFloodHazard}
           onChange={onShowFloodHazardChange}
           credit={{
             href: 'https://noah.upd.edu.ph/',
-            label: 'Project NOAH',
+            label: 'UP RI NOAH',
           }}
         />
         {showFloodHazard && (
           <div className="pl-9 pt-1 pb-1 space-y-1">
             <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-              Risk levels
+              Hazard level
             </div>
-            {FLOOD_HAZARD_LEGEND.map(({ key, label, color }) => (
+            <div className="flex items-center gap-1.5">
+              <div
+                className="h-2.5 w-44 rounded-full"
+                style={{ background: FLOOD_HAZARD_GRADIENT_CSS }}
+              />
+            </div>
+            <div className="flex w-44 justify-between text-[9px] text-slate-500">
+              <span>Low</span>
+              <span>Medium</span>
+              <span>High</span>
+            </div>
+          </div>
+        )}
+
+        <PillToggle
+          label="Landslide"
+          color="#7C2D12"
+          checked={showLandslide}
+          onChange={onShowLandslideChange}
+          credit={{
+            href: 'https://noah.upd.edu.ph/',
+            label: 'UP RI NOAH',
+          }}
+        />
+        {showLandslide && (
+          <div className="pl-9 pt-1 pb-1 space-y-1">
+            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+              Hazard level
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div
+                className="h-2.5 w-44 rounded-full"
+                style={{ background: LANDSLIDE_GRADIENT_CSS }}
+              />
+            </div>
+            <div className="flex w-44 justify-between text-[9px] text-slate-500">
+              <span>Low</span>
+              <span>Medium</span>
+              <span>High</span>
+            </div>
+          </div>
+        )}
+
+        <PillToggle
+          label="Storm Surge"
+          color="#DC2626"
+          checked={showStormSurge}
+          onChange={(checked) => {
+            if (!checked) onStormSurgeAdvisoryChange(null);
+            else if (stormSurgeAdvisory == null) onStormSurgeAdvisoryChange(1);
+          }}
+          credit={{
+            href: 'https://noah.upd.edu.ph/',
+            label: 'UP RI NOAH',
+          }}
+        />
+        {showStormSurge && (
+          <div className="pl-9 pt-1 pb-1 space-y-1">
+            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+              Hazard level
+            </div>
+            {STORM_SURGE_LEGEND.map(({ key, label, color }) => (
               <PillToggle
                 key={key}
                 label={label}
                 color={color}
-                checked={!!visibleRiskLevels[key]}
-                onChange={(checked) => onRiskLevelChange(key, checked)}
+                checked={stormSurgeAdvisory === key}
+                onChange={(checked) => onStormSurgeAdvisoryChange(checked ? key : null)}
               />
             ))}
+            <div className="flex items-center gap-1.5 pt-1.5">
+              <div className="h-2.5 w-44 rounded-full" style={{
+                background: STORM_SURGE_GRADIENT_CSS,
+              }} />
+            </div>
+            <div className="flex w-44 justify-between text-[9px] text-slate-500">
+              <span>Low</span>
+              <span>Medium</span>
+              <span>High</span>
+            </div>
           </div>
         )}
+
+        <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+          Weather &amp; Satellite
+          <CoverageChip label="Philippines" detail="Covers the Philippines" />
+        </div>
 
         <PillToggle
           label="Rainfall Accumulation"
@@ -612,14 +717,19 @@ export function DataLayerControls({
           </div>
         )}
 
+        <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+          Administrative
+          <CoverageChip label="Iligan City" detail="Covers Iligan City only" />
+        </div>
+
         <PillToggle
           label="Barangay Boundaries"
           color="#06B6D4"
           checked={showBarangayBoundaries}
           onChange={(checked) => onShowBarangayBoundariesChange?.(checked)}
           credit={{
-            href: 'https://data.humdata.org/dataset/cod-ab-phl',
-            label: 'HDX / UN OCHA',
+            href: 'https://namria.gov.ph/',
+            label: 'NAMRIA / PSA',
           }}
         />
       </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { reverseGeocode, searchLocations } from '@/lib/map/geoUtils';
+import { isWithinIligan, reverseGeocode, searchLocations } from '@/lib/map/geoUtils';
 import fs from 'fs';
 import path from 'path';
 
@@ -53,5 +53,24 @@ describe('Local Point-in-Polygon & Overture Geocoding', () => {
     expect(results.length).toBeGreaterThan(0);
     expect(results[0].displayName).toContain('Pala-o');
     expect(results[0].category).toBe('Barangay');
+  });
+});
+
+describe('Iligan City geofence (server is authoritative; client is courtesy)', () => {
+  it('accepts coordinates inside a barangay', async () => {
+    // Iligan City Hall, inside Poblacion
+    expect(await isWithinIligan(8.2285, 124.2442)).toBe(true);
+  });
+
+  it('accepts coordinates inside an upland barangay', async () => {
+    // Inside Hinaplanon
+    expect(await isWithinIligan(8.251, 124.256)).toBe(true);
+  });
+
+  it('rejects coordinates outside the city', async () => {
+    // Cagayan de Oro proper
+    expect(await isWithinIligan(8.4822, 124.6472)).toBe(false);
+    // Lanao del Sur
+    expect(await isWithinIligan(8.05, 124.1)).toBe(false);
   });
 });

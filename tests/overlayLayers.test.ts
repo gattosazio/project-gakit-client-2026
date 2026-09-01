@@ -43,6 +43,10 @@ const baseState = {
   showRainfall: false,
   showHimawariIR: true,
   visibleRiskLevels: {},
+  showLandslide: false,
+  visibleLandslideLevels: {},
+  showStormSurge: false,
+  stormSurgeAdvisory: null,
   mapMode: '2d' as const,
   rainfallHours: 1,
 };
