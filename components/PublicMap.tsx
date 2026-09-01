@@ -34,10 +34,17 @@ import {
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 import { bboxChanged, polygonRepPoint, setSwathZoomFloor } from '@/lib/map/mapGeometry';
 import { queryFloodHazard, type FloodRiskLevel } from '@/lib/map/floodHazard';
+import {
+  queryLandslide,
+  queryStormSurge,
+  type HazardLevel as GeohazardLevel,
+  type StormSurgeInfo,
+} from '@/lib/map/geohazardQuery';
 import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
 import {
   applyBarangayBoundariesVisibility,
   riskLevelFilter,
+  landslideFilter,
   setupOverlayLayers,
   stopClusterPulse,
   type MapMode,
@@ -63,7 +70,9 @@ import { useTyphoonLayer } from '@/hooks/useTyphoonLayer';
 import { buildTyphoonPopupHtml } from '@/lib/map/typhoon';
 
 export interface LocationRiskInfo {
-  hazardLevel: FloodRiskLevel | null;
+  floodHazard: FloodRiskLevel | null;
+  landslide: GeohazardLevel | null;
+  stormSurge: StormSurgeInfo | null;
   precipMm: number | null;
 }
 
@@ -172,11 +181,9 @@ export function PublicMap({
   const basemapRef = useRef<BasemapId>('light');
   const showFloodHazardRef = useRef(false);
   const showRainfallRef = useRef(false);
-  const visibleRiskLevelsRef = useRef<Record<string, boolean>>({
-    high: true,
-    medium: true,
-    low: true,
-  });
+  const showLandslideRef = useRef(false);
+  const showStormSurgeRef = useRef(false);
+  const stormSurgeAdvisoryRef = useRef<1 | 2 | 3 | 4 | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapBearing, setMapBearing] = useState(0);
 
@@ -198,11 +205,9 @@ export function PublicMap({
   const showBarangayBoundariesRef = useRef(false);
 
   // ─── Domain layers ─────────────────────────────────────────────────────────
-  const [visibleRiskLevels, setVisibleRiskLevels] = useState<Record<string, boolean>>({
-    high: true,
-    medium: true,
-    low: true,
-  });
+  const [showLandslide, setShowLandslide] = useState(false);
+  const [showStormSurge, setShowStormSurge] = useState(false);
+  const [stormSurgeAdvisory, setStormSurgeAdvisory] = useState<1 | 2 | 3 | 4 | null>(null);
   const [visibleReportStatuses, setVisibleReportStatuses] = useState<Record<ReportStatus, boolean>>(
     initialVisibleReportStatuses
   );
@@ -271,6 +276,8 @@ export function PublicMap({
     showFloodHazard,
     showRainfall,
     showHimawariIR: himawari.showHimawariIR,
+    showLandslide,
+    showStormSurge,
   });
 
   // ─── Sub-layer toggle handlers ─────────────────────────────────────────────
@@ -287,6 +294,8 @@ export function PublicMap({
               flood: checked,
               rain: showRainfall,
               himawari: himawari.showHimawariIR,
+              landslide: showLandslide,
+              stormSurge: showStormSurge,
             },
             'layers'
           )
@@ -297,7 +306,7 @@ export function PublicMap({
         setLayersOpen(safe.layersOpen);
       }
     },
-    [weatherOpen, reportsOpen, layersOpen, showRainfall, himawari.showHimawariIR, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
+    [weatherOpen, reportsOpen, layersOpen, showRainfall, himawari.showHimawariIR, showLandslide, showStormSurge, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
   );
 
   const handleShowRainfallChange = useCallback(
@@ -327,6 +336,8 @@ export function PublicMap({
               flood: showFloodHazard,
               rain: checked,
               himawari: himawari.showHimawariIR,
+              landslide: showLandslide,
+              stormSurge: showStormSurge,
             },
             'layers'
           )
@@ -337,7 +348,7 @@ export function PublicMap({
         setLayersOpen(safe.layersOpen);
       }
     },
-    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, himawari.showHimawariIR, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
+    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, himawari.showHimawariIR, showLandslide, showStormSurge, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
   );
 
   const handleShowHimawariIRChange = useCallback(
@@ -352,6 +363,8 @@ export function PublicMap({
               flood: showFloodHazard,
               rain: showRainfall,
               himawari: checked,
+              landslide: showLandslide,
+              stormSurge: showStormSurge,
             },
             'layers'
           )
@@ -362,7 +375,7 @@ export function PublicMap({
         setLayersOpen(safe.layersOpen);
       }
     },
-    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
+    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari, showLandslide, showStormSurge, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
   );
 
   const handleShowTyphoonTrackChange = useCallback(
@@ -377,6 +390,8 @@ export function PublicMap({
               flood: showFloodHazard,
               rain: showRainfall,
               himawari: himawari.showHimawariIR,
+              landslide: showLandslide,
+              stormSurge: showStormSurge,
             },
             'layers'
           )
@@ -387,7 +402,7 @@ export function PublicMap({
         setLayersOpen(safe.layersOpen);
       }
     },
-    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, typhoon, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
+    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, showLandslide, showStormSurge, typhoon, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
   );
 
   const handleShowBarangayBoundariesChange = useCallback((checked: boolean) => {
@@ -398,6 +413,62 @@ export function PublicMap({
     }
   }, []);
 
+  const handleShowLandslideChange = useCallback(
+    (checked: boolean) => {
+      setShowLandslide(checked);
+      const safe = checked
+        ? collapseToFit(
+            {
+              weatherOpen,
+              reportsOpen,
+              layersOpen,
+              flood: showFloodHazard,
+              rain: showRainfall,
+              himawari: himawari.showHimawariIR,
+              landslide: true,
+              stormSurge: showStormSurge,
+            },
+            'layers'
+          )
+        : null;
+      if (safe) {
+        setWeatherOpen(safe.weatherOpen);
+        setReportsOpen(safe.reportsOpen);
+        setLayersOpen(safe.layersOpen);
+      }
+    },
+    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, showStormSurge, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
+  );
+
+  // Storm surge advisory: single-selection; master mirrors active state.
+  const handleStormSurgeAdvisoryChange = useCallback(
+    (next: 1 | 2 | 3 | 4 | null) => {
+      setStormSurgeAdvisory(next);
+      setShowStormSurge(next != null);
+      const safe = next != null
+        ? collapseToFit(
+            {
+              weatherOpen,
+              reportsOpen,
+              layersOpen,
+              flood: showFloodHazard,
+              rain: showRainfall,
+              himawari: himawari.showHimawariIR,
+              landslide: showLandslide,
+              stormSurge: true,
+            },
+            'layers'
+          )
+        : null;
+      if (safe) {
+        setWeatherOpen(safe.weatherOpen);
+        setReportsOpen(safe.reportsOpen);
+        setLayersOpen(safe.layersOpen);
+      }
+    },
+    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, showLandslide, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
+  );
+
   // Refs mirror toggle state so the style-load handler (which runs on every
   // basemap switch) can read the latest values without re-creating the map.
   useEffect(() => {
@@ -405,30 +476,46 @@ export function PublicMap({
     showFloodHazardRef.current = showFloodHazard;
     showRainfallRef.current = showRainfall;
     showBarangayBoundariesRef.current = showBarangayBoundaries;
-    visibleRiskLevelsRef.current = visibleRiskLevels;
-  }, [mapMode, showFloodHazard, showRainfall, showBarangayBoundaries, visibleRiskLevels]);
+    showLandslideRef.current = showLandslide;
+    showStormSurgeRef.current = showStormSurge;
+    stormSurgeAdvisoryRef.current = stormSurgeAdvisory;
+  }, [
+    mapMode,
+    showFloodHazard,
+    showRainfall,
+    showBarangayBoundaries,
+    showLandslide,
+    showStormSurge,
+    stormSurgeAdvisory,
+  ]);
 
   useEffect(() => {
     onLoadingChange?.(isLoadingReports);
   }, [isLoadingReports, onLoadingChange]);
 
-  // Looks up the flood hazard level and precipitation at a coordinate. Hazard
-  // comes from the PMTiles archive directly (viewport-independent); rain comes
-  // from the in-memory GSMaP grid via the rainfall hook (which lazily loads it
-  // if the layer was never enabled).
+  // Looks up the flood/landslide/storm-surge hazard levels and precipitation
+  // at a coordinate. Hazards come from the PMTiles archives directly
+  // (viewport-independent); rain comes from the in-memory GSMaP grid via the
+  // rainfall hook (which lazily loads it if the layer was never enabled).
+  // When no storm surge advisory is active there is nothing to query.
   const checkLocation = useCallback(
     async (location: { lat: number; lng: number }): Promise<LocationRiskInfo> => {
       const { lat, lng } = location;
 
       // Independent lookups run concurrently so a cold rainfall grid download
-      // never delays the local hazard answer.
-      const [precipMm, hazardLevel] = await Promise.all([
+      // never delays the local hazard answers.
+      const surge = stormSurgeAdvisory
+        ? queryStormSurge(lat, lng, stormSurgeAdvisory)
+        : Promise.resolve<StormSurgeInfo | null>(null);
+      const [precipMm, floodHazard, landslide, stormSurge] = await Promise.all([
         lookupPrecip(lat, lng),
         queryFloodHazard(lat, lng),
+        queryLandslide(lat, lng),
+        surge,
       ]);
-      return { hazardLevel, precipMm };
+      return { floodHazard, landslide, stormSurge, precipMm };
     },
-    [lookupPrecip]
+    [lookupPrecip, stormSurgeAdvisory]
   );
 
   const focusLocation = useCallback((location: { lat: number; lng: number }) => {
@@ -617,7 +704,11 @@ export function PublicMap({
           showHimawariIR: himawari.visibleRef.current,
           showTyphoonTrack: typhoon.visibleRef.current,
           showBarangayBoundaries: showBarangayBoundariesRef.current,
-          visibleRiskLevels: visibleRiskLevelsRef.current,
+          visibleRiskLevels: { high: true, medium: true, low: true },
+          showLandslide: showLandslideRef.current,
+          visibleLandslideLevels: { high: true, medium: true, low: true },
+          showStormSurge: showStormSurgeRef.current,
+          stormSurgeAdvisory: stormSurgeAdvisoryRef.current,
           mapMode: mapModeRef.current,
           rainfallHours: hoursRef.current,
           basemap: basemapRef.current,
@@ -893,9 +984,14 @@ export function PublicMap({
 
     const layers: Array<[string, boolean]> = [
       ['flood-hazard-fill', showFloodHazard],
+      ['landslide-fill', showLandslide],
       ['rainfall-grid', showRainfall],
       ['himawari-ir-layer', himawari.showHimawariIR],
     ];
+    const stormSurgeVis = showStormSurge ? stormSurgeAdvisory : null;
+    [1, 2, 3, 4].forEach((n) => {
+      layers.push([`storm-surge-ssa${n}-fill`, stormSurgeVis === n]);
+    });
 
     layers.forEach(([id, visible]) => {
       if (map.getLayer(id)) {
@@ -903,9 +999,18 @@ export function PublicMap({
       }
     });
 
-    const filter = riskLevelFilter(visibleRiskLevels);
-    map.setFilter('flood-hazard-fill', filter);
-  }, [showFloodHazard, showRainfall, himawari.showHimawariIR, visibleRiskLevels]);
+    map.setFilter('flood-hazard-fill', riskLevelFilter({ high: true, medium: true, low: true }));
+    if (map.getLayer('landslide-fill')) {
+      map.setFilter('landslide-fill', landslideFilter({ high: true, medium: true, low: true }));
+    }
+  }, [
+    showFloodHazard,
+    showRainfall,
+    himawari.showHimawariIR,
+    showLandslide,
+    showStormSurge,
+    stormSurgeAdvisory,
+  ]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
@@ -987,12 +1092,13 @@ export function PublicMap({
           hasActiveTyphoon={typhoon.typhoonData?.hasActiveTyphoon}
           activeStorms={typhoon.typhoonData?.activeStorms}
           onFocusStorm={typhoon.focusStorm}
-          visibleRiskLevels={visibleRiskLevels}
-          onRiskLevelChange={(key, checked) =>
-            setVisibleRiskLevels((prev) => ({ ...prev, [key]: checked }))
-          }
           showBarangayBoundaries={showBarangayBoundaries}
           onShowBarangayBoundariesChange={handleShowBarangayBoundariesChange}
+          showLandslide={showLandslide}
+          onShowLandslideChange={handleShowLandslideChange}
+          showStormSurge={showStormSurge}
+          stormSurgeAdvisory={stormSurgeAdvisory}
+          onStormSurgeAdvisoryChange={handleStormSurgeAdvisoryChange}
         />
 
         <div

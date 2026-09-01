@@ -43,7 +43,7 @@ export function useMapPopups({
       if (!maplibregl || !map) return;
       if (!reportPopupRef.current) {
         reportPopupRef.current = new maplibregl.Popup({
-          closeButton: false,
+          closeButton: true,
           closeOnClick: false,
           anchor: 'bottom',
           offset: 20,

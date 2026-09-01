@@ -149,7 +149,7 @@ export const buildReportPopupHtml = (feature: Record<string, any>): string => {
 
   if (props.kind === 'selected') {
     return `
-      <div class="gakit-tooltip" style="${tooltipStyle}">
+      <div class="gakit-tooltip" style="${tooltipStyle}padding-right: 26px;">
         <div style="font-weight: 700; font-size: 12px; color: #0f172a; margin-bottom: 2px;">
           Selected location
         </div>
@@ -158,7 +158,7 @@ export const buildReportPopupHtml = (feature: Record<string, any>): string => {
   }
 
   return `
-    <div class="gakit-tooltip" style="${tooltipStyle}">
+    <div class="gakit-tooltip" style="${tooltipStyle}padding-right: 26px;">
       ${props.address
         ? `<div style="font-weight: 700; font-size: 12px; color: #0f172a; margin-bottom: 2px;">
              ${escapeHtml(props.address)}

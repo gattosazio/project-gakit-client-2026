@@ -3,6 +3,10 @@ import {
   buildRainfallPaintExpression,
   FLOOD_HAZARD_COLORS,
   FLOOD_HAZARD_LEGEND,
+  LANDSLIDE_COLORS,
+  LANDSLIDE_LEGEND,
+  STORM_SURGE_COLORS,
+  STORM_SURGE_LEGEND,
   RAINFALL_BAND_COLORS,
   rainfallBandValues,
   RAINFALL_GRADIENT_CSS,
@@ -23,6 +27,24 @@ describe('flood hazard scales', () => {
     // Legend must reference exactly the colors used by the paint expressions.
     for (const entry of FLOOD_HAZARD_LEGEND) {
       expect(FLOOD_HAZARD_COLORS[entry.key]).toBe(entry.color);
+    }
+  });
+});
+
+describe('landslide scales', () => {
+  it('aligns legend keys and colors with the paint registry', () => {
+    expect(Object.keys(LANDSLIDE_COLORS).sort()).toEqual(['high', 'low', 'medium']);
+    for (const entry of LANDSLIDE_LEGEND) {
+      expect(LANDSLIDE_COLORS[entry.key]).toBe(entry.color);
+    }
+  });
+});
+
+describe('storm surge advisories', () => {
+  it('exposes four advisory colors matching the legend keys', () => {
+    expect(Object.keys(STORM_SURGE_COLORS).sort()).toEqual(['1', '2', '3', '4']);
+    for (const entry of STORM_SURGE_LEGEND) {
+      expect(STORM_SURGE_COLORS[entry.key]).toBe(entry.color);
     }
   });
 });

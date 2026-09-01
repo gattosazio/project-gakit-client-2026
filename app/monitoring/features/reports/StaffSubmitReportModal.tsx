@@ -77,7 +77,12 @@ export function StaffSubmitReportModal({
             onSubmit={onSubmit}
             onCheckLocation={(location) =>
               mapRef.current?.checkLocation(location) ??
-              Promise.resolve({ hazardLevel: null, precipMm: null })
+              Promise.resolve({
+                floodHazard: null,
+                landslide: null,
+                stormSurge: null,
+                precipMm: null,
+              })
             }
           />
         </div>

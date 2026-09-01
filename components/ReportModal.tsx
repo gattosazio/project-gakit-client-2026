@@ -22,7 +22,7 @@ import { FilterDropdown } from '@/components/ui/FilterDropdown';
 import type { FloodDepth, FloodDepthCategory } from '@/app/public-view/actions/publicView';
 import type { LocationRiskInfo } from '@/components/PublicMap';
 
-type ReportStep = 'confirm' | 'depth';
+type ReportMode = 'assessment' | 'report';
 
 const REFERENCE_ICONS: Record<FloodReference, typeof Car> = {
   adult: UserRound,
@@ -53,6 +53,8 @@ interface ReportModalProps {
     lng: number;
   }) => Promise<LocationRiskInfo>;
   rainfallHours?: number;
+  /** Server-authoritative geofence result; false disables reporting (courtesy UI only). */
+  withinCity?: boolean | null;
 }
 
 const PRESET_CHIP_BASE_CLASSES =
@@ -72,8 +74,9 @@ export function ReportModal({
   onSubmit,
   onCheckLocation,
   rainfallHours,
+  withinCity,
 }: ReportModalProps) {
-  const [step, setStep] = useState<ReportStep>('confirm');
+  const [mode, setMode] = useState<ReportMode>('assessment');
   const [selectedCm, setSelectedCm] = useState<number | null>(null);
   const [customCm, setCustomCm] = useState('');
   const [hoveredCm, setHoveredCm] = useState<number | null>(null);
@@ -87,7 +90,7 @@ export function ReportModal({
   const lastElevationKey = useRef('');
 
   const resetForm = useCallback(() => {
-    setStep('confirm');
+    setMode('assessment');
     setSelectedCm(null);
     setCustomCm('');
     setSelectedReference('adult');
@@ -100,8 +103,11 @@ export function ReportModal({
     let cancelled = false;
     void Promise.resolve().then(() => {
       if (cancelled) return;
-      if (isOpen) setStep('confirm');
-      else setCustomCm('');
+      if (isOpen) {
+        setMode('assessment');
+      } else {
+        setCustomCm('');
+      }
     });
     return () => {
       cancelled = true;
@@ -123,7 +129,8 @@ export function ReportModal({
   }, [isOpen, onClose, resetForm]);
 
   useEffect(() => {
-    if (!isOpen || step !== 'confirm' || !selectedLocation) return;
+    const onAssessment = mode === 'assessment';
+    if (!isOpen || !onAssessment || !selectedLocation) return;
     const key = `${selectedLocation.lat.toFixed(5)},${selectedLocation.lng.toFixed(5)}`;
     if (key === lastElevationKey.current && elevation !== null) {
       setIsCheckingElevation(false);
@@ -153,10 +160,11 @@ export function ReportModal({
       cancelled = true;
       abort.abort();
     };
-  }, [isOpen, step, selectedLocation, elevation]);
+  }, [isOpen, mode, selectedLocation, elevation]);
 
   useEffect(() => {
-    if (!isOpen || step !== 'confirm' || !selectedLocation || !onCheckLocation) {
+    const onAssessment = mode === 'assessment';
+    if (!isOpen || !onAssessment || !selectedLocation || !onCheckLocation) {
       return;
     }
 
@@ -168,7 +176,8 @@ export function ReportModal({
         const risk = await onCheckLocation(selectedLocation);
         if (!cancelled) setLocationRisk(risk);
       } catch {
-        if (!cancelled) setLocationRisk({ hazardLevel: null, precipMm: null });
+        if (!cancelled)
+          setLocationRisk({ floodHazard: null, landslide: null, stormSurge: null, precipMm: null });
       } finally {
         if (!cancelled) setIsCheckingLocation(false);
       }
@@ -177,7 +186,7 @@ export function ReportModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, step, selectedLocation, rainfallHours, onCheckLocation]);
+  }, [isOpen, mode, selectedLocation, rainfallHours, onCheckLocation]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -272,6 +281,24 @@ export function ReportModal({
     onClose();
   };
 
+  const locationBlock = (
+    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+      <div className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-1">
+        <MapPin className="w-4 h-4 text-slate-500" />
+        Selected Location
+      </div>
+      <div className="text-sm font-semibold text-slate-900">
+        {selectedLocation?.address || 'No location selected'}
+      </div>
+      {selectedLocation && (
+        <div className="text-xs text-slate-600 mt-2">
+          {selectedLocation.lat.toFixed(4)},{' '}
+          {selectedLocation.lng.toFixed(4)}
+        </div>
+      )}
+    </div>
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -285,15 +312,17 @@ export function ReportModal({
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-canvas-grey">
           <div>
             <h2 className="text-xl font-bold text-slate-900">
-              {step === 'confirm' ? 'Confirm Location' : 'Estimate Flood Depth'}
+              {mode === 'assessment' ? 'Location Assessment' : 'Estimate Flood Depth'}
             </h2>
             <div className="text-xs text-slate-500 mt-1">
-              Step {step === 'confirm' ? '1' : '2'} of 2
+              {mode === 'assessment'
+                ? 'Step 1 of 2 · Location & conditions'
+                : 'Step 2 of 2 · Choose a reference'}
             </div>
           </div>
           <button
             onClick={handleClose}
-            aria-label="Close report modal"
+            aria-label="Close location assessment modal"
             className="p-1.5 hover:bg-canvas-light text-slate-400 hover:text-slate-700 rounded-xl transition-colors active:scale-95"
           >
             <X className="w-5 h-5" />
@@ -301,24 +330,19 @@ export function ReportModal({
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
-          {step === 'confirm' && (
+          {mode === 'assessment' && (
             <div className="space-y-4">
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-1">
-                  <MapPin className="w-4 h-4 text-slate-500" />
-                  Selected Location
+              {locationBlock}
+              {withinCity === false && (
+                <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-900">
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                  <span>
+                    This location is <span className="font-semibold">outside Iligan City</span>.
+                    Flood reports are only accepted inside the city. Conditions are still shown
+                    here where data coverage exists.
+                  </span>
                 </div>
-                <div className="text-sm font-semibold text-slate-900">
-                  {selectedLocation?.address || 'No location selected'}
-                </div>
-                {selectedLocation && (
-                  <div className="text-xs text-slate-600 mt-2">
-                    {selectedLocation.lat.toFixed(4)},{' '}
-                    {selectedLocation.lng.toFixed(4)}
-                  </div>
-                )}
-              </div>
-
+              )}
               {selectedLocation && (
                 <SiteConditionsCard
                   elevation={elevation}
@@ -328,16 +352,17 @@ export function ReportModal({
                   rainfallHours={rainfallHours}
                 />
               )}
-
-              <p className="text-sm text-slate-600">
-                Confirm this is the flooded location before continuing.
-              </p>
             </div>
           )}
 
-          {step === 'depth' && (
+          {mode === 'report' && (
             <div className="space-y-5">
               <div>
+                {selectedLocation?.address && (
+                  <p className="text-xs text-slate-500 mb-2">
+                    Reporting at {selectedLocation.address}
+                  </p>
+                )}
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="shrink-0 whitespace-nowrap text-sm font-semibold text-slate-900">
                     Choose a reference:
@@ -443,18 +468,29 @@ export function ReportModal({
         </div>
 
         <div className="p-4 pb-8 sm:pb-4 md:p-6 border-t border-canvas-grey bg-canvas-light/50">
-          {step === 'confirm' ? (
-            <button
-              onClick={() => setStep('depth')}
-              disabled={!selectedLocation}
-              className="w-full py-3 px-6 rounded-xl font-semibold transition-all duration-150 bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
-            >
-              Confirm location
-            </button>
+          {mode === 'assessment' ? (
+            withinCity === false ? (
+              <button
+                type="button"
+                disabled
+                className="w-full py-3 px-6 rounded-xl font-semibold bg-canvas-grey text-slate-400 cursor-not-allowed"
+              >
+                Reporting unavailable outside Iligan City
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setMode('report')}
+                disabled={!selectedLocation}
+                className="w-full py-3 px-6 rounded-xl font-semibold transition-all duration-150 bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
+              >
+                Report flood here
+              </button>
+            )
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => setStep('confirm')}
+                onClick={() => setMode('assessment')}
                 className="py-3 px-6 rounded-xl font-semibold text-slate-700 bg-canvas-grey hover:bg-slate-300 active:scale-[0.98] transition-all"
               >
                 Back
