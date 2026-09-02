@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { Monitor, Settings, ShieldCheck, UserRound } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { ROLE_ADMIN, type StaffRole } from '@/lib/auth/roles';
 
 /**
@@ -58,27 +58,24 @@ export function SettingsDropdown({ role }: { role: StaffRole | null }) {
             <button
               type="button"
               onClick={() => go('/settings')}
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-canvas-light"
+              className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-canvas-light"
             >
-              <UserRound className="h-4 w-4 text-slate-400" />
               Settings
             </button>
             {role === ROLE_ADMIN && (pathname.startsWith('/admin') ? (
               <button
                 type="button"
                 onClick={() => go('/monitoring')}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-canvas-light"
+                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-canvas-light"
               >
-                <Monitor className="h-4 w-4 text-slate-400" />
                 Monitoring Portal
               </button>
             ) : (
               <button
                 type="button"
                 onClick={() => go('/admin')}
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-canvas-light"
+                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-canvas-light"
               >
-                <ShieldCheck className="h-4 w-4 text-slate-400" />
                 Administration
               </button>
             ))}

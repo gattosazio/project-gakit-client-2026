@@ -195,7 +195,7 @@ export function DashboardOverview({
                           {status.label}
                         </span>
                       </td>
-                      <td className="px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
+                      <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
                     </tr>
                   );
                 })}
