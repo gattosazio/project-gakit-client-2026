@@ -125,6 +125,12 @@ interface PublicMapProps {
   /** Hides the administrative "Barangay Boundaries" toggle. Citizen-facing maps
    *  should not expose it; staff/admin deployments keep it. */
   hideBarangayBoundariesToggle?: boolean;
+  /** Initial basemap shown on first load. Staff maps (e.g. report management)
+   *  can default to satellite; the public map stays on the light 2D basemap. */
+  defaultBasemap?: BasemapId;
+  /** Initial barangay boundary visibility. Staff maps can default them on;
+   *  the public map keeps them hidden by default. */
+  defaultShowBarangayBoundaries?: boolean;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -154,6 +160,8 @@ export function PublicMap({
   hasBottomNav = false,
   fullScreen = false,
   hideBarangayBoundariesToggle = false,
+  defaultBasemap = 'light',
+  defaultShowBarangayBoundaries = false,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -182,7 +190,7 @@ export function PublicMap({
   const lastFetchedBoundsRef = useRef<{ west: number; south: number; east: number; north: number } | null>(null);
   const selectedMarkerRef = useRef<any>(null);
   const mapModeRef = useRef<MapMode>('2d');
-  const basemapRef = useRef<BasemapId>('light');
+  const basemapRef = useRef<BasemapId>(defaultBasemap);
   const showFloodHazardRef = useRef(false);
   const showRainfallRef = useRef(false);
   const showLandslideRef = useRef(false);
@@ -205,8 +213,8 @@ export function PublicMap({
   // ─── Overlay card state & Sub-layer flags ──────────────────────────────────
   const [showFloodHazard, setShowFloodHazard] = useState(false);
   const [showRainfall, setShowRainfall] = useState(false);
-  const [showBarangayBoundaries, setShowBarangayBoundaries] = useState(false);
-  const showBarangayBoundariesRef = useRef(false);
+  const [showBarangayBoundaries, setShowBarangayBoundaries] = useState(defaultShowBarangayBoundaries);
+  const showBarangayBoundariesRef = useRef(defaultShowBarangayBoundaries);
 
   // ─── Domain layers ─────────────────────────────────────────────────────────
   const [showLandslide, setShowLandslide] = useState(false);
@@ -216,7 +224,7 @@ export function PublicMap({
     initialVisibleReportStatuses
   );
   const [mapMode, setMapMode] = useState<MapMode>('2d');
-  const [basemap, setBasemap] = useState<BasemapId>('light');
+  const [basemap, setBasemap] = useState<BasemapId>(defaultBasemap);
   const layersReadyRef = useRef(false);
   const onReadyFiredRef = useRef(false);
 
@@ -820,11 +828,12 @@ export function PublicMap({
     // scripts/sync-maplibre-worker.mjs, run on postinstall).
     maplibregl.setWorkerUrl('/vendor/maplibre-gl/maplibre-gl-worker.mjs');
 
-    // Start with the 2D OpenFreeMap basemap (no API key required). The 3D
-    // MapTiler view is applied later via map.setStyle in handleModeChange.
+    // Start with the configured default basemap (2D OpenFreeMap by default,
+    // satellite for staff/report-management maps). The 3D MapTiler view is
+    // applied later via map.setStyle in handleViewChange.
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: BASEMAP_STYLES.light,
+      style: BASEMAP_STYLES[basemapRef.current],
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 13,
       pitch: 0,
