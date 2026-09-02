@@ -330,11 +330,15 @@ export function ReportsTab({
       <FeaturePageShell>
         <section ref={mapSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
             <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
-              <div className="px-4 pt-4 pb-2 flex items-center justify-between">
+              <div className="px-5 pt-4 pb-2 flex items-center justify-between gap-3">
                 <h3 className="font-bold text-slate-900">Map</h3>
+                <button onClick={() => setIsSubmitOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white hover:bg-maroon-800">
+                  <PlusCircle className="w-4 h-4" />
+                  Submit Report
+                </button>
               </div>
 
-            <div className="h-[20rem] md:h-[26rem] relative">
+            <div className="h-[24rem] md:h-[32rem] relative">
               {active ? (
                 <PublicMap
                   mapApiRef={mapRef}
@@ -354,7 +358,7 @@ export function ReportsTab({
               )}
             </div>
 
-            <div className="border-t border-canvas-grey px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="border-t border-canvas-grey px-5 py-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div className="text-sm text-slate-600">
                 Live map of reports ({mapSubtitle})
               </div>
@@ -369,7 +373,7 @@ export function ReportsTab({
                 <div>
                   <h3 className="font-bold text-slate-900">Reports</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_10rem_auto_auto]">
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_auto]">
                   <label className="col-span-2 flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 xl:col-span-1">
                     <Search className="w-4 h-4 text-slate-400" />
                     <input
@@ -397,10 +401,6 @@ export function ReportsTab({
                   >
                     <RotateCcw className={`w-4 h-4 transition-colors ${canReset ? 'text-gakit-maroon' : 'text-slate-400'}`} />
                     Reset
-                  </button>
-                  <button onClick={() => setIsSubmitOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white hover:bg-maroon-800">
-                    <PlusCircle className="w-4 h-4" />
-                    Submit Report
                   </button>
                 </div>
               </div>
@@ -468,11 +468,8 @@ export function ReportsTab({
                                 {report.location.address || 'Unknown location'}
                               </div>
                             </td>
-                            <td className="px-5 py-4 text-slate-700">
-                              <div>{DEPTH_LABELS[report.depth.code]}</div>
-                              <div className="text-xs text-slate-400">
-                                {report.depthCm != null ? `${report.depthCm} cm` : `~${report.depth.approximateCm} cm`}
-                              </div>
+                            <td className="whitespace-nowrap px-5 py-4 text-slate-700">
+                              {formatReportDepth(report.depth, report.depthCm)}
                             </td>
                             <td className="px-5 py-4 text-slate-700">
                               {report.reference ? REFERENCE_LABELS[report.reference] : '—'}
@@ -484,7 +481,7 @@ export function ReportsTab({
                                 onUpdateStatus={handleUpdateStatus}
                               />
                             </td>
-                            <td className="px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
+                            <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
                             <td className="px-5 py-4">
                               <ReportActions
                                 report={report}

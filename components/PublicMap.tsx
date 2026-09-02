@@ -122,6 +122,9 @@ interface PublicMapProps {
   /** Full-viewport maps (e.g. the public landing page) anchor the floating
    *  controls higher on mobile so phone/browser bottom UI never covers them. */
   fullScreen?: boolean;
+  /** Hides the administrative "Barangay Boundaries" toggle. Citizen-facing maps
+   *  should not expose it; staff/admin deployments keep it. */
+  hideBarangayBoundariesToggle?: boolean;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -150,6 +153,7 @@ export function PublicMap({
   onRainfallHoursChange,
   hasBottomNav = false,
   fullScreen = false,
+  hideBarangayBoundariesToggle = false,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -1094,6 +1098,7 @@ export function PublicMap({
           onFocusStorm={typhoon.focusStorm}
           showBarangayBoundaries={showBarangayBoundaries}
           onShowBarangayBoundariesChange={handleShowBarangayBoundariesChange}
+          showBarangayBoundariesToggle={!hideBarangayBoundariesToggle}
           showLandslide={showLandslide}
           onShowLandslideChange={handleShowLandslideChange}
           showStormSurge={showStormSurge}

@@ -411,6 +411,7 @@ export function PublicViewPage({
                   searchOverlayActive={isManualLocationMode}
                   weatherExpandedByDefault
                   fullScreen
+                  hideBarangayBoundariesToggle
                 />
               </div>
             </div>
