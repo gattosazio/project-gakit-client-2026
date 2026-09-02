@@ -1,9 +1,10 @@
 import { toast } from 'react-toastify';
 import {
+  AWS_TERRAIN_ENCODING,
+  AWS_TERRAIN_MAX_ZOOM,
+  AWS_TERRAIN_TILES,
+  AWS_TERRAIN_TILE_SIZE,
   BasemapId,
-  MAPTILER_TERRAIN_MAX_ZOOM,
-  MAPTILER_TERRAIN_STYLE,
-  MAPTILER_TERRAIN_TILE_SIZE,
   REPORT_MARKER_COLORS,
   REPORT_MARKER_IMAGE_IDS,
   REPORT_STATUS_LEGEND,
@@ -59,6 +60,7 @@ export interface OverlayLayerState {
   showHimawariIR: boolean;
   showTyphoonTrack?: boolean;
   showBarangayBoundaries?: boolean;
+  showBuildings?: boolean;
   visibleRiskLevels: Record<string, boolean>;
   showLandslide: boolean;
   visibleLandslideLevels: Record<string, boolean>;
@@ -68,6 +70,28 @@ export interface OverlayLayerState {
   rainfallHours: number;
   basemap?: BasemapId;
 }
+
+// Toggles visibility for building footprint layer (automatically shown in 3D Base mode, hidden in 2D or Satellite).
+export const applyBuildingsVisibility = (
+  map: any,
+  mode: MapMode,
+  basemap?: BasemapId
+) => {
+  try {
+    if (map?.isStyleLoaded && !map.isStyleLoaded()) return;
+    if (map?.getLayer && map.getLayer('iligan-buildings-3d')) {
+      const isSatellite = basemap === 'satellite';
+      const shouldShow = mode === '3d' && !isSatellite;
+      map.setLayoutProperty(
+        'iligan-buildings-3d',
+        'visibility',
+        shouldShow ? 'visible' : 'none'
+      );
+    }
+  } catch {
+    /* style not loaded yet */
+  }
+};
 
 // Toggles visibility for all barangay boundary layers.
 export const applyBarangayBoundariesVisibility = (map: any, visible: boolean) => {
@@ -768,10 +792,45 @@ export const setupOverlayLayers = async (
     map.setLayoutProperty('himawari-ir-layer', 'visibility', state.showHimawariIR ? 'visible' : 'none');
   }
 
+  // --- Iligan City building footprints (3D extrusion for 3D view only, PMTiles) ---
+  if (!map.getSource('iligan-buildings')) {
+    map.addSource('iligan-buildings', {
+      type: 'vector',
+      url: 'pmtiles:///data/iligan-buildings.pmtiles',
+      attribution:
+        'Buildings: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+    });
+
+    const isSatellite = state.basemap === 'satellite';
+    const shouldShowBuildings = state.mapMode === '3d' && !isSatellite;
+
+    // 3D building extrusion for 3D/terrain view only on Base map (hidden on Satellite)
+    map.addLayer({
+      id: 'iligan-buildings-3d',
+      type: 'fill-extrusion',
+      source: 'iligan-buildings',
+      'source-layer': 'buildings',
+      minzoom: 13,
+      layout: {
+        visibility: shouldShowBuildings ? 'visible' : 'none',
+      },
+      paint: {
+        'fill-extrusion-color': '#cbd5e1',
+        'fill-extrusion-height': 6,
+        'fill-extrusion-base': 0,
+        'fill-extrusion-opacity': 0.85,
+      },
+    });
+  } else {
+    // Keep visibility in sync when basemap/mode changes
+    applyBuildingsVisibility(map, state.mapMode, state.basemap);
+  }
+
 // Guarantee layer stacking order:
-  // Base -> Himawari Satellite -> Flood Hazard -> Rainfall Grid -> Barangay -> PAR -> Typhoon Cone -> Typhoon Track -> Typhoon Points -> Report Pins
+  // Base -> Himawari Satellite -> 3D Buildings -> Flood Hazard -> Rainfall Grid -> Barangay -> PAR -> Typhoon Cone -> Typhoon Track -> Typhoon Points -> Report Pins
   const orderedLayers = [
     'himawari-ir-layer',
+    'iligan-buildings-3d',
     'flood-hazard-fill',
     'landslide-fill',
     'storm-surge-ssa1-fill',
@@ -803,14 +862,15 @@ export const setupOverlayLayers = async (
     });
   }
 
-  // --- 3D terrain + hillshade (MapTiler view) ---
+  // --- 3D terrain + hillshade (AWS Open Data Terrarium DEM) ---
   if (state.mapMode === '3d') {
     if (!map.getSource('terrain')) {
       map.addSource('terrain', {
         type: 'raster-dem',
-        url: MAPTILER_TERRAIN_STYLE,
-        tileSize: MAPTILER_TERRAIN_TILE_SIZE,
-        maxzoom: MAPTILER_TERRAIN_MAX_ZOOM,
+        tiles: AWS_TERRAIN_TILES,
+        tileSize: AWS_TERRAIN_TILE_SIZE,
+        maxzoom: AWS_TERRAIN_MAX_ZOOM,
+        encoding: AWS_TERRAIN_ENCODING,
       });
     }
     map.setTerrain({ source: 'terrain', exaggeration: 1 });
@@ -823,7 +883,7 @@ export const setupOverlayLayers = async (
         source: 'terrain',
         // Shade only the basemap/terrain — keep it below the data overlays so
         // report pins, flood fills, and rainfall aren't washed out by the relief.
-        before: 'flood-hazard-fill',
+        before: 'iligan-buildings-3d',
         paint: {
           'hillshade-exaggeration': 0.4,
           'hillshade-shadow-color': '#2b3c4e',

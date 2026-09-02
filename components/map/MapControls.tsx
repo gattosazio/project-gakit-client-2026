@@ -200,67 +200,80 @@ function CoverageChip({ label, detail }: { label: string; detail: string }) {
   );
 }
 
-/* ─── Map view toggle (2D / 3D / Sat / Sat+T) ────────────────────────── */
-
-type ViewPreset = {
-  key: string;
-  label: string;
-  basemap: BasemapId;
-  mode: MapMode;
-  needsTerrain: boolean;
-};
-
-const VIEW_PRESETS: ViewPreset[] = [
-  { key: '2d', label: '2D', basemap: 'light', mode: '2d', needsTerrain: false },
-  { key: '3d', label: '3D', basemap: 'light', mode: '3d', needsTerrain: true },
-  { key: 'sat', label: 'Satellite', basemap: 'satellite', mode: '2d', needsTerrain: false },
-];
-
 export function MapViewToggle({
   basemap,
   mode,
-  onViewChange,
-  hasMaptiler,
+  onBasemapChange,
+  onModeChange,
   className = '',
 }: {
   basemap: BasemapId;
   mode: MapMode;
-  onViewChange: (next: { basemap: BasemapId; mode: MapMode }) => void;
-  hasMaptiler: boolean;
+  onBasemapChange: (basemap: BasemapId) => void;
+  onModeChange: (mode: MapMode) => void;
   className?: string;
 }) {
-  const activeKey = VIEW_PRESETS.find((v) => v.basemap === basemap && v.mode === mode)?.key;
+  const is3D = mode === '3d';
+
   return (
-    <div
-      className={`${className} flex items-center p-1 hud-pill`}
-    >
-      {VIEW_PRESETS.map((v) => {
-        const disabled = v.needsTerrain && !hasMaptiler;
-        const active = v.key === activeKey;
-        return (
-          <button
-            key={v.key}
-            type="button"
-            onClick={() => onViewChange({ basemap: v.basemap, mode: v.mode })}
-            aria-pressed={active}
-            disabled={disabled}
-            title={
-              disabled
-                ? `${v.label} requires a MapTiler API key`
-                : `${v.label} view`
-            }
-            className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-colors duration-150 ${
-              active
-                ? 'bg-gakit-maroon text-white shadow-xs'
-                : disabled
-                  ? 'cursor-not-allowed text-slate-300'
-                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+    <div className={`${className} flex items-center gap-2 p-1.5 hud-pill select-none`}>
+      {/* Basemap Switch: Base vs Satellite */}
+      <div className="flex items-center gap-0.5">
+        <button
+          type="button"
+          onClick={() => onBasemapChange('light')}
+          aria-pressed={basemap === 'light'}
+          title="Base map (Positron)"
+          className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-colors duration-150 ${
+            basemap === 'light'
+              ? 'bg-gakit-maroon text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+          }`}
+        >
+          Base
+        </button>
+        <button
+          type="button"
+          onClick={() => onBasemapChange('satellite')}
+          aria-pressed={basemap === 'satellite'}
+          title="Satellite imagery"
+          className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-colors duration-150 ${
+            basemap === 'satellite'
+              ? 'bg-gakit-maroon text-white shadow-xs'
+              : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+          }`}
+        >
+          Satellite
+        </button>
+      </div>
+
+      <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
+
+      {/* 3D Toggle Pill */}
+      <label
+        className="flex items-center gap-1.5 px-1 py-0.5 cursor-pointer group"
+        title={is3D ? 'Disable 3D' : 'Enable 3D'}
+      >
+        <input
+          type="checkbox"
+          checked={is3D}
+          onChange={(e) => onModeChange(e.target.checked ? '3d' : '2d')}
+          className="sr-only"
+        />
+        <span className="text-xs font-bold text-slate-700 group-hover:text-slate-900 transition-colors">
+          3D
+        </span>
+        <span
+          className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/80 transition-colors duration-200"
+          style={{ backgroundColor: is3D ? '#7B1113' : '#cbd5e1' }}
+        >
+          <span
+            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${
+              is3D ? 'translate-x-[15px]' : 'translate-x-[2px]'
             }`}
-          >
-            {v.label}
-          </button>
-        );
-      })}
+          />
+        </span>
+      </label>
     </div>
   );
 }

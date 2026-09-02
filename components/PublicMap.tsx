@@ -19,9 +19,7 @@ import { getBackendStatus } from '@/lib/backend/backendStatus';
 import { getElevation } from '@/lib/map/elevation';
 import {
   BASEMAP_STYLES,
-  HAS_MAPTILER,
   MAP_MAX_BOUNDS,
-  MAPTILER_STYLE,
   type BasemapId,
 } from '@/constants/publicMap';
 import {
@@ -43,6 +41,7 @@ import {
 import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
 import {
   applyBarangayBoundariesVisibility,
+  applyBuildingsVisibility,
   riskLevelFilter,
   landslideFilter,
   setupOverlayLayers,
@@ -755,39 +754,51 @@ export function PublicMap({
     onMapLoadRef.current = onMapLoad;
   }, [onMapLoad]);
 
-  // Swaps the basemap without tearing the map down: setStyle({ diff: false })
-  // keeps the same maplibre instance (camera, markers, workers), reloading only
-  // the style + project layers (re-added by handleStyleLoad on 'load').
-  const handleViewChange = useCallback((next: { basemap: BasemapId; mode: MapMode }) => {
+  const handleBasemapChange = useCallback((nextBasemap: BasemapId) => {
+    if (nextBasemap === basemapRef.current) return;
+    layersReadyRef.current = false;
+    setBasemap(nextBasemap);
+    basemapRef.current = nextBasemap;
     const map = mapRef.current;
     if (!map) return;
-    if (next.basemap === basemapRef.current && next.mode === mapModeRef.current) return;
-
-    if (next.mode === '3d' && mapModeRef.current === '2d') {
-      map.easeTo({ pitch: 45, duration: 800 });
-    } else if (next.mode === '2d' && mapModeRef.current === '3d') {
-      map.easeTo({ pitch: 0, duration: 800 });
-    }
-
-    setBasemap(next.basemap);
-    basemapRef.current = next.basemap;
-    setMapMode(next.mode);
-    mapModeRef.current = next.mode;
-    // maplibre keeps terrain across setStyle; while the new style is loading
-    // its projection is undefined, so the depth pass would crash in useProgram
-    // (reads `shaderPreludeCode` off an undefined projection). Clear terrain
-    // first — UNCONDITIONALLY, including mid-swap while the previous style is
-    // still loading — so no terrain depth draw runs during the swap. It is
-    // re-added on the new style's 'load' event when 3D is active.
     try {
       map.setTerrain(null);
     } catch {
       /* terrain not yet initialised; nothing to clear */
     }
-    const style =
-      next.mode === '3d' && next.basemap === 'light' ? MAPTILER_STYLE : BASEMAP_STYLES[next.basemap];
-    map.setStyle(style, { diff: false });
+    map.setStyle(BASEMAP_STYLES[nextBasemap], { diff: false });
   }, []);
+
+  const handleModeChange = useCallback((nextMode: MapMode) => {
+    if (nextMode === mapModeRef.current) return;
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (nextMode === '3d') {
+      map.easeTo({ pitch: 45, duration: 800 });
+    } else {
+      map.easeTo({ pitch: 0, duration: 800 });
+    }
+
+    setMapMode(nextMode);
+    mapModeRef.current = nextMode;
+
+    void setupOverlayLayers(map, maplibregl, {
+      showFloodHazard: showFloodHazardRef.current,
+      showRainfall: showRainfallRef.current,
+      showHimawariIR: himawari.visibleRef.current,
+      showTyphoonTrack: typhoon.visibleRef.current,
+      showBarangayBoundaries: showBarangayBoundariesRef.current,
+      visibleRiskLevels: { high: true, medium: true, low: true },
+      showLandslide: showLandslideRef.current,
+      visibleLandslideLevels: { high: true, medium: true, low: true },
+      showStormSurge: showStormSurgeRef.current,
+      stormSurgeAdvisory: stormSurgeAdvisoryRef.current,
+      mapMode: nextMode,
+      rainfallHours: hoursRef.current,
+      basemap: basemapRef.current,
+    });
+  }, [himawari.visibleRef, typhoon, hoursRef]);
 
   useEffect(() => {
     if (mapRef.current) {
@@ -816,8 +827,7 @@ export function PublicMap({
     // scripts/sync-maplibre-worker.mjs, run on postinstall).
     maplibregl.setWorkerUrl('/vendor/maplibre-gl/maplibre-gl-worker.mjs');
 
-    // Start with the 2D OpenFreeMap basemap (no API key required). The 3D
-    // MapTiler view is applied later via map.setStyle in handleModeChange.
+    // Start with the 2D OpenFreeMap Positron basemap (no API key required).
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: BASEMAP_STYLES.light,
@@ -981,27 +991,36 @@ export function PublicMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !layersReadyRef.current) return;
+    if (map.isStyleLoaded && !map.isStyleLoaded()) return;
 
-    const layers: Array<[string, boolean]> = [
-      ['flood-hazard-fill', showFloodHazard],
-      ['landslide-fill', showLandslide],
-      ['rainfall-grid', showRainfall],
-      ['himawari-ir-layer', himawari.showHimawariIR],
-    ];
-    const stormSurgeVis = showStormSurge ? stormSurgeAdvisory : null;
-    [1, 2, 3, 4].forEach((n) => {
-      layers.push([`storm-surge-ssa${n}-fill`, stormSurgeVis === n]);
-    });
+    try {
+      const layers: Array<[string, boolean]> = [
+        ['flood-hazard-fill', showFloodHazard],
+        ['landslide-fill', showLandslide],
+        ['rainfall-grid', showRainfall],
+        ['himawari-ir-layer', himawari.showHimawariIR],
+      ];
+      const stormSurgeVis = showStormSurge ? stormSurgeAdvisory : null;
+      [1, 2, 3, 4].forEach((n) => {
+        layers.push([`storm-surge-ssa${n}-fill`, stormSurgeVis === n]);
+      });
 
-    layers.forEach(([id, visible]) => {
-      if (map.getLayer(id)) {
-        map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+      layers.forEach(([id, visible]) => {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
+        }
+      });
+
+      applyBuildingsVisibility(map, mapMode, basemap);
+
+      if (map.getLayer('flood-hazard-fill')) {
+        map.setFilter('flood-hazard-fill', riskLevelFilter({ high: true, medium: true, low: true }));
       }
-    });
-
-    map.setFilter('flood-hazard-fill', riskLevelFilter({ high: true, medium: true, low: true }));
-    if (map.getLayer('landslide-fill')) {
-      map.setFilter('landslide-fill', landslideFilter({ high: true, medium: true, low: true }));
+      if (map.getLayer('landslide-fill')) {
+        map.setFilter('landslide-fill', landslideFilter({ high: true, medium: true, low: true }));
+      }
+    } catch {
+      /* style is currently reloading; handleStyleLoad will re-apply layers when loaded */
     }
   }, [
     showFloodHazard,
@@ -1010,6 +1029,8 @@ export function PublicMap({
     showLandslide,
     showStormSurge,
     stormSurgeAdvisory,
+    mapMode,
+    basemap,
   ]);
 
   return (
@@ -1033,8 +1054,8 @@ export function PublicMap({
         className="absolute top-4 right-4 md:right-6 z-[1000] hidden md:flex"
         basemap={basemap}
         mode={mapMode}
-        onViewChange={handleViewChange}
-        hasMaptiler={HAS_MAPTILER}
+        onBasemapChange={handleBasemapChange}
+        onModeChange={handleModeChange}
       />
 
       <div
@@ -1208,26 +1229,6 @@ export function PublicMap({
                 className="hover:text-slate-800 hover:underline"
               >
                 Earthstar
-              </a>
-            </>
-          ) : mapMode === '3d' && HAS_MAPTILER ? (
-            <>
-              <a
-                href="https://www.maptiler.com/copyright/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-slate-800 hover:underline"
-              >
-                © MapTiler
-              </a>
-              <span>·</span>
-              <a
-                href="https://www.openstreetmap.org/copyright"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-slate-800 hover:underline"
-              >
-                © OpenStreetMap
               </a>
             </>
           ) : (

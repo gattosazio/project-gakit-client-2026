@@ -31,13 +31,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${inter.variable} ${plusJakarta.variable}`}>
       <head>
-        {/* Warm up connections for the basemap so the map paints faster on first
-            load: DNS/TLS for the tile + style hosts, and preload the style JSON
-            so maplibre's fetch is served from cache. */}
+        {/* Warm up connections for the basemap and terrain so the map paints faster on first load */}
         <link rel="preconnect" href="https://tiles.openfreemap.org" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://tiles.openfreemap.org" />
-        <link rel="preconnect" href="https://api.maptiler.com" />
-        <link rel="dns-prefetch" href="https://api.maptiler.com" />
+        <link rel="preconnect" href="https://tile.openstreetmap.org" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
+        <link rel="preconnect" href="https://s3.amazonaws.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://s3.amazonaws.com" />
         <link rel="dns-prefetch" href="https://nominatim.openstreetmap.org" />
         <link
           rel="preload"
