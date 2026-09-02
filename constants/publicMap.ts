@@ -3,21 +3,10 @@ import { ILIGAN_BOUNDS } from '@/lib/map/geoUtils';
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 import type { ReportStatus } from '@/types/report';
 
-const MAPTILER_KEY = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-
-export const HAS_MAPTILER = Boolean(MAPTILER_KEY);
-
-// 2D basemap — no API key needed.
+// 2D & 3D basemap — OpenFreeMap Positron (vector, no API key needed).
 export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
 
-// 3D-capable vector basemap (MapTiler), only when a key is present. Used for
-// the light + terrain preset; terrain DEM is layered on top.
-export const MAPTILER_STYLE = MAPTILER_KEY
-  ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${MAPTILER_KEY}`
-  : OPENFREEMAP_STYLE;
-
-// Flat basemap choices (orthogonal to the 2D/3D mode toggle). Both work
-// without an API key; 3D terrain is layered on top via MapTiler's DEM.
+// Flat basemap choices (orthogonal to the 2D/3D mode toggle).
 export type BasemapId = 'light' | 'satellite';
 
 export const BASEMAP_LABELS: Record<BasemapId, string> = {
@@ -45,15 +34,16 @@ export const BASEMAP_STYLES: Record<BasemapId, string | StyleSpecification> = {
   satellite: SATELLITE_STYLE,
 };
 
-// Raster DEM used to enable 3D terrain.
-export const MAPTILER_TERRAIN_STYLE = MAPTILER_KEY
-  ? `https://api.maptiler.com/tiles/terrain-rgb-v2/tiles.json?key=${MAPTILER_KEY}`
-  : '';
-
-// MapTiler DEM serves 256px tiles; cap below the source max (14) so deep-zoom
-// views reuse coarser elevation tiles instead of fetching extra DEM requests.
-export const MAPTILER_TERRAIN_TILE_SIZE = 256;
-export const MAPTILER_TERRAIN_MAX_ZOOM = 12;
+// AWS Open Data Terrarium raster DEM for 3D terrain.
+// Native Mapzen DEM resolution is ~30m (SRTM), which corresponds to zoom 12 (~37m/pixel in Iligan).
+// Capping maxzoom at 12 allows MapLibre to interpolate elevation on GPU at higher zooms,
+// eliminating 90%+ of redundant HTTP tile fetches and eliminating tile request thrashing.
+export const AWS_TERRAIN_TILES = [
+  'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
+];
+export const AWS_TERRAIN_TILE_SIZE = 256;
+export const AWS_TERRAIN_MAX_ZOOM = 12;
+export const AWS_TERRAIN_ENCODING = 'terrarium' as const;
 
 export const ILIGAN_REPORT_BOUNDS = {
   west: ILIGAN_BOUNDS[0][0],

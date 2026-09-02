@@ -65,4 +65,29 @@ describe('setupOverlayLayers himawari source', () => {
     expect(himawari!.spec.url).not.toContain('/api/himawari-proxy');
     expect(himawari!.spec.coordinates).toBeDefined();
   });
+
+  it('adds iligan-buildings pmtiles vector source for city footprints', async () => {
+    const { map, addedSources } = createMockMap();
+    const maplibregl = { addProtocol: () => {} };
+
+    await setupOverlayLayers(map, maplibregl, { ...baseState });
+
+    const buildings = addedSources.find((s) => s.id === 'iligan-buildings');
+    expect(buildings).toBeDefined();
+    expect(buildings!.spec.type).toBe('vector');
+    expect(buildings!.spec.url).toBe('pmtiles:///data/iligan-buildings.pmtiles');
+  });
+
+  it('configures AWS Terrarium raster-dem source in 3D mode', async () => {
+    const { map, addedSources } = createMockMap();
+    const maplibregl = { addProtocol: () => {} };
+
+    await setupOverlayLayers(map, maplibregl, { ...baseState, mapMode: '3d' });
+
+    const terrain = addedSources.find((s) => s.id === 'terrain');
+    expect(terrain).toBeDefined();
+    expect(terrain!.spec.type).toBe('raster-dem');
+    expect(terrain!.spec.tiles[0]).toContain('s3.amazonaws.com/elevation-tiles-prod/terrarium');
+    expect(terrain!.spec.encoding).toBe('terrarium');
+  });
 });
