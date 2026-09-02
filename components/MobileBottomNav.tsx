@@ -35,8 +35,8 @@ export function MobileBottomNav<T extends string>({
                 aria-current={isActive ? 'page' : undefined}
                 className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
                   isActive
-                    ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
+                    ? 'bg-slate-200 text-slate-900 font-bold'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
                 }`}
               >
                 <Icon className={`h-5 w-5 ${isActive ? 'text-gakit-maroon' : ''}`} />

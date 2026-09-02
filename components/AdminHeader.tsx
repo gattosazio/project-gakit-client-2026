@@ -374,7 +374,7 @@ export function AdminHeader({
   };
 
   return (
-    <header className="flex h-24 shrink-0 items-center justify-between gap-4 border-b border-slate-100 bg-white px-5 py-4 md:px-9">
+    <header className="flex h-24 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4 md:px-9">
       <div className="flex min-w-0 items-center gap-4">
         <div className="min-w-0">
           <h1 className="truncate text-xl font-bold tracking-[-0.02em] text-slate-900 md:text-[1.75rem]">

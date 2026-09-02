@@ -232,14 +232,14 @@ export function SideBar<T extends string>({
               title={feature.label}
               className={`group flex w-full items-center rounded-2xl py-3 text-sm font-semibold transition-all duration-200 ${
                 isActive
-                  ? 'bg-gakit-maroon text-white shadow-[0_10px_24px_rgba(122,0,25,0.35)]'
+                  ? 'bg-slate-200 text-slate-900'
                   : 'text-slate-600 hover:bg-white hover:text-gakit-maroon hover:shadow-sm'
               } ${
                 isCollapsed ? 'justify-center px-3' : 'gap-3 px-4'
               }`}
             >
               <Icon
-                className={`h-4 w-4 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-gakit-maroon'}`}
+                className={`h-4 w-4 transition-colors ${isActive ? 'text-gakit-maroon' : 'text-slate-400 group-hover:text-gakit-maroon'}`}
               />
               <span className={isCollapsed ? 'sr-only' : ''}>{feature.label}</span>
             </button>

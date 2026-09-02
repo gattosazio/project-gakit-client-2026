@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { PlusCircle, RotateCcw, Search } from 'lucide-react';
 import {
   DEPTH_LABELS,
@@ -13,16 +14,14 @@ import {
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type {
   FloodDepthCode,
-  FloodReference,
   MapReportFilters,
   Report,
   ReportSortColumn,
   ReportStatus,
 } from '@/types/report';
 import { toast } from 'react-toastify';
-import { isWithinIligan } from '@/lib/map/geoUtils';
 import { FeaturePageShell } from '@/components/FeaturePageShell';
-import { createReport, getReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
+import { getReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
 import { ReportDetail } from './ReportDetail';
 import {
   DepthsFilterDropdown,
@@ -32,10 +31,6 @@ import {
 import { timeRangeOptions } from './reportFilterOptions';
 import { ReportActions, StatusDropdown } from './ReportActions';
 import { ReportsPagination } from './ReportsPagination';
-import {
-  StaffSubmitReportModal,
-  type SelectedLocation,
-} from './StaffSubmitReportModal';
 import { useVisibleInterval } from '@/hooks/useVisibleInterval';
 import { useSortableTable } from '@/hooks/useSortableTable';
 import { SortableHeader } from '@/components/ui/SortableHeader';
@@ -65,13 +60,15 @@ export function ReportsTab({
   const [statusFilter, setStatusFilter] = useState<'All' | ReportStatus>('All');
   const [depthFilter, setDepthFilter] = useState<'All' | FloodDepthCode>('All');
   const [timeFilter, setTimeFilter] = useState('48h');
+  const [queryDraft, setQueryDraft] = useState('');
+  const [statusDraft, setStatusDraft] = useState<'All' | ReportStatus>('All');
+  const [depthDraft, setDepthDraft] = useState<'All' | FloodDepthCode>('All');
+  const [timeDraft, setTimeDraft] = useState('48h');
   const [selectedReport, setSelectedReport] = useState<Report | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [isSubmitOpen, setIsSubmitOpen] = useState(false);
-  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<SelectedLocation | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const router = useRouter();
   const mapRef = useRef<PublicMapHandle | null>(null);
   const mapSectionRef = useRef<HTMLElement | null>(null);
   const tableSectionRef = useRef<HTMLElement | null>(null);
@@ -92,7 +89,9 @@ export function ReportsTab({
       if (cancelled) return;
       setActiveHighlightedId(highlightedReportId);
       setQuery(highlightedReportId);
+      setQueryDraft(highlightedReportId);
       setTimeFilter('all');
+      setTimeDraft('all');
       setCurrentPage(1);
     });
     return () => {
@@ -174,19 +173,36 @@ export function ReportsTab({
   useVisibleInterval(() => setRefreshKey((key) => key + 1), 30_000, active);
 
   const canReset =
-    (query || '').trim() !== '' ||
-    statusFilter !== 'All' ||
-    depthFilter !== 'All' ||
-    timeFilter !== '48h' ||
+    (queryDraft || '').trim() !== '' ||
+    statusDraft !== 'All' ||
+    depthDraft !== 'All' ||
+    timeDraft !== '48h' ||
     activeHighlightedId !== null;
 
+  const applyFilters = () => {
+    setQuery(queryDraft);
+    setStatusFilter(statusDraft);
+    setDepthFilter(depthDraft);
+    setTimeFilter(timeDraft);
+    setCurrentPage(1);
+    setActiveHighlightedId(null);
+  };
+
   const resetFilters = () => {
+    setQueryDraft('');
+    setStatusDraft('All');
+    setDepthDraft('All');
+    setTimeDraft('48h');
     setQuery('');
     setStatusFilter('All');
     setDepthFilter('All');
     setTimeFilter('48h');
     setCurrentPage(1);
     setActiveHighlightedId(null);
+  };
+
+  const handleOpenPublicMapSubmit = () => {
+    router.push('/');
   };
 
   const handleSortChange = (column: ReportSortColumn) => {
@@ -212,64 +228,6 @@ export function ReportsTab({
   ]
     .filter((part): part is string => Boolean(part))
     .join(' · ');
-
-  // Same-point map clicks arrive twice (raw coords, then the geocoded address
-  // ~500ms later); dedupe so an out-of-city rejection toasts only once.
-  const lastGeofenceDecision = useRef<{ key: string; at: number } | null>(null);
-
-  const handleLocationSelect = async (location: SelectedLocation) => {
-    const key = `${location.lat.toFixed(4)},${location.lng.toFixed(4)}`;
-    const lastDecision = lastGeofenceDecision.current;
-    if (lastDecision && lastDecision.key === key && Date.now() - lastDecision.at < 2000) {
-      return;
-    }
-    lastGeofenceDecision.current = { key, at: Date.now() };
-    let within: boolean | null = null;
-    try {
-      within = await isWithinIligan(location.lat, location.lng);
-    } catch {
-      within = null;
-    }
-    if (within === false) {
-      toast.error(
-        'This location is outside Iligan City. Staff reports are only accepted inside the city.',
-        { position: 'top-right', autoClose: 4500 }
-      );
-      return;
-    }
-    setSelectedLocation(location);
-    setIsReportModalOpen(true);
-  };
-
-  const handleStaffReportSubmit = async (data: {
-    location: { lat: number; lng: number; elevation?: number };
-    depth: 'ankle' | 'knee' | 'waist' | 'shoulder' | 'head' | 'overhead';
-    depthCm?: number;
-    reference: { id: FloodReference; label: string; landmark: string };
-    image?: File;
-  }): Promise<void> => {
-    const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
-
-    await createReport({
-      location: {
-        latitude: data.location.lat,
-        longitude: data.location.lng,
-        address: selectedLocation?.address || fallbackAddress,
-      },
-      depth: data.depth,
-      ...(data.depthCm != null ? { depthCm: data.depthCm } : {}),
-      reference: data.reference.id,
-    });
-
-    toast.success('Staff report submitted successfully.', {
-      position: 'top-right',
-      autoClose: 3000,
-    });
-    setIsReportModalOpen(false);
-    setIsSubmitOpen(false);
-    setSelectedLocation(null);
-    setRefreshKey((key) => key + 1);
-  };
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
@@ -330,11 +288,16 @@ export function ReportsTab({
       <FeaturePageShell>
         <section ref={mapSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
             <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
-              <div className="px-4 pt-4 pb-2 flex items-center justify-between">
-                <h3 className="font-bold text-slate-900">Map</h3>
-              </div>
-
-            <div className="h-[20rem] md:h-[26rem] relative">
+            <div className="h-[24rem] md:h-[32rem] relative">
+              <button
+                type="button"
+                onClick={handleOpenPublicMapSubmit}
+                title="Submit a report on the public hazard map"
+                className="absolute left-4 top-4 z-[1000] inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-maroon-900/20 transition-all duration-150 hover:bg-maroon-800 active:scale-95"
+              >
+                <PlusCircle className="w-4 h-4" />
+                Submit Report
+              </button>
               {active ? (
                 <PublicMap
                   mapApiRef={mapRef}
@@ -346,6 +309,8 @@ export function ReportsTab({
                   hasBottomNav
                   reportFilters={reportFilters}
                   onReportClick={handleMapPinClick}
+                  defaultBasemap="satellite"
+                  defaultShowBarangayBoundaries
                 />
               ) : (
                 <div className="w-full h-full bg-canvas-grey flex items-center justify-center">
@@ -354,7 +319,7 @@ export function ReportsTab({
               )}
             </div>
 
-            <div className="border-t border-canvas-grey px-4 py-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+            <div className="border-t border-canvas-grey px-5 py-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div className="text-sm text-slate-600">
                 Live map of reports ({mapSubtitle})
               </div>
@@ -369,22 +334,24 @@ export function ReportsTab({
                 <div>
                   <h3 className="font-bold text-slate-900">Reports</h3>
                 </div>
-                <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_10rem_auto_auto]">
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_auto_auto]">
                   <label className="col-span-2 flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 xl:col-span-1">
                     <Search className="w-4 h-4 text-slate-400" />
                     <input
-                      value={query}
+                      value={queryDraft}
                       onChange={(event) => {
-                        setQuery(event.target.value);
-                        setCurrentPage(1);
+                        setQueryDraft(event.target.value);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') applyFilters();
                       }}
                       placeholder="Search UUID or address"
                       className="w-full bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
                     />
                   </label>
-                  <StatusFilterDropdown value={statusFilter} onChange={(value) => { setStatusFilter(value); setCurrentPage(1); }} />
-                  <DepthsFilterDropdown value={depthFilter} onChange={(value) => { setDepthFilter(value); setCurrentPage(1); }} />
-                  <TimeFilterDropdown value={timeFilter} onChange={(value) => { setTimeFilter(value); setCurrentPage(1); }} />
+                  <StatusFilterDropdown value={statusDraft} onChange={setStatusDraft} />
+                  <DepthsFilterDropdown value={depthDraft} onChange={setDepthDraft} />
+                  <TimeFilterDropdown value={timeDraft} onChange={setTimeDraft} />
                   <button
                     type="button"
                     onClick={resetFilters}
@@ -398,9 +365,12 @@ export function ReportsTab({
                     <RotateCcw className={`w-4 h-4 transition-colors ${canReset ? 'text-gakit-maroon' : 'text-slate-400'}`} />
                     Reset
                   </button>
-                  <button onClick={() => setIsSubmitOpen(true)} className="inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white hover:bg-maroon-800">
-                    <PlusCircle className="w-4 h-4" />
-                    Submit Report
+                  <button
+                    type="button"
+                    onClick={applyFilters}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-maroon-800"
+                  >
+                    Apply Filter
                   </button>
                 </div>
               </div>
@@ -468,11 +438,8 @@ export function ReportsTab({
                                 {report.location.address || 'Unknown location'}
                               </div>
                             </td>
-                            <td className="px-5 py-4 text-slate-700">
-                              <div>{DEPTH_LABELS[report.depth.code]}</div>
-                              <div className="text-xs text-slate-400">
-                                {report.depthCm != null ? `${report.depthCm} cm` : `~${report.depth.approximateCm} cm`}
-                              </div>
+                            <td className="whitespace-nowrap px-5 py-4 text-slate-700">
+                              {formatReportDepth(report.depth, report.depthCm)}
                             </td>
                             <td className="px-5 py-4 text-slate-700">
                               {report.reference ? REFERENCE_LABELS[report.reference] : '—'}
@@ -484,7 +451,7 @@ export function ReportsTab({
                                 onUpdateStatus={handleUpdateStatus}
                               />
                             </td>
-                            <td className="px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
+                            <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
                             <td className="px-5 py-4">
                               <ReportActions
                                 report={report}
@@ -594,24 +561,6 @@ export function ReportsTab({
           </div>
         )}
       </FeaturePageShell>
-
-      {isSubmitOpen && (
-        <StaffSubmitReportModal
-          selectedLocation={selectedLocation}
-          isReportModalOpen={isReportModalOpen}
-          onClose={() => {
-            setIsSubmitOpen(false);
-            setIsReportModalOpen(false);
-            setSelectedLocation(null);
-          }}
-          onLocationSelect={handleLocationSelect}
-          onReportModalClose={() => {
-            setIsReportModalOpen(false);
-            setSelectedLocation(null);
-          }}
-          onSubmit={handleStaffReportSubmit}
-        />
-      )}
     </>
   );
 }

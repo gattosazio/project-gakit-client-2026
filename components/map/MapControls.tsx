@@ -374,6 +374,8 @@ interface DataLayerControlsProps {
   onFocusStorm?: (stormName?: string) => void;
   showBarangayBoundaries?: boolean;
   onShowBarangayBoundariesChange?: (checked: boolean) => void;
+  /** Whether the caller may toggle administrative barangay boundaries. */
+  showBarangayBoundariesToggle?: boolean;
   showLandslide: boolean;
   onShowLandslideChange: (checked: boolean) => void;
   showStormSurge: boolean;
@@ -408,6 +410,7 @@ export function DataLayerControls({
   onFocusStorm,
   showBarangayBoundaries = false,
   onShowBarangayBoundariesChange,
+  showBarangayBoundariesToggle = true,
   showLandslide,
   onShowLandslideChange,
   showStormSurge,
@@ -730,21 +733,25 @@ export function DataLayerControls({
           </div>
         )}
 
-        <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-          Administrative
-          <CoverageChip label="Iligan City" detail="Covers Iligan City only" />
-        </div>
+        {showBarangayBoundariesToggle && (
+          <>
+            <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+              Administrative
+              <CoverageChip label="Iligan City" detail="Covers Iligan City only" />
+            </div>
 
-        <PillToggle
-          label="Barangay Boundaries"
-          color="#06B6D4"
-          checked={showBarangayBoundaries}
-          onChange={(checked) => onShowBarangayBoundariesChange?.(checked)}
-          credit={{
-            href: 'https://namria.gov.ph/',
-            label: 'NAMRIA / PSA',
-          }}
-        />
+            <PillToggle
+              label="Barangay Boundaries"
+              color="#06B6D4"
+              checked={showBarangayBoundaries}
+              onChange={(checked) => onShowBarangayBoundariesChange?.(checked)}
+              credit={{
+                href: 'https://namria.gov.ph/',
+                label: 'NAMRIA / PSA',
+              }}
+            />
+          </>
+        )}
       </div>
     </Card>
   );
