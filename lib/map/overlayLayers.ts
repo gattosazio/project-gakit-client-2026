@@ -862,7 +862,7 @@ export const setupOverlayLayers = async (
     });
   }
 
-  // --- 3D terrain + hillshade (AWS Open Data Terrarium DEM) ---
+  // --- 3D terrain (AWS Open Data Terrarium DEM) ---
   if (state.mapMode === '3d') {
     if (!map.getSource('terrain')) {
       map.addSource('terrain', {
@@ -873,23 +873,28 @@ export const setupOverlayLayers = async (
         encoding: AWS_TERRAIN_ENCODING,
       });
     }
-    map.setTerrain({ source: 'terrain', exaggeration: 1 });
-    // Hillshade reuses the same DEM source as terrain, so the elevation
-    // tiles are fetched only once instead of twice per view.
-    if (!map.getLayer('hillshade')) {
-      map.addLayer({
-        id: 'hillshade',
-        type: 'hillshade',
-        source: 'terrain',
-        // Shade only the basemap/terrain — keep it below the data overlays so
-        // report pins, flood fills, and rainfall aren't washed out by the relief.
-        before: 'iligan-buildings-3d',
-        paint: {
-          'hillshade-exaggeration': 0.4,
-          'hillshade-shadow-color': '#2b3c4e',
-          'hillshade-highlight-color': '#ffffff',
-        },
-      });
+    map.setTerrain({ source: 'terrain', exaggeration: 1.15 });
+
+    // Subtle hillshade on Base (Positron) map to give depth and definition to white slopes.
+    // Omitted on Satellite since aerial photos already provide natural lighting and contrast.
+    const isSatellite = state.basemap === 'satellite';
+    if (!isSatellite) {
+      if (!map.getLayer('hillshade')) {
+        map.addLayer({
+          id: 'hillshade',
+          type: 'hillshade',
+          source: 'terrain',
+          before: 'iligan-buildings-3d',
+          paint: {
+            'hillshade-exaggeration': 0.35,
+            'hillshade-shadow-color': '#475569',
+            'hillshade-highlight-color': '#ffffff',
+            'hillshade-accent-color': '#64748b',
+          },
+        });
+      }
+    } else {
+      if (map.getLayer('hillshade')) map.removeLayer('hillshade');
     }
   } else {
     map.setTerrain(null);

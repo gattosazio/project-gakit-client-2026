@@ -34,12 +34,15 @@ export const BASEMAP_STYLES: Record<BasemapId, string | StyleSpecification> = {
   satellite: SATELLITE_STYLE,
 };
 
-// AWS Open Data Terrarium raster DEM for 3D terrain and hillshading.
+// AWS Open Data Terrarium raster DEM for 3D terrain.
+// Native Mapzen DEM resolution is ~30m (SRTM), which corresponds to zoom 12 (~37m/pixel in Iligan).
+// Capping maxzoom at 12 allows MapLibre to interpolate elevation on GPU at higher zooms,
+// eliminating 90%+ of redundant HTTP tile fetches and eliminating tile request thrashing.
 export const AWS_TERRAIN_TILES = [
   'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
 ];
 export const AWS_TERRAIN_TILE_SIZE = 256;
-export const AWS_TERRAIN_MAX_ZOOM = 15;
+export const AWS_TERRAIN_MAX_ZOOM = 12;
 export const AWS_TERRAIN_ENCODING = 'terrarium' as const;
 
 export const ILIGAN_REPORT_BOUNDS = {
