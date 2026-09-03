@@ -48,7 +48,7 @@ export function SettingsDropdown({ role }: { role: StaffRole | null }) {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-x-4 top-24 z-[1300] overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-3 md:w-56">
+        <div className="fixed inset-x-4 top-16 z-[1300] overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-3 md:w-56">
           <div className="border-b border-canvas-grey px-4 py-3">
             <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
               Settings

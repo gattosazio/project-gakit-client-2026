@@ -177,7 +177,7 @@ export function SideBar<T extends string>({
     <>
     <aside
       className={`relative z-10 hidden h-full shrink-0 flex-col overflow-visible border-r border-slate-200 bg-slate-50 text-slate-900 transition-[width] duration-300 lg:flex ${
-        isCollapsed ? 'w-20' : 'w-72'
+        isCollapsed ? 'w-20' : 'w-60'
       }`}
     >
       <button

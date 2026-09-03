@@ -478,14 +478,23 @@ export function ReportModal({
                 Reporting unavailable outside Iligan City
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => setMode('report')}
-                disabled={!selectedLocation}
-                className="w-full py-3 px-6 rounded-xl font-semibold transition-all duration-150 bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
-              >
-                Report flood here
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode('report')}
+                  disabled={!selectedLocation}
+                  className="w-full py-3 px-6 rounded-xl font-semibold transition-all duration-150 bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
+                >
+                  Report flood here
+                </button>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="w-full py-2.5 px-6 rounded-xl font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
             )
           ) : (
             <div className="grid grid-cols-2 gap-3">

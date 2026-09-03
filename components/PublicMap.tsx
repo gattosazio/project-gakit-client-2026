@@ -1058,7 +1058,10 @@ export function PublicMap({
             metrics={barangayMetrics}
             mapRef={mapRef}
             containerRef={mapContainer}
-            onClose={() => setDismissedBarangayId(hoveredBarangay.id)}
+            onClose={() => {
+              setDismissedBarangayId(hoveredBarangay.id);
+              clearBarangayHover();
+            }}
           />
         )}
 
