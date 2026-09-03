@@ -374,10 +374,10 @@ export function AdminHeader({
   };
 
   return (
-    <header className="flex h-24 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-5 py-4 md:px-9">
+    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 md:h-24 md:px-9 md:py-4">
       <div className="flex min-w-0 items-center gap-4">
         <div className="min-w-0">
-          <h1 className="truncate text-xl font-bold tracking-[-0.02em] text-slate-900 md:text-[1.75rem]">
+          <h1 className="truncate text-lg font-bold tracking-[-0.02em] text-slate-900 md:text-xl lg:text-[1.75rem]">
             {title}
           </h1>
           <p className="mt-1 hidden truncate text-sm text-slate-500 md:block">
@@ -412,7 +412,7 @@ export function AdminHeader({
           </button>
 
           {isOpen && (
-            <div className="fixed inset-x-4 top-24 z-[1300] w-auto overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-3 md:w-[22rem]">
+            <div className="fixed inset-x-4 top-16 z-[1300] w-auto overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-3 md:w-[22rem]">
               <div className="flex items-center justify-between border-b border-canvas-grey px-4 py-3">
                 <div>
                   <p className="font-semibold text-slate-900">Notifications</p>

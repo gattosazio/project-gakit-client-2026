@@ -43,6 +43,10 @@ export function BarangayMetricsCard({
   onClose,
 }: BarangayMetricsCardProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const mobileItemRef = useRef<HTMLElement | null>(null);
+
+  // Mobile collapses to a tiny corner pill that expands on tap.
+  const [mobileExpanded, setMobileExpanded] = useState(false);
 
   // Leader line endpoints in container pixel space. `from` is the polygon
   // centroid, `to` is the card's bottom-left entry point.
@@ -53,11 +57,15 @@ export function BarangayMetricsCard({
   const measure = useCallback(() => {
     const map = mapRef.current;
     const container = containerRef.current;
-    if (!map || !container || !cardRef.current) return null;
+    const target =
+      (typeof window !== 'undefined' && window.innerWidth < 768
+        ? mobileItemRef.current
+        : cardRef.current) ?? cardRef.current;
+    if (!map || !container || !target) return null;
 
     const projected = map.project(barangay.centroid);
     const containerRect = container.getBoundingClientRect();
-    const cardRect = cardRef.current.getBoundingClientRect();
+    const cardRect = target.getBoundingClientRect();
 
     setFrom({ x: projected.x, y: projected.y });
     // Leader meets the card at its bottom-left corner (entry point).
@@ -70,7 +78,7 @@ export function BarangayMetricsCard({
 
   useLayoutEffect(() => {
     measure();
-  }, [measure]);
+  }, [measure, mobileExpanded]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -130,17 +138,70 @@ export function BarangayMetricsCard({
         </svg>
       )}
 
-      {/* Metrics card */}
+      {/* Mobile: collapsed corner pill (expands on tap) */}
+      {!mobileExpanded && (
+        <button
+          type="button"
+          ref={(el) => {
+            mobileItemRef.current = el;
+          }}
+          onClick={() => setMobileExpanded(true)}
+          className="hud-pill absolute top-2 right-2 z-[910] flex max-w-[180px] items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-slate-50 active:scale-95 md:hidden"
+          aria-label={`Show ${barangay.name} metrics`}
+        >
+          <MapPinned className="h-3.5 w-3.5 shrink-0 text-gakit-maroon" />
+          <span className="truncate" title={barangay.name}>
+            Barangay {barangay.name}
+          </span>
+        </button>
+      )}
+
+      {/* Mobile: expanded summary card (in the top-right corner) */}
+      {mobileExpanded && (
+        <div
+          ref={(el) => {
+            mobileItemRef.current = el;
+          }}
+          className="hud-card absolute top-2 right-2 z-[910] w-44 overflow-hidden md:hidden"
+          role="status"
+          aria-live="polite"
+        >
+          <div className="flex items-center justify-between gap-3 px-2.5 pt-1.5 pb-0.5 text-[11px] font-bold text-slate-900">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <MapPinned className="h-3 w-3 shrink-0 text-gakit-maroon" />
+              <span className="truncate" title={barangay.name}>
+                Barangay {barangay.name}
+              </span>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-1 shrink-0 rounded-md text-slate-400 hover:bg-canvas-light hover:text-slate-700 transition-colors"
+              aria-label={`Close ${barangay.name} metrics`}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <div className="px-2 pb-2 pt-0">
+            <div className="divide-y divide-slate-200/70 overflow-hidden rounded-xl border border-slate-200/70 bg-slate-50/80">
+              <SummaryRow label="Total" value={String(metrics.total)} />
+              <SummaryRow label="Avg Depth" value={metrics.avgDepthLabel} accent="text-gakit-maroon" />
+              <SummaryRow label="Verified" value={String(metrics.verified)} />
+              <SummaryRow label="Unverified" value={String(metrics.unverified)} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Desktop: always-visible compact summary card */}
       <div
         ref={cardRef}
-        className="hud-card absolute top-16 right-2 w-56 overflow-hidden sm:top-20 sm:right-3 sm:w-72 md:right-6"
+        className="hud-card absolute top-16 right-2 w-44 overflow-hidden sm:top-20 sm:right-3 sm:w-56 md:right-6 max-md:hidden"
         role="status"
         aria-live="polite"
       >
-        {/* Standard MapControls Card Header */}
-        <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-1 text-xs font-bold text-slate-900">
-          <div className="flex min-w-0 items-center gap-2">
-            <MapPinned className="h-3.5 w-3.5 shrink-0 text-gakit-maroon" />
+        <div className="flex items-center justify-between gap-3 px-2.5 pt-1.5 pb-0.5 text-[11px] font-bold text-slate-900">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <MapPinned className="h-3 w-3 shrink-0 text-gakit-maroon" />
             <span className="truncate" title={barangay.name}>
               Barangay {barangay.name}
             </span>
@@ -150,50 +211,41 @@ export function BarangayMetricsCard({
             className="p-1 shrink-0 rounded-md text-slate-400 hover:bg-canvas-light hover:text-slate-700 transition-colors"
             aria-label={`Close ${barangay.name} metrics`}
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
 
-        {/* Card content area */}
-        <div className="grid grid-cols-2 gap-1.5 px-2.5 pb-2.5 pt-1 sm:gap-2 sm:px-3 sm:pb-3">
-          <Stat label="Total" value={String(metrics.total)} />
-          <Stat label="Avg Depth" value={metrics.avgDepthLabel} accent="text-gakit-maroon" />
-          <Stat
-            label="Verified"
-            value={String(metrics.verified)}
-            dot="bg-emerald-500"
-          />
-          <Stat
-            label="Unverified"
-            value={String(metrics.unverified)}
-            dot="bg-amber-500"
-          />
+        {/* Card content area — single summary list */}
+        <div className="px-2 pb-2 pt-0 sm:px-3 sm:pb-3">
+          <div className="divide-y divide-slate-200/70 overflow-hidden rounded-xl border border-slate-200/70 bg-slate-50/80">
+            <SummaryRow label="Total" value={String(metrics.total)} />
+            <SummaryRow label="Avg Depth" value={metrics.avgDepthLabel} accent="text-gakit-maroon" />
+            <SummaryRow label="Verified" value={String(metrics.verified)} />
+            <SummaryRow label="Unverified" value={String(metrics.unverified)} />
+          </div>
         </div>
       </div>
     </>
   );
 }
 
-function Stat({
+function SummaryRow({
   label,
   value,
   accent = 'text-slate-900',
-  dot,
 }: {
   label: string;
   value: string;
   accent?: string;
-  dot?: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 px-2 py-1.5">
-      <div className={`flex items-center gap-1 text-sm font-bold tabular-nums leading-tight ${accent}`}>
-        {dot && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot}`} />}
-        {value}
-      </div>
-      <div className="text-[10px] font-medium uppercase tracking-wide text-slate-400">
+    <div className="flex items-center justify-between px-3 py-1">
+      <span className="text-[9px] font-medium uppercase tracking-wide text-slate-400">
         {label}
-      </div>
+      </span>
+      <span className={`text-xs font-bold tabular-nums leading-tight ${accent}`}>
+        {value}
+      </span>
     </div>
   );
 }
