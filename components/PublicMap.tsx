@@ -1172,7 +1172,7 @@ export function PublicMap({
         )}
 
         {/* Zoom & Compass Widget */}
-        <div className="flex h-[96px] w-9 flex-col overflow-hidden hud-pill">
+        <div className="flex h-[84px] w-8 flex-col overflow-hidden hud-pill md:h-[96px] md:w-9">
           <button
             type="button"
             onClick={() => mapRef.current?.zoomIn()}
@@ -1180,7 +1180,7 @@ export function PublicMap({
             title="Zoom in"
             className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95"
           >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <Plus className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2.5} />
           </button>
           <span className="h-px w-full bg-slate-200/80" />
           <button
@@ -1190,7 +1190,7 @@ export function PublicMap({
             title="Zoom out"
             className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95"
           >
-            <Minus className="h-3.5 w-3.5" strokeWidth={2.5} />
+            <Minus className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2.5} />
           </button>
           <span className="h-px w-full bg-slate-200/80" />
           <button
@@ -1201,7 +1201,7 @@ export function PublicMap({
             className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95"
           >
             <Navigation
-              className="h-3.5 w-3.5 transition-transform duration-200 ease-out"
+              className="h-3 w-3 transition-transform duration-200 ease-out md:h-3.5 md:w-3.5"
               strokeWidth={2.5}
               style={{
                 transform: `rotate(${-mapBearing}deg)`,

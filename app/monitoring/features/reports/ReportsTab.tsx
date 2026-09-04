@@ -289,15 +289,15 @@ export function ReportsTab({
         <section ref={mapSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
             <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
             <div className="h-[24rem] md:h-[32rem] relative">
-              <button
+              {/* <button
                 type="button"
                 onClick={handleOpenPublicMapSubmit}
                 title="Submit a report on the public hazard map"
-                className="absolute left-4 top-4 z-[1000] inline-flex items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-maroon-900/20 transition-all duration-150 hover:bg-maroon-800 active:scale-95"
+                className="absolute left-4 top-4 z-[1000] inline-flex items-center justify-center gap-2 rounded-2xl bg-gakit-maroon px-3.5 py-2 text-sm font-semibold text-white shadow-lg shadow-maroon-900/20 transition-all duration-150 hover:bg-maroon-800 active:scale-95"
               >
-                <PlusCircle className="w-4 h-4" />
+                <PlusCircle className="h-4 w-4" />
                 Submit Report
-              </button>
+              </button> */}
               {active ? (
                 <PublicMap
                   mapApiRef={mapRef}
