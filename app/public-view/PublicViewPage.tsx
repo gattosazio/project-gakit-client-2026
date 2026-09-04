@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
+import { HazardAssessmentModal } from '@/components/HazardAssessmentModal';
 import { ReportModal } from '@/components/ReportModal';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
@@ -49,8 +50,10 @@ export function PublicViewPage({
 }: {
   initialAuth?: AuthSnapshot;
 } = {}) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
+  const [locationPromptMode, setLocationPromptMode] = useState<'assessment' | 'report'>('assessment');
   const [isManualLocationMode, setIsManualLocationMode] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [withinCity, setWithinCity] = useState<boolean | null>(null);
@@ -183,7 +186,7 @@ export function PublicViewPage({
   // Opens the assessment modal for any location, inside or outside Iligan City.
   // The server is the authoritative geofence; withinCity only drives courtesy UI
   // (report CTA enabled vs. outside-city notice).
-  const openReportModalFor = useCallback(async (location: SelectedLocation) => {
+  const openAssessmentModalFor = useCallback(async (location: SelectedLocation) => {
     const key = `${location.lat.toFixed(4)},${location.lng.toFixed(4)}`;
     const lastDecision = lastAssessmentDecision.current;
     if (lastDecision && lastDecision.key === key && Date.now() - lastDecision.at < 2000) {
@@ -199,14 +202,36 @@ export function PublicViewPage({
     }
     setWithinCity(within);
     setSelectedLocation(location);
-    setIsModalOpen(true);
+    setIsReportModalOpen(false);
+    setIsAssessmentOpen(true);
   }, []);
+
+  const openReportModalFor = useCallback(
+    async (location: SelectedLocation) => {
+      let within: boolean | null = null;
+      try {
+        within = await isWithinIligan(location.lat, location.lng);
+      } catch {
+        within = null;
+      }
+      setWithinCity(within);
+      setSelectedLocation(location);
+      setIsAssessmentOpen(false);
+      setIsReportModalOpen(true);
+    },
+    []
+  );
 
   const handleStartReport = useCallback(() => {
     scrollToMap();
+    if (selectedLocation) {
+      void openReportModalFor(selectedLocation);
+      return;
+    }
+    setLocationPromptMode('report');
     setIsManualLocationMode(false);
     setIsLocationPromptOpen(true);
-  }, [scrollToMap]);
+  }, [openReportModalFor, scrollToMap, selectedLocation]);
 
   const hasOpenedPromptRef = useRef(false);
 
@@ -217,10 +242,12 @@ export function PublicViewPage({
       try {
         const alreadyShown = sessionStorage.getItem('gakit:location-prompt-shown');
         if (!alreadyShown) {
+          setLocationPromptMode('assessment');
           setIsLocationPromptOpen(true);
           sessionStorage.setItem('gakit:location-prompt-shown', 'true');
         }
       } catch {
+        setLocationPromptMode('assessment');
         setIsLocationPromptOpen(true);
       }
     }
@@ -228,6 +255,7 @@ export function PublicViewPage({
   }, [setRainfallHours]);
 
   const handleUseCurrentLocation = useCallback(() => {
+    const isReportMode = locationPromptMode === 'report';
     const attempt = (canRetry: boolean) => {
       if (!navigator.geolocation) {
         toast.error('Location sharing is not supported by this browser.', {
@@ -249,7 +277,12 @@ export function PublicViewPage({
           };
 
           setSelectedLocation(fallbackLocation);
-          void openReportModalFor(fallbackLocation);
+          if (isReportMode) {
+            setLocationPromptMode('assessment');
+            void openReportModalFor(fallbackLocation);
+          } else {
+            void openAssessmentModalFor(fallbackLocation);
+          }
           void resolveLocation(latitude, longitude).then(setSelectedLocation);
         },
         (error) => {
@@ -278,19 +311,33 @@ export function PublicViewPage({
       );
     };
     attempt(true);
-  }, [openReportModalFor]);
+  }, [locationPromptMode, openAssessmentModalFor, openReportModalFor]);
 
   const handleChooseLocation = useCallback(() => {
     setIsLocationPromptOpen(false);
     setIsManualLocationMode(true);
+    if (locationPromptMode === 'report') {
+      toast.info('Tap the flooded location on the map to continue.', {
+        position: 'top-right',
+        autoClose: 4000,
+      });
+    }
     scrollToMap();
-  }, [scrollToMap]);
+  }, [locationPromptMode, scrollToMap]);
 
   const handleLocationSelect = useCallback(
     (location: SelectedLocation) => {
-      if (isModalOpen) {
-        // The map delivers raw coords first, then the geocoded address for the
-        // same point ~500ms later; refresh the label in place when they match.
+      if (isReportModalOpen) {
+        if (
+          selectedLocation &&
+          Math.abs(selectedLocation.lat - location.lat) < 1e-4 &&
+          Math.abs(selectedLocation.lng - location.lng) < 1e-4
+        ) {
+          setSelectedLocation(location);
+        }
+        return;
+      }
+      if (isAssessmentOpen) {
         if (
           selectedLocation &&
           Math.abs(selectedLocation.lat - location.lat) < 1e-4 &&
@@ -301,19 +348,46 @@ export function PublicViewPage({
         return;
       }
       setIsLocationPromptOpen(false);
-      void openReportModalFor(location);
+
+      if (isManualLocationMode && locationPromptMode === 'report') {
+        setIsManualLocationMode(false);
+        setLocationPromptMode('assessment');
+        void openReportModalFor(location);
+        return;
+      }
+
+      void openAssessmentModalFor(location);
     },
-    [isModalOpen, openReportModalFor, selectedLocation]
+    [
+      isAssessmentOpen,
+      isManualLocationMode,
+      isReportModalOpen,
+      locationPromptMode,
+      openAssessmentModalFor,
+      openReportModalFor,
+      selectedLocation,
+    ]
   );
 
   const handleSearchedLocationSelect = useCallback(
     (location: SelectedLocation) => {
-      if (isModalOpen) return;
+      if (isAssessmentOpen || isReportModalOpen) return;
       setIsLocationPromptOpen(false);
       mapRef.current?.focusLocation(location);
-      void openReportModalFor(location);
+      if (locationPromptMode === 'report') {
+        setLocationPromptMode('assessment');
+        void openReportModalFor(location);
+      } else {
+        void openAssessmentModalFor(location);
+      }
     },
-    [isModalOpen, openReportModalFor]
+    [
+      isAssessmentOpen,
+      isReportModalOpen,
+      locationPromptMode,
+      openAssessmentModalFor,
+      openReportModalFor,
+    ]
   );
 
   const handleLocate = useCallback(async () => {
@@ -412,6 +486,7 @@ export function PublicViewPage({
                   weatherExpandedByDefault
                   fullScreen
                   hideBarangayBoundariesToggle
+                  onStartReport={handleStartReport}
                 />
               </div>
             </div>
@@ -472,12 +547,27 @@ export function PublicViewPage({
         onUseCurrentLocation={handleUseCurrentLocation}
         onChooseLocation={handleChooseLocation}
         onSearchLocationSelect={handleSearchedLocationSelect}
+        mode={locationPromptMode}
+      />
+
+      <HazardAssessmentModal
+        isOpen={isAssessmentOpen}
+        onClose={() => {
+          setIsAssessmentOpen(false);
+          setSelectedLocation(null);
+          setWithinCity(null);
+          setIsManualLocationMode(true);
+        }}
+        selectedLocation={selectedLocation}
+        onCheckLocation={handleCheckLocation}
+        rainfallHours={rainfallHours}
+        withinCity={withinCity}
       />
 
       <ReportModal
-        isOpen={isModalOpen}
+        isOpen={isReportModalOpen}
         onClose={() => {
-          setIsModalOpen(false);
+          setIsReportModalOpen(false);
           setSelectedLocation(null);
           setWithinCity(null);
           setIsManualLocationMode(true);
@@ -485,10 +575,9 @@ export function PublicViewPage({
         selectedLocation={selectedLocation}
         onSubmit={handleReportSubmit}
         onSuccess={() => {
+          setIsReportModalOpen(false);
           setIsSuccessOpen(true);
         }}
-        onCheckLocation={handleCheckLocation}
-        rainfallHours={rainfallHours}
         withinCity={withinCity}
       />
 

@@ -2,8 +2,8 @@
 
 import {
   AlertTriangle,
-  Anchor,
   CloudRain,
+  Droplets,
   Mountain,
   MountainSnow,
   Waves,
@@ -16,12 +16,32 @@ import type { HazardLevel } from '@/lib/map/geohazardQuery';
 
 const HAZARD_META: Record<
   'high' | 'medium' | 'low' | 'none',
-  { label: string; color: string; bg: string }
+  { label: string; color: string; bg: string; dot: string }
 > = {
-  high: { label: 'High hazard', color: 'text-red-700', bg: 'bg-red-50 border-red-200' },
-  medium: { label: 'Medium hazard', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200' },
-  low: { label: 'Low hazard', color: 'text-lime-700', bg: 'bg-lime-50 border-lime-200' },
-  none: { label: 'No hazard mapped', color: 'text-slate-600', bg: 'bg-slate-50 border-slate-200' },
+  high: {
+    label: 'High hazard',
+    color: 'text-rose-950',
+    bg: 'bg-rose-100 border-rose-300',
+    dot: 'bg-rose-600',
+  },
+  medium: {
+    label: 'Medium hazard',
+    color: 'text-orange-950',
+    bg: 'bg-orange-100 border-orange-300',
+    dot: 'bg-orange-500',
+  },
+  low: {
+    label: 'Low hazard',
+    color: 'text-amber-950',
+    bg: 'bg-amber-100 border-amber-300',
+    dot: 'bg-amber-500',
+  },
+  none: {
+    label: 'No hazard mapped',
+    color: 'text-slate-700',
+    bg: 'bg-slate-100 border-slate-200',
+    dot: 'bg-slate-400',
+  },
 };
 
 const hazardMeta = (level: HazardLevel | null) => HAZARD_META[level ?? 'none'];
@@ -32,7 +52,7 @@ function HazardPill({ level, badge }: { level: HazardLevel | null; badge?: strin
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${meta.bg} ${meta.color}`}
     >
-      <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
+      <span className={`inline-block h-2 w-2 rounded-full shrink-0 ${meta.dot}`} aria-hidden />
       <span className="font-bold">{meta.label}</span>
       {badge && <span className="font-medium opacity-70">· {badge}</span>}
     </span>
@@ -143,7 +163,7 @@ export function SiteConditionsCard({
         </SiteConditionsRow>
 
         <SiteConditionsRow
-          icon={Waves}
+          icon={Droplets}
           iconClassName="text-blue-600"
           label="Flood"
           isLoading={isCheckingLocation}
@@ -161,14 +181,14 @@ export function SiteConditionsCard({
         </SiteConditionsRow>
 
         <SiteConditionsRow
-          icon={Anchor}
+          icon={Waves}
           iconClassName="text-cyan-600"
           label="Storm surge"
           isLoading={isCheckingLocation}
         >
           <HazardPill
             level={stormSurge?.level ?? null}
-            badge={stormSurge ? `SSA #${stormSurge.advisory}` : undefined}
+            badge={`SSA #${stormSurge?.advisory ?? 4}`}
           />
         </SiteConditionsRow>
       </div>

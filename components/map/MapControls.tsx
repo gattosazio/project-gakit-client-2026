@@ -318,7 +318,7 @@ export function ReportControls({
       open={open}
       onToggle={onToggle}
       icon={ListFilter}
-      title="Reports"
+      title="Flood Reports"
       badge={
         isLoading ? (
           <Spinner size="xs" iconClassName="bg-slate-400" className="ml-1" />
@@ -491,7 +491,7 @@ export function DataLayerControls({
           checked={showStormSurge}
           onChange={(checked) => {
             if (!checked) onStormSurgeAdvisoryChange(null);
-            else if (stormSurgeAdvisory == null) onStormSurgeAdvisoryChange(1);
+            else onStormSurgeAdvisoryChange(stormSurgeAdvisory ?? 4);
           }}
           credit={{
             href: 'https://noah.upd.edu.ph/',

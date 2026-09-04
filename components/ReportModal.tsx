@@ -1,28 +1,22 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bike, Bus, Car, MapPin, UserRound, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
 import { listDepthCategories } from '@/app/public-view/actions/publicView';
-import { getElevation } from '@/lib/map/elevation';
 import {
   DEPTH_PRESETS,
   FLOOD_REFERENCE_META,
   depthCodeFromCm,
   depthCriticality,
-  fallbackCategoryLabel,
   type DepthCriticality,
   type FloodReference,
 } from '@/lib/reports/depthReferences';
 import { FloodReferenceIllustration } from '@/components/reporting/FloodReferenceIllustration';
 import { FloodDepthScale } from '@/components/reporting/FloodDepthScale';
-import { SiteConditionsCard } from '@/components/reporting/SiteConditionsCard';
 import { FilterDropdown } from '@/components/ui/FilterDropdown';
 import type { FloodDepth, FloodDepthCategory } from '@/app/public-view/actions/publicView';
-import type { LocationRiskInfo } from '@/components/PublicMap';
-
-type ReportMode = 'assessment' | 'report';
 
 const REFERENCE_ICONS: Record<FloodReference, typeof Car> = {
   adult: UserRound,
@@ -33,7 +27,7 @@ const REFERENCE_ICONS: Record<FloodReference, typeof Car> = {
   bus: Bus,
 };
 
-interface ReportModalProps {
+export interface ReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
@@ -48,11 +42,6 @@ interface ReportModalProps {
     depthCm: number;
     reference: { id: FloodReference; label: string; landmark: string };
   }) => Promise<void>;
-  onCheckLocation?: (location: {
-    lat: number;
-    lng: number;
-  }) => Promise<LocationRiskInfo>;
-  rainfallHours?: number;
   /** Server-authoritative geofence result; false disables reporting (courtesy UI only). */
   withinCity?: boolean | null;
 }
@@ -72,41 +61,30 @@ export function ReportModal({
   onSuccess,
   selectedLocation,
   onSubmit,
-  onCheckLocation,
-  rainfallHours,
   withinCity,
 }: ReportModalProps) {
-  const [mode, setMode] = useState<ReportMode>('assessment');
   const [selectedCm, setSelectedCm] = useState<number | null>(null);
   const [customCm, setCustomCm] = useState('');
   const [hoveredCm, setHoveredCm] = useState<number | null>(null);
   const [selectedReference, setSelectedReference] = useState<FloodReference>('adult');
   const [depthCategories, setDepthCategories] = useState<FloodDepthCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCheckingLocation, setIsCheckingLocation] = useState(false);
-  const [locationRisk, setLocationRisk] = useState<LocationRiskInfo | null>(null);
-  const [elevation, setElevation] = useState<number | null>(null);
-  const [isCheckingElevation, setIsCheckingElevation] = useState(false);
-  const lastElevationKey = useRef('');
 
-  const resetForm = useCallback(() => {
-    setMode('assessment');
+  const resetForm = () => {
     setSelectedCm(null);
     setCustomCm('');
     setSelectedReference('adult');
     setHoveredCm(null);
-    lastElevationKey.current = '';
-  }, []);
+  };
 
   // Reset transient form state when the modal opens/closes.
   useEffect(() => {
     let cancelled = false;
     void Promise.resolve().then(() => {
       if (cancelled) return;
-      if (isOpen) {
-        setMode('assessment');
-      } else {
+      if (!isOpen) {
         setCustomCm('');
+        setSelectedCm(null);
       }
     });
     return () => {
@@ -126,67 +104,7 @@ export function ReportModal({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isOpen, onClose, resetForm]);
-
-  useEffect(() => {
-    const onAssessment = mode === 'assessment';
-    if (!isOpen || !onAssessment || !selectedLocation) return;
-    const key = `${selectedLocation.lat.toFixed(5)},${selectedLocation.lng.toFixed(5)}`;
-    if (key === lastElevationKey.current && elevation !== null) {
-      setIsCheckingElevation(false);
-      return;
-    }
-    lastElevationKey.current = key;
-
-    let cancelled = false;
-    const abort = new AbortController();
-    setIsCheckingElevation(true);
-
-    void getElevation(selectedLocation.lat, selectedLocation.lng, abort.signal)
-      .then((elev) => {
-        if (!cancelled) {
-          setElevation(elev);
-          setIsCheckingElevation(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setElevation(null);
-          setIsCheckingElevation(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-      abort.abort();
-    };
-  }, [isOpen, mode, selectedLocation, elevation]);
-
-  useEffect(() => {
-    const onAssessment = mode === 'assessment';
-    if (!isOpen || !onAssessment || !selectedLocation || !onCheckLocation) {
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      setIsCheckingLocation(true);
-      setLocationRisk(null);
-      try {
-        const risk = await onCheckLocation(selectedLocation);
-        if (!cancelled) setLocationRisk(risk);
-      } catch {
-        if (!cancelled)
-          setLocationRisk({ floodHazard: null, landslide: null, stormSurge: null, precipMm: null });
-      } finally {
-        if (!cancelled) setIsCheckingLocation(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen, mode, selectedLocation, rainfallHours, onCheckLocation]);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -210,9 +128,6 @@ export function ReportModal({
   const referenceMeta =
     FLOOD_REFERENCE_META.find((meta) => meta.id === selectedReference) ?? null;
   const selectedCode = selectedCm != null ? depthCodeFromCm(selectedCm) : null;
-  const selectedDepthCategory = selectedCode
-    ? depthCategories.find((category) => category.code === selectedCode) ?? null
-    : null;
 
   const setReference = (reference: FloodReference) => {
     setSelectedReference(reference);
@@ -226,8 +141,6 @@ export function ReportModal({
     setCustomCm(String(cm));
   };
 
-  /** Exact-centimeter input: any depth 1–999 cm; readings past the scale's
-   * 250 cm top clamp the visual but still map to a category on submit. */
   const handleCustomCmChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const raw = event.target.value.replace(/\D/g, '').slice(0, 3);
     setCustomCm(raw);
@@ -281,24 +194,6 @@ export function ReportModal({
     onClose();
   };
 
-  const locationBlock = (
-    <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-      <div className="flex items-center gap-2 text-sm font-medium text-slate-600 mb-1">
-        <MapPin className="w-4 h-4 text-slate-500" />
-        Selected Location
-      </div>
-      <div className="text-sm font-semibold text-slate-900">
-        {selectedLocation?.address || 'No location selected'}
-      </div>
-      {selectedLocation && (
-        <div className="text-xs text-slate-600 mt-2">
-          {selectedLocation.lat.toFixed(4)},{' '}
-          {selectedLocation.lng.toFixed(4)}
-        </div>
-      )}
-    </div>
-  );
-
   if (!isOpen) return null;
 
   return (
@@ -311,95 +206,80 @@ export function ReportModal({
       <div className="relative z-10 bg-white rounded-t-3xl shadow-2xl w-full max-h-[82vh] flex flex-col pointer-events-auto md:rounded-2xl md:max-h-[calc(100vh-8rem)] md:h-auto md:max-w-96 border border-slate-200/90 ring-1 ring-slate-900/5">
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-canvas-grey">
           <div>
-            <h2 className="text-xl font-bold text-slate-900">
-              {mode === 'assessment' ? 'Location Assessment' : 'Estimate Flood Depth'}
+            <h2 className="text-xl font-bold text-slate-900 font-heading">
+              Report Flooding
             </h2>
             <div className="text-xs text-slate-500 mt-1">
-              {mode === 'assessment'
-                ? 'Step 1 of 2 · Location & conditions'
-                : 'Step 2 of 2 · Choose a reference'}
+              Estimate water level &amp; visual reference
             </div>
           </div>
           <button
             onClick={handleClose}
-            aria-label="Close location assessment modal"
+            aria-label="Close report modal"
             className="p-1.5 hover:bg-canvas-light text-slate-400 hover:text-slate-700 rounded-xl transition-colors active:scale-95"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
-          {mode === 'assessment' && (
-            <div className="space-y-4">
-              {locationBlock}
-              {withinCity === false && (
-                <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 p-3.5 text-sm text-amber-900">
-                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                  <span>
-                    This location is <span className="font-semibold">outside Iligan City</span>.
-                    Flood reports are only accepted inside the city. Conditions are still shown
-                    here where data coverage exists.
-                  </span>
-                </div>
-              )}
-              {selectedLocation && (
-                <SiteConditionsCard
-                  elevation={elevation}
-                  isCheckingElevation={isCheckingElevation}
-                  locationRisk={locationRisk}
-                  isCheckingLocation={isCheckingLocation}
-                  rainfallHours={rainfallHours}
-                />
-              )}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
+          {selectedLocation && (
+            <div className="bg-slate-50 rounded-lg p-3.5 border border-slate-200">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 mb-1">
+                <MapPin className="w-3.5 h-3.5 text-gakit-maroon shrink-0" />
+                Flooded Location
+              </div>
+              <div className="text-xs font-semibold text-slate-900 truncate">
+                {selectedLocation.address}
+              </div>
+              <div className="text-[11px] text-slate-500 mt-1">
+                {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
+              </div>
             </div>
           )}
 
-          {mode === 'report' && (
-            <div className="space-y-5">
-              <div>
-                {selectedLocation?.address && (
-                  <p className="text-xs text-slate-500 mb-2">
-                    Reporting at {selectedLocation.address}
-                  </p>
-                )}
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="shrink-0 whitespace-nowrap text-sm font-semibold text-slate-900">
-                    Choose a reference:
-                  </h3>
-                  <div className="w-40 sm:w-44 shrink-0">
-                    <FilterDropdown<FloodReference>
-                      value={selectedReference}
-                      onSelect={(id) => setReference(id)}
-                      options={FLOOD_REFERENCE_META.map((meta) => {
-                        const Icon = REFERENCE_ICONS[meta.id];
-                        return {
-                          value: meta.id,
-                          label: meta.label,
-                          icon: <Icon className="h-3.5 w-3.5 shrink-0" />,
-                        };
-                      })}
-                      triggerIcon={(() => {
-                        const Icon = REFERENCE_ICONS[selectedReference];
-                        return <Icon className="h-3.5 w-3.5 shrink-0" />;
-                      })()}
-                      triggerLabel={referenceMeta?.label ?? 'Choose a reference'}
-                      size="sm"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Pick a reference that best matches the flooded area.
-                </p>
-                <div className="mt-3">
-                  <h3 className="text-sm font-semibold text-slate-900 mb-1">
-                    Set the flood depth:
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    Choose a preset, drag the slider, or input an exact depth.
-                  </p>
+          {withinCity === false ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900">
+              <div className="font-semibold mb-1">Outside Iligan City</div>
+              Flood reports can only be submitted within Iligan City boundaries.
+            </div>
+          ) : (
+            <div>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h3 className="shrink-0 whitespace-nowrap text-sm font-semibold text-slate-900">
+                  Visual reference:
+                </h3>
+                <div className="w-40 sm:w-44 shrink-0">
+                  <FilterDropdown<FloodReference>
+                    value={selectedReference}
+                    onSelect={(id) => setReference(id)}
+                    options={FLOOD_REFERENCE_META.map((meta) => {
+                      const Icon = REFERENCE_ICONS[meta.id];
+                      return {
+                        value: meta.id,
+                        label: meta.label,
+                        icon: <Icon className="h-3.5 w-3.5 shrink-0" />,
+                      };
+                    })}
+                    triggerIcon={(() => {
+                      const Icon = REFERENCE_ICONS[selectedReference];
+                      return <Icon className="h-3.5 w-3.5 shrink-0" />;
+                    })()}
+                    triggerLabel={referenceMeta?.label ?? 'Choose reference'}
+                    size="sm"
+                  />
                 </div>
               </div>
+
+              <div className="mb-3">
+                <h3 className="text-sm font-semibold text-slate-900 mb-0.5">
+                  Set estimated depth:
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Tap a preset waterline chip, drag slider, or type cm.
+                </p>
+              </div>
+
               {referenceMeta && (
                 <section className="rounded-2xl border border-sky-200 bg-sky-50/50 p-4">
                   <div className="flex items-stretch gap-1">
@@ -428,7 +308,7 @@ export function ReportModal({
                           type="button"
                           onClick={() => selectDepth(preset.cm)}
                           aria-pressed={isSelected}
-                          title={`About ${preset.cm} cm — sets the waterline at ${preset.shortLabel.toLowerCase()} level`}
+                          title={`About ${preset.cm} cm — ${preset.shortLabel}`}
                           className={`rounded-full px-2.5 py-1 text-xs font-semibold transition-all duration-150 ${
                             isSelected
                               ? CRITICALITY_CHIP_SELECTED[criticality]
@@ -464,50 +344,31 @@ export function ReportModal({
               )}
             </div>
           )}
-
         </div>
 
         <div className="p-4 pb-8 sm:pb-4 md:p-6 border-t border-canvas-grey bg-canvas-light/50">
-          {mode === 'assessment' ? (
-            withinCity === false ? (
-              <button
-                type="button"
-                disabled
-                className="w-full py-3 px-6 rounded-xl font-semibold bg-canvas-grey text-slate-400 cursor-not-allowed"
-              >
-                Reporting unavailable outside Iligan City
-              </button>
-            ) : (
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={() => setMode('report')}
-                  disabled={!selectedLocation}
-                  className="w-full py-3 px-6 rounded-xl font-semibold transition-all duration-150 bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
-                >
-                  Report flood here
-                </button>
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="w-full py-2.5 px-6 rounded-xl font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition-all"
-                >
-                  Cancel
-                </button>
-              </div>
-            )
+          {withinCity === false ? (
+            <button
+              type="button"
+              onClick={handleClose}
+              className="w-full py-2.5 px-6 rounded-xl font-medium text-slate-600 hover:bg-slate-100 transition-all text-sm"
+            >
+              Close
+            </button>
           ) : (
             <div className="grid grid-cols-2 gap-3">
               <button
-                onClick={() => setMode('assessment')}
-                className="py-3 px-6 rounded-xl font-semibold text-slate-700 bg-canvas-grey hover:bg-slate-300 active:scale-[0.98] transition-all"
+                type="button"
+                onClick={handleClose}
+                className="py-3 px-6 rounded-xl font-semibold text-slate-700 bg-canvas-grey hover:bg-slate-300 active:scale-[0.98] transition-all text-sm"
               >
-                Back
+                Cancel
               </button>
               <button
+                type="button"
                 onClick={handleSubmit}
                 disabled={selectedCm == null || isSubmitting}
-                className="py-3 px-6 rounded-xl font-semibold transition-all duration-150 bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed"
+                className="py-3 px-6 rounded-xl font-semibold transition-all duration-150 bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white disabled:bg-canvas-grey disabled:text-slate-400 disabled:cursor-not-allowed text-sm"
               >
                 {isSubmitting ? (
                   <span className="flex items-center justify-center gap-2">

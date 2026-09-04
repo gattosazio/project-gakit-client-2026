@@ -1,5 +1,5 @@
 import Image from 'next/image';
-import { Building2, Mail, MapPin } from 'lucide-react';
+import { Mail, MapPin, ShieldAlert } from 'lucide-react';
 
 export function AboutSection() {
   return (
@@ -14,11 +14,11 @@ export function AboutSection() {
               About Project GAKIT
             </span>
           </div>
-          <h2 className="mt-4 max-w-[18ch] font-heading text-[30px] font-extrabold leading-[0.95] tracking-[-0.025em] text-white sm:text-[36px] lg:text-[42px]">
-            Community flood reports help others make safer decisions.
+          <h2 className="mt-4 max-w-[20ch] font-heading text-[30px] font-extrabold leading-[1.02] tracking-[-0.025em] text-white sm:text-[36px] lg:text-[40px]">
+            Geohazard assessment and community flood reporting for safer decisions.
           </h2>
           <p className="mt-6 max-w-[60ch] text-[15px] font-medium leading-7 text-rose-100/80 sm:text-[16px] sm:leading-8">
-            GAKIT combines community observations, geospatial information, and environmental data to support local flood awareness in Iligan City. Public reports help responders and researchers see where flooding is being experienced on the ground.
+            GAKIT unites scientific risk modeling, meteorological feeds, and citizen science in Iligan City. Evaluate site-level exposure to flood, landslide, and storm surge hazards, or report on-the-ground flooding to keep communities and responders informed.
           </p>
 
           {/* Feature bento — generous internal air, no translate gimmick */}
@@ -26,23 +26,23 @@ export function AboutSection() {
             <div className="rounded-[22px] bg-white p-6 shadow-[0_8px_32px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06] transform-gpu transition-[transform,box-shadow] duration-200 ease-out hover:shadow-[0_16px_40px_rgba(0,0,0,0.14)] sm:rounded-[24px] sm:p-7 md:hover:scale-[1.015] motion-reduce:transition-none motion-reduce:hover:transform-none">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-gakit-maroon ring-1 ring-rose-100">
-                  <MapPin className="h-[22px] w-[22px]" />
+                  <ShieldAlert className="h-[22px] w-[22px]" />
                 </div>
-                <h3 className="font-heading text-[15px] font-bold tracking-tight text-slate-900 sm:text-[16px]">Local reporting</h3>
+                <h3 className="font-heading text-[15px] font-bold tracking-tight text-slate-900 sm:text-[16px]">Geohazard assessment</h3>
               </div>
               <p className="mt-3 text-[13.5px] leading-6 text-slate-600">
-                Residents mark a flooded location and share the observed water depth. Simple, fast, on any device.
+                Tap or search any location to evaluate site-level geohazard risks, terrain elevation, and real-time rainfall.
               </p>
             </div>
             <div className="rounded-[22px] bg-white p-6 shadow-[0_8px_32px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06] transform-gpu transition-[transform,box-shadow] duration-200 ease-out hover:shadow-[0_16px_40px_rgba(0,0,0,0.14)] sm:rounded-[24px] sm:p-7 md:hover:scale-[1.015] motion-reduce:transition-none motion-reduce:hover:transform-none">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-gakit-maroon ring-1 ring-rose-100">
-                  <Building2 className="h-[22px] w-[22px]" />
+                  <MapPin className="h-[22px] w-[22px]" />
                 </div>
-                <h3 className="font-heading text-[15px] font-bold tracking-tight text-slate-900 sm:text-[16px]">Decision support</h3>
+                <h3 className="font-heading text-[15px] font-bold tracking-tight text-slate-900 sm:text-[16px]">Community reporting</h3>
               </div>
               <p className="mt-3 text-[13.5px] leading-6 text-slate-600">
-                Reports sit alongside hazard, rainfall, and terrain data to inform safer local decisions.
+                Pin flooded areas and share observed water levels in seconds. Simple, anonymous, and community-driven.
               </p>
             </div>
           </div>

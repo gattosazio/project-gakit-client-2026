@@ -130,6 +130,8 @@ interface PublicMapProps {
   /** Initial barangay boundary visibility. Staff maps can default them on;
    *  the public map keeps them hidden by default. */
   defaultShowBarangayBoundaries?: boolean;
+  /** Triggered when the user clicks the dedicated "Report Flooding" HUD card button. */
+  onStartReport?: () => void;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -161,6 +163,7 @@ export function PublicMap({
   hideBarangayBoundariesToggle = false,
   defaultBasemap = 'light',
   defaultShowBarangayBoundaries = false,
+  onStartReport,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -194,7 +197,7 @@ export function PublicMap({
   const showRainfallRef = useRef(false);
   const showLandslideRef = useRef(false);
   const showStormSurgeRef = useRef(false);
-  const stormSurgeAdvisoryRef = useRef<1 | 2 | 3 | 4 | null>(null);
+  const stormSurgeAdvisoryRef = useRef<1 | 2 | 3 | 4>(4);
   const [mapReady, setMapReady] = useState(false);
   const [mapBearing, setMapBearing] = useState(0);
 
@@ -218,7 +221,7 @@ export function PublicMap({
   // ─── Domain layers ─────────────────────────────────────────────────────────
   const [showLandslide, setShowLandslide] = useState(false);
   const [showStormSurge, setShowStormSurge] = useState(false);
-  const [stormSurgeAdvisory, setStormSurgeAdvisory] = useState<1 | 2 | 3 | 4 | null>(null);
+  const [stormSurgeAdvisory, setStormSurgeAdvisory] = useState<1 | 2 | 3 | 4>(4);
   const [visibleReportStatuses, setVisibleReportStatuses] = useState<Record<ReportStatus, boolean>>(
     initialVisibleReportStatuses
   );
@@ -454,7 +457,9 @@ export function PublicMap({
   // Storm surge advisory: single-selection; master mirrors active state.
   const handleStormSurgeAdvisoryChange = useCallback(
     (next: 1 | 2 | 3 | 4 | null) => {
-      setStormSurgeAdvisory(next);
+      if (next !== null) {
+        setStormSurgeAdvisory(next);
+      }
       setShowStormSurge(next != null);
       const safe = next != null
         ? collapseToFit(
@@ -515,14 +520,11 @@ export function PublicMap({
 
       // Independent lookups run concurrently so a cold rainfall grid download
       // never delays the local hazard answers.
-      const surge = stormSurgeAdvisory
-        ? queryStormSurge(lat, lng, stormSurgeAdvisory)
-        : Promise.resolve<StormSurgeInfo | null>(null);
       const [precipMm, floodHazard, landslide, stormSurge] = await Promise.all([
         lookupPrecip(lat, lng),
         queryFloodHazard(lat, lng),
         queryLandslide(lat, lng),
-        surge,
+        queryStormSurge(lat, lng, stormSurgeAdvisory ?? 4),
       ]);
       return { floodHazard, landslide, stormSurge, precipMm };
     },
@@ -1091,18 +1093,6 @@ export function PublicMap({
           />
         )}
 
-        <ReportControls
-          open={reportsOpen}
-          onToggle={handleToggleReports}
-          visibleReportStatuses={visibleReportStatuses}
-          onReportStatusChange={(status, checked) =>
-            setVisibleReportStatuses((previous) => ({ ...previous, [status]: checked }))
-          }
-          reportStatusToggleStatuses={reportStatusToggleStatuses}
-          reportWindowHours={reportFilters?.createdAfterHours}
-          isLoading={isLoadingReports}
-        />
-
         <DataLayerControls
           open={layersOpen}
           onToggle={handleToggleLayers}
@@ -1137,6 +1127,56 @@ export function PublicMap({
           stormSurgeAdvisory={stormSurgeAdvisory}
           onStormSurgeAdvisoryChange={handleStormSurgeAdvisoryChange}
         />
+
+        <ReportControls
+          open={reportsOpen}
+          onToggle={handleToggleReports}
+          visibleReportStatuses={visibleReportStatuses}
+          onReportStatusChange={(status, checked) =>
+            setVisibleReportStatuses((previous) => ({ ...previous, [status]: checked }))
+          }
+          reportStatusToggleStatuses={reportStatusToggleStatuses}
+          reportWindowHours={reportFilters?.createdAfterHours}
+          isLoading={isLoadingReports}
+        />
+
+        {onStartReport && (
+          <button
+            type="button"
+            onClick={onStartReport}
+            className="flex items-center gap-2 px-3.5 py-2.5 hud-pill hover:bg-white hover:shadow-lg transition-all duration-150 active:scale-95 group select-none cursor-pointer"
+            aria-label="Report flooding"
+            title="Report flooding"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-5 w-5 shrink-0 transition-transform group-hover:scale-105"
+              aria-hidden="true"
+            >
+              <path
+                d="M 12 5.5 L 19.8 19 L 4.2 19 Z"
+                fill="#7B1113"
+                stroke="#7B1113"
+                strokeWidth="4.5"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+              />
+              <line
+                x1="12"
+                y1="9.5"
+                x2="12"
+                y2="13.5"
+                stroke="white"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+              />
+              <circle cx="12" cy="17" r="1.15" fill="white" />
+            </svg>
+            <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">
+              Report Flooding
+            </span>
+          </button>
+        )}
 
         <div
           ref={controlsSentinelRef}
@@ -1204,7 +1244,7 @@ export function PublicMap({
               className="h-3 w-3 transition-transform duration-200 ease-out md:h-3.5 md:w-3.5"
               strokeWidth={2.5}
               style={{
-                transform: `rotate(${-mapBearing}deg)`,
+                transform: `rotate(${-45 - mapBearing}deg)`,
                 color: Math.abs(mapBearing) > 1 ? '#7B1113' : '#64748b',
               }}
             />
