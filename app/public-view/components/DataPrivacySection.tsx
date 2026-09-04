@@ -29,7 +29,7 @@ export function DataPrivacySection() {
             <li className="flex gap-3">
               <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-gakit-maroon" />
               <p className="text-[13.5px] leading-6 text-slate-600">
-                <span className="font-semibold text-slate-900">Collected observation data:</span> GPS coordinates, flood waterline depths, and uploaded verification photos.
+                <span className="font-semibold text-slate-900">Collected observation data:</span> GPS coordinates, flood waterline depths, and physical landmark reference presets.
               </p>
             </li>
             <li className="flex gap-3">
@@ -127,13 +127,13 @@ export function DataPrivacySection() {
           </div>
           <div className="border-b border-slate-100 p-6 sm:border-r lg:border-r-0 lg:p-7">
             <div className="flex items-center justify-between gap-2">
-              <a href="https://noah.up.edu.ph" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
+              <a href="https://noah.upd.edu.ph" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
                 Project NOAH (UP RI)
                 <ExternalLink className="h-3 w-3 text-slate-400 group-hover/link:text-gakit-maroon" />
               </a>
-              <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 font-heading text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">Hazard Maps</span>
+              <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 font-heading text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">Geohazards</span>
             </div>
-            <p className="mt-2 text-[13px] leading-6 text-slate-600">100-year flood hazard polygons for Iligan City and Lanao del Norte basins.</p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-600">100-year flood hazard, landslide susceptibility, and storm surge inundation models (SSA #1–#4) for Iligan City and Lanao del Norte.</p>
           </div>
           <div className="border-b border-slate-100 p-6 sm:border-b-0 sm:border-r lg:border-b-0 lg:border-r lg:p-7">
             <div className="flex items-center justify-between gap-2">
