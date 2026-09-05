@@ -29,6 +29,12 @@ export interface WeatherAlertData {
   days?: WeatherDayData[];
   title?: string;
   description?: string;
+  source?: string;
+  bulletinType?: string;
+  bulletinNumber?: number | null;
+  issuedAt?: string;
+  affectedAreas?: string[];
+  rawText?: string;
 }
 
 export interface WeatherAlert {

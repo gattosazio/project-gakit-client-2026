@@ -141,6 +141,11 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${config.badge}`}>
                 {alert.severity.charAt(0).toUpperCase() + alert.severity.slice(1)}
               </span>
+              {alert.data?.source && (
+                <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                  {alert.data.source}
+                </span>
+              )}
             </div>
           </div>
           <button
@@ -162,6 +167,14 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
                     [],
                     { hour: '2-digit', minute: '2-digit' }
                   )}`
+                : alert.data?.issuedAt
+                ? `Issued ${new Date(alert.data.issuedAt).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })} · Valid until ${new Date(alert.validTo).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}`
                 : `Issued ${new Date(alert.createdAt).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
@@ -263,15 +276,34 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
               )}
             </div>
           ) : (
-            <p className="whitespace-pre-line text-sm text-slate-600 leading-relaxed mb-4">
-              {alertDescription(alert)}
-            </p>
+            <div className="space-y-3 mb-4">
+              <p className="whitespace-pre-line text-sm text-slate-700 leading-relaxed">
+                {alertDescription(alert)}
+              </p>
+              {alert.data?.affectedAreas && alert.data.affectedAreas.length > 0 && (
+                <div className="rounded-xl bg-slate-50 p-3 border border-slate-200/70 text-xs">
+                  <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                    Affected Areas (MINPRSD)
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {alert.data.affectedAreas.map((area, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-block rounded-md bg-white px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200 shadow-2xs"
+                      >
+                        {area}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 border-t border-canvas-grey p-4 md:px-5 md:py-3.5">
-          <WeatherAttribution />
+          <WeatherAttribution source={alert.data?.source ?? (alert.alertType === 'daily_digest' ? 'Open-Meteo' : 'DOST-PAGASA MINPRSD')} />
           <button
             onClick={onClose}
             className="rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-maroon-800 transition-colors"

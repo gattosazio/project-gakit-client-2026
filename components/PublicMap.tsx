@@ -1144,13 +1144,13 @@ export function PublicMap({
           <button
             type="button"
             onClick={onStartReport}
-            className="flex items-center gap-2 px-3.5 py-2.5 hud-pill hover:bg-white hover:shadow-lg transition-all duration-150 active:scale-95 group select-none cursor-pointer"
+            className="flex items-center gap-2 px-3.5 py-2.5 hud-pill hover:bg-white hover:shadow-lg transition-all duration-150 active:scale-95 group select-none cursor-pointer border border-maroon-100/90 hover:border-maroon-300"
             aria-label="Report flooding"
             title="Report flooding"
           >
             <svg
               viewBox="0 0 24 24"
-              className="h-5 w-5 shrink-0 transition-transform group-hover:scale-105"
+              className="h-5 w-5 shrink-0 transition-transform group-hover:scale-110"
               aria-hidden="true"
             >
               <path
@@ -1172,7 +1172,7 @@ export function PublicMap({
               />
               <circle cx="12" cy="17" r="1.15" fill="white" />
             </svg>
-            <span className="text-sm font-semibold text-slate-700 group-hover:text-slate-900 transition-colors">
+            <span className="text-sm font-bold text-gakit-maroon group-hover:text-maroon-900 transition-colors">
               Report Flooding
             </span>
           </button>
