@@ -169,7 +169,7 @@ export function ReportDetail({
           <DetailItem
             label="Elevation"
             loading={elevation == null}
-            value={elevation != null ? `${elevation.toFixed(1)} m (Copernicus 30m)` : 'Checking elevation…'}
+            value={elevation != null ? `${elevation.toFixed(1)} m (FABDEM 30m DTM)` : 'Checking elevation…'}
           />
         </FieldGroup>
 

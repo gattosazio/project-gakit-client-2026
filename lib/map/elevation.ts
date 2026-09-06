@@ -6,6 +6,8 @@ export interface ElevationMeta {
   rows: number;
   cols: number;
   scale: number;
+  /** Reserved int16 value marking ocean/nodata cells (no valid elevation). */
+  nodata?: number;
 }
 
 let elevationDataView: DataView | null = null;
@@ -50,7 +52,7 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Instant Elevation lookup (0ms) using Copernicus GLO-30 DEM local grid.
+ * Instant Elevation lookup (0ms) using FABDEM V1-2 30m bare-earth DTM local grid.
  */
 export async function getElevation(
   lat: number,
@@ -75,6 +77,12 @@ export async function getElevation(
       const byteOffset = (row * meta.cols + col) * 2;
       if (byteOffset + 1 < elevationDataView.byteLength) {
         const rawVal = elevationDataView.getInt16(byteOffset, true);
+        if (meta.nodata !== undefined && rawVal === meta.nodata) {
+          // Ocean / nodata cell: no valid elevation (was previously clipped
+          // to 0.0 m, misreporting open sea as land at sea level).
+          elevationCache.set(cacheKey, null);
+          return null;
+        }
         const elevation = Math.round(rawVal * meta.scale * 10) / 10;
         elevationCache.set(cacheKey, elevation);
         return elevation;

@@ -157,13 +157,13 @@ export function DataPrivacySection() {
           </div>
           <div className="p-6 lg:p-7">
             <div className="flex items-center justify-between gap-2">
-              <a href="https://spacedata.copernicus.eu" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
-                Copernicus GLO-30
+              <a href="https://data.bris.ac.uk/data/dataset/25wfy0f9ukxaa2rn5wgahxp17u" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
+                FABDEM V1-2
                 <ExternalLink className="h-3 w-3 text-slate-400 group-hover/link:text-gakit-maroon" />
               </a>
               <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 font-heading text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">Elevation</span>
             </div>
-            <p className="mt-2 text-[13px] leading-6 text-slate-600">ESA 30 m Digital Surface Model for global terrain elevation and watershed context.</p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-600">30 m Bare-Earth Digital Terrain Model with forests and buildings removed for accurate hydrodynamic modeling.</p>
           </div>
         </div>
       </div>

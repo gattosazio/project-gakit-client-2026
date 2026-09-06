@@ -1,10 +1,11 @@
 {
-  "min_lat": 8.1,
-  "max_lat": 8.35,
-  "min_lng": 124.15,
-  "max_lng": 124.5,
   "rows": 900,
   "cols": 1260,
+  "min_lng": 124.15,
+  "max_lng": 124.5,
+  "min_lat": 8.1,
+  "max_lat": 8.35,
   "scale": 0.1,
-  "format": "int16_le"
+  "min_elev": 0.0,
+  "max_elev": 1302.97998046875
 }
