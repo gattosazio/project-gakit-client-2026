@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GET } from '@/app/api/elevation/route';
 
-describe('Local Copernicus DEM Elevation Route', () => {
+describe('Local FABDEM DTM Elevation Route', () => {
   it('returns exact elevation for Poblacion / City Hall (~11.5m)', async () => {
     const req = new Request('http://localhost/api/elevation?lat=8.228&lng=124.240');
     const res = await GET(req);
@@ -9,7 +9,7 @@ describe('Local Copernicus DEM Elevation Route', () => {
     const data = await res.json();
     expect(data.elevation).toBeGreaterThan(5);
     expect(data.elevation).toBeLessThan(20);
-    expect(data.source).toBe('copernicus-dem-glo30');
+    expect(data.source).toBe('fabdem-30m-dtm');
   });
 
   it('returns high elevation for Mt. Agad-Agad (>400m)', async () => {

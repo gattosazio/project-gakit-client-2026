@@ -134,7 +134,7 @@ export function SiteConditionsCard({
           isLoading={isCheckingElevation}
         >
           {elevation != null ? (
-            <MetricValue value={`${elevation.toFixed(1)} m`} caption="Copernicus 30m" />
+            <MetricValue value={`${elevation.toFixed(1)} m`} caption="FABDEM 30m DTM" />
           ) : (
             NO_DATA
           )}
