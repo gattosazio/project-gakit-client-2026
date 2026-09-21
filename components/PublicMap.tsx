@@ -24,7 +24,6 @@ import {
 } from '@/constants/publicMap';
 import {
   ILIGAN_CENTER,
-  findBarangayEntry,
   getIliganBarangays,
   reverseGeocode,
   type GeoJsonCollection,
@@ -41,6 +40,7 @@ import {
 import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
 import {
   applyBarangayBoundariesVisibility,
+  applyBarangaySeverityData,
   applyBuildingsVisibility,
   riskLevelFilter,
   landslideFilter,
@@ -48,6 +48,13 @@ import {
   stopClusterPulse,
   type MapMode,
 } from '@/lib/map/overlayLayers';
+import {
+  aggregateBarangayStats,
+  barangayBanner,
+  buildBarangaySeverityGeoJson,
+  type BarangayBannerKind,
+  type BarangayStats,
+} from '@/lib/map/barangayStats';
 import {
   buildReportPopupHtml,
   buildReportsGeoJson,
@@ -59,7 +66,8 @@ import { createSelectedPinElement } from '@/lib/map/selectedPinElement';
 import { useOverlayCollapse } from '@/hooks/useOverlayCollapse';
 import { useMapGeolocation } from '@/hooks/useMapGeolocation';
 import { useMapPopups } from '@/hooks/useMapPopups';
-import { BarangayMetricsCard, type BarangayMetrics } from '@/components/map/BarangayMetricsCard';
+import { BarangayMetricsCard } from '@/components/map/BarangayMetricsCard';
+import { timeAgo } from '@/lib/reports/reportFormatting';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useRainfallLayer } from '@/hooks/useRainfallLayer';
@@ -554,49 +562,44 @@ export function PublicMap({
     onReportClickRef,
   });
 
-  // Aggregate per-barangay report metrics for the hover annotation card. Pure
-  // computation (memoized) — a client-side spatial join matches each report's
-  // coordinate to the hovered polygon so we can show live totals.
-  const barangayMetrics = useMemo<BarangayMetrics | null>(() => {
-    if (!hoveredBarangay || !barangayGeojson) return null;
+  // Aggregate per-barangay report metrics off the same point data that drives
+  // the choropleth: a client-side spatial join of each report coordinate into
+  // its polygon, respecting the legend's visibility toggles. Both the hover
+  // card and the boundary fill read from one source of truth.
+  const reportsForStats = useMemo(
+    () => backendReports.filter((feature) => visibleReportStatuses[feature.properties.status]),
+    [backendReports, visibleReportStatuses]
+  );
 
-    let total = 0;
-    let verified = 0;
-    let unverified = 0;
-    let depthSum = 0;
-    let depthCount = 0;
+  const barangayStats = useMemo<Map<string, BarangayStats>>(
+    () => aggregateBarangayStats(reportsForStats, barangayGeojson),
+    [reportsForStats, barangayGeojson]
+  );
 
-    for (const feature of backendReports) {
-      const status = feature.properties.status;
-      if (!visibleReportStatuses[status]) continue;
+  const severityGeoJson = useMemo(
+    () => (barangayGeojson ? buildBarangaySeverityGeoJson(barangayGeojson, barangayStats) : null),
+    [barangayGeojson, barangayStats]
+  );
 
-      const [lng, lat] = feature.geometry.coordinates;
-      const entry = findBarangayEntry(lng, lat, barangayGeojson);
-      if (!entry || entry.id !== hoveredBarangay.id) continue;
-
-      total += 1;
-      if (status === 'VERIFIED') verified += 1;
-      if (status === 'UNVERIFIED') unverified += 1;
-
-      if (status !== 'REJECTED') {
-        const cm =
-          feature.properties.depthCm ??
-          feature.properties.depth?.approximateCm ??
-          (feature.properties.depth?.code === 'overhead' ? 200 : null);
-        if (cm != null) {
-          depthSum += cm;
-          depthCount += 1;
-        }
-      }
+  // Keeps the choropleth source fresh as reports/legend/geojson change, and
+  // survives basemap style swaps (handleStyleLoad repushes the last payload).
+  const severityDataRef = useRef<typeof severityGeoJson>(null);
+  useEffect(() => {
+    severityDataRef.current = severityGeoJson;
+    if (severityGeoJson && mapRef.current) {
+      applyBarangaySeverityData(mapRef.current, severityGeoJson);
     }
+  }, [severityGeoJson]);
 
-    return {
-      total,
-      avgDepthLabel: depthCount > 0 ? `${Math.round(depthSum / depthCount)} cm` : '—',
-      verified,
-      unverified,
-    };
-  }, [hoveredBarangay, barangayGeojson, backendReports, visibleReportStatuses]);
+  const hoveredStats = hoveredBarangay
+    ? barangayStats.get(String(hoveredBarangay.id)) ?? null
+    : null;
+  const hoveredBanner: BarangayBannerKind = barangayBanner(hoveredStats);
+  const hoveredAgeLabel = hoveredStats?.newestAt ? timeAgo(hoveredStats.newestAt) : null;
+  const barangayWindowLabel =
+    reportFilters?.createdAfterHours != null
+      ? `last ${reportFilters.createdAfterHours}h`
+      : 'all time';
 
   const {
     isShareLocating,
@@ -733,6 +736,9 @@ export function PublicMap({
         attachLayerEvents(map);
         applyReportData(map);
         applySelectedMarker(map);
+        if (severityDataRef.current) {
+          applyBarangaySeverityData(map, severityDataRef.current);
+        }
 
         // Signal the parent that the basemap + project layers are ready so the
         // location prompt never covers a still-loading map. Fires once on the
@@ -1053,11 +1059,13 @@ export function PublicMap({
 
       {showBarangayBoundaries &&
         hoveredBarangay &&
-        barangayMetrics &&
         dismissedBarangayId !== hoveredBarangay.id && (
           <BarangayMetricsCard
             barangay={hoveredBarangay}
-            metrics={barangayMetrics}
+            stats={hoveredStats}
+            banner={hoveredBanner}
+            ageLabel={hoveredAgeLabel}
+            windowLabel={barangayWindowLabel}
             mapRef={mapRef}
             containerRef={mapContainer}
             onClose={() => {

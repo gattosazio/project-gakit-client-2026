@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { BellRing, CalendarDays, ChevronDown } from 'lucide-react';
+import { BellRing, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
 import { CurrentConditions } from '@/components/weather/CurrentConditions';
+import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import { alertDescription, alertTitle } from '@/lib/weather/weatherCodes';
 import type { CurrentWeather, WeatherAlert } from '@/types/weather';
 
@@ -52,7 +53,12 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
     () => (alerts ?? []).filter((alert) => alert.alertType !== 'daily_digest'),
     [alerts]
   );
+  const digest = useMemo(
+    () => (alerts ?? []).find((alert) => alert.alertType === 'daily_digest') ?? null,
+    [alerts]
+  );
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [outlookOpen, setOutlookOpen] = useState(false);
   const expanded = activeAlerts.find((alert) => alert.id === expandedId) ?? null;
 
   return (
@@ -66,7 +72,27 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
         </div>
 
         {current ? (
-          <CurrentConditions current={current} />
+          <button
+            type="button"
+            onClick={() => {
+              if (digest) setOutlookOpen(true);
+            }}
+            disabled={!digest}
+            title={digest ? 'Weather outlook for Iligan' : 'Weather outlook unavailable'}
+            aria-haspopup="dialog"
+            aria-expanded={outlookOpen}
+            className="group flex items-center gap-1.5 rounded-xl transition-colors disabled:cursor-default"
+          >
+            <CurrentConditions current={current} />
+            <ChevronUp
+              className={`h-3.5 w-3.5 shrink-0 transition-all ${
+                digest
+                  ? 'text-slate-300 group-hover:text-gakit-maroon group-hover:-translate-y-0.5'
+                  : 'text-slate-200'
+              }`}
+              aria-hidden="true"
+            />
+          </button>
         ) : (
           <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-200/70 bg-slate-50/80 px-3 py-2">
             <span className="text-xs font-medium text-slate-400">Conditions unavailable</span>
@@ -162,6 +188,14 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
             </div>
           </dl>
         </div>
+      )}
+
+      {outlookOpen && digest && (
+        <WeatherAlertModal
+          alert={digest}
+          current={current}
+          onClose={() => setOutlookOpen(false)}
+        />
       )}
     </section>
   );

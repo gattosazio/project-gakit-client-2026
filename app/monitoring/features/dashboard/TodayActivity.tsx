@@ -2,8 +2,7 @@
 
 import { useMemo, type ReactNode } from 'react';
 import { BarChart3, MapPinned, Waves } from 'lucide-react';
-import { DEPTH_LABELS } from '@/lib/reports/reportFormatting';
-import type { FloodDepthCode } from '@/types/report';
+import { DEPTH_BAR_COLOR, DEPTH_LABELS } from '@/lib/reports/reportFormatting';
 import type { DeepestSpot, HourlyBucket, PeriodComparison, Spot, Trend } from './aggregate';
 import { DISPLAY_DEPTHS, niceTicks } from './aggregate';
 
@@ -13,15 +12,6 @@ interface TodayActivityProps {
   deepSpots: DeepestSpot[];
   spots: Spot[];
 }
-
-const DEPTH_BAR_COLOR: Record<FloodDepthCode, string> = {
-  ankle: '#10B981',
-  knee: '#84CC16',
-  waist: '#F5B301',
-  shoulder: '#F97316',
-  head: '#EF4444',
-  overhead: '#7A0019',
-};
 
 const TREND_CHIP: Record<Trend, string> = {
   rising: 'bg-orange-50 text-orange-700 border-orange-200',
@@ -119,7 +109,7 @@ export function TodayActivity({ hourly, comparison, deepSpots, spots }: TodayAct
       <ActivityCard
         icon={Waves}
         title="Deepest flooding"
-        subtitle="Worst spots by water level, last 24h"
+        subtitle="Worst reported flood depth by spot, last 24h"
       >
         {deepSpots.length === 0 ? (
           <p className="py-8 text-center text-sm text-slate-500">No reports submitted yet.</p>

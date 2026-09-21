@@ -1,5 +1,9 @@
 import type { FloodDepthCode, Report } from '@/types/report';
-import { DEPTH_LABELS } from '@/lib/reports/reportFormatting';
+import { DEPTH_LABELS, timeAgo } from '@/lib/reports/reportFormatting';
+
+// Backward-compatible re-export: callers (and tests) may import timeAgo from
+// either home. The canonical implementation lives in lib/reports/reportFormatting.
+export { timeAgo };
 
 export const CRITICAL_DEPTHS: ReadonlySet<FloodDepthCode> = new Set(['head', 'overhead']);
 
@@ -20,16 +24,6 @@ export function reportGroup(report: Report): QueueGroup | 'done' {
   if (report.status === 'ANOMALY') return 'flagged';
   if (report.status !== 'UNVERIFIED') return 'done';
   return CRITICAL_DEPTHS.has(report.depth.code) ? 'critical' : 'pending';
-}
-
-export function timeAgo(iso: string, now = Date.now()): string {
-  const diff = Math.max(0, now - new Date(iso).getTime());
-  if (diff < 60_000) return 'just now';
-  const minutes = Math.floor(diff / 60_000);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
 }
 
 export interface QueueItem {
