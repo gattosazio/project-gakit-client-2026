@@ -6,38 +6,47 @@ import {
   CheckCircle2,
   Clock,
   FileText,
-  MapPin,
 } from 'lucide-react';
-import { fetchReportStats, listReports as fetchReports } from '../reports/actions/reports';
-import type { Report, ReportStats } from '@/types/report';
+import { fetchReportStats, listReports } from '../reports/actions/reports';
+import type { Report, ReportStats, ReportStatus } from '@/types/report';
 import { SkeletonCard } from '@/components/ui/Skeleton';
+import { useActiveAlerts, useCurrentWeather } from '@/lib/weather/weatherStore';
 import {
-  DEPTH_LABELS,
-  STATUS_META,
-  formatDateTime,
-  formatReportDepth,
-} from '@/lib/reports/reportFormatting';
+  buildQueue,
+  comparePeriods,
+  deepestSpots,
+  hourlyBuckets,
+  queueCounts,
+  topSpots,
+} from './aggregate';
+import { ArchiveSection } from './ArchiveSection';
+import { AttentionQueue } from './AttentionQueue';
+import { StatusStrip } from './StatusStrip';
+import { TodayActivity } from './TodayActivity';
 import './DashboardOverview.css';
 
 const CURRENT_YEAR = String(new Date().getFullYear());
+const WINDOW_HOURS = 24;
+const POLL_INTERVAL_MS = 30_000;
 
 export function DashboardOverview({
   active = true,
-  onOpenReports,
+  onReviewReports,
 }: {
   active?: boolean;
-  onOpenReports?: () => void;
+  onReviewReports?: (options?: { status?: ReportStatus; reportId?: string }) => void;
 }) {
   const [stats, setStats] = useState<ReportStats | null>(null);
-  const [latestReports, setLatestReports] = useState<Report[]>([]);
+  const [windowReports, setWindowReports] = useState<Report[]>([]);
+  const [attentionReports, setAttentionReports] = useState<Report[]>([]);
+  const [comparisonReports, setComparisonReports] = useState<Report[]>([]);
+  const [selectedYear, setSelectedYear] = useState<string>(CURRENT_YEAR);
+  const [snapshotAt, setSnapshotAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedYear, setSelectedYear] = useState<string>(CURRENT_YEAR);
   const hasLoadedRef = useRef(false);
-
-  // Near-real-time refresh: re-fetch on an interval. The server-side cache
-  // (30s, invalidated on write) keeps each poll cheap.
-  const POLL_INTERVAL_MS = 30_000;
+  const currentWeather = useCurrentWeather();
+  const activeAlerts = useActiveAlerts();
 
   useEffect(() => {
     if (!active) return;
@@ -46,14 +55,48 @@ export function DashboardOverview({
 
     const load = async () => {
       try {
-        const [statsResult, reportsResult] = await Promise.all([
-          fetchReportStats(),
-          fetchReports({ limit: 5 }),
-        ]);
+        // Bucket the cutoff to 10-minute windows so the API cache key stays
+        // stable between poll ticks instead of minting a new entry per minute.
+        const nowMs = Date.now();
+        const bucket = (timestamp: number) =>
+          Math.floor(timestamp / (10 * 60_000)) * (10 * 60_000);
+        const since = new Date(
+          bucket(nowMs - WINDOW_HOURS * 3_600_000)
+        ).toISOString();
+        const since48 = new Date(
+          bucket(nowMs - 48 * 3_600_000)
+        ).toISOString();
+
+        const base = {
+          limit: 100,
+          created_after: since,
+          sort_by: 'createdAt' as const,
+          sort_dir: 'desc' as const,
+        };
+        // The 48h list feeds the "vs previous 24h" comparison; the split
+        // happens client-side against absolute timestamps.
+        const base48 = { ...base, created_after: since48 };
+        const [statsResult, windowResult, unverifiedResult, anomalyResult, comparisonResult] =
+          await Promise.all([
+            fetchReportStats(),
+            listReports(base),
+            listReports({ ...base, status: 'UNVERIFIED' }),
+            listReports({ ...base, status: 'ANOMALY' }),
+            listReports(base48),
+          ]);
         if (cancelled) return;
+
+        const attentionMap = new Map<string, Report>();
+        for (const report of [...unverifiedResult.items, ...anomalyResult.items]) {
+          attentionMap.set(report.id, report);
+        }
+
         hasLoadedRef.current = true;
         setStats(statsResult);
-        setLatestReports(reportsResult.items);
+        setWindowReports(windowResult.items);
+        setAttentionReports(Array.from(attentionMap.values()));
+        setComparisonReports(comparisonResult.items);
+        setSnapshotAt(new Date(nowMs));
         setError(null);
         setLoading(false);
       } catch (err: unknown) {
@@ -61,7 +104,7 @@ export function DashboardOverview({
         // Only surface errors before the first successful load; keep showing
         // existing data if a background refresh transiently fails.
         if (!hasLoadedRef.current) {
-          setError(err instanceof Error ? err.message : 'Failed to load reports');
+          setError(err instanceof Error ? err.message : 'Failed to load data');
           setLoading(false);
         }
       }
@@ -107,11 +150,6 @@ export function DashboardOverview({
     return Array.from(yearSet).sort().reverse();
   }, [stats]);
 
-  const reportsToday = stats?.reportsToday ?? 0;
-  const pendingCount = stats?.pendingCount ?? 0;
-  const verifiedCount = stats?.verifiedCount ?? 0;
-  const criticalCount = stats?.criticalCount ?? 0;
-
   const monthlyReports = useMemo(() => {
     const byMonth = new Array(12).fill(0);
     for (const item of stats?.monthly ?? []) {
@@ -125,22 +163,42 @@ export function DashboardOverview({
     }));
   }, [stats, selectedYear]);
 
-  const maxMonthlyReports = Math.max(1, ...monthlyReports.map((item) => item.reports));
+  // Snapshot timestamp captured at the last successful poll. Keeping it in
+  // state (rather than calling Date.now() during render) keeps relative age
+  // labels stable between polls.
+  const now = snapshotAt?.getTime() ?? 0;
+  const queue = useMemo(() => buildQueue(attentionReports, now), [attentionReports, now]);
+  const counts = useMemo(() => queueCounts(attentionReports), [attentionReports]);
+  const hourly = useMemo(
+    () => hourlyBuckets(windowReports, WINDOW_HOURS, now),
+    [windowReports, now]
+  );
+  const comparison = useMemo(
+    () => comparePeriods(comparisonReports, now),
+    [comparisonReports, now]
+  );
+  const deepSpots = useMemo(() => deepestSpots(windowReports), [windowReports]);
+  const spots = useMemo(() => topSpots(windowReports), [windowReports]);
+  const verifiedInWindow = useMemo(
+    () => windowReports.filter((report) => report.status === 'VERIFIED').length,
+    [windowReports]
+  );
 
-  const metrics = [
-    { label: 'Reports Today', value: String(reportsToday), detail: 'From the public map', icon: FileText, color: 'text-gakit-maroon' },
-    { label: 'Pending Validation', value: String(pendingCount), detail: 'Awaiting review', icon: Clock, color: 'text-hazard-pending' },
-    { label: 'Critical Reports', value: String(criticalCount), detail: 'Head-deep or higher', icon: AlertTriangle, color: 'text-gakit-maroon' },
-    { label: 'Verified Reports', value: String(verifiedCount), detail: 'Trusted map pins', icon: CheckCircle2, color: 'text-hazard-safe' },
-  ];
+  const handleReview = (reportId: string, status: ReportStatus) =>
+    onReviewReports?.({ status, reportId });
+  const handleViewAll = (status: ReportStatus) =>
+    onReviewReports?.({ status });
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)]">
-        <SkeletonCard lines={4} className="shadow-[0_12px_30px_rgba(15,23,42,0.06)]" />
-        <SkeletonCard lines={3} className="shadow-[0_12px_30px_rgba(15,23,42,0.06)]" />
-        <SkeletonCard header={false} lines={6} className="xl:col-span-2 shadow-[0_12px_30px_rgba(15,23,42,0.06)]" />
-      </div>
+      <>
+        <SkeletonCard lines={2} className="shadow-[0_12px_30px_rgba(15,23,42,0.06)]" />
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.85fr)_minmax(19rem,1fr)]">
+          <SkeletonCard lines={6} className="shadow-[0_12px_30px_rgba(15,23,42,0.06)]" />
+          <SkeletonCard lines={4} className="shadow-[0_12px_30px_rgba(15,23,42,0.06)]" />
+        </div>
+        <SkeletonCard header={false} lines={6} className="shadow-[0_12px_30px_rgba(15,23,42,0.06)]" />
+      </>
     );
   }
 
@@ -152,113 +210,74 @@ export function DashboardOverview({
     );
   }
 
+  const needsActionNow = counts.critical + counts.flagged;
+  const workload = [
+    {
+      label: 'Need action now',
+      value: needsActionNow,
+      detail: 'Critical + flagged, last 24h',
+      icon: AlertTriangle,
+      color: 'text-hazard-critical',
+    },
+    {
+      label: 'Pending review',
+      value: counts.pending,
+      detail: 'Unverified, last 24h',
+      icon: Clock,
+      color: 'text-hazard-pending',
+    },
+    {
+      label: 'Verified',
+      value: verifiedInWindow,
+      detail: 'Confirmed, last 24h',
+      icon: CheckCircle2,
+      color: 'text-hazard-safe',
+    },
+    {
+      label: 'Received today',
+      value: stats?.reportsToday ?? 0,
+      detail: 'All reports, today',
+      icon: FileText,
+      color: 'text-gakit-maroon',
+    },
+  ];
+
   return (
     <>
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.85fr)_minmax(20rem,1fr)]">
-        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
+      <StatusStrip current={currentWeather} alerts={activeAlerts} />
+
+      <section className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.85fr)_minmax(19rem,1fr)]">
+        <AttentionQueue
+          items={queue}
+          counts={counts}
+          onReview={handleReview}
+          onViewAll={handleViewAll}
+        />
+
+        <div className="flex min-h-[16rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
           <div className="flex items-center justify-between border-b border-slate-100 p-5 md:p-6">
             <div>
-              <h2 className="font-bold text-slate-900">Latest Reports</h2>
-              <p className="mt-1 text-sm text-slate-500">Newest flood reports from the public map.</p>
+              <h2 className="font-bold text-slate-900">Workload</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                What drifted through the last 24 hours.
+              </p>
             </div>
-            <span className="rounded-xl bg-maroon-50 p-2.5">
-              <MapPin className="h-5 w-5 text-gakit-maroon" />
-            </span>
-          </div>
-          <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-slate-500">
-                <tr>
-                  <th className="text-left font-semibold px-5 py-3">ID</th>
-                  <th className="text-left font-semibold px-5 py-3">Location</th>
-                  <th className="text-left font-semibold px-5 py-3">Depth</th>
-                  <th className="text-left font-semibold px-5 py-3">Status</th>
-                  <th className="text-left font-semibold px-5 py-3">Time</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 bg-white">
-                {latestReports.map((report) => {
-                  const status = STATUS_META[report.status];
-                  return (
-                    <tr key={report.id} className="transition-colors hover:bg-slate-50/70">
-                      <td className="px-5 py-4 font-mono text-xs font-semibold text-slate-900">
-                        {report.id.slice(0, 8)}
-                      </td>
-                      <td className="px-5 py-4 text-slate-600">
-                        {report.location.address || `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`}
-                      </td>
-                      <td className="px-5 py-4 text-slate-600">
-                        {formatReportDepth(report.depth, report.depthCm)}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
-                          {status.label}
-                        </span>
-                      </td>
-                      <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
-                    </tr>
-                  );
-                })}
-                {latestReports.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-5 py-10 text-center text-sm text-slate-500">
-                      No reports submitted yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="md:hidden divide-y divide-slate-100 bg-white">
-            {latestReports.map((report) => {
-              const status = STATUS_META[report.status];
-              return (
-                <div key={report.id} className="flex items-start gap-2 p-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="font-mono text-xs font-semibold text-slate-900">
-                      {report.id.slice(0, 8)}
-                    </div>
-                    <div className="text-sm text-slate-600 mt-1">
-                      {report.location.address || `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`}
-                    </div>
-                    <div className="text-xs text-slate-500 mt-1">{formatReportDepth(report.depth, report.depthCm)}</div>
-                    <div className="text-xs text-slate-500 mt-1">{formatDateTime(report.createdAt)}</div>
-                  </div>
-                  <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
-                    {status.label}
-                  </span>
-                </div>
-              );
-            })}
-            {latestReports.length === 0 && (
-              <div className="px-5 py-10 text-center text-sm text-slate-500">
-                No reports submitted yet.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex min-h-[18rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
-          <div className="flex items-center justify-between border-b border-slate-100 p-5 md:p-6">
-            <div>
-              <h2 className="font-bold text-slate-900">Report Summary</h2>
-              <p className="mt-1 text-sm text-slate-500">Current report breakdown.</p>
-            </div>
-            <span className="rounded-xl bg-maroon-50 p-2.5">
-              <FileText className="h-5 w-5 text-gakit-maroon" />
-            </span>
           </div>
           <div className="flex-1 divide-y divide-slate-100">
-            {metrics.map((metric) => {
+            {workload.map((metric) => {
               const Icon = metric.icon;
               return (
                 <div key={metric.label} className="flex items-center justify-between px-5 py-3.5 md:px-6">
                   <div className="flex items-center gap-3">
                     <Icon className={`h-4 w-4 ${metric.color}`} />
-                    <span className="text-sm font-medium text-slate-600">{metric.label}</span>
+                    <div>
+                      <div className="text-sm font-medium text-slate-600">{metric.label}</div>
+                      <div className="text-xs text-slate-400">{metric.detail}</div>
+                    </div>
                   </div>
-                  <span className="text-lg font-bold tracking-[-0.02em] text-slate-900">{metric.value}</span>
+                  <span className="text-2xl font-bold tracking-[-0.02em] text-slate-900 tabular-nums">
+                    {metric.value}
+                  </span>
                 </div>
               );
             })}
@@ -266,50 +285,30 @@ export function DashboardOverview({
           <div className="border-t border-slate-100 p-4 md:p-5">
             <button
               type="button"
-              onClick={onOpenReports}
+              onClick={() => (counts.pending > 0 ? handleViewAll('UNVERIFIED') : onReviewReports?.())}
               className="w-full rounded-xl bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-maroon-800"
             >
-              Review Reports
+              {counts.pending > 0
+                ? `Review ${counts.pending} pending report${counts.pending === 1 ? '' : 's'}`
+                : 'Open report management'}
             </button>
           </div>
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-[0_12px_30px_rgba(15,23,42,0.06)] md:p-6">
-        <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h2 className="font-bold text-slate-900">Reports Over Time</h2>
-            <p className="mt-1 text-sm text-slate-500">
-              Monthly public report volume for {selectedYear}.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <select
-              value={selectedYear}
-              onChange={(event) => setSelectedYear(event.target.value)}
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition-colors focus:border-gakit-maroon"
-            >
-              {years.map((year) => (
-                <option key={year}>{year}</option>
-              ))}
-            </select>
-          </div>
-        </div>
+      <TodayActivity
+        hourly={hourly}
+        comparison={comparison}
+        deepSpots={deepSpots}
+        spots={spots}
+      />
 
-        <div className="dashboard-bar-chart">
-          {monthlyReports.map((item) => (
-            <div key={item.month} className="dashboard-bar-item">
-              <div className="dashboard-bar-value">{item.reports}</div>
-              <div
-                className="dashboard-bar"
-                style={{ height: `${Math.max(12, (item.reports / maxMonthlyReports) * 100)}%` }}
-                title={`${item.month} ${selectedYear}: ${item.reports} reports`}
-              />
-              <div className="dashboard-bar-label">{item.month}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+      <ArchiveSection
+        monthly={monthlyReports}
+        years={years}
+        selectedYear={selectedYear}
+        onYearChange={setSelectedYear}
+      />
     </>
   );
 }

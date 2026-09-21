@@ -1,3 +1,4 @@
+/* ---- Historical archive bars (collapsible at the bottom) ---- */
 .dashboard-bar-chart {
   display: grid;
   grid-template-columns: repeat(12, minmax(3.25rem, 1fr));
@@ -39,6 +40,102 @@
   color: #64748b;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+/* ---- Hourly inflow chart (last 24 hours, with Y axis) ---- */
+.activity-hourly-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-bottom: 1.375rem; /* mirrors the x-label row so tick 0 meets the bottom gridline */
+  color: #94a3b8;
+  font-size: 0.625rem;
+  font-weight: 600;
+  line-height: 1;
+  text-align: right;
+}
+
+.activity-hourly-plot {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.activity-hourly-grid {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 1.375rem;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.activity-hourly-gridline {
+  display: block;
+  height: 1px;
+  width: 100%;
+  background: #f1f5f9;
+}
+
+.activity-hourly-bars {
+  position: absolute;
+  top: 0.5rem;
+  right: 0;
+  bottom: 1.375rem;
+  left: 0;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.activity-hourly-item {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  height: 100%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.125rem;
+}
+
+.activity-hourly-value {
+  color: #334155;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.activity-hourly-bar {
+  width: 100%;
+  min-height: 0;
+  border-radius: 0.25rem 0.25rem 0.0625rem 0.0625rem;
+  background: linear-gradient(180deg, #a10023 0%, #7a0019 100%);
+  transition: height 240ms ease, background 160ms ease;
+}
+
+.activity-hourly-item:hover .activity-hourly-bar {
+  background: linear-gradient(180deg, #c4002b 0%, #8a001d 100%);
+}
+
+.activity-hourly-item:hover .activity-hourly-value {
+  color: #7a0019;
+}
+
+.activity-hourly-labels {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: space-between;
+  color: #94a3b8;
+  font-size: 0.6rem;
+  font-weight: 600;
+  line-height: 1;
 }
 
 @media (max-width: 640px) {

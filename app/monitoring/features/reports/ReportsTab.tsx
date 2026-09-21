@@ -47,9 +47,13 @@ const REPORTS_PER_PAGE = 6;
 export function ReportsTab({
   highlightedReportId = null,
   active = true,
+  initialStatus = null,
+  initialTime = null,
 }: {
   highlightedReportId?: string | null;
   active?: boolean;
+  initialStatus?: ReportStatus | null;
+  initialTime?: string | null;
 }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [total, setTotal] = useState(0);
@@ -81,7 +85,6 @@ export function ReportsTab({
 
   const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
 
-  // Sync highlight/filters when the `highlightedReportId` prop changes.
   useEffect(() => {
     if (!highlightedReportId) return;
     let cancelled = false;
@@ -99,7 +102,6 @@ export function ReportsTab({
     };
   }, [highlightedReportId]);
 
-  // Click-away listener: dismisses the maroon highlight when clicking outside the highlighted row
   useEffect(() => {
     if (!activeHighlightedId) return;
 
@@ -113,6 +115,29 @@ export function ReportsTab({
     window.addEventListener('mousedown', handleClickAway);
     return () => window.removeEventListener('mousedown', handleClickAway);
   }, [activeHighlightedId]);
+
+
+  useEffect(() => {
+    if (!initialStatus && !initialTime) return;
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      if (initialStatus) {
+        setStatusFilter(initialStatus);
+        setStatusDraft(initialStatus);
+        setQuery('');
+        setQueryDraft('');
+      }
+      if (initialTime) {
+        setTimeFilter(initialTime);
+        setTimeDraft(initialTime);
+      }
+      setCurrentPage(1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialStatus, initialTime]);
 
   useEffect(() => {
     if (!active) return;

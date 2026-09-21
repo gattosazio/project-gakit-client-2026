@@ -16,13 +16,13 @@ export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
     label: 'Dashboard',
     mobileLabel: 'Dashboard',
     title: 'Operations Dashboard',
-    description: 'Track live report volume, validation pressure, and current emergency posture.',
+    description: 'Review what needs attention, see live conditions, and track reports over the last 24 hours.',
     icon: LayoutDashboard,
     contents: [
-      'KPI cards for report counts, pending validation, critical reports, and verified reports',
-      'Report activity heatmap over time',
-      'Latest public reports table',
-      'Emergency status summary with quick action entry point',
+      'Live conditions and active advisories',
+      'Pending, flagged, and critical reports requiring a decision',
+      'Hourly inflow, depth distribution, and top reported locations for the last 24 hours',
+      'Historical archive of monthly report volume',
     ],
   },
   {

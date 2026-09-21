@@ -7,6 +7,7 @@ import { SideBar } from '@/components/SideBar';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import type { WeatherAlert } from '@/types/weather';
+import type { ReportStatus } from '@/types/report';
 import { DashboardOverview } from './features/dashboard/DashboardOverview';
 import { monitoringFeatureMap, monitoringFeatures, type MonitoringFeatureId } from './features/monitoringFeatureConfig';
 import { TabLoading } from '@/components/ui/TabLoading';
@@ -32,10 +33,34 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
   const [selectedWeatherAlert, setSelectedWeatherAlert] = useState<WeatherAlert | null>(null);
   const activeFeature = monitoringFeatureMap[activeTab];
 
-  // Keep the active tab in sync with URL changes made outside this component
-  // (notification bell, browser back/forward). Our handlers set state first, so
-  // this is a no-op for tab switches we initiated ourselves. Deferred to a
-  // microtask so it isn't a synchronous setState inside the effect body.
+  const STATUS_VALUES = new Set<ReportStatus>([
+    'UNVERIFIED',
+    'VERIFIED',
+    'ANOMALY',
+    'REJECTED',
+  ]);
+  const rawStatus = searchParams.get('status');
+  const initialStatus =
+    rawStatus && STATUS_VALUES.has(rawStatus as ReportStatus)
+      ? (rawStatus as ReportStatus)
+      : undefined;
+  const initialTime = searchParams.get('time') ?? undefined;
+
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const body = document.body;
+    const htmlOverflow = html.style.overflow;
+    const bodyOverflow = body.style.overflow;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => {
+      html.style.overflow = htmlOverflow;
+      body.style.overflow = bodyOverflow;
+    };
+  }, []);
+
+
   useEffect(() => {
     let cancelled = false;
     void Promise.resolve().then(() => {
@@ -57,10 +82,17 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     const query = params.toString();
     router.replace(query ? `/monitoring?${query}` : '/monitoring', { scroll: false });
   };
-  const handleOpenReports = () => {
+  const handleReviewReports = (options?: { status?: ReportStatus; reportId?: string }) => {
     setActiveTab('reports');
-    setHighlightedReportId(null);
-    router.replace('/monitoring?tab=reports', { scroll: false });
+    setHighlightedReportId(options?.reportId ?? null);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('notification');
+    params.set('tab', 'reports');
+    if (options?.status) params.set('status', options.status);
+    else params.delete('status');
+    params.set('time', '24h');
+    const query = params.toString();
+    router.replace(`/monitoring?${query}`, { scroll: false });
   };
   const handleOpenReport = (reportId?: string) => {
     setActiveTab('reports');
@@ -89,9 +121,9 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           role={initialAuth?.role ?? null}
           onNotificationClick={handleOpenNotification}
         />
-        <main className="flex-1 overflow-y-auto p-4 pb-20 md:px-7 md:py-6 lg:px-8 lg:pb-8 space-y-6">
-          <div className={activeTab === 'dashboard' ? 'space-y-4' : 'hidden'}>
-            <DashboardOverview active={activeTab === 'dashboard'} onOpenReports={handleOpenReports} />
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20 md:px-7 md:py-6 lg:px-8 lg:pb-8 space-y-6">
+          <div className={activeTab === 'dashboard' ? 'min-w-0 space-y-4' : 'hidden'}>
+            <DashboardOverview active={activeTab === 'dashboard'} onReviewReports={handleReviewReports} />
           </div>
           <div className={activeTab === 'alerts' ? 'space-y-4' : 'hidden'}>
             <AlertsTab active={activeTab === 'alerts'} onOpenReports={handleOpenReport} onSelectWeatherAlert={setSelectedWeatherAlert} />
@@ -99,8 +131,9 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           <div className={activeTab === 'reports' ? 'space-y-4' : 'hidden'}>
             <ReportsTab
               active={activeTab === 'reports'}
-
               highlightedReportId={highlightedReportId}
+              initialStatus={initialStatus}
+              initialTime={initialTime}
             />
           </div>
         </main>
