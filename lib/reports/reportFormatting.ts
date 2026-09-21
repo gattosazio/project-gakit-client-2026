@@ -9,6 +9,19 @@ export const DEPTH_LABELS: Record<FloodDepthCode, string> = {
   overhead: 'Overhead',
 };
 
+/**
+ * Water-level color scale shared by the dashboard, report cards, and any
+ * depth-related surface. Waist-up leans warm; head-plus is red/maroon.
+ */
+export const DEPTH_BAR_COLOR: Record<FloodDepthCode, string> = {
+  ankle: '#10B981',
+  knee: '#84CC16',
+  waist: '#F5B301',
+  shoulder: '#F97316',
+  head: '#EF4444',
+  overhead: '#7A0019',
+};
+
 export const REFERENCE_LABELS: Record<FloodReference, string> = {
   adult: 'Adult',
   motorcycle: 'Motorcycle',
@@ -54,6 +67,20 @@ export function formatDateTime(iso: string): string {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+/**
+ * Epoch-agnostic relative age label ("just now", "5m ago", "3h ago", "2d ago").
+ * Shared by dashboards, report management, and the map's barangay annotations.
+ */
+export function timeAgo(iso: string, now = Date.now()): string {
+  const diff = Math.max(0, now - new Date(iso).getTime());
+  if (diff < 60_000) return 'just now';
+  const minutes = Math.floor(diff / 60_000);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 export function formatReportDepth(

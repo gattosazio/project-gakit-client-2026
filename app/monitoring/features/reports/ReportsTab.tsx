@@ -2,14 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { useRouter } from 'next/navigation';
-import { PlusCircle, RotateCcw, Search } from 'lucide-react';
+import { MapPin, RotateCcw, Search } from 'lucide-react';
 import {
+  DEPTH_BAR_COLOR,
   DEPTH_LABELS,
   REFERENCE_LABELS,
   STATUS_META,
   formatDateTime,
   formatReportDepth,
+  timeAgo,
 } from '@/lib/reports/reportFormatting';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type {
@@ -20,7 +21,6 @@ import type {
   ReportStatus,
 } from '@/types/report';
 import { toast } from 'react-toastify';
-import { FeaturePageShell } from '@/components/FeaturePageShell';
 import { getReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
 import { ReportDetail } from './ReportDetail';
 import {
@@ -33,7 +33,6 @@ import { ReportActions, StatusDropdown } from './ReportActions';
 import { ReportsPagination } from './ReportsPagination';
 import { useVisibleInterval } from '@/hooks/useVisibleInterval';
 import { useSortableTable } from '@/hooks/useSortableTable';
-import { SortableHeader } from '@/components/ui/SortableHeader';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { Spinner } from '@/components/ui/Spinner';
 
@@ -47,9 +46,13 @@ const REPORTS_PER_PAGE = 6;
 export function ReportsTab({
   highlightedReportId = null,
   active = true,
+  initialStatus = null,
+  initialTime = null,
 }: {
   highlightedReportId?: string | null;
   active?: boolean;
+  initialStatus?: ReportStatus | null;
+  initialTime?: string | null;
 }) {
   const [reports, setReports] = useState<Report[]>([]);
   const [total, setTotal] = useState(0);
@@ -68,20 +71,19 @@ export function ReportsTab({
   const [currentPage, setCurrentPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
-  const router = useRouter();
+  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const mapSectionRef = useRef<HTMLElement | null>(null);
   const tableSectionRef = useRef<HTMLElement | null>(null);
   const requestSeqRef = useRef(0);
 
-  const { sort, toggleSort } = useSortableTable<ReportSortColumn>({
+  const { sort } = useSortableTable<ReportSortColumn>({
     column: 'createdAt',
     direction: 'desc',
   });
 
   const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
 
-  // Sync highlight/filters when the `highlightedReportId` prop changes.
   useEffect(() => {
     if (!highlightedReportId) return;
     let cancelled = false;
@@ -99,7 +101,6 @@ export function ReportsTab({
     };
   }, [highlightedReportId]);
 
-  // Click-away listener: dismisses the maroon highlight when clicking outside the highlighted row
   useEffect(() => {
     if (!activeHighlightedId) return;
 
@@ -113,6 +114,29 @@ export function ReportsTab({
     window.addEventListener('mousedown', handleClickAway);
     return () => window.removeEventListener('mousedown', handleClickAway);
   }, [activeHighlightedId]);
+
+
+  useEffect(() => {
+    if (!initialStatus && !initialTime) return;
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (cancelled) return;
+      if (initialStatus) {
+        setStatusFilter(initialStatus);
+        setStatusDraft(initialStatus);
+        setQuery('');
+        setQueryDraft('');
+      }
+      if (initialTime) {
+        setTimeFilter(initialTime);
+        setTimeDraft(initialTime);
+      }
+      setCurrentPage(1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialStatus, initialTime]);
 
   useEffect(() => {
     if (!active) return;
@@ -148,6 +172,7 @@ export function ReportsTab({
           setReports(result.items);
           setTotal(result.total);
           setTotalPages(Math.max(1, result.totalPages));
+          setUpdatedAt(new Date());
           setSelectedReport((current) => {
             if (!current) return null;
             const updated = result.items.find((report) => report.id === current.id);
@@ -199,15 +224,6 @@ export function ReportsTab({
     setTimeFilter('48h');
     setCurrentPage(1);
     setActiveHighlightedId(null);
-  };
-
-  const handleOpenPublicMapSubmit = () => {
-    router.push('/');
-  };
-
-  const handleSortChange = (column: ReportSortColumn) => {
-    toggleSort(column);
-    setCurrentPage(1);
   };
 
   // The map eats the same dropdown filters as the table: recency window plus
@@ -285,56 +301,60 @@ export function ReportsTab({
 
   return (
     <>
-      <FeaturePageShell>
-        <section ref={mapSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
+      <section ref={mapSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
             <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
-            <div className="h-[24rem] md:h-[32rem] relative">
-              {/* <button
-                type="button"
-                onClick={handleOpenPublicMapSubmit}
-                title="Submit a report on the public hazard map"
-                className="absolute left-4 top-4 z-[1000] inline-flex items-center justify-center gap-2 rounded-2xl bg-gakit-maroon px-3.5 py-2 text-sm font-semibold text-white shadow-lg shadow-maroon-900/20 transition-all duration-150 hover:bg-maroon-800 active:scale-95"
-              >
-                <PlusCircle className="h-4 w-4" />
-                Submit Report
-              </button> */}
-              {active ? (
-                <PublicMap
-                  mapApiRef={mapRef}
-                  onLocationSelect={handleNoopLocationSelect}
-                  selectedLocation={null}
-                  hideShareLocation
-                  hideWeather
-                  enableAddressLookup={false}
-                  hasBottomNav
-                  reportFilters={reportFilters}
-                  onReportClick={handleMapPinClick}
-                  defaultBasemap="satellite"
-                  defaultShowBarangayBoundaries
-                />
-              ) : (
-                <div className="w-full h-full bg-canvas-grey flex items-center justify-center">
-                  <Spinner size="md" />
+              <div className="flex items-center justify-between gap-3 border-b border-canvas-grey px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4 text-gakit-maroon" />
+                  <h3 className="text-sm font-bold text-slate-900">Incident map</h3>
                 </div>
-              )}
-            </div>
-
-            <div className="border-t border-canvas-grey px-5 py-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div className="text-sm text-slate-600">
-                Live map of reports ({mapSubtitle})
+                <div className="min-w-0 text-xs text-slate-500">
+                  <span className="block truncate">Live map of reports ({mapSubtitle})</span>
+                </div>
               </div>
-              <div className="text-xs text-slate-500">Click a marker to view details.</div>
+              <div className="h-[24rem] md:h-[28rem] relative">
+                {active ? (
+                  <PublicMap
+                    mapApiRef={mapRef}
+                    onLocationSelect={handleNoopLocationSelect}
+                    selectedLocation={null}
+                    hideShareLocation
+                    hideWeather
+                    enableAddressLookup={false}
+                    hasBottomNav
+                    reportFilters={reportFilters}
+                    onReportClick={handleMapPinClick}
+                    defaultBasemap="satellite"
+                    defaultShowBarangayBoundaries
+                  />
+                ) : (
+                  <div className="w-full h-full bg-canvas-grey flex items-center justify-center">
+                    <Spinner size="md" />
+                  </div>
+                )}
+              </div>
+
+              <div className="border-t border-canvas-grey px-5 py-3 text-xs text-slate-500">
+                Click a marker to view details.
+              </div>
             </div>
-          </div>
         </section>
 
         <section ref={tableSectionRef} className="grid grid-cols-1 gap-4 scroll-mt-6">
             <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
               <div className="space-y-4 p-4 border-b border-canvas-grey">
-                <div>
+                <div className="flex items-center justify-between gap-3">
                   <h3 className="font-bold text-slate-900">Reports</h3>
+                  <div className="flex items-center gap-3">
+                    {!loading && (
+                      <span className="text-xs text-slate-500">
+                        {total} {total === 1 ? 'report' : 'reports'}
+                        {total > REPORTS_PER_PAGE ? ` · page ${currentPage} of ${totalPages}` : ''}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_10rem_10rem_10rem_auto_auto]">
+                <div className="grid grid-cols-2 gap-3 xl:grid-cols-[minmax(16rem,1fr)_auto_auto_auto_auto_auto]">
                   <label className="col-span-2 flex items-center gap-2 rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 xl:col-span-1">
                     <Search className="w-4 h-4 text-slate-400" />
                     <input
@@ -379,160 +399,98 @@ export function ReportsTab({
                 <div className="p-6 text-sm text-red-700">{error}</div>
               ) : (
                 <>
-                  <div className="hidden lg:block overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-canvas-light text-slate-500">
-                      <tr>
-                        <th className="text-left font-semibold px-5 py-3">Report</th>
-                        <SortableHeader
-                          label="Location"
-                          column="address"
-                          sort={sort}
-                          onSort={handleSortChange}
-                        />
-                        <SortableHeader
-                          label="Depth"
-                          column="depth"
-                          sort={sort}
-                          onSort={handleSortChange}
-                        />
-                        <th className="text-left font-semibold px-5 py-3">Reference</th>
-                        <SortableHeader
-                          label="Status"
-                          column="status"
-                          sort={sort}
-                          onSort={handleSortChange}
-                        />
-                        <SortableHeader
-                          label="Submitted"
-                          column="createdAt"
-                          sort={sort}
-                          onSort={handleSortChange}
-                        />
-                        <th className="text-left font-semibold px-5 py-3">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-canvas-grey">
-                      {reports.map((report) => {
-                        const isHighlighted = activeHighlightedId === report.id;
-                        return (
-                          <tr
-                            key={report.id}
-                            data-highlighted-report={isHighlighted ? report.id : undefined}
-                            className={`${
-                              isHighlighted
-                                ? 'bg-maroon-100'
-                                : selectedReport?.id === report.id
-                                ? 'bg-maroon-100/80'
-                                : 'hover:bg-canvas-light/70'
-                            } transition-all duration-300`}
-                          >
-                            <td className="px-5 py-4">
-                              <div className="font-mono text-xs font-semibold text-slate-900">
-                                {report.id.slice(0, 8)}
-                              </div>
-                              <div className="text-xs text-slate-500">Public report</div>
-                            </td>
-                            <td className="px-5 py-4">
-                              <div className="text-slate-700">
-                                {report.location.address || 'Unknown location'}
-                              </div>
-                            </td>
-                            <td className="whitespace-nowrap px-5 py-4 text-slate-700">
-                              {formatReportDepth(report.depth, report.depthCm)}
-                            </td>
-                            <td className="px-5 py-4 text-slate-700">
-                              {report.reference ? REFERENCE_LABELS[report.reference] : '—'}
-                            </td>
-                            <td className="px-5 py-4">
-                              <StatusDropdown
-                                report={report}
-                                isUpdating={updatingId === report.id}
-                                onUpdateStatus={handleUpdateStatus}
-                              />
-                            </td>
-                            <td className="whitespace-nowrap px-5 py-4 text-slate-600">{formatDateTime(report.createdAt)}</td>
-                            <td className="px-5 py-4">
-                              <ReportActions
-                                report={report}
-                                onInspect={() => handleInspect(report)}
-                                onViewDetails={() => setSelectedReport(report)}
-                              />
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {reports.length === 0 && loading && (
-                        <>
-                          {Array.from({ length: 5 }).map((_, index) => (
-                            <tr key={index}>
-                              <td className="px-5 py-4"><Skeleton className="h-3.5 w-20 rounded-md" /></td>
-                              <td className="px-5 py-4"><Skeleton className="h-3.5 w-44 rounded-md" /></td>
-                              <td className="px-5 py-4"><Skeleton className="h-3.5 w-16 rounded-md" /></td>
-                              <td className="px-5 py-4"><Skeleton className="h-3.5 w-20 rounded-md" /></td>
-                              <td className="px-5 py-4"><Skeleton className="h-5 w-24 rounded-full" /></td>
-                              <td className="px-5 py-4"><Skeleton className="h-3.5 w-24 rounded-md" /></td>
-                              <td className="px-5 py-4"><Skeleton className="h-8 w-24 rounded-lg" /></td>
-                            </tr>
-                          ))}
-                        </>
-                      )}
-                      {reports.length === 0 && !loading && (
-                        <tr>
-                          <td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-500">
-                            No reports match the current filters.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="lg:hidden divide-y divide-canvas-grey">
-                  {reports.map((report) => {
-                    const isHighlighted = activeHighlightedId === report.id;
-                    return (
-                      <div
-                        key={report.id}
-                        data-highlighted-report={isHighlighted ? report.id : undefined}
-                        className={`flex items-start gap-2 p-4 hover:bg-canvas-light ${
-                          isHighlighted ? 'bg-maroon-100' : ''
-                        } transition-all duration-300`}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleInspect(report)}
-                          className="min-w-0 flex-1 text-left"
+                  <div className="divide-y divide-canvas-grey">
+                    {reports.map((report) => {
+                      const isHighlighted = activeHighlightedId === report.id;
+                      const needsReview =
+                        report.status === 'UNVERIFIED' &&
+                        (report.depth.code === 'head' || report.depth.code === 'overhead');
+                      return (
+                        <div
+                          key={report.id}
+                          data-highlighted-report={isHighlighted ? report.id : undefined}
+                          className={`flex items-start gap-3 p-4 transition-all duration-300 ${
+                            isHighlighted
+                              ? 'bg-maroon-100'
+                              : selectedReport?.id === report.id
+                              ? 'bg-maroon-100/80'
+                              : 'hover:bg-canvas-light/70'
+                          } ${needsReview ? 'border-l-2 border-hazard-critical' : ''}`}
                         >
-                          <div>
-                            <div className="font-mono text-xs font-semibold text-slate-900">
-                              {report.id.slice(0, 8)}
+                          <button
+                            type="button"
+                            onClick={() => handleInspect(report)}
+                            className="min-w-0 flex-1 text-left"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-sm font-semibold text-slate-900">
+                                {report.location.address || 'Unknown location'}
+                              </span>
+                              {needsReview && (
+                                <span className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-hazard-critical ring-1 ring-red-200">
+                                  Needs review
+                                </span>
+                              )}
                             </div>
-                            <div className="text-sm text-slate-600 mt-1">
-                              {report.location.address || 'Unknown location'}
+                            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                              <span className="font-mono text-[11px] text-slate-400">
+                                {report.id.slice(0, 8)}
+                              </span>
+                              <span
+                                className="flex items-center gap-1.5 font-semibold"
+                                style={{ color: DEPTH_BAR_COLOR[report.depth.code] }}
+                              >
+                                <span
+                                  className="h-2 w-2 rounded-full"
+                                  style={{ backgroundColor: DEPTH_BAR_COLOR[report.depth.code] }}
+                                />
+                                {formatReportDepth(report.depth, report.depthCm)}
+                              </span>
+                              {report.reference && (
+                                <span>· {REFERENCE_LABELS[report.reference]}</span>
+                              )}
+                              <span
+                                className="text-slate-400"
+                                title={formatDateTime(report.createdAt)}
+                              >
+                                · {timeAgo(report.createdAt)}
+                              </span>
                             </div>
-                            <div className="text-xs text-slate-500 mt-1">
-                              {formatReportDepth(report.depth, report.depthCm)}
-                              {report.reference && <span className="ml-1.5 text-slate-400">· {REFERENCE_LABELS[report.reference]}</span>}
+                          </button>
+                          <StatusDropdown
+                            report={report}
+                            isUpdating={updatingId === report.id}
+                            onUpdateStatus={handleUpdateStatus}
+                          />
+                          <ReportActions
+                            report={report}
+                            showInspect={false}
+                            onInspect={() => handleInspect(report)}
+                            onViewDetails={() => setSelectedReport(report)}
+                          />
+                        </div>
+                      );
+                    })}
+                    {reports.length === 0 && loading && (
+                      <>
+                        {Array.from({ length: 4 }).map((_, index) => (
+                          <div key={index} className="flex items-start gap-3 p-4">
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <Skeleton className="h-4 w-2/3 rounded-md" />
+                              <Skeleton className="h-4 w-1/3 rounded-md" />
                             </div>
-                            <div className="text-xs text-slate-500 mt-1">{formatDateTime(report.createdAt)}</div>
+                            <Skeleton className="h-7 w-24 rounded-full" />
+                            <Skeleton className="h-8 w-16 rounded-lg" />
                           </div>
-                        </button>
-                        <StatusDropdown
-                          report={report}
-                          isUpdating={updatingId === report.id}
-                          onUpdateStatus={handleUpdateStatus}
-                        />
-                        <ReportActions
-                          report={report}
-                          showInspect={false}
-                          onInspect={() => handleInspect(report)}
-                          onViewDetails={() => setSelectedReport(report)}
-                        />
+                        ))}
+                      </>
+                    )}
+                    {reports.length === 0 && !loading && (
+                      <div className="px-5 py-12 text-center text-sm text-slate-500">
+                        No reports match the current filters.
                       </div>
-                    );
-                  })}
-                </div>
+                    )}
+                  </div>
 
                 <ReportsPagination
                   currentPage={currentPage}
@@ -560,7 +518,6 @@ export function ReportsTab({
             />
           </div>
         )}
-      </FeaturePageShell>
     </>
   );
 }

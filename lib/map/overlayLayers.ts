@@ -96,7 +96,12 @@ export const applyBuildingsVisibility = (
 // Toggles visibility for all barangay boundary layers.
 export const applyBarangayBoundariesVisibility = (map: any, visible: boolean) => {
   const vis = visible ? 'visible' : 'none';
-  ['barangay-outline-casing', 'barangay-outline', 'barangay-fill'].forEach((id) => {
+  [
+    'barangay-severity-fill',
+    'barangay-outline-casing',
+    'barangay-outline',
+    'barangay-fill',
+  ].forEach((id) => {
     if (map?.getLayer(id)) {
       map.setLayoutProperty(id, 'visibility', vis);
     }
@@ -104,6 +109,15 @@ export const applyBarangayBoundariesVisibility = (map: any, visible: boolean) =>
   if (!visible && map?.getLayer('barangay-label')) {
     map.setLayoutProperty('barangay-label', 'visibility', 'none');
   }
+};
+
+// Pushes the freshly aggregated choropleth payload into the severity source.
+export const applyBarangaySeverityData = (
+  map: any,
+  payload: { type: 'FeatureCollection'; features: unknown[] }
+) => {
+  const source = map?.getSource?.('barangay-severity');
+  if (source?.setData) source.setData(payload);
 };
 
 // Recolors the rainfall grid for the currently selected accumulation window.
@@ -659,6 +673,27 @@ export const setupOverlayLayers = async (
     const labelHaloColor = isSatellite ? '#0f172a' : '#ffffff';
     const boundaryVisibility = (state.showBarangayBoundaries ?? false) ? 'visible' : 'none';
 
+    // Choropleth fill tinted by each barangay's current worst depth. Data is
+    // pushed in by applyBarangaySeverityData as reports arrive; barangays with
+    // no reports keep a neutral fill so the overlay still reads as areas.
+    if (!map.getSource('barangay-severity')) {
+      map.addSource('barangay-severity', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      });
+      map.addLayer({
+        id: 'barangay-severity-fill',
+        type: 'fill',
+        source: 'barangay-severity',
+        layout: {
+          visibility: boundaryVisibility,
+        },
+        paint: {
+          'fill-color': ['get', 'fill'],
+        },
+      });
+    }
+
     // High-contrast casing line below the boundary stroke; grows prominently on hover.
     map.addLayer({
       id: 'barangay-outline-casing',
@@ -711,7 +746,8 @@ export const setupOverlayLayers = async (
       },
     });
 
-    // Boundary fill: provides an evident translucent highlight across the hovered polygon.
+    // Boundary fill: hover-only wash over the choropleth to mark the selected
+    // polygon; resting presence comes from the severity-fill layer beneath.
     map.addLayer({
       id: 'barangay-fill',
       type: 'fill',
@@ -726,7 +762,7 @@ export const setupOverlayLayers = async (
           'case',
           ['boolean', ['feature-state', 'hover'], false],
           isSatellite ? 0.22 : 0.16,
-          0.02,
+          0,
         ],
       },
     });

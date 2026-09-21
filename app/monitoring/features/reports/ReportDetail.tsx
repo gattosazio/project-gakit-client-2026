@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
 import {
   AlertTriangle,
@@ -22,6 +23,11 @@ import {
 } from '@/lib/reports/reportFormatting';
 import { getElevation } from '@/lib/map/elevation';
 import type { Report, ReportStatus } from '@/types/report';
+
+const ReportMiniMap = dynamic(() =>
+  import('./ReportMiniMap').then((mod) => ({ default: mod.ReportMiniMap })),
+  { ssr: false }
+);
 
 const CLOSE_MS = 160;
 
@@ -153,6 +159,8 @@ export function ReportDetail({
         <LocationPreview
           address={address}
           coordinates={coordinates}
+          latitude={report.location.latitude}
+          longitude={report.location.longitude}
           copied={copiedCoord}
           onCopy={() => copyText(coordinates, 'coord')}
           onViewOnMap={onViewOnMap}
@@ -216,34 +224,27 @@ export function ReportDetail({
 function LocationPreview({
   address,
   coordinates,
+  latitude,
+  longitude,
   copied,
   onCopy,
   onViewOnMap,
 }: {
   address: string;
   coordinates: string;
+  latitude: number;
+  longitude: number;
   copied: boolean;
   onCopy: () => void;
   onViewOnMap?: () => void;
 }) {
   return (
     <div className="overflow-hidden rounded-lg border border-canvas-grey bg-canvas-light">
-      <div className="relative flex h-32 items-center justify-center overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 opacity-60"
-          style={{
-            backgroundImage:
-              'linear-gradient(to right, rgba(148,163,184,0.25) 1px, transparent 1px), linear-gradient(to bottom, rgba(148,163,184,0.25) 1px, transparent 1px)',
-            backgroundSize: '24px 24px',
-          }}
-        />
-        <div className="relative flex flex-col items-center text-gakit-maroon">
-          <MapPin className="h-9 w-9 drop-shadow" fill="currentColor" fillOpacity={0.15} />
-          <span className="mt-1 rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-gakit-maroon shadow-sm ring-1 ring-slate-200">
-            {coordinates}
-          </span>
-        </div>
+      <div className="relative h-40">
+        <ReportMiniMap latitude={latitude} longitude={longitude} onViewOnMap={onViewOnMap} />
+        <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-slate-950/60 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm backdrop-blur-sm">
+          {coordinates}
+        </span>
       </div>
       <div className="space-y-2 border-t border-canvas-grey p-3">
         <div className="flex items-start justify-between gap-2">
