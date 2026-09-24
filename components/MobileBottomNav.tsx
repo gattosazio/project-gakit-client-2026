@@ -39,7 +39,15 @@ export function MobileBottomNav<T extends string>({
                     : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
                 }`}
               >
-                <Icon className={`h-5 w-5 ${isActive ? 'text-gakit-maroon' : ''}`} />
+                <div className="relative">
+                  <Icon className={`h-5 w-5 ${isActive ? 'text-gakit-maroon' : ''}`} />
+                  {feature.badge && (
+                    <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white" />
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-semibold">
                   {feature.mobileLabel ?? feature.label}
                 </span>

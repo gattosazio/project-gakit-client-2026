@@ -31,6 +31,7 @@ interface AdminHeaderProps {
   title: string;
   description: string;
   icon?: LucideIcon;
+  badge?: string;
   role?: StaffRole | null;
   onNotificationClick?: (notificationId: string) => void;
 }
@@ -130,6 +131,7 @@ export function AdminHeader({
   title,
   description,
   icon: Icon,
+  badge,
   role = null,
   onNotificationClick,
 }: AdminHeaderProps) {
@@ -377,9 +379,16 @@ export function AdminHeader({
     <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 md:h-24 md:px-9 md:py-4">
       <div className="flex min-w-0 items-center gap-4">
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold tracking-[-0.02em] text-slate-900 md:text-xl lg:text-[1.75rem]">
-            {title}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="truncate text-lg font-bold tracking-[-0.02em] text-slate-900 md:text-xl lg:text-[1.75rem]">
+              {title}
+            </h1>
+            {badge && (
+              <span className="shrink-0 rounded bg-amber-100/80 px-2 py-0.5 text-[10px] font-bold tracking-wider text-amber-800 ring-1 ring-inset ring-amber-200">
+                {badge}
+              </span>
+            )}
+          </div>
           <p className="mt-1 hidden truncate text-sm text-slate-500 md:block">
             {description}
           </p>

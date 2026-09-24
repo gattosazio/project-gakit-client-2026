@@ -17,7 +17,17 @@ function loadElevationData(): { buffer: Buffer; meta: ElevationMeta } | null {
 
     if (fs.existsSync(binPath) && fs.existsSync(metaPath)) {
       elevationBuffer = fs.readFileSync(binPath);
-      elevationMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8')) as ElevationMeta;
+      const rawMeta = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+      elevationMeta = {
+        min_lat: rawMeta.min_lat ?? rawMeta.bounds?.lat_min,
+        max_lat: rawMeta.max_lat ?? rawMeta.bounds?.lat_max,
+        min_lng: rawMeta.min_lng ?? rawMeta.bounds?.lng_min,
+        max_lng: rawMeta.max_lng ?? rawMeta.bounds?.lng_max,
+        rows: rawMeta.rows ?? rawMeta.shape?.[0],
+        cols: rawMeta.cols ?? rawMeta.shape?.[1],
+        scale: rawMeta.scale ?? 0.1,
+        nodata: rawMeta.nodata,
+      };
       return { buffer: elevationBuffer, meta: elevationMeta };
     }
   } catch (err) {

@@ -229,7 +229,7 @@ export function SideBar<T extends string>({
             <button
               key={feature.id}
               onClick={() => onTabChange(feature.id)}
-              title={feature.label}
+              title={feature.badge ? `${feature.label} (${feature.badge})` : feature.label}
               className={`group flex w-full items-center rounded-2xl py-3 text-sm font-semibold transition-all duration-200 ${
                 isActive
                   ? 'bg-slate-200 text-slate-900'
@@ -238,10 +238,31 @@ export function SideBar<T extends string>({
                 isCollapsed ? 'justify-center px-3' : 'gap-3 px-4'
               }`}
             >
-              <Icon
-                className={`h-4 w-4 transition-colors ${isActive ? 'text-gakit-maroon' : 'text-slate-400 group-hover:text-gakit-maroon'}`}
-              />
-              <span className={isCollapsed ? 'sr-only' : ''}>{feature.label}</span>
+              <div className="relative shrink-0">
+                <Icon
+                  className={`h-4 w-4 transition-colors ${isActive ? 'text-gakit-maroon' : 'text-slate-400 group-hover:text-gakit-maroon'}`}
+                />
+                {feature.badge && isCollapsed && (
+                  <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white" />
+                  </span>
+                )}
+              </div>
+              <span className={`truncate whitespace-nowrap ${isCollapsed ? 'sr-only' : ''}`}>
+                {feature.label}
+              </span>
+              {feature.badge && !isCollapsed && (
+                <span
+                  title="Beta feature"
+                  className="ml-auto flex items-center justify-center shrink-0 pr-1"
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white" />
+                  </span>
+                </span>
+              )}
             </button>
           );
         })}

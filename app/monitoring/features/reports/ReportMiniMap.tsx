@@ -26,6 +26,7 @@ export function ReportMiniMap({ latitude, longitude, onViewOnMap }: ReportMiniMa
     let map: maplibregl.Map | null = null;
 
     try {
+      maplibregl.setWorkerUrl('/vendor/maplibre-gl/maplibre-gl-worker.mjs');
       map = new maplibregl.Map({
         container,
         style: BASEMAP_STYLES.satellite,

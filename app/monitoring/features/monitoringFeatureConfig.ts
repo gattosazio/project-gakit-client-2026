@@ -2,13 +2,15 @@ import {
   BellRing,
   LayoutDashboard,
   Table2,
+  Waves,
 } from 'lucide-react';
 import { PortalNavItem } from '@/types/portal';
 
 export type MonitoringFeatureId =
   | 'dashboard'
   | 'alerts'
-  | 'reports';
+  | 'reports'
+  | 'scenarios';
 
 export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
   {
@@ -50,6 +52,21 @@ export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
       'Filters for pending, verified, anomaly, and critical reports',
       'Report detail panel with photo, coordinates, and audit status',
       'Manual actions to verify, reject, or escalate a report',
+    ],
+  },
+  {
+    id: 'scenarios',
+    label: 'Flood Scenarios',
+    mobileLabel: 'Scenarios',
+    title: 'Flood Scenario Simulator',
+    description: 'Replay historical disaster events and simulate hydrodynamic flood scenarios across Iligan City.',
+    icon: Waves,
+    badge: 'BETA',
+    contents: [
+      'Historical storm hindcasts (Typhoon Sendong 2011, Odette 2021)',
+      'Official UP NOAH / PAGASA return-period design storms (5-Year, 25-Year, 100-Year)',
+      'Hourly flood wave propagation and corridor overtopping analysis',
+      'Peak discharge, depth stratification, and affected barangay telemetry',
     ],
   },
 ];
