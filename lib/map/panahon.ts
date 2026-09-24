@@ -267,29 +267,32 @@ export async function fetchPanahonLiveCyclone(): Promise<GeoJSON.FeatureCollecti
     const cookieHeader = rawSetCookie.map((c: string) => c.split(';')[0]).filter(Boolean).join('; ');
 
     const csrfMatch = html.match(/<meta\s+name=["']csrf-token["']\s+content=["']([^"']+)["']/i);
-    const apiSigMatch = html.match(/<meta\s+name=["']api-sig["']\s+content=["']([^"']+)["']/i);
+    const apiSigMatch = html.match(/<meta\s+name=["'](?:api-sig|api-sig-handle)["']\s+content=["']([^"']+)["']/i);
 
-    if (!csrfMatch || !apiSigMatch) return null;
+    if (!csrfMatch) return null;
 
     const csrfToken = csrfMatch[1];
-    const apiSig = apiSigMatch[1];
+    const apiSig = apiSigMatch?.[1];
     const cleanPath = 'api/v1/cyclone-track';
 
-    const buildSignedHeaders = () => {
-      const ts = String(Math.floor(Date.now() / 1000));
-      const nonce = crypto.randomBytes(16).toString('hex');
-      const message = ['GET', cleanPath, ts, nonce].join('\n');
-      const sig = crypto.createHmac('sha256', apiSig).update(message).digest('hex');
-      return {
+    const buildSignedHeaders = (): Record<string, string> => {
+      const headers: Record<string, string> = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
         'Referer': 'https://www.panahon.gov.ph/',
         'Cookie': cookieHeader,
         'X-Requested-With': 'XMLHttpRequest',
         'Accept': 'application/json, text/plain, */*',
-        'X-Ts': ts,
-        'X-Nonce': nonce,
-        'X-Sig': sig,
       };
+      if (apiSig) {
+        const ts = String(Math.floor(Date.now() / 1000));
+        const nonce = crypto.randomBytes(16).toString('hex');
+        const message = ['GET', cleanPath, ts, nonce].join('\n');
+        const sig = crypto.createHmac('sha256', apiSig).update(message).digest('hex');
+        headers['X-Ts'] = ts;
+        headers['X-Nonce'] = nonce;
+        headers['X-Sig'] = sig;
+      }
+      return headers;
     };
 
     const apiUrl = `https://www.panahon.gov.ph/${cleanPath}?token=${encodeURIComponent(csrfToken)}`;
