@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Waves, ShieldAlert } from 'lucide-react';
+import { Waves, ShieldAlert, Calendar, Clock } from 'lucide-react';
 import { SCENARIO_PRESETS, type ScenarioPreset } from '@/types/scenario';
 
 interface ScenarioSelectorProps {
@@ -61,9 +61,33 @@ export function ScenarioSelector({
         </div>
       </div>
 
-      {/* Description chip */}
-      <div className="hud-pill px-3 py-2 text-xs text-slate-600 shadow-md">
-        <p className="line-clamp-2 leading-relaxed">{activePreset.description}</p>
+      {/* Storm Summary & Metadata Card */}
+      <div className="hud-card p-3 shadow-md flex flex-col gap-2">
+        {/* Date and Time Header */}
+        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-slate-800">
+            <Calendar className="h-3.5 w-3.5 text-gakit-maroon shrink-0" />
+            <span>{activePreset.dates}</span>
+          </div>
+
+          <span className="text-slate-300">•</span>
+
+          <div className="flex items-center gap-1.5 font-medium text-slate-600">
+            <Clock className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+            <span>{activePreset.timeWindow}</span>
+          </div>
+
+          {activePreset.peakTime && (
+            <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-900 border border-amber-200/80">
+              Peak: {activePreset.peakTime}
+            </span>
+          )}
+        </div>
+
+        {/* Event Impact Narrative */}
+        <p className="text-xs text-slate-600 leading-relaxed border-t border-slate-100 pt-2">
+          {activePreset.description}
+        </p>
       </div>
 
       {/* Historical Simulation Notice */}

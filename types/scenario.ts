@@ -32,6 +32,9 @@ export interface ScenarioPreset {
   type: 'historical' | 'design_storm';
   badge: string;
   totalRain: string;
+  dates: string;
+  timeWindow: string;
+  peakTime: string;
   description: string;
   dataFile: string;
 }
@@ -43,6 +46,9 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     type: 'historical',
     badge: '161.1 mm (Extreme)',
     totalRain: '161.1 mm',
+    dates: 'December 16–17, 2011',
+    timeWindow: '00:00 – 24:00 PHT',
+    peakTime: '03:00 AM (Hour 19 Crest)',
     description: 'Catastrophic nighttime flash flood down Mandulog River corridor submerging Hinaplanon and Bayug Island.',
     dataFile: '/data/scenarios/sendong.json',
   },
@@ -52,6 +58,9 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     type: 'historical',
     badge: '144.5 mm (Feb 2026)',
     totalRain: '144.5 mm',
+    dates: 'February 5–6, 2026',
+    timeWindow: '00:00 – 24:00 PHT',
+    peakTime: '07:00 PM (Hour 19 Crest)',
     description: 'Relentless 17-hour downpour and debris-choked bridges causing catastrophic waist-deep flooding in Brgy. Mahayahay and Tubod.',
     dataFile: '/data/scenarios/basyang.json',
   },
@@ -61,6 +70,9 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     type: 'historical',
     badge: '95.0 mm (Cat 5)',
     totalRain: '95.0 mm',
+    dates: 'December 16–17, 2021',
+    timeWindow: '00:00 – 24:00 PHT',
+    peakTime: '06:00 PM (Hour 18 Crest)',
     description: 'Category 5 Super Typhoon whose southern convective rainbands triggered river swelling and coastal inundation.',
     dataFile: '/data/scenarios/odette.json',
   },
@@ -70,6 +82,9 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     type: 'design_storm',
     badge: '179.4 mm (100-Yr)',
     totalRain: '179.4 mm',
+    dates: '100-Year Recurrence',
+    timeWindow: '24h Design Event',
+    peakTime: 'Peak Hazard Envelope',
     description: 'Official PAGASA Lumbia RIDF 100-year extreme design storm benchmark calibrated on FLO-2D and 10m LiDAR.',
     dataFile: '/data/scenarios/100yr.json',
   },
@@ -79,6 +94,9 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     type: 'design_storm',
     badge: '148.2 mm (25-Yr)',
     totalRain: '148.2 mm',
+    dates: '25-Year Recurrence',
+    timeWindow: '24h Design Event',
+    peakTime: 'Peak Hazard Envelope',
     description: 'Official PAGASA Lumbia RIDF 25-year severe storm benchmark calibrated on FLO-2D and 10m LiDAR.',
     dataFile: '/data/scenarios/25yr.json',
   },
@@ -88,6 +106,9 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     type: 'design_storm',
     badge: '110.4 mm (5-Yr)',
     totalRain: '110.4 mm',
+    dates: '5-Year Recurrence',
+    timeWindow: '24h Design Event',
+    peakTime: 'Peak Hazard Envelope',
     description: 'Official PAGASA Lumbia RIDF 5-year monsoon benchmark calibrated on FLO-2D and 10m LiDAR.',
     dataFile: '/data/scenarios/5yr.json',
   },
