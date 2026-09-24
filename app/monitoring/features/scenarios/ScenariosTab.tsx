@@ -99,19 +99,24 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
       <div className="relative flex-1 w-full h-full">
         <ScenarioMap currentFrame={currentFrame} bounds={scenarioData?.bounds} />
 
-        {/* Top-Left: Scenario Selector */}
-        <ScenarioSelector
-          activePreset={activePreset}
-          onSelectPreset={setActivePreset}
-          isLoading={isLoading}
-        />
+        {/* Top Controls Overlay: flex-col stack on mobile, left/right on desktop */}
+        <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-2.5 pointer-events-none">
+          <div className="pointer-events-auto w-full md:w-auto md:max-w-md">
+            <ScenarioSelector
+              activePreset={activePreset}
+              onSelectPreset={setActivePreset}
+              isLoading={isLoading}
+            />
+          </div>
 
-        {/* Top-Right: Telemetry HUD */}
-        <TelemetryHUD
-          currentFrame={currentFrame}
-          totalRainfallMm={scenarioData?.total_rainfall_mm ?? 181.1}
-          presetType={activePreset.type}
-        />
+          <div className="pointer-events-auto w-full md:w-auto md:w-80">
+            <TelemetryHUD
+              currentFrame={currentFrame}
+              totalRainfallMm={scenarioData?.total_rainfall_mm ?? 181.1}
+              presetType={activePreset.type}
+            />
+          </div>
+        </div>
 
         {/* Bottom Center: Timeline Scrubber & Controls (Hidden for static design storms to maximize viewing area) */}
         {activePreset.type === 'historical' && scenarioData && scenarioData.frames.length > 0 && (

@@ -49,7 +49,7 @@ export function TimelinePlayer({
   };
 
   return (
-    <div className="hud-card absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[95%] max-w-3xl p-4 text-slate-800 pointer-events-auto">
+    <div className="hud-card absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-10 w-[calc(100%-1.5rem)] sm:w-[95%] max-w-3xl p-3 sm:p-4 text-slate-800 pointer-events-auto">
       {/* Top bar with time and status */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2.5">

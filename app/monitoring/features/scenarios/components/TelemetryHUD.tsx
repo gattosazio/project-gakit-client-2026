@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Activity, CloudRain, Droplets, Waves } from 'lucide-react';
+import React, { useState } from 'react';
+import { Activity, CloudRain, Droplets, Waves, ChevronDown, ChevronUp } from 'lucide-react';
 import type { ScenarioFrame } from '@/types/scenario';
 
 interface TelemetryHUDProps {
@@ -11,14 +11,49 @@ interface TelemetryHUDProps {
 }
 
 export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'historical' }: TelemetryHUDProps) {
+  const [mobileExpanded, setMobileExpanded] = useState(false);
   if (!currentFrame) return null;
 
   const isStatic = presetType === 'design_storm';
 
   return (
-    <div className="hud-card absolute top-4 right-4 z-10 w-80 max-w-[calc(100vw-2rem)] p-3 shadow-lg text-slate-800 pointer-events-auto">
-      {/* Grid of Key Metrics */}
-      <div className="grid grid-cols-2 gap-2.5">
+    <div className="hud-card w-full p-2.5 sm:p-3 shadow-lg text-slate-800 pointer-events-auto">
+      {/* Mobile Quick Strip (compact 1-row telemetry) */}
+      <div className="flex md:hidden items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+          <div className="flex items-center gap-1 text-sky-700">
+            <Activity className="h-3.5 w-3.5" />
+            <span>
+              {currentFrame.q_peak_m3s.toLocaleString()}{' '}
+              <span className="font-normal text-[11px] text-slate-500">m³/s</span>
+            </span>
+          </div>
+          <span className="text-slate-300">•</span>
+          <div className="flex items-center gap-1 text-gakit-maroon">
+            <Waves className="h-3.5 w-3.5" />
+            <span>
+              {currentFrame.inundated_km2.toFixed(2)}{' '}
+              <span className="font-normal text-[11px] text-slate-500">km²</span>
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setMobileExpanded((prev) => !prev)}
+          className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded-md transition"
+        >
+          <span>{mobileExpanded ? 'Less' : 'More'}</span>
+          {mobileExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+        </button>
+      </div>
+
+      {/* Grid of Key Metrics (always visible on md+, collapsible on mobile) */}
+      <div
+        className={`${
+          mobileExpanded ? 'grid' : 'hidden md:grid'
+        } grid-cols-2 gap-2.5 ${mobileExpanded ? 'mt-2.5 pt-2.5 border-t border-slate-100' : ''}`}
+      >
         {/* River Discharge Q_peak */}
         <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
           <div className="flex items-center gap-1.5 text-xs font-medium text-sky-700 mb-1">

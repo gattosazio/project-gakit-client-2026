@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Waves, Calendar, Clock } from 'lucide-react';
+import React, { useState } from 'react';
+import { Waves, Calendar, Clock, Info } from 'lucide-react';
 import { SCENARIO_PRESETS, type ScenarioPreset } from '@/types/scenario';
 
 interface ScenarioSelectorProps {
@@ -15,12 +15,14 @@ export function ScenarioSelector({
   onSelectPreset,
   isLoading,
 }: ScenarioSelectorProps) {
+  const [showDetails, setShowDetails] = useState(false);
+
   return (
-    <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 w-[calc(100vw-2rem)] sm:w-auto max-w-md pointer-events-auto">
+    <div className="flex flex-col gap-2 w-full pointer-events-auto">
       {/* Dropdown Container */}
       <div className="relative">
         <div className="hud-card flex items-center gap-2 p-2 pl-3 shadow-xl">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-maroon-50 text-gakit-maroon shrink-0">
             <Waves className="h-4 w-4" />
           </div>
 
@@ -53,16 +55,24 @@ export function ScenarioSelector({
             </select>
           </div>
 
-          <div className="border-l border-slate-200 pl-2 pr-1">
+          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2 pr-1 shrink-0">
             <span className="rounded-lg bg-maroon-50 border border-maroon-200/80 px-2.5 py-1 text-xs font-bold text-gakit-maroon whitespace-nowrap">
               {activePreset.badge}
             </span>
+            <button
+              type="button"
+              onClick={() => setShowDetails((p) => !p)}
+              title={showDetails ? 'Hide scenario details' : 'Show scenario details'}
+              className="md:hidden flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition"
+            >
+              <Info className="h-4 w-4" />
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Storm Summary & Metadata Card */}
-      <div className="hud-card p-3 shadow-md flex flex-col gap-2">
+      {/* Storm Summary & Metadata Card (always visible on md+, collapsible on mobile) */}
+      <div className={`${showDetails ? 'flex' : 'hidden md:flex'} hud-card p-3 shadow-md flex-col gap-2`}>
         {/* Date and Time Header */}
         <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs">
           <div className="flex items-center gap-1.5 font-bold text-slate-800">
