@@ -97,7 +97,7 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
   }, [currentFrame, bounds, mapLoaded]);
 
   return (
-    <div className="relative w-full h-full min-h-[500px] overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-slate-100">
+    <div className="relative w-full h-full min-h-[500px] overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-slate-100 [&_.maplibregl-ctrl-bottom-right]:mb-20 lg:[&_.maplibregl-ctrl-bottom-right]:mb-2">
       <div ref={mapContainer} className="w-full h-full" />
     </div>
   );
