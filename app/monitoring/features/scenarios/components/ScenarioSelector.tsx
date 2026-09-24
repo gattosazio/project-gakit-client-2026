@@ -27,13 +27,8 @@ export function ScenarioSelector({
           </div>
 
           <div className="flex-1 min-w-0 pr-1">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                Active Scenario
-              </div>
-              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[8px] font-extrabold uppercase tracking-widest text-amber-800 border border-amber-200">
-                BETA
-              </span>
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+              Active Scenario
             </div>
             <select
               value={activePreset.id}
