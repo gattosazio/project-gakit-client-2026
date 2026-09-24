@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Waves, ShieldAlert, Calendar, Clock } from 'lucide-react';
+import { Waves, Calendar, Clock } from 'lucide-react';
 import { SCENARIO_PRESETS, type ScenarioPreset } from '@/types/scenario';
 
 interface ScenarioSelectorProps {
@@ -16,7 +16,7 @@ export function ScenarioSelector({
   isLoading,
 }: ScenarioSelectorProps) {
   return (
-    <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 max-w-md pointer-events-auto">
+    <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 w-[calc(100vw-2rem)] sm:w-auto max-w-md pointer-events-auto">
       {/* Dropdown Container */}
       <div className="relative">
         <div className="hud-card flex items-center gap-2 p-2 pl-3 shadow-xl">
@@ -88,16 +88,6 @@ export function ScenarioSelector({
         <p className="text-xs text-slate-600 leading-relaxed border-t border-slate-100 pt-2">
           {activePreset.description}
         </p>
-      </div>
-
-      {/* Historical Simulation Notice */}
-      <div className="flex items-center gap-1.5 rounded-xl bg-amber-50 border border-amber-200/80 px-2.5 py-1 text-[11px] font-semibold text-amber-900 shadow-sm w-fit">
-        <ShieldAlert className="h-3.5 w-3.5 text-amber-700 shrink-0" />
-        <span>
-          {activePreset.type === 'historical'
-            ? 'Historical JAXA Radar Hindcast (Calibrated 10m LiDAR)'
-            : 'DOST-NOAH Static Inundation Envelope (FLO-2D 10m LiDAR)'}
-        </span>
       </div>
     </div>
   );

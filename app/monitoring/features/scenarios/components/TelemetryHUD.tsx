@@ -16,22 +16,9 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
   const isStatic = presetType === 'design_storm';
 
   return (
-    <div className="hud-card absolute top-4 right-4 z-10 w-80 max-w-[calc(100vw-2rem)] p-4 text-slate-800 pointer-events-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
-        <div className="flex items-center gap-2">
-          <span className={`flex h-2.5 w-2.5 rounded-full ${isStatic ? 'bg-sky-500' : 'bg-emerald-500 animate-pulse'}`} />
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-            {isStatic ? 'Benchmark Telemetry' : 'Hydro Telemetry'}
-          </span>
-        </div>
-        <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200/60">
-          {isStatic ? 'DOST-NOAH FLO-2D' : 'GPU Calibrated'}
-        </span>
-      </div>
-
+    <div className="hud-card absolute top-4 right-4 z-10 w-80 max-w-[calc(100vw-2rem)] p-3 shadow-lg text-slate-800 pointer-events-auto">
       {/* Grid of Key Metrics */}
-      <div className="grid grid-cols-2 gap-2.5 mb-3">
+      <div className="grid grid-cols-2 gap-2.5">
         {/* River Discharge Q_peak */}
         <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
           <div className="flex items-center gap-1.5 text-xs font-medium text-sky-700 mb-1">
@@ -60,7 +47,7 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
         <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
           <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-700 mb-1">
             <CloudRain className="h-3.5 w-3.5" />
-            <span>Hourly Precip</span>
+            <span>{isStatic ? 'Peak Intensity' : 'Hourly Precip'}</span>
           </div>
           <div className="text-lg font-bold text-slate-900">
             {currentFrame.hourly_rain_mm.toFixed(1)}{' '}
@@ -72,11 +59,16 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
         <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
           <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 mb-1">
             <Droplets className="h-3.5 w-3.5" />
-            <span>Accumulated</span>
+            <span>{isStatic ? 'Total Rain' : 'Accumulated'}</span>
           </div>
           <div className="text-lg font-bold text-slate-900">
             {currentFrame.cum_rain_mm.toFixed(1)}{' '}
-            <span className="text-xs font-normal text-slate-500">/ {totalRainfallMm} mm</span>
+            {!isStatic && (
+              <span className="text-xs font-normal text-slate-500">/ {totalRainfallMm} mm</span>
+            )}
+            {isStatic && (
+              <span className="text-xs font-normal text-slate-500">mm</span>
+            )}
           </div>
         </div>
       </div>
