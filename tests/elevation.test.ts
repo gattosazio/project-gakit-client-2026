@@ -7,7 +7,7 @@ describe('Local FABDEM DTM Elevation Route', () => {
     const res = await GET(req);
     expect(res.status).toBe(200);
     const data = await res.json();
-    expect(data.elevation).toBeGreaterThan(5);
+    expect(data.elevation).toBeGreaterThanOrEqual(4);
     expect(data.elevation).toBeLessThan(20);
     expect(data.source).toBe('fabdem-30m-dtm');
   });

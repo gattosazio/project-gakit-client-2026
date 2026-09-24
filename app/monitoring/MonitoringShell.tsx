@@ -22,6 +22,10 @@ const ReportsTab = dynamic(
   () => import('./features/reports/ReportsTab').then((m) => ({ default: m.ReportsTab })),
   { loading: () => <TabLoading />, ssr: false }
 );
+const ScenariosTab = dynamic(
+  () => import('./features/scenarios/ScenariosTab').then((m) => ({ default: m.ScenariosTab })),
+  { loading: () => <TabLoading />, ssr: false }
+);
 export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -135,6 +139,9 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
               initialStatus={initialStatus}
               initialTime={initialTime}
             />
+          </div>
+          <div className={activeTab === 'scenarios' ? 'h-full min-w-0 space-y-4' : 'hidden'}>
+            <ScenariosTab active={activeTab === 'scenarios'} />
           </div>
         </main>
       </div>
