@@ -28,7 +28,7 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
 
   const [mapLoaded, setMapLoaded] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [renderMode, setRenderMode] = useState<'nearest' | 'linear'>('nearest');
+  const [renderMode, setRenderMode] = useState<'nearest' | 'linear'>('linear');
   const [enableTerrain, setEnableTerrain] = useState(true);
   const [enableBuildings, setEnableBuildings] = useState(true);
 
