@@ -45,7 +45,7 @@ export function ScenarioSelector({
                   </option>
                 ))}
               </optgroup>
-              <optgroup label="DOST-NOAH FLO-2D Benchmarks (Static Return Periods)">
+              <optgroup label="UP NOAH FLO-2D Benchmarks (Static Return Periods)">
                 {SCENARIO_PRESETS.filter((p) => p.type === 'design_storm').map((preset) => (
                   <option key={preset.id} value={preset.id} className="bg-white text-slate-900">
                     {preset.name}
@@ -115,10 +115,10 @@ export function ScenarioSelector({
           <div className="mt-1 rounded-xl bg-sky-50/60 border border-sky-200/70 p-2.5 flex flex-col gap-1.5">
             <div className="flex items-center gap-1.5 text-[10px] font-bold text-sky-900 uppercase tracking-wider">
               <ShieldCheck className="h-3.5 w-3.5 text-sky-700" />
-              <span>Official DOST-NOAH FLO-2D Benchmark</span>
+              <span>Official UP NOAH / PAGASA FLO-2D Benchmark</span>
             </div>
             <p className="text-[10px] text-sky-800/90 leading-tight">
-              Inundation layers are official hydrodynamic simulations produced by DOST-NOAH / UP DREAM using 10m LiDAR digital elevation models and PAGASA Lumbia RIDF statistical design storm envelopes.
+              Inundation layers are official hydrodynamic simulations produced by UP NOAH / UP DREAM using 10m airborne LiDAR digital elevation models and DOST-PAGASA Lumbia RIDF design storm envelopes.
             </p>
           </div>
         )}

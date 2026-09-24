@@ -64,7 +64,7 @@ export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
     badge: 'BETA',
     contents: [
       'Historical storm hindcasts (Typhoon Sendong 2011, Odette 2021)',
-      'Official DOST-NOAH return-period design storms (5-Year, 25-Year, 100-Year)',
+      'Official UP NOAH / PAGASA return-period design storms (5-Year, 25-Year, 100-Year)',
       'Hourly flood wave propagation and corridor overtopping analysis',
       'Peak discharge, depth stratification, and affected barangay telemetry',
     ],

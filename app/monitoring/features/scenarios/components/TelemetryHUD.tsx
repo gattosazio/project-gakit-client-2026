@@ -119,7 +119,7 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
             <Layers className="h-3 w-3 text-gakit-maroon" />
             <span>Inundation Depth</span>
           </div>
-          <span className="text-[9px] text-slate-400">{isStatic ? 'DOST-NOAH' : 'LiDAR 10m'}</span>
+          <span className="text-[9px] text-slate-400">{isStatic ? 'UP NOAH · PAGASA' : 'LiDAR 10m'}</span>
         </div>
         <div className="grid grid-cols-3 gap-1.5 text-center">
           <div className="flex flex-col items-center rounded-lg bg-slate-50/80 p-1 border border-slate-200/60">
