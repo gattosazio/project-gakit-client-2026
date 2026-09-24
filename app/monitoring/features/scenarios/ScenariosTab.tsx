@@ -82,9 +82,9 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
     <div className="relative h-[calc(100vh-140px)] min-h-[600px] w-full flex flex-col overflow-hidden rounded-2xl">
       {/* Loading Overlay */}
       {isLoading && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/60 backdrop-blur-sm text-white">
-          <Spinner className="h-8 w-8 text-sky-400 mb-2" />
-          <span className="text-sm font-semibold tracking-wide">
+        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm text-slate-800">
+          <Spinner className="h-8 w-8 text-gakit-maroon mb-2" />
+          <span className="text-sm font-bold tracking-wide">
             Loading {activePreset.name}...
           </span>
         </div>

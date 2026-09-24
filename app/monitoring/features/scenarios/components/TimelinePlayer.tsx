@@ -44,17 +44,17 @@ export function TimelinePlayer({
   };
 
   return (
-    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[95%] max-w-3xl rounded-2xl border border-slate-700/60 bg-slate-900/90 p-4 text-white shadow-2xl backdrop-blur-md pointer-events-auto">
+    <div className="hud-card absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[95%] max-w-3xl p-4 text-slate-800 pointer-events-auto">
       {/* Top bar with time and status */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-sky-400" />
-            <span className="text-sm font-bold tracking-tight text-white">
+            <span className="flex h-2.5 w-2.5 rounded-full bg-sky-500" />
+            <span className="text-sm font-bold tracking-tight text-slate-900">
               {currentFrame?.display_time || 'Hour 0'}
             </span>
           </div>
-          <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-xs text-slate-300 font-mono">
+          <span className="rounded-full bg-slate-100 text-slate-600 font-mono text-xs px-2.5 py-0.5 border border-slate-200/80">
             Hour {currentIndex} / {maxIndex}
           </span>
         </div>
@@ -65,7 +65,7 @@ export function TimelinePlayer({
             type="button"
             onClick={onReset}
             title="Reset to Hour 0"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition"
           >
             <RotateCcw className="h-4 w-4" />
           </button>
@@ -75,7 +75,7 @@ export function TimelinePlayer({
             onClick={handleStepBack}
             disabled={currentIndex <= 0}
             title="Step Backward"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 transition"
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-30 transition"
           >
             <SkipBack className="h-4 w-4" />
           </button>
@@ -84,7 +84,7 @@ export function TimelinePlayer({
             type="button"
             onClick={onTogglePlay}
             title={isPlaying ? 'Pause Simulation' : 'Play Simulation'}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-500 text-white shadow-lg hover:bg-sky-400 transition"
+            className="flex h-9 w-9 items-center justify-center rounded-xl bg-gakit-maroon text-white shadow-md hover:bg-gakit-maroon-light active:scale-95 transition"
           >
             {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4 ml-0.5" />}
           </button>
@@ -94,7 +94,7 @@ export function TimelinePlayer({
             onClick={handleStepForward}
             disabled={currentIndex >= maxIndex}
             title="Step Forward"
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white disabled:opacity-30 transition"
+            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-30 transition"
           >
             <SkipForward className="h-4 w-4" />
           </button>
@@ -103,7 +103,7 @@ export function TimelinePlayer({
             type="button"
             onClick={onToggleSpeed}
             title="Toggle Speed"
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-slate-300 hover:bg-slate-800 transition"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/80 transition"
           >
             <FastForward className="h-3.5 w-3.5" />
             <span>{playbackSpeed}x</span>
@@ -119,12 +119,12 @@ export function TimelinePlayer({
           max={maxIndex}
           value={currentIndex}
           onChange={(e) => onIndexChange(Number(e.target.value))}
-          className="w-full h-2 rounded-lg bg-slate-700/80 accent-sky-400 cursor-pointer appearance-none focus:outline-none focus:ring-2 focus:ring-sky-400/50"
+          className="w-full h-2 rounded-lg bg-slate-200 accent-gakit-maroon cursor-pointer appearance-none focus:outline-none focus:ring-2 focus:ring-maroon-400/50"
         />
       </div>
 
       {/* Progress tick labels */}
-      <div className="flex justify-between text-[10px] text-slate-500 font-mono mt-1.5 px-0.5">
+      <div className="flex justify-between text-[11px] text-slate-500 font-medium font-mono mt-1.5 px-0.5">
         <span>00:00 (Onset)</span>
         <span>06:00</span>
         <span>12:00 (Surge)</span>
