@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { Grid, Sparkles } from 'lucide-react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { OPENFREEMAP_STYLE } from '@/constants/publicMap';
@@ -16,6 +17,7 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [renderMode, setRenderMode] = useState<'nearest' | 'linear'>('nearest');
 
   // Initialize MapLibre
   useEffect(() => {
@@ -54,6 +56,7 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
           paint: {
             'raster-opacity': 0.85,
             'raster-fade-duration': 0,
+            'raster-resampling': renderMode,
           },
         });
       }
@@ -92,15 +95,54 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
           paint: {
             'raster-opacity': 0.85,
             'raster-fade-duration': 0,
+            'raster-resampling': renderMode,
           },
         });
       }
     }
-  }, [currentFrame, bounds, mapLoaded]);
+  }, [currentFrame, bounds, mapLoaded, renderMode]);
+
+  // Update resampling filter dynamically when renderMode changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || !map.getLayer('simulation-flood-layer')) return;
+    map.setPaintProperty('simulation-flood-layer', 'raster-resampling', renderMode);
+  }, [renderMode, mapLoaded]);
 
   return (
     <div className="relative w-full h-full min-h-[500px] overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-slate-100 [&_.maplibregl-ctrl-bottom-right]:mb-20 lg:[&_.maplibregl-ctrl-bottom-right]:mb-2">
       <div ref={mapContainer} className="w-full h-full" />
+
+      {/* Resampling Mode Toggle (10m Square Grid vs Smooth) */}
+      <div className="absolute bottom-20 lg:bottom-6 right-14 sm:right-16 z-10 pointer-events-auto flex items-center gap-1 hud-card p-1 text-xs shadow-md">
+        <button
+          type="button"
+          onClick={() => setRenderMode('nearest')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+            renderMode === 'nearest'
+              ? 'bg-gakit-maroon text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+          title="10m Square LiDAR Grid (Authentic FLO-2D cells)"
+        >
+          <Grid className="h-3.5 w-3.5" />
+          <span>10m Grid</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setRenderMode('linear')}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+            renderMode === 'linear'
+              ? 'bg-gakit-maroon text-white shadow-sm'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+          }`}
+          title="Bilinear Interpolation (Smoothed contours)"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>Smooth</span>
+        </button>
+      </div>
     </div>
   );
 }
