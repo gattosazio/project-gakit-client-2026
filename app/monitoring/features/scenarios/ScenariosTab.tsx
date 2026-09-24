@@ -112,7 +112,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
           <div className="pointer-events-auto w-full md:w-auto md:w-80">
             <TelemetryHUD
               currentFrame={currentFrame}
-              totalRainfallMm={scenarioData?.total_rainfall_mm ?? 181.1}
+              totalRainfallMm={scenarioData?.total_rainfall_mm ?? parseFloat(activePreset.totalRain)}
               presetType={activePreset.type}
             />
           </div>
