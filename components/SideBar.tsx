@@ -244,11 +244,6 @@ export function SideBar<T extends string>({
               <span className={`truncate whitespace-nowrap ${isCollapsed ? 'sr-only' : ''}`}>
                 {feature.label}
               </span>
-              {feature.badge && !isCollapsed && (
-                <span className="ml-auto shrink-0 rounded bg-amber-100/80 px-1 py-[2px] text-[8px] font-bold tracking-tight text-amber-700 leading-none">
-                  {feature.badge}
-                </span>
-              )}
             </button>
           );
         })}

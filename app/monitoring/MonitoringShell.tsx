@@ -122,6 +122,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           title={activeFeature.title}
           description={activeFeature.description}
           icon={activeFeature.icon}
+          badge={activeFeature.badge}
           role={initialAuth?.role ?? null}
           onNotificationClick={handleOpenNotification}
         />
