@@ -7,23 +7,26 @@ import type { ScenarioFrame } from '@/types/scenario';
 interface TelemetryHUDProps {
   currentFrame?: ScenarioFrame;
   totalRainfallMm: number;
+  presetType?: 'historical' | 'design_storm';
 }
 
-export function TelemetryHUD({ currentFrame, totalRainfallMm }: TelemetryHUDProps) {
+export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'historical' }: TelemetryHUDProps) {
   if (!currentFrame) return null;
+
+  const isStatic = presetType === 'design_storm';
 
   return (
     <div className="hud-card absolute top-4 right-4 z-10 w-80 max-w-[calc(100vw-2rem)] p-4 text-slate-800 pointer-events-auto">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-slate-100 pb-2.5 mb-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className={`flex h-2.5 w-2.5 rounded-full ${isStatic ? 'bg-sky-500' : 'bg-emerald-500 animate-pulse'}`} />
           <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-            Hydro Telemetry
+            {isStatic ? 'Benchmark Telemetry' : 'Hydro Telemetry'}
           </span>
         </div>
         <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 border border-emerald-200/60">
-          GPU Calibrated
+          {isStatic ? 'DOST-NOAH FLO-2D' : 'GPU Calibrated'}
         </span>
       </div>
 

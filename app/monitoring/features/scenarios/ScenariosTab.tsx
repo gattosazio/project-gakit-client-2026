@@ -41,7 +41,11 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
         const data: ScenarioData = await res.json();
         if (!cancelled) {
           setScenarioData(data);
-          setCurrentIndex(0);
+          // For static design storms, default to the peak inundation frame so the full hazard envelope is displayed
+          const defaultIdx = activePreset.type === 'design_storm'
+            ? data.frames.reduce((best, f, i, arr) => (f.inundated_km2 > arr[best].inundated_km2 ? i : best), 0)
+            : 0;
+          setCurrentIndex(defaultIdx);
           setIsPlaying(false);
         }
       } catch (err) {
@@ -58,9 +62,9 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
     };
   }, [activePreset]);
 
-  // Interval loop for playback
+  // Interval loop for playback (only for historical storms)
   useEffect(() => {
-    if (!isPlaying || !active || !scenarioData || scenarioData.frames.length === 0) return;
+    if (!isPlaying || !active || activePreset.type !== 'historical' || !scenarioData || scenarioData.frames.length === 0) return;
 
     const intervalMs = Math.round(800 / playbackSpeed);
     const timer = setInterval(() => {
@@ -68,7 +72,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
     }, intervalMs);
 
     return () => clearInterval(timer);
-  }, [isPlaying, active, scenarioData, playbackSpeed]);
+  }, [isPlaying, active, activePreset.type, scenarioData, playbackSpeed]);
 
   const handleTogglePlay = () => setIsPlaying((p) => !p);
   const handleToggleSpeed = () => setPlaybackSpeed((s) => (s === 1 ? 2 : 1));
@@ -106,10 +110,11 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
         <TelemetryHUD
           currentFrame={currentFrame}
           totalRainfallMm={scenarioData?.total_rainfall_mm ?? 181.1}
+          presetType={activePreset.type}
         />
 
-        {/* Bottom Center: Timeline Scrubber & Controls */}
-        {scenarioData && scenarioData.frames.length > 0 && (
+        {/* Bottom Center: Timeline Scrubber & Controls (Hidden for static design storms to maximize viewing area) */}
+        {activePreset.type === 'historical' && scenarioData && scenarioData.frames.length > 0 && (
           <TimelinePlayer
             frames={scenarioData.frames}
             currentIndex={currentIndex}
