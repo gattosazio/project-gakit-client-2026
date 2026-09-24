@@ -33,8 +33,7 @@ export interface ScenarioPreset {
   badge: string;
   totalRain: string;
   description: string;
-  dataFile?: string;
-  noahScenarioKey?: string;
+  dataFile: string;
 }
 
 export const SCENARIO_PRESETS: ScenarioPreset[] = [
@@ -42,10 +41,19 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     id: 'sendong',
     name: 'Tropical Storm Sendong (Washi, 2011)',
     type: 'historical',
-    badge: '181.1 mm (Extreme)',
-    totalRain: '181.1 mm',
-    description: 'Catastrophic nighttime flash flood along Mandulog River basin causing catastrophic debris surge.',
+    badge: '161.1 mm (Extreme)',
+    totalRain: '161.1 mm',
+    description: 'Catastrophic nighttime flash flood down Mandulog River corridor submerging Hinaplanon and Bayug Island.',
     dataFile: '/data/scenarios/sendong.json',
+  },
+  {
+    id: 'odette',
+    name: 'Super Typhoon Odette (Rai, 2021)',
+    type: 'historical',
+    badge: '95.0 mm (Cat 5)',
+    totalRain: '95.0 mm',
+    description: 'Category 5 Super Typhoon whose southern convective rainbands triggered river swelling and coastal inundation.',
+    dataFile: '/data/scenarios/odette.json',
   },
   {
     id: '100yr',
@@ -53,8 +61,8 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     type: 'design_storm',
     badge: '179.4 mm (100-Yr)',
     totalRain: '179.4 mm',
-    description: 'Official PAGASA Lumbia RIDF 100-year extreme design storm benchmark calibrated on FLO-2D.',
-    noahScenarioKey: 'noah_100yr',
+    description: 'Official PAGASA Lumbia RIDF 100-year extreme design storm benchmark calibrated on FLO-2D and 10m LiDAR.',
+    dataFile: '/data/scenarios/100yr.json',
   },
   {
     id: '25yr',
@@ -62,8 +70,8 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     type: 'design_storm',
     badge: '148.2 mm (25-Yr)',
     totalRain: '148.2 mm',
-    description: 'Official PAGASA Lumbia RIDF 25-year severe storm benchmark calibrated on FLO-2D.',
-    noahScenarioKey: 'noah_25yr',
+    description: 'Official PAGASA Lumbia RIDF 25-year severe storm benchmark calibrated on FLO-2D and 10m LiDAR.',
+    dataFile: '/data/scenarios/25yr.json',
   },
   {
     id: '5yr',
@@ -71,7 +79,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     type: 'design_storm',
     badge: '110.4 mm (5-Yr)',
     totalRain: '110.4 mm',
-    description: 'Official PAGASA Lumbia RIDF 5-year monsoon benchmark calibrated on FLO-2D.',
-    noahScenarioKey: 'noah_5yr',
+    description: 'Official PAGASA Lumbia RIDF 5-year monsoon benchmark calibrated on FLO-2D and 10m LiDAR.',
+    dataFile: '/data/scenarios/5yr.json',
   },
 ];

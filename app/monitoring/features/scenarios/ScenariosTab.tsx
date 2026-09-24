@@ -42,6 +42,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
         if (!cancelled) {
           setScenarioData(data);
           setCurrentIndex(0);
+          setIsPlaying(false);
         }
       } catch (err) {
         console.error('Failed to load scenario data:', err);
