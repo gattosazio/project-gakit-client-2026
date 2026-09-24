@@ -35,6 +35,11 @@ export function TimelinePlayer({
   const currentFrame = frames[currentIndex];
   const maxIndex = Math.max(0, frames.length - 1);
 
+  const peakIndex = React.useMemo(() => {
+    if (!frames || frames.length === 0) return -1;
+    return frames.reduce((best, f, i, arr) => (f.q_peak_m3s > arr[best].q_peak_m3s ? i : best), 0);
+  }, [frames]);
+
   const handleStepBack = () => {
     onIndexChange(Math.max(0, currentIndex - 1));
   };
@@ -47,9 +52,15 @@ export function TimelinePlayer({
     <div className="hud-card absolute bottom-6 left-1/2 -translate-x-1/2 z-10 w-[95%] max-w-3xl p-4 text-slate-800 pointer-events-auto">
       {/* Top bar with time and status */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-2">
-            <span className="flex h-2.5 w-2.5 rounded-full bg-sky-500" />
+            <span
+              className={`flex h-2.5 w-2.5 rounded-full ${
+                currentIndex === peakIndex && currentFrame && currentFrame.q_peak_m3s > 0
+                  ? 'bg-amber-500 animate-pulse'
+                  : 'bg-sky-500'
+              }`}
+            />
             <span className="text-sm font-bold tracking-tight text-slate-900">
               {currentFrame?.display_time || 'Hour 0'}
             </span>
@@ -57,6 +68,11 @@ export function TimelinePlayer({
           <span className="rounded-full bg-slate-100 text-slate-600 font-mono text-xs px-2.5 py-0.5 border border-slate-200/80">
             Hour {currentIndex} / {maxIndex}
           </span>
+          {currentIndex === peakIndex && currentFrame && currentFrame.q_peak_m3s > 0 && (
+            <span className="rounded-full bg-amber-50 text-amber-800 font-semibold text-xs px-2 py-0.5 border border-amber-300">
+              Peak Crest
+            </span>
+          )}
         </div>
 
         {/* Playback Controls */}
@@ -125,11 +141,11 @@ export function TimelinePlayer({
 
       {/* Progress tick labels */}
       <div className="flex justify-between text-[11px] text-slate-500 font-medium font-mono mt-1.5 px-0.5">
-        <span>00:00 (Onset)</span>
-        <span>06:00</span>
-        <span>12:00 (Surge)</span>
-        <span>18:00 (Peak)</span>
-        <span>24:00 (Recession)</span>
+        <span>+0h (Onset)</span>
+        <span>+6h</span>
+        <span>+12h</span>
+        <span>+18h</span>
+        <span>+24h</span>
       </div>
     </div>
   );
