@@ -121,9 +121,9 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
 
         {/* Bottom-Left: Map Depth Legend */}
         <div
-          className={`absolute left-3 sm:left-4 z-10 ${
+          className={`absolute left-3 sm:left-4 z-20 ${
             activePreset.type === 'historical' && scenarioData && scenarioData.frames.length > 0
-              ? 'bottom-[11.5rem] sm:bottom-6'
+              ? 'bottom-[14.5rem] sm:bottom-6'
               : 'bottom-20 sm:bottom-6'
           }`}
         >

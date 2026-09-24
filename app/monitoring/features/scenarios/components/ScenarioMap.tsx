@@ -21,6 +21,8 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
+    maplibregl.setWorkerUrl('/vendor/maplibre-gl/maplibre-gl-worker.mjs');
+
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: OPENFREEMAP_STYLE,
