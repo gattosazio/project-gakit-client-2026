@@ -47,6 +47,15 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     dataFile: '/data/scenarios/sendong.json',
   },
   {
+    id: 'basyang',
+    name: 'Tropical Storm Basyang (Penha, 2026)',
+    type: 'historical',
+    badge: '144.5 mm (Feb 2026)',
+    totalRain: '144.5 mm',
+    description: 'Relentless 17-hour downpour and debris-choked bridges causing catastrophic waist-deep flooding in Brgy. Mahayahay and Tubod.',
+    dataFile: '/data/scenarios/basyang.json',
+  },
+  {
     id: 'odette',
     name: 'Super Typhoon Odette (Rai, 2021)',
     type: 'historical',

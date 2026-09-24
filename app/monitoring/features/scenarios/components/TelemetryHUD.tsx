@@ -77,14 +77,6 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm }: TelemetryHUDProp
           </div>
         </div>
       </div>
-
-      {/* Narrative Callout */}
-      {currentFrame.narrative && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-2.5 text-xs leading-relaxed text-amber-950">
-          <span className="font-bold text-amber-800 block mb-0.5">Timeline Milestone:</span>
-          {currentFrame.narrative}
-        </div>
-      )}
     </div>
   );
 }

@@ -36,11 +36,20 @@ export function ScenarioSelector({
               }}
               className="w-full bg-transparent text-sm font-bold text-slate-900 focus:outline-none cursor-pointer truncate"
             >
-              {SCENARIO_PRESETS.map((preset) => (
-                <option key={preset.id} value={preset.id} className="bg-white text-slate-900">
-                  {preset.name}
-                </option>
-              ))}
+              <optgroup label="Historical Radar Hindcasts (Dynamic 24h Replay)">
+                {SCENARIO_PRESETS.filter((p) => p.type === 'historical').map((preset) => (
+                  <option key={preset.id} value={preset.id} className="bg-white text-slate-900">
+                    {preset.name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="DOST-NOAH FLO-2D Benchmarks (Static Return Periods)">
+                {SCENARIO_PRESETS.filter((p) => p.type === 'design_storm').map((preset) => (
+                  <option key={preset.id} value={preset.id} className="bg-white text-slate-900">
+                    {preset.name}
+                  </option>
+                ))}
+              </optgroup>
             </select>
           </div>
 
@@ -60,7 +69,11 @@ export function ScenarioSelector({
       {/* Historical Simulation Notice */}
       <div className="flex items-center gap-1.5 rounded-xl bg-amber-50 border border-amber-200/80 px-2.5 py-1 text-[11px] font-semibold text-amber-900 shadow-sm w-fit">
         <ShieldAlert className="h-3.5 w-3.5 text-amber-700 shrink-0" />
-        <span>Physical Hindcast Model (Calibrated on 10m LiDAR)</span>
+        <span>
+          {activePreset.type === 'historical'
+            ? 'Historical JAXA Radar Hindcast (Calibrated 10m LiDAR)'
+            : 'DOST-NOAH Static Inundation Envelope (FLO-2D 10m LiDAR)'}
+        </span>
       </div>
     </div>
   );
