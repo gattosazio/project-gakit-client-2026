@@ -8,4 +8,5 @@ export interface PortalNavItem<T extends string = string> {
   description: string;
   icon: LucideIcon;
   contents: string[];
+  badge?: string;
 }

@@ -61,6 +61,7 @@ export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
     title: 'Flood Scenario Simulator',
     description: 'Replay historical disaster events and simulate hydrodynamic flood scenarios across Iligan City.',
     icon: Waves,
+    badge: 'BETA',
     contents: [
       'Historical storm hindcasts (Typhoon Sendong 2011, Odette 2021)',
       'Official DOST-NOAH return-period design storms (5-Year, 25-Year, 100-Year)',

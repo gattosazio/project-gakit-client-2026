@@ -242,6 +242,11 @@ export function SideBar<T extends string>({
                 className={`h-4 w-4 transition-colors ${isActive ? 'text-gakit-maroon' : 'text-slate-400 group-hover:text-gakit-maroon'}`}
               />
               <span className={isCollapsed ? 'sr-only' : ''}>{feature.label}</span>
+              {feature.badge && !isCollapsed && (
+                <span className="ml-auto rounded border border-amber-200/80 bg-amber-50 px-1.5 py-[2px] text-[8px] font-bold uppercase tracking-wider text-amber-700">
+                  {feature.badge}
+                </span>
+              )}
             </button>
           );
         })}
