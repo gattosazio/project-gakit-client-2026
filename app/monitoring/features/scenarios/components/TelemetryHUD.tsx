@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Activity, CloudRain, Droplets, Waves, ChevronDown, ChevronUp } from 'lucide-react';
+import { Activity, CloudRain, Droplets, Waves, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import type { ScenarioFrame } from '@/types/scenario';
 
 interface TelemetryHUDProps {
@@ -104,6 +104,47 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
             {isStatic && (
               <span className="text-xs font-normal text-slate-500">mm</span>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* Depth Stratification Legend */}
+      <div
+        className={`${
+          mobileExpanded ? 'flex' : 'hidden md:flex'
+        } flex-col gap-1.5 mt-2.5 pt-2 border-t border-slate-100`}
+      >
+        <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
+          <div className="flex items-center gap-1">
+            <Layers className="h-3 w-3 text-gakit-maroon" />
+            <span>Inundation Depth</span>
+          </div>
+          <span className="text-[9px] text-slate-400">{isStatic ? 'DOST-NOAH' : 'LiDAR 10m'}</span>
+        </div>
+        <div className="grid grid-cols-3 gap-1.5 text-center">
+          <div className="flex flex-col items-center rounded-lg bg-slate-50/80 p-1 border border-slate-200/60">
+            <span
+              className="h-1.5 w-full rounded-sm mb-1 shadow-sm"
+              style={{ backgroundColor: isStatic ? '#06B6D4' : '#EAB308' }}
+            />
+            <span className="text-[10px] font-bold text-slate-800">&lt; 0.5 m</span>
+            <span className="text-[9px] text-slate-400 font-medium">Low</span>
+          </div>
+          <div className="flex flex-col items-center rounded-lg bg-slate-50/80 p-1 border border-slate-200/60">
+            <span
+              className="h-1.5 w-full rounded-sm mb-1 shadow-sm"
+              style={{ backgroundColor: isStatic ? '#3B82F6' : '#F97316' }}
+            />
+            <span className="text-[10px] font-bold text-slate-800">0.5–1.5 m</span>
+            <span className="text-[9px] text-slate-400 font-medium">Medium</span>
+          </div>
+          <div className="flex flex-col items-center rounded-lg bg-slate-50/80 p-1 border border-slate-200/60">
+            <span
+              className="h-1.5 w-full rounded-sm mb-1 shadow-sm"
+              style={{ backgroundColor: isStatic ? '#1E3A8A' : '#DC2626' }}
+            />
+            <span className="text-[10px] font-bold text-slate-800">&gt; 1.5 m</span>
+            <span className="text-[9px] text-slate-400 font-medium">High</span>
           </div>
         </div>
       </div>

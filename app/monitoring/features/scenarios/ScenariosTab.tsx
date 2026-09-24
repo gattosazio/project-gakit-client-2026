@@ -10,6 +10,7 @@ import { ScenarioMap } from './components/ScenarioMap';
 import { ScenarioSelector } from './components/ScenarioSelector';
 import { TimelinePlayer } from './components/TimelinePlayer';
 import { TelemetryHUD } from './components/TelemetryHUD';
+import { DepthLegend } from './components/DepthLegend';
 import { Spinner } from '@/components/ui/Spinner';
 
 interface ScenariosTabProps {
@@ -116,6 +117,17 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
               presetType={activePreset.type}
             />
           </div>
+        </div>
+
+        {/* Bottom-Left: Map Depth Legend */}
+        <div
+          className={`absolute left-3 sm:left-4 z-10 ${
+            activePreset.type === 'historical' && scenarioData && scenarioData.frames.length > 0
+              ? 'bottom-[11.5rem] sm:bottom-6'
+              : 'bottom-20 sm:bottom-6'
+          }`}
+        >
+          <DepthLegend presetType={activePreset.type} />
         </div>
 
         {/* Bottom Center: Timeline Scrubber & Controls (Hidden for static design storms to maximize viewing area) */}
