@@ -35,6 +35,11 @@ export function useRainfallLayer(
   const rainfallSourceRef = useRef<RainfallGrid | null>(null);
   const rainfallCellsRef = useRef<Map<string, number>>(new Map());
   const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const showRainfallRef = useRef(showRainfall);
+
+  useEffect(() => {
+    showRainfallRef.current = showRainfall;
+  }, [showRainfall]);
 
   useEffect(() => {
     rainfallHoursRef.current = rainfallHours;
@@ -65,6 +70,16 @@ export function useRainfallLayer(
       const source = map?.getSource?.('rainfall');
       if (source) source.setData(grid);
       applyRainfallPaint(map, window);
+
+      // Ensure layer visibility strictly matches current toggle state even if response arrived late
+      if (map?.getLayer('rainfall-grid')) {
+        map.setLayoutProperty(
+          'rainfall-grid',
+          'visibility',
+          showRainfallRef.current ? 'visible' : 'none'
+        );
+      }
+
       setRainfallObservedAt(rainfall.properties.observedAt);
       setRainfallSource(rainfall.properties.source ?? null);
     } catch (error) {
@@ -82,6 +97,10 @@ export function useRainfallLayer(
       if (rainfallTimerRef.current) {
         clearInterval(rainfallTimerRef.current);
         rainfallTimerRef.current = null;
+      }
+      const map = mapRef.current;
+      if (map?.getLayer('rainfall-grid')) {
+        map.setLayoutProperty('rainfall-grid', 'visibility', 'none');
       }
       return;
     }
@@ -104,7 +123,7 @@ export function useRainfallLayer(
       }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [showRainfall, rainfallHours, loadRainfall]);
+  }, [showRainfall, rainfallHours, loadRainfall, mapRef]);
 
   // Looks up precipitation (mm over the current accumulation window) at a
   // coordinate from the in-memory grid. Lazily loads the grid on demand — e.g.
@@ -135,6 +154,13 @@ export function useRainfallLayer(
     if (rainfallSourceRef.current) {
       map.getSource('rainfall')?.setData(rainfallSourceRef.current);
       applyRainfallPaint(map, rainfallHoursRef.current);
+      if (map?.getLayer('rainfall-grid')) {
+        map.setLayoutProperty(
+          'rainfall-grid',
+          'visibility',
+          showRainfallRef.current ? 'visible' : 'none'
+        );
+      }
     }
   }, []);
 

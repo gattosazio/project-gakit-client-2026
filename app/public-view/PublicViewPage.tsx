@@ -485,6 +485,7 @@ export function PublicViewPage({
                   searchOverlayActive={isManualLocationMode}
                   weatherExpandedByDefault
                   fullScreen
+                  hasBottomNav
                   hideBarangayBoundariesToggle
                   onStartReport={handleStartReport}
                 />

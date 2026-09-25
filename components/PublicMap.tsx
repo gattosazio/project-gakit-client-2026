@@ -59,10 +59,10 @@ import {
   buildReportsGeoJson,
 } from '@/lib/map/reportMarkers';
 import type { DepthCategory, MapReportFilters, ReportStatus } from '@/types/report';
-import { ReportControls, DataLayerControls, MapViewToggle } from '@/components/map/MapControls';
-import { WeatherChip } from '@/components/map/WeatherChip';
+import { MapViewToggle } from '@/components/map/MapControls';
+import { MapSidebar } from '@/components/map/MapSidebar';
+import { MapScaleRuler } from '@/components/map/MapScaleRuler';
 import { createSelectedPinElement } from '@/lib/map/selectedPinElement';
-import { useOverlayCollapse } from '@/hooks/useOverlayCollapse';
 import { useMapGeolocation } from '@/hooks/useMapGeolocation';
 import { useMapPopups } from '@/hooks/useMapPopups';
 import { BarangayMetricsCard } from '@/components/map/BarangayMetricsCard';
@@ -139,6 +139,8 @@ interface PublicMapProps {
   defaultShowBarangayBoundaries?: boolean;
   /** Triggered when the user clicks the dedicated "Report Flooding" HUD card button. */
   onStartReport?: () => void;
+  /** Initial sidebar collapse state. Embedded maps default to collapsed icon rail. */
+  defaultSidebarCollapsed?: boolean;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -171,6 +173,7 @@ export function PublicMap({
   defaultBasemap = 'light',
   defaultShowBarangayBoundaries = false,
   onStartReport,
+  defaultSidebarCollapsed,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -276,154 +279,63 @@ export function PublicMap({
     loadTyphoonRef.current = typhoon.loadData;
   }, [typhoon.loadData]);
 
-  const {
-    weatherOpen,
-    setWeatherOpen,
-    reportsOpen,
-    setReportsOpen,
-    layersOpen,
-    setLayersOpen,
-    controlsContainerRef,
-    collapseToFit,
-    handleToggleWeather,
-    handleToggleReports,
-    handleToggleLayers,
-  } = useOverlayCollapse({
-    mapContainerRef: mapContainer,
-    hideWeather,
-    hideShareLocation,
-    hasBottomNav,
-    fullScreen,
-    showFloodHazard,
-    showRainfall,
-    showHimawariIR: himawari.showHimawariIR,
-    showLandslide,
-    showStormSurge,
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    if (defaultSidebarCollapsed !== undefined) return defaultSidebarCollapsed;
+    if (!fullScreen) return true;
+    if (typeof window !== 'undefined') {
+      return window.innerWidth < 768;
+    }
+    return false;
   });
+  const [weatherOpen, setWeatherOpen] = useState(() => !hideWeather);
+  const [layersOpen, setLayersOpen] = useState(() => Boolean(hideWeather));
+  const [reportsOpen, setReportsOpen] = useState(false);
 
   // ─── Sub-layer toggle handlers ─────────────────────────────────────────────
 
-  const handleShowFloodHazardChange = useCallback(
-    (checked: boolean) => {
-      setShowFloodHazard(checked);
-      const safe = checked
-        ? collapseToFit(
-            {
-              weatherOpen,
-              reportsOpen,
-              layersOpen,
-              flood: checked,
-              rain: showRainfall,
-              himawari: himawari.showHimawariIR,
-              landslide: showLandslide,
-              stormSurge: showStormSurge,
-            },
-            'layers'
-          )
-        : null;
-      if (safe) {
-        setWeatherOpen(safe.weatherOpen);
-        setReportsOpen(safe.reportsOpen);
-        setLayersOpen(safe.layersOpen);
-      }
-    },
-    [weatherOpen, reportsOpen, layersOpen, showRainfall, himawari.showHimawariIR, showLandslide, showStormSurge, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
-  );
+  const handleShowFloodHazardChange = useCallback((checked: boolean) => {
+    setShowFloodHazard(checked);
+    showFloodHazardRef.current = checked;
+    if (mapRef.current?.getLayer('flood-hazard-fill')) {
+      mapRef.current.setLayoutProperty('flood-hazard-fill', 'visibility', checked ? 'visible' : 'none');
+    }
+  }, []);
 
-  const handleShowRainfallChange = useCallback(
-    (checked: boolean) => {
-      setShowRainfall(checked);
+  const handleShowRainfallChange = useCallback((checked: boolean) => {
+    setShowRainfall(checked);
+    showRainfallRef.current = checked;
+    const map = mapRef.current;
+    if (map) {
+      if (map.getLayer('rainfall-grid')) {
+        map.setLayoutProperty('rainfall-grid', 'visibility', checked ? 'visible' : 'none');
+      }
       if (checked) {
-        const map = mapRef.current;
-        if (map) {
-          const camera = map.cameraForBounds(
-            [
-              [116.0, 4.5],
-              [127.5, 21.5],
-            ],
-            { padding: 24 }
-          );
-          if (camera) {
-            map.flyTo({ center: camera.center, zoom: camera.zoom, pitch: 0, duration: 1000 });
-          }
+        const camera = map.cameraForBounds(
+          [
+            [116.0, 4.5],
+            [127.5, 21.5],
+          ],
+          { padding: 24 }
+        );
+        if (camera) {
+          map.flyTo({ center: camera.center, zoom: camera.zoom, pitch: 0, duration: 1000 });
         }
       }
-      const safe = checked
-        ? collapseToFit(
-            {
-              weatherOpen,
-              reportsOpen,
-              layersOpen,
-              flood: showFloodHazard,
-              rain: checked,
-              himawari: himawari.showHimawariIR,
-              landslide: showLandslide,
-              stormSurge: showStormSurge,
-            },
-            'layers'
-          )
-        : null;
-      if (safe) {
-        setWeatherOpen(safe.weatherOpen);
-        setReportsOpen(safe.reportsOpen);
-        setLayersOpen(safe.layersOpen);
-      }
-    },
-    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, himawari.showHimawariIR, showLandslide, showStormSurge, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
-  );
+    }
+  }, []);
 
   const handleShowHimawariIRChange = useCallback(
     (checked: boolean) => {
       himawari.toggleHimawariIR(checked);
-      const safe = checked
-        ? collapseToFit(
-            {
-              weatherOpen,
-              reportsOpen,
-              layersOpen,
-              flood: showFloodHazard,
-              rain: showRainfall,
-              himawari: checked,
-              landslide: showLandslide,
-              stormSurge: showStormSurge,
-            },
-            'layers'
-          )
-        : null;
-      if (safe) {
-        setWeatherOpen(safe.weatherOpen);
-        setReportsOpen(safe.reportsOpen);
-        setLayersOpen(safe.layersOpen);
-      }
     },
-    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari, showLandslide, showStormSurge, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
+    [himawari]
   );
 
   const handleShowTyphoonTrackChange = useCallback(
     (checked: boolean) => {
       typhoon.setShowTyphoonTrack(checked);
-      const safe = checked
-        ? collapseToFit(
-            {
-              weatherOpen,
-              reportsOpen,
-              layersOpen,
-              flood: showFloodHazard,
-              rain: showRainfall,
-              himawari: himawari.showHimawariIR,
-              landslide: showLandslide,
-              stormSurge: showStormSurge,
-            },
-            'layers'
-          )
-        : null;
-      if (safe) {
-        setWeatherOpen(safe.weatherOpen);
-        setReportsOpen(safe.reportsOpen);
-        setLayersOpen(safe.layersOpen);
-      }
     },
-    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, showLandslide, showStormSurge, typhoon, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
+    [typhoon]
   );
 
   const handleShowBarangayBoundariesChange = useCallback((checked: boolean) => {
@@ -434,63 +346,21 @@ export function PublicMap({
     }
   }, []);
 
-  const handleShowLandslideChange = useCallback(
-    (checked: boolean) => {
-      setShowLandslide(checked);
-      const safe = checked
-        ? collapseToFit(
-            {
-              weatherOpen,
-              reportsOpen,
-              layersOpen,
-              flood: showFloodHazard,
-              rain: showRainfall,
-              himawari: himawari.showHimawariIR,
-              landslide: true,
-              stormSurge: showStormSurge,
-            },
-            'layers'
-          )
-        : null;
-      if (safe) {
-        setWeatherOpen(safe.weatherOpen);
-        setReportsOpen(safe.reportsOpen);
-        setLayersOpen(safe.layersOpen);
-      }
-    },
-    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, showStormSurge, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
-  );
+  const handleShowLandslideChange = useCallback((checked: boolean) => {
+    setShowLandslide(checked);
+    showLandslideRef.current = checked;
+    if (mapRef.current?.getLayer('landslide-fill')) {
+      mapRef.current.setLayoutProperty('landslide-fill', 'visibility', checked ? 'visible' : 'none');
+    }
+  }, []);
 
   // Storm surge advisory: single-selection; master mirrors active state.
-  const handleStormSurgeAdvisoryChange = useCallback(
-    (next: 1 | 2 | 3 | 4 | null) => {
-      if (next !== null) {
-        setStormSurgeAdvisory(next);
-      }
-      setShowStormSurge(next != null);
-      const safe = next != null
-        ? collapseToFit(
-            {
-              weatherOpen,
-              reportsOpen,
-              layersOpen,
-              flood: showFloodHazard,
-              rain: showRainfall,
-              himawari: himawari.showHimawariIR,
-              landslide: showLandslide,
-              stormSurge: true,
-            },
-            'layers'
-          )
-        : null;
-      if (safe) {
-        setWeatherOpen(safe.weatherOpen);
-        setReportsOpen(safe.reportsOpen);
-        setLayersOpen(safe.layersOpen);
-      }
-    },
-    [weatherOpen, reportsOpen, layersOpen, showFloodHazard, showRainfall, himawari.showHimawariIR, showLandslide, collapseToFit, setWeatherOpen, setReportsOpen, setLayersOpen]
-  );
+  const handleStormSurgeAdvisoryChange = useCallback((next: 1 | 2 | 3 | 4 | null) => {
+    if (next !== null) {
+      setStormSurgeAdvisory(next);
+    }
+    setShowStormSurge(next != null);
+  }, []);
 
   // Refs mirror toggle state so the style-load handler (which runs on every
   // basemap switch) can read the latest values without re-creating the map.
@@ -974,6 +844,10 @@ export function PublicMap({
   // IntersectionObserver on a sentinel at the controls' bottom edge so the
   // check happens asynchronously without forced layout reads on scroll.
   useEffect(() => {
+    if (fullScreen) {
+      setControlsVisible(true);
+      return;
+    }
     const el = controlsSentinelRef.current;
     if (!el) return;
 
@@ -1010,7 +884,6 @@ export function PublicMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !layersReadyRef.current) return;
-    if (map.isStyleLoaded && !map.isStyleLoaded()) return;
 
     try {
       const layers: Array<[string, boolean]> = [
@@ -1082,120 +955,77 @@ export function PublicMap({
         onModeChange={handleModeChange}
       />
 
+      {/* Full-viewport maps only: the embedded incident map is too short to fit
+          a centred ruler clear of its bottom-right control cluster. */}
+      {fullScreen && mapReady && <MapScaleRuler mapRef={mapRef} />}
+
+      <MapSidebar
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={setIsSidebarCollapsed}
+        controlsVisible={controlsVisible}
+        hideWeather={hideWeather}
+        fullScreen={fullScreen}
+        hasBottomNav={hasBottomNav}
+        onStartReport={onStartReport}
+        weatherOpen={weatherOpen}
+        onToggleWeather={setWeatherOpen}
+        weatherExpandedByDefault={weatherExpandedByDefault}
+        layersOpen={layersOpen}
+        onToggleLayers={setLayersOpen}
+        showFloodHazard={showFloodHazard}
+        onShowFloodHazardChange={handleShowFloodHazardChange}
+        showRainfall={showRainfall}
+        onShowRainfallChange={handleShowRainfallChange}
+        isLoadingRainfall={rainfall.isLoading}
+        rainfallObservedAt={rainfall.rainfallObservedAt}
+        rainfallSource={rainfall.rainfallSource}
+        rainfallHours={rainfall.rainfallHours}
+        onRainfallHoursChange={handleRainfallHoursChange}
+        showHimawariIR={himawari.showHimawariIR}
+        onShowHimawariIRChange={handleShowHimawariIRChange}
+        isLoadingHimawari={himawari.isLoading}
+        himawariOpacity={himawari.opacity}
+        onHimawariOpacityChange={himawari.setOpacity}
+        showTyphoonTrack={typhoon.showTyphoonTrack}
+        onShowTyphoonTrackChange={handleShowTyphoonTrackChange}
+        isLoadingTyphoon={typhoon.isLoading}
+        activeTyphoonName={typhoon.typhoonData?.stormName}
+        typhoonObservedAt={typhoon.typhoonData?.latestPosition?.datetime || typhoon.typhoonData?.fetchedAt}
+        hasActiveTyphoon={typhoon.typhoonData?.hasActiveTyphoon}
+        activeStorms={typhoon.typhoonData?.activeStorms}
+        onFocusStorm={typhoon.focusStorm}
+        showBarangayBoundaries={showBarangayBoundaries}
+        onShowBarangayBoundariesChange={handleShowBarangayBoundariesChange}
+        showBarangayBoundariesToggle={!hideBarangayBoundariesToggle}
+        showLandslide={showLandslide}
+        onShowLandslideChange={handleShowLandslideChange}
+        showStormSurge={showStormSurge}
+        stormSurgeAdvisory={stormSurgeAdvisory}
+        onStormSurgeAdvisoryChange={handleStormSurgeAdvisoryChange}
+        reportsOpen={reportsOpen}
+        onToggleReports={setReportsOpen}
+        visibleReportStatuses={visibleReportStatuses}
+        onReportStatusChange={(status, checked) =>
+          setVisibleReportStatuses((previous) => ({ ...previous, [status]: checked }))
+        }
+        reportStatusToggleStatuses={reportStatusToggleStatuses}
+        reportWindowHours={reportFilters?.createdAfterHours}
+        isLoadingReports={isLoadingReports}
+        visibleReportsCount={reportsForStats.length}
+      />
+
       <div
-        ref={controlsContainerRef}
-        className={`absolute left-4 md:left-6 z-[1000] flex flex-col items-start gap-3 transition-opacity duration-200 ${
-          fullScreen ? 'bottom-24' : 'bottom-4'
-        } ${
-          !hideWeather ? 'md:bottom-auto md:top-[max(5.5rem,50%)] md:-translate-y-1/2' : ''
-        } ${
-          controlsVisible ? 'opacity-100' : 'pointer-events-none opacity-0'
-        }`}
-      >
-        {!hideWeather && (
-          <WeatherChip
-            open={weatherOpen}
-            onToggle={handleToggleWeather}
-            defaultExpanded={weatherExpandedByDefault}
-          />
-        )}
-
-        <DataLayerControls
-          open={layersOpen}
-          onToggle={handleToggleLayers}
-          showFloodHazard={showFloodHazard}
-          onShowFloodHazardChange={handleShowFloodHazardChange}
-          showRainfall={showRainfall}
-          onShowRainfallChange={handleShowRainfallChange}
-          isLoadingRainfall={rainfall.isLoading}
-          rainfallObservedAt={rainfall.rainfallObservedAt}
-          rainfallSource={rainfall.rainfallSource}
-          rainfallHours={rainfall.rainfallHours}
-          onRainfallHoursChange={handleRainfallHoursChange}
-          showHimawariIR={himawari.showHimawariIR}
-          onShowHimawariIRChange={handleShowHimawariIRChange}
-          isLoadingHimawari={himawari.isLoading}
-          himawariOpacity={himawari.opacity}
-          onHimawariOpacityChange={himawari.setOpacity}
-          showTyphoonTrack={typhoon.showTyphoonTrack}
-          onShowTyphoonTrackChange={handleShowTyphoonTrackChange}
-          isLoadingTyphoon={typhoon.isLoading}
-          activeTyphoonName={typhoon.typhoonData?.stormName}
-          typhoonObservedAt={typhoon.typhoonData?.latestPosition?.datetime || typhoon.typhoonData?.fetchedAt}
-          hasActiveTyphoon={typhoon.typhoonData?.hasActiveTyphoon}
-          activeStorms={typhoon.typhoonData?.activeStorms}
-          onFocusStorm={typhoon.focusStorm}
-          showBarangayBoundaries={showBarangayBoundaries}
-          onShowBarangayBoundariesChange={handleShowBarangayBoundariesChange}
-          showBarangayBoundariesToggle={!hideBarangayBoundariesToggle}
-          showLandslide={showLandslide}
-          onShowLandslideChange={handleShowLandslideChange}
-          showStormSurge={showStormSurge}
-          stormSurgeAdvisory={stormSurgeAdvisory}
-          onStormSurgeAdvisoryChange={handleStormSurgeAdvisoryChange}
-        />
-
-        <ReportControls
-          open={reportsOpen}
-          onToggle={handleToggleReports}
-          visibleReportStatuses={visibleReportStatuses}
-          onReportStatusChange={(status, checked) =>
-            setVisibleReportStatuses((previous) => ({ ...previous, [status]: checked }))
-          }
-          reportStatusToggleStatuses={reportStatusToggleStatuses}
-          reportWindowHours={reportFilters?.createdAfterHours}
-          isLoading={isLoadingReports}
-        />
-
-        {onStartReport && (
-          <button
-            type="button"
-            onClick={onStartReport}
-            className="flex items-center gap-2 px-3.5 py-2.5 hud-pill hover:bg-white hover:shadow-lg transition-all duration-150 active:scale-95 group select-none cursor-pointer border border-maroon-100/90 hover:border-maroon-300"
-            aria-label="Report flooding"
-            title="Report flooding"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-5 w-5 shrink-0 transition-transform group-hover:scale-110"
-              aria-hidden="true"
-            >
-              <path
-                d="M 12 5.5 L 19.8 19 L 4.2 19 Z"
-                fill="#7B1113"
-                stroke="#7B1113"
-                strokeWidth="4.5"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
-              <line
-                x1="12"
-                y1="9.5"
-                x2="12"
-                y2="13.5"
-                stroke="white"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-              />
-              <circle cx="12" cy="17" r="1.15" fill="white" />
-            </svg>
-            <span className="text-sm font-bold text-gakit-maroon group-hover:text-maroon-900 transition-colors">
-              Report Flooding
-            </span>
-          </button>
-        )}
-
-        <div
-          ref={controlsSentinelRef}
-          aria-hidden
-          className="absolute bottom-0 right-0 h-px w-px"
-        />
-      </div>
+        ref={controlsSentinelRef}
+        aria-hidden
+        className="absolute bottom-0 right-0 h-px w-px"
+      />
 
       {/* Bottom-right Navigation & Location Cluster */}
       <div
         className={`absolute ${
-          fullScreen ? 'bottom-24 md:bottom-10' : 'bottom-24 md:bottom-8'
+          fullScreen
+            ? (hasBottomNav ? 'bottom-24 md:bottom-10' : 'bottom-6 md:bottom-10')
+            : (hasBottomNav ? 'bottom-20 md:bottom-6' : 'bottom-3 md:bottom-4')
         } right-3 md:right-4 z-[1000] flex flex-col items-center gap-2`}
       >
         {!hideShareLocation && (

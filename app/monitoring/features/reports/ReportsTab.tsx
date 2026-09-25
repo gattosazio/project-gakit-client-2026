@@ -321,7 +321,6 @@ export function ReportsTab({
                     hideShareLocation
                     hideWeather
                     enableAddressLookup={false}
-                    hasBottomNav
                     reportFilters={reportFilters}
                     onReportClick={handleMapPinClick}
                     defaultBasemap="satellite"

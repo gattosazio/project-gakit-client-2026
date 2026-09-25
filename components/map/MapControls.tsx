@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronUp, Info, Layers, ListFilter, RotateCwFadingClock } from 'lucide-react';
+import { ChevronDown, ChevronUp, Info, Layers, ListFilter, RotateCwFadingClock } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import {
   REPORT_MARKER_COLORS,
@@ -92,45 +92,46 @@ function PillToggle({
   loading?: boolean;
 }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer select-none group">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="sr-only"
-      />
-      {/* Pill track */}
-      <span
-        className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/80 transition-colors duration-200"
-        style={{ backgroundColor: checked ? color : '#cbd5e1' }}
+    <div className="flex items-center justify-between gap-2 select-none group w-full">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className="flex items-center gap-2 cursor-pointer select-none text-left min-w-0 flex-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon rounded"
       >
-        {/* Circle thumb */}
+        {/* Pill track */}
         <span
-          className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${
-            checked ? 'translate-x-[15px]' : 'translate-x-[2px]'
-          }`}
-        />
-      </span>
-      <span className="flex items-center gap-1.5 min-w-0 text-xs text-slate-700 font-medium group-hover:text-slate-900">
-        <span className="truncate">{label}</span>
-        {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
-        {loading && (
-          <Spinner size="xs" iconClassName="bg-slate-400" />
-        )}
-      </span>
+          className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/80 transition-colors duration-200"
+          style={{ backgroundColor: checked ? color : '#cbd5e1' }}
+        >
+          {/* Circle thumb */}
+          <span
+            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${
+              checked ? 'translate-x-[15px]' : 'translate-x-[2px]'
+            }`}
+          />
+        </span>
+        <span className="flex items-center gap-1.5 min-w-0 text-xs text-slate-700 font-medium group-hover:text-slate-900">
+          <span className="truncate">{label}</span>
+          {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
+          {loading && (
+            <Spinner size="xs" iconClassName="bg-slate-400" />
+          )}
+        </span>
+      </button>
       {credit && (
         <a
           href={credit.href}
           target="_blank"
           rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="ml-auto text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline shrink-0"
+          className="text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline shrink-0"
           title={`Data source: ${credit.label}`}
         >
           © {credit.label}
         </a>
       )}
-    </label>
+    </div>
   );
 }
 
@@ -143,6 +144,7 @@ function Card({
   title,
   badge,
   children,
+  isSidebarItem = false,
 }: {
   open: boolean;
   onToggle: (v: boolean) => void;
@@ -150,7 +152,41 @@ function Card({
   title: string;
   badge?: React.ReactNode;
   children: React.ReactNode;
+  isSidebarItem?: boolean;
 }) {
+  if (isSidebarItem) {
+    return (
+      <div className="w-full hud-card overflow-hidden transition-all duration-200">
+        <div
+          onClick={() => onToggle(!open)}
+          className="flex items-center justify-between gap-2.5 px-3 py-2 text-xs font-bold text-slate-900 cursor-pointer select-none hover:bg-slate-50/60 transition-colors"
+        >
+          <div className="flex items-center gap-2">
+            <Icon className="w-4 h-4 text-gakit-maroon shrink-0" />
+            <span>{title}</span>
+            {badge}
+          </div>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle(!open);
+            }}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
+            aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
+          >
+            {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
+        {open && (
+          <div className="px-2.5 pb-2.5 pt-1 border-t border-slate-100/80">
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return open ? (
     <div className="w-72 hud-card">
       <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-1 text-xs font-bold text-slate-900">
@@ -298,6 +334,7 @@ interface ReportControlsProps {
   reportStatusToggleStatuses?: ReportStatus[];
   reportWindowHours?: number | null;
   isLoading?: boolean;
+  isSidebarItem?: boolean;
 }
 
 export function ReportControls({
@@ -308,6 +345,7 @@ export function ReportControls({
   reportStatusToggleStatuses,
   reportWindowHours,
   isLoading = false,
+  isSidebarItem = false,
 }: ReportControlsProps) {
   const legend =
     reportStatusToggleStatuses ??
@@ -319,16 +357,17 @@ export function ReportControls({
       onToggle={onToggle}
       icon={ListFilter}
       title="Flood Reports"
+      isSidebarItem={isSidebarItem}
       badge={
         isLoading ? (
           <Spinner size="xs" iconClassName="bg-slate-400" className="ml-1" />
         ) : undefined
       }
     >
-      <div className="text-[10px] text-slate-400 font-medium mb-2">
+      <div className="text-[10px] text-slate-400 font-medium mb-1.5">
         {formatReportWindowSubtitle(reportWindowHours)}
       </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1">
         {REPORT_STATUS_LEGEND.filter(({ status }) =>
           legend.includes(status)
         ).map(({ status, label }) => (
@@ -381,6 +420,8 @@ interface DataLayerControlsProps {
   showStormSurge: boolean;
   stormSurgeAdvisory: 1 | 2 | 3 | 4 | null;
   onStormSurgeAdvisoryChange: (next: 1 | 2 | 3 | 4 | null) => void;
+  isSidebarItem?: boolean;
+  activeLayersCount?: number;
 }
 
 export function DataLayerControls({
@@ -416,11 +457,26 @@ export function DataLayerControls({
   showStormSurge,
   stormSurgeAdvisory,
   onStormSurgeAdvisoryChange,
+  isSidebarItem = false,
+  activeLayersCount,
 }: DataLayerControlsProps) {
   const [showScaleModal, setShowScaleModal] = useState(false);
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
   return (
-    <Card open={open} onToggle={onToggle} icon={Layers} title="Layers">
+    <Card
+      open={open}
+      onToggle={onToggle}
+      icon={Layers}
+      title="Layers"
+      isSidebarItem={isSidebarItem}
+      badge={
+        typeof activeLayersCount === 'number' && activeLayersCount > 0 ? (
+          <span className="rounded-full bg-gakit-maroon/10 px-1.5 py-0.5 text-[10px] font-bold text-gakit-maroon">
+            {activeLayersCount}
+          </span>
+        ) : undefined
+      }
+    >
       <div className="space-y-1.5">
         <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
           Hazards
@@ -438,7 +494,7 @@ export function DataLayerControls({
           }}
         />
         {showFloodHazard && (
-          <div className="pl-9 pt-1 pb-1 space-y-1">
+          <div className="pl-7 pt-1 pb-1 space-y-1">
             <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
               Hazard level
             </div>
@@ -467,7 +523,7 @@ export function DataLayerControls({
           }}
         />
         {showLandslide && (
-          <div className="pl-9 pt-1 pb-1 space-y-1">
+          <div className="pl-7 pt-1 pb-1 space-y-1">
             <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
               Hazard level
             </div>
@@ -499,7 +555,7 @@ export function DataLayerControls({
           }}
         />
         {showStormSurge && (
-          <div className="pl-9 pt-1 pb-1 space-y-1">
+          <div className="pl-7 pt-1 pb-1 space-y-1">
             <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
               Hazard level
             </div>
@@ -542,7 +598,7 @@ export function DataLayerControls({
           }}
         />
         {showRainfall && (
-          <div className="pl-9 pt-1 pb-1 space-y-1.5">
+          <div className="pl-7 pt-1 pb-1 space-y-1.5">
             <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1 flex items-center justify-between gap-2">
               <span>Accumulation window</span>
               {rainfallObservedAt && (
@@ -582,15 +638,15 @@ export function DataLayerControls({
                 </span>
               </div>
             )}
-            <div className="pt-1">
-              <div className="flex items-center gap-1.5">
+            <div className="pt-1 w-full">
+              <div className="flex items-center gap-1.5 w-full">
                 <div
-                  className="h-2.5 w-56 rounded-full"
+                  className="h-2.5 flex-1 rounded-full"
                   style={{ background: RAINFALL_GRADIENT_CSS[rainfallHours] }}
                 />
-                <span className="text-[10px] font-semibold text-slate-500">mm</span>
+                <span className="text-[10px] font-semibold text-slate-500 shrink-0">mm</span>
               </div>
-              <div className="flex w-56 justify-between text-[9px] text-slate-500 mt-1">
+              <div className="flex w-full justify-between text-[9px] text-slate-500 mt-1">
                 {RAINFALL_LEGEND_STOPS[rainfallHours].map((stop, index) => (
                   <span
                     key={stop.label || index}
@@ -619,7 +675,7 @@ export function DataLayerControls({
           }}
         />
         {showHimawariIR && (
-          <div className="pl-9 pt-1 pb-1 space-y-1.5">
+          <div className="pl-7 pt-1 pb-1 space-y-1.5">
             <div className="text-[10px] leading-snug text-slate-400">
               Last hour · 10-min satellite frames
             </div>
@@ -656,7 +712,7 @@ export function DataLayerControls({
           }}
         />
         {showTyphoonTrack && (
-          <div className="pl-9 pt-1 pb-1 space-y-1.5">
+          <div className="pl-7 pt-1 pb-1 space-y-1.5">
             <div className="text-[10px] leading-snug text-slate-400">
               {hasActiveTyphoon
                 ? (activeTyphoonName
