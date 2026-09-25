@@ -29,7 +29,8 @@ export interface ScenarioData {
 export interface ScenarioPreset {
   id: string;
   name: string;
-  type: 'historical' | 'design_storm';
+  type: 'historical' | 'design_storm' | 'pagasa_alert';
+  alertLevel?: 'yellow' | 'orange' | 'red';
   badge: string;
   totalRain: string;
   dates: string;
@@ -41,6 +42,45 @@ export interface ScenarioPreset {
 
 export const SCENARIO_PRESETS: ScenarioPreset[] = [
   {
+    id: 'pagasa_yellow',
+    name: 'PAGASA Yellow Warning (LPA / Monsoon)',
+    type: 'pagasa_alert',
+    alertLevel: 'yellow',
+    badge: '50–100 mm',
+    totalRain: '100.0 mm',
+    dates: 'PAGASA Operational Alert',
+    timeWindow: '24h Alert Timeline',
+    peakTime: '12:00 PM',
+    description: 'DOST-PAGASA Yellow Rainfall Advisory (7.5–15 mm/hr, 50–100 mm 24h). Light-to-moderate rain from an active Low Pressure Area causing localized street pooling.',
+    dataFile: '/data/scenarios/pagasa_yellow.json',
+  },
+  {
+    id: 'pagasa_orange',
+    name: 'PAGASA Orange Warning (Tropical Depression)',
+    type: 'pagasa_alert',
+    alertLevel: 'orange',
+    badge: '100–200 mm',
+    totalRain: '160.0 mm',
+    dates: 'PAGASA Operational Alert',
+    timeWindow: '24h Alert Timeline',
+    peakTime: '12:00 PM',
+    description: 'DOST-PAGASA Orange Rainfall Advisory (15–30 mm/hr, 100–200 mm 24h). Intense rainbands threatening river swelling and bank overtopping in Mahayahay and Tubod.',
+    dataFile: '/data/scenarios/pagasa_orange.json',
+  },
+  {
+    id: 'pagasa_red',
+    name: 'PAGASA Red Warning (Torrential Typhoon)',
+    type: 'pagasa_alert',
+    alertLevel: 'red',
+    badge: '>200 mm',
+    totalRain: '280.0 mm',
+    dates: 'PAGASA Operational Alert',
+    timeWindow: '24h Alert Timeline',
+    peakTime: '12:00 PM',
+    description: 'DOST-PAGASA Red Torrential Advisory (>30 mm/hr, >200 mm 24h). Catastrophic mountain runoff triggering widespread flash flooding down the Mandulog River corridor.',
+    dataFile: '/data/scenarios/pagasa_red.json',
+  },
+  {
     id: 'sendong',
     name: 'Tropical Storm Sendong (Washi, 2011)',
     type: 'historical',
@@ -48,8 +88,8 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     totalRain: '161.1 mm',
     dates: 'December 16–17, 2011',
     timeWindow: '00:00 – 24:00 PHT',
-    peakTime: '03:00 AM',
-    description: 'Catastrophic nighttime flash flood down Mandulog River corridor submerging Hinaplanon and Bayug Island.',
+    peakTime: '10:00 PM',
+    description: 'The deadliest flash flood in Iligan\'s modern history. A massive nocturnal deluge over the steep Mandulog watershed triggered a violent, debris-choked flood wave that completely submerged Brgy. Hinaplanon, Bayug Island, Santiago, San Roque, Mahayahay, and Tambacan while residents slept.',
     dataFile: '/data/scenarios/sendong.json',
   },
   {
@@ -61,7 +101,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     dates: 'February 5–6, 2026',
     timeWindow: '00:00 – 24:00 PHT',
     peakTime: '07:00 PM',
-    description: 'Relentless 17-hour downpour and debris-choked bridges causing catastrophic waist-deep flooding in Brgy. Mahayahay and Tubod.',
+    description: 'A prolonged, relentless 17-hour monsoon-enhanced downpour. Extreme sediment runoff and debris damming at major bridges forced the Tubod River to overtop its banks, causing widespread waist-deep urban inundation across Brgy. Mahayahay and Tubod.',
     dataFile: '/data/scenarios/basyang.json',
   },
   {
@@ -73,7 +113,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     dates: 'December 16–17, 2021',
     timeWindow: '00:00 – 24:00 PHT',
     peakTime: '06:00 PM',
-    description: 'Category 5 Super Typhoon whose southern convective rainbands triggered river swelling and coastal inundation.',
+    description: 'A Category 5 Super Typhoon that severely impacted Northern Mindanao. While the eye passed further north, Odette\'s intense southern convective rainbands delivered torrential downpours that rapidly overwhelmed coastal drainage and swelled primary river arteries.',
     dataFile: '/data/scenarios/odette.json',
   },
   {
