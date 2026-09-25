@@ -43,6 +43,8 @@ export function useHimawariLayer(
   const [showHimawariIR, setShowHimawariIR] = useState(false);
   const [himawariOpacity, setHimawariOpacity] = useState(0.8);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasFrames, setHasFrames] = useState(false);
+  const [loadProgress, setLoadProgress] = useState({ loaded: 0, total: HIMAWARI_FRAME_COUNT });
   const himawariTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const himawariRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const himawariFramesRef = useRef<Map<string, HTMLImageElement>>(new Map());
@@ -58,9 +60,21 @@ export function useHimawariLayer(
   // flashing blank.
   const preloadHimawariFrames = useCallback(async () => {
     setIsLoading(true);
+    setLoadProgress({ loaded: 0, total: HIMAWARI_FRAME_COUNT });
     try {
       const candidates = himawariFrameTimes(HIMAWARI_CANDIDATE_COUNT);
-      const loaded = await Promise.allSettled(candidates.map(fetchHimawariFrame));
+      let loadedCount = 0;
+      const loaded = await Promise.allSettled(
+        candidates.map(async (time) => {
+          const img = await fetchHimawariFrame(time);
+          loadedCount++;
+          setLoadProgress({
+            loaded: Math.min(loadedCount, HIMAWARI_FRAME_COUNT),
+            total: HIMAWARI_FRAME_COUNT,
+          });
+          return img;
+        })
+      );
       // Candidates are chronological (oldest first); keep at most the newest
       // FRAME_COUNT that actually loaded so the loop stays forward-in-time.
       const kept: [string, HTMLImageElement][] = [];
@@ -69,7 +83,10 @@ export function useHimawariLayer(
         if (result.status === 'fulfilled') kept.push([time, result.value]);
       });
       const cache = new Map(kept.slice(-HIMAWARI_FRAME_COUNT));
-      if (cache.size > 0) himawariFramesRef.current = cache;
+      if (cache.size > 0) {
+        himawariFramesRef.current = cache;
+        setHasFrames(true);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -183,6 +200,8 @@ export function useHimawariLayer(
     opacity: himawariOpacity,
     setOpacity: setHimawariOpacity,
     isLoading,
+    loadProgress,
+    hasFrames,
     visibleRef: showHimawariIRRef,
   };
 }

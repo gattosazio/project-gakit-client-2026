@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import * as maplibregl from 'maplibre-gl';
-import { getElevation } from '@/lib/map/elevation';
 import { polygonRepPoint } from '@/lib/map/mapGeometry';
 import { buildReportPopupHtml } from '@/lib/map/reportMarkers';
 import { buildTyphoonPopupHtml } from '@/lib/map/typhoon';
@@ -62,21 +61,7 @@ export function useMapPopups({
         }
       };
 
-      if (
-        feature.properties &&
-        feature.properties.elevation == null &&
-        typeof lat === 'number' &&
-        typeof lng === 'number'
-      ) {
-        void getElevation(lat, lng).then((elev) => {
-          if (feature.properties) {
-            feature.properties.elevation = elev;
-          }
-          render();
-        });
-      } else {
-        render();
-      }
+      render();
     },
     [mapRef]
   );
@@ -217,27 +202,24 @@ export function useMapPopups({
         map.flyTo({ center: target, zoom: 16, duration: 900 });
       }
 
-      void getElevation(report.lat, report.lng).then((elevation) => {
-        if (inspectTargetRef.current?.id !== report.id) return;
-        showReportPopup(
-          {
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: target,
-            },
-            properties: {
-              kind: 'report',
-              address: report.address,
-              depthLabel: report.depthLabel,
-              statusLabel: report.statusLabel,
-              elevation,
-              createdAt: report.createdAt,
-            },
+      if (inspectTargetRef.current?.id !== report.id) return;
+      showReportPopup(
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: target,
           },
-          target
-        );
-      });
+          properties: {
+            kind: 'report',
+            address: report.address,
+            depthLabel: report.depthLabel,
+            statusLabel: report.statusLabel,
+            createdAt: report.createdAt,
+          },
+        },
+        target
+      );
     },
     [mapReady, mapRef, showReportPopup]
   );

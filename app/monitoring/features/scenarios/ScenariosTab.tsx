@@ -17,7 +17,7 @@ interface ScenariosTabProps {
 }
 
 export function ScenariosTab({ active }: ScenariosTabProps) {
-  const [activePreset, setActivePreset] = useState<ScenarioPreset>(SCENARIO_PRESETS[0]);
+  const [activePreset, setActivePreset] = useState<ScenarioPreset>(SCENARIO_PRESETS.find(p => p.id === 'sendong') || SCENARIO_PRESETS[0]);
   const [scenarioData, setScenarioData] = useState<ScenarioData | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -62,9 +62,9 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
     };
   }, [activePreset]);
 
-  // Interval loop for playback (only for historical storms)
+  // Interval loop for playback (for dynamic historical and operational alert scenarios)
   useEffect(() => {
-    if (!isPlaying || !active || activePreset.type !== 'historical' || !scenarioData || scenarioData.frames.length === 0) return;
+    if (!isPlaying || !active || activePreset.type === 'design_storm' || !scenarioData || scenarioData.frames.length === 0) return;
 
     const intervalMs = Math.round(800 / playbackSpeed);
     const timer = setInterval(() => {
@@ -119,7 +119,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
         </div>
 
         {/* Bottom Center: Timeline Scrubber & Controls (Hidden for static design storms to maximize viewing area) */}
-        {activePreset.type === 'historical' && scenarioData && scenarioData.frames.length > 0 && (
+        {activePreset.type !== 'design_storm' && scenarioData && scenarioData.frames.length > 0 && (
           <TimelinePlayer
             frames={scenarioData.frames}
             currentIndex={currentIndex}

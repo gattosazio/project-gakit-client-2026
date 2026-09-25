@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MapPin, X } from 'lucide-react';
-import { getElevation } from '@/lib/map/elevation';
 import { SiteConditionsCard } from '@/components/reporting/SiteConditionsCard';
 import type { LocationRiskInfo } from '@/components/PublicMap';
 
@@ -33,15 +32,6 @@ export function HazardAssessmentModal({
 }: HazardAssessmentModalProps) {
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
   const [locationRisk, setLocationRisk] = useState<LocationRiskInfo | null>(null);
-  const [elevation, setElevation] = useState<number | null>(null);
-  const [isCheckingElevation, setIsCheckingElevation] = useState(false);
-  const lastElevationKey = useRef('');
-
-  useEffect(() => {
-    if (!isOpen) {
-      lastElevationKey.current = '';
-    }
-  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -55,39 +45,6 @@ export function HazardAssessmentModal({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
-
-  useEffect(() => {
-    if (!isOpen || !selectedLocation) return;
-    const key = `${selectedLocation.lat.toFixed(5)},${selectedLocation.lng.toFixed(5)}`;
-    if (key === lastElevationKey.current && elevation !== null) {
-      setIsCheckingElevation(false);
-      return;
-    }
-    lastElevationKey.current = key;
-
-    let cancelled = false;
-    const abort = new AbortController();
-    setIsCheckingElevation(true);
-
-    void getElevation(selectedLocation.lat, selectedLocation.lng, abort.signal)
-      .then((elev) => {
-        if (!cancelled) {
-          setElevation(elev);
-          setIsCheckingElevation(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setElevation(null);
-          setIsCheckingElevation(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-      abort.abort();
-    };
-  }, [isOpen, selectedLocation, elevation]);
 
   useEffect(() => {
     if (!isOpen || !selectedLocation || !onCheckLocation) {
@@ -171,8 +128,6 @@ export function HazardAssessmentModal({
 
           {selectedLocation && (
             <SiteConditionsCard
-              elevation={elevation}
-              isCheckingElevation={isCheckingElevation}
               locationRisk={locationRisk}
               isCheckingLocation={isCheckingLocation}
               rainfallHours={rainfallHours}

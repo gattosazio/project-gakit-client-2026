@@ -37,7 +37,7 @@ export function TimelinePlayer({
 
   const peakIndex = React.useMemo(() => {
     if (!frames || frames.length === 0) return -1;
-    return frames.reduce((best, f, i, arr) => (f.q_peak_m3s > arr[best].q_peak_m3s ? i : best), 0);
+    return frames.reduce((best, f, i, arr) => (f.inundated_km2 > arr[best].inundated_km2 ? i : best), 0);
   }, [frames]);
 
   const handleStepBack = () => {
@@ -56,7 +56,7 @@ export function TimelinePlayer({
           <div className="flex items-center gap-2">
             <span
               className={`flex h-2.5 w-2.5 rounded-full ${
-                currentIndex === peakIndex && currentFrame && currentFrame.q_peak_m3s > 0
+                currentIndex === peakIndex && currentFrame && currentFrame.inundated_km2 > 0
                   ? 'bg-amber-500 animate-pulse'
                   : 'bg-sky-500'
               }`}
@@ -68,10 +68,18 @@ export function TimelinePlayer({
           <span className="rounded-full bg-slate-100 text-slate-600 font-mono text-xs px-2.5 py-0.5 border border-slate-200/80">
             Hour {currentIndex} / {maxIndex}
           </span>
-          {currentIndex === peakIndex && currentFrame && currentFrame.q_peak_m3s > 0 && (
-            <span className="rounded-full bg-amber-50 text-amber-800 font-semibold text-xs px-2 py-0.5 border border-amber-300">
-              Peak Crest
-            </span>
+          {peakIndex >= 0 && frames[peakIndex].inundated_km2 > 0 && (
+            <button
+              onClick={() => onIndexChange(peakIndex)}
+              title="Jump to Max Flood Extent"
+              className={`rounded-full font-semibold text-xs px-2 py-0.5 border transition-all duration-200 ${
+                currentIndex === peakIndex
+                  ? 'bg-amber-50 text-amber-800 border-amber-300 cursor-default'
+                  : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-100 hover:text-slate-800 shadow-sm cursor-pointer'
+              }`}
+            >
+              Max Flood Extent
+            </button>
           )}
         </div>
 

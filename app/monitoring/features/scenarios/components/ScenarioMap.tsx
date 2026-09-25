@@ -68,7 +68,7 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
       container: mapContainer.current,
       style: OPENFREEMAP_STYLE,
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
-      zoom: 13,
+      zoom: 13.8,
       pitch: 35,
       bearing: -10,
       renderWorldCopies: false,

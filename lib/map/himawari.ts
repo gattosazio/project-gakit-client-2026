@@ -28,7 +28,9 @@ export function himawariFrameURL(time: string): string {
 }
 
 export function himawariFrameTimes(frames = 6): string[] {
-  const now = new Date();
+  // JMA publishes with ~13-15 min latency; offset by 10 minutes so candidate slots
+  // are already published rather than waiting on unreleased slots that 404.
+  const now = new Date(Date.now() - 10 * 60 * 1000);
   now.setUTCMinutes(Math.floor(now.getUTCMinutes() / 10) * 10, 0, 0);
   const times: string[] = [];
   // Oldest frame first so the loop plays forward in time.
