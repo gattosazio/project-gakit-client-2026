@@ -21,7 +21,6 @@ import {
   formatDateTime,
   formatReportDepth,
 } from '@/lib/reports/reportFormatting';
-import { getElevation } from '@/lib/map/elevation';
 import type { Report, ReportStatus } from '@/types/report';
 
 const ReportMiniMap = dynamic(() =>
@@ -48,21 +47,10 @@ export function ReportDetail({
 }) {
   const status = STATUS_META[report.status];
   const address = report.location.address || `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`;
-  const [elevation, setElevation] = useState<number | null>(null);
   const [closing, setClosing] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [copiedCoord, setCopiedCoord] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void getElevation(report.location.latitude, report.location.longitude).then((elev) => {
-      if (!cancelled) setElevation(elev);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [report.location.latitude, report.location.longitude]);
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -174,11 +162,6 @@ export function ReportDetail({
             <DetailItem label="Reference" value="—" />
           )}
           <DetailItem label="Status" value={status.label} />
-          <DetailItem
-            label="Elevation"
-            loading={elevation == null}
-            value={elevation != null ? `${elevation.toFixed(1)} m (FABDEM 30m DTM)` : 'Checking elevation…'}
-          />
         </FieldGroup>
 
         <FieldGroup title="Timeline">

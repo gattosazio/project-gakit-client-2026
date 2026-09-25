@@ -80,7 +80,7 @@ export async function GET(request: Request) {
   const elevation = Math.round((rawVal * meta.scale) * 10) / 10;
 
   return NextResponse.json(
-    { elevation, source: 'fabdem-30m-dtm' },
+    { elevation, source: 'up-dream-10m-lidar' },
     {
       headers: {
         'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800',
