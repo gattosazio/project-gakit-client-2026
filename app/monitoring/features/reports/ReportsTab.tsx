@@ -83,6 +83,20 @@ export function ReportsTab({
   });
 
   const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
+  const [hasEverBeenActive, setHasEverBeenActive] = useState(Boolean(active));
+
+  useEffect(() => {
+    if (active) {
+      setHasEverBeenActive(true);
+      const timer = setTimeout(() => {
+        mapRef.current?.resize?.();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('resize'));
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [active]);
 
   useEffect(() => {
     if (!highlightedReportId) return;
@@ -140,58 +154,57 @@ export function ReportsTab({
 
   useEffect(() => {
     if (!active) return;
-    const timer = setTimeout(() => {
-      const seq = requestSeqRef.current + 1;
-      requestSeqRef.current = seq;
+    const seq = requestSeqRef.current + 1;
+    requestSeqRef.current = seq;
+    // Only show full loading skeleton on initial load; keep existing reports visible during revalidations
+    if (reports.length === 0) {
       setLoading(true);
-      setError(null);
+    }
+    setError(null);
 
-      const selectedRange = timeRangeOptions.find((option) => option.value === timeFilter);
-      // Bucket the cutoff to 10-minute windows so the cache key stays stable
-      // between poll ticks instead of minting a new entry every minute.
-      const since =
-        selectedRange && selectedRange.hours != null
-          ? new Date(
-              Math.floor((Date.now() - selectedRange.hours * 3600 * 1000) / (10 * 60_000)) *
-                (10 * 60_000)
-            ).toISOString()
-          : undefined;
+    const selectedRange = timeRangeOptions.find((option) => option.value === timeFilter);
+    // Bucket the cutoff to 10-minute windows so the cache key stays stable
+    // between poll ticks instead of minting a new entry every minute.
+    const since =
+      selectedRange && selectedRange.hours != null
+        ? new Date(
+            Math.floor((Date.now() - selectedRange.hours * 3600 * 1000) / (10 * 60_000)) *
+              (10 * 60_000)
+          ).toISOString()
+        : undefined;
 
-      fetchReports({
-        page: currentPage,
-        limit: REPORTS_PER_PAGE,
-        search: (query || '').trim() || undefined,
-        status: statusFilter === 'All' ? undefined : statusFilter,
-        depth: depthFilter === 'All' ? undefined : depthFilter,
-        created_after: since,
-        sort_by: sort.column,
-        sort_dir: sort.direction,
-      })
-        .then((result) => {
-          if (seq !== requestSeqRef.current) return;
-          setReports(result.items);
-          setTotal(result.total);
-          setTotalPages(Math.max(1, result.totalPages));
-          setUpdatedAt(new Date());
-          setSelectedReport((current) => {
-            if (!current) return null;
-            const updated = result.items.find((report) => report.id === current.id);
-            return updated ?? current;
-          });
-        })
-        .catch((err: unknown) => {
-          if (seq !== requestSeqRef.current) return;
-          setError(err instanceof Error ? err.message : 'Failed to load reports');
-          setReports([]);
-          setTotal(0);
-          setTotalPages(1);
-        })
-        .finally(() => {
-          if (seq === requestSeqRef.current) setLoading(false);
+    fetchReports({
+      page: currentPage,
+      limit: REPORTS_PER_PAGE,
+      search: (query || '').trim() || undefined,
+      status: statusFilter === 'All' ? undefined : statusFilter,
+      depth: depthFilter === 'All' ? undefined : depthFilter,
+      created_after: since,
+      sort_by: sort.column,
+      sort_dir: sort.direction,
+    })
+      .then((result) => {
+        if (seq !== requestSeqRef.current) return;
+        setReports(result.items);
+        setTotal(result.total);
+        setTotalPages(Math.max(1, result.totalPages));
+        setUpdatedAt(new Date());
+        setSelectedReport((current) => {
+          if (!current) return null;
+          const updated = result.items.find((report) => report.id === current.id);
+          return updated ?? current;
         });
-    }, 300);
-
-    return () => clearTimeout(timer);
+      })
+      .catch((err: unknown) => {
+        if (seq !== requestSeqRef.current) return;
+        setError(err instanceof Error ? err.message : 'Failed to load reports');
+        setReports([]);
+        setTotal(0);
+        setTotalPages(1);
+      })
+      .finally(() => {
+        if (seq === requestSeqRef.current) setLoading(false);
+      });
   }, [active, currentPage, query, statusFilter, depthFilter, timeFilter, refreshKey, sort]);
 
   // Background auto-refresh, paused while the tab is hidden.
@@ -313,7 +326,7 @@ export function ReportsTab({
                 </div>
               </div>
               <div className="h-[24rem] md:h-[28rem] relative">
-                {active ? (
+                {hasEverBeenActive ? (
                   <PublicMap
                     mapApiRef={mapRef}
                     onLocationSelect={handleNoopLocationSelect}
@@ -505,6 +518,10 @@ export function ReportsTab({
         {selectedReport && (
           <div>
             <ReportDetail
+              // A fresh instance per report: the minimap, the failed flag and
+              // the status-menu state must never leak from one report into the
+              // next through a reused instance.
+              key={selectedReport.id}
               report={selectedReport}
               onUpdateStatus={handleUpdateStatus}
               isUpdating={updatingId === selectedReport.id}

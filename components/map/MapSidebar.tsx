@@ -76,6 +76,8 @@ export interface MapSidebarProps {
   reportWindowHours?: number | null;
   isLoadingReports?: boolean;
   visibleReportsCount?: number;
+  totalReportsCount?: number;
+  statusCounts?: Record<ReportStatus, number>;
 }
 
 export function MapSidebar({
@@ -129,6 +131,8 @@ export function MapSidebar({
   reportWindowHours,
   isLoadingReports = false,
   visibleReportsCount,
+  totalReportsCount,
+  statusCounts,
 }: MapSidebarProps) {
   const weatherCardRef = useRef<HTMLDivElement>(null);
   const layersCardRef = useRef<HTMLDivElement>(null);
@@ -421,6 +425,8 @@ export function MapSidebar({
                 reportStatusToggleStatuses={reportStatusToggleStatuses}
                 reportWindowHours={reportWindowHours}
                 isLoading={isLoadingReports}
+                totalReports={totalReportsCount ?? visibleReportsCount}
+                statusCounts={statusCounts}
               />
             </div>
           </div>

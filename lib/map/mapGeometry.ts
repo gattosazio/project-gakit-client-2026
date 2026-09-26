@@ -57,6 +57,79 @@ export function polygonRepPoint(
   return bestCentroid;
 }
 
+type Point2D = [number, number];
+
+/**
+ * Outer ring of every polygon in a Polygon/MultiPolygon geometry, in the
+ * geometry's own coordinate plane. Holes are ignored: the leader line wants
+ * the visible boundary, and every part is scanned so a nearer islet can win.
+ */
+export function outerRings(
+  geometry: { type: string; coordinates: any[] } | null | undefined
+): Array<Array<Point2D>> {
+  if (!geometry || !Array.isArray(geometry.coordinates)) return [];
+  const polys =
+    geometry.type === 'MultiPolygon' ? geometry.coordinates : [geometry.coordinates];
+  const rings: Array<Array<Point2D>> = [];
+  for (const poly of polys) {
+    const outer = (poly as unknown as Point2D[][])?.[0];
+    if (Array.isArray(outer) && outer.length > 0 && Array.isArray(outer[0])) {
+      rings.push(outer as Point2D[]);
+    }
+  }
+  return rings;
+}
+
+/**
+ * Nearest point on any of the given rings to (x, y), with true
+ * segment projection (not just nearest vertex). All inputs live in the same
+ * 2D plane — callers working in screen space project first, which stays
+ * correct under map pitch where nearest-in-degrees would not.
+ */
+export function nearestPointOnRings(
+  rings: Array<Array<Point2D>>,
+  point: Point2D
+): Point2D | null {
+  const [px, py] = point;
+  let best: Point2D | null = null;
+  let bestDistSq = Infinity;
+
+  for (const ring of rings) {
+    const n = ring.length;
+    if (n === 0) continue;
+    if (n === 1) {
+      const dx = ring[0][0] - px;
+      const dy = ring[0][1] - py;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < bestDistSq) {
+        bestDistSq = distSq;
+        best = [ring[0][0], ring[0][1]];
+      }
+      continue;
+    }
+    for (let i = 0; i < n; i++) {
+      const [ax, ay] = ring[i];
+      const [bx, by] = ring[(i + 1) % n];
+      const abx = bx - ax;
+      const aby = by - ay;
+      const lenSq = abx * abx + aby * aby;
+      // Clamp the projection onto the segment so ends collapse to vertices.
+      const t = lenSq === 0 ? 0 : Math.min(1, Math.max(0, ((px - ax) * abx + (py - ay) * aby) / lenSq));
+      const cx = ax + t * abx;
+      const cy = ay + t * aby;
+      const dx = cx - px;
+      const dy = cy - py;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < bestDistSq) {
+        bestDistSq = distSq;
+        best = [cx, cy];
+      }
+    }
+  }
+
+  return best;
+}
+
 export interface BoundingBox {
   west: number;
   south: number;

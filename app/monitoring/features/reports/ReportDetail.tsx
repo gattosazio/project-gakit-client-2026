@@ -149,6 +149,7 @@ export function ReportDetail({
           coordinates={coordinates}
           latitude={report.location.latitude}
           longitude={report.location.longitude}
+          status={report.status}
           copied={copiedCoord}
           onCopy={() => copyText(coordinates, 'coord')}
           onViewOnMap={onViewOnMap}
@@ -209,6 +210,7 @@ function LocationPreview({
   coordinates,
   latitude,
   longitude,
+  status,
   copied,
   onCopy,
   onViewOnMap,
@@ -217,6 +219,7 @@ function LocationPreview({
   coordinates: string;
   latitude: number;
   longitude: number;
+  status: ReportStatus;
   copied: boolean;
   onCopy: () => void;
   onViewOnMap?: () => void;
@@ -224,7 +227,7 @@ function LocationPreview({
   return (
     <div className="overflow-hidden rounded-lg border border-canvas-grey bg-canvas-light">
       <div className="relative h-40">
-        <ReportMiniMap latitude={latitude} longitude={longitude} onViewOnMap={onViewOnMap} />
+        <ReportMiniMap latitude={latitude} longitude={longitude} status={status} onViewOnMap={onViewOnMap} />
         <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-slate-950/60 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm backdrop-blur-sm">
           {coordinates}
         </span>

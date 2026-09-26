@@ -10,8 +10,21 @@ import {
   AWS_TERRAIN_TILE_SIZE,
   AWS_TERRAIN_MAX_ZOOM,
   AWS_TERRAIN_ENCODING,
+  BUILDINGS_PMTILES_URL,
+  FLAT_EXTRUSION_LIGHT,
+  HILLSHADE_ACCENT_COLOR,
+  HILLSHADE_EXAGGERATION,
+  HILLSHADE_HIGHLIGHT_COLOR,
+  HILLSHADE_SHADOW_COLOR,
+  TERRAIN_EXAGGERATION,
 } from '@/constants/publicMap';
 import { ILIGAN_CENTER } from '@/lib/map/geoUtils';
+import { getFirstBasemapSymbolLayerId } from '@/lib/map/basemapLayers';
+import {
+  BUILDING_EXTRUSION_LAYER_ID,
+  BUILDING_FOOTPRINT_LAYER_ID,
+  syncBuildingLayers,
+} from '@/lib/map/buildingLayers';
 import type { ScenarioFrame } from '@/types/scenario';
 
 let pmtilesProtocolRegistered = false;
@@ -20,6 +33,19 @@ interface ScenarioMapProps {
   currentFrame?: ScenarioFrame;
   bounds?: [[number, number], [number, number], [number, number], [number, number]];
 }
+
+// Built in one place because the flood layer is created either on map load
+// (when a frame already exists) or later, once the scenario bounds arrive.
+const buildFloodLayer = (renderMode: 'nearest' | 'linear') => ({
+  id: 'simulation-flood-layer',
+  type: 'raster' as const,
+  source: 'simulation-flood-source',
+  paint: {
+    'raster-opacity': 0.85,
+    'raster-fade-duration': 0,
+    'raster-resampling': renderMode,
+  },
+});
 
 export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -31,6 +57,16 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
   const [renderMode, setRenderMode] = useState<'nearest' | 'linear'>('linear');
   const [enableTerrain, setEnableTerrain] = useState(true);
   const [enableBuildings, setEnableBuildings] = useState(true);
+
+  // Extrusions only when the terrain is actually tilted and the toggle is on;
+  // otherwise the flat footprints stand in, matching the public map's 2D view.
+  const buildingMode: '2d' | '3d' = enableTerrain && enableBuildings ? '3d' : '2d';
+  // The mount effect below is deliberately dep-free, so it can't read `buildingMode`
+  // from a dep array; the ref is seeded once and the swap effect keeps it current.
+  const buildingModeRef = useRef(buildingMode);
+  useEffect(() => {
+    buildingModeRef.current = buildingMode;
+  }, [buildingMode]);
 
   // Close settings popover when clicking outside
   useEffect(() => {
@@ -78,6 +114,12 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
       mapRef.current = map;
       setMapLoaded(true);
 
+      // Project layers are all inserted before the basemap's first symbol layer,
+      // so street/place labels always draw on top of the relief, flood and
+      // buildings. Adding them in stack order therefore defines that order:
+      // hillshade -> flood -> footprints -> extrusions.
+      const firstSymbolLayerId = getFirstBasemapSymbolLayerId(map);
+
       // 1. Add 3D Terrain DEM source (AWS Open Data Terrarium DEM)
       map.addSource('terrain-source', {
         type: 'raster-dem',
@@ -88,48 +130,28 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
       });
 
       // 2. Add subtle hillshade layer to reveal mountain contours
-      map.addLayer({
-        id: 'terrain-hillshade-layer',
-        type: 'hillshade',
-        source: 'terrain-source',
-        paint: {
-          'hillshade-exaggeration': 0.35,
-          'hillshade-shadow-color': '#475569',
-          'hillshade-highlight-color': '#ffffff',
-          'hillshade-accent-color': '#64748b',
+      map.addLayer(
+        {
+          id: 'terrain-hillshade-layer',
+          type: 'hillshade',
+          source: 'terrain-source',
+          paint: {
+            'hillshade-exaggeration': HILLSHADE_EXAGGERATION,
+            'hillshade-shadow-color': HILLSHADE_SHADOW_COLOR,
+            'hillshade-highlight-color': HILLSHADE_HIGHLIGHT_COLOR,
+            'hillshade-accent-color': HILLSHADE_ACCENT_COLOR,
+          },
         },
-      });
+        firstSymbolLayerId
+      );
 
       // Set initial 3D terrain elevation
       if (enableTerrain) {
-        map.setTerrain({ source: 'terrain-source', exaggeration: 1.15 });
+        map.setTerrain({ source: 'terrain-source', exaggeration: TERRAIN_EXAGGERATION });
       }
+      map.setLight(FLAT_EXTRUSION_LIGHT);
 
-      // 3. Add Iligan building footprints (PMTiles vector source)
-      map.addSource('iligan-buildings-source', {
-        type: 'vector',
-        url: 'pmtiles:///data/iligan-buildings.pmtiles',
-      });
-
-      // 4. Add 3D extruded building layer (structures stick out of water)
-      map.addLayer({
-        id: 'iligan-buildings-layer',
-        type: 'fill-extrusion',
-        source: 'iligan-buildings-source',
-        'source-layer': 'buildings',
-        minzoom: 13,
-        layout: {
-          visibility: enableBuildings ? 'visible' : 'none',
-        },
-        paint: {
-          'fill-extrusion-color': '#cbd5e1',
-          'fill-extrusion-height': 6,
-          'fill-extrusion-base': 0,
-          'fill-extrusion-opacity': 0.85,
-        },
-      });
-
-      // 5. Add dynamic flood simulation raster layer (placed beneath buildings)
+      // 3. Add the current flood frame (re-anchored if bounds arrive later)
       if (bounds && currentFrame) {
         map.addSource('simulation-flood-source', {
           type: 'image',
@@ -137,19 +159,27 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
           coordinates: bounds,
         });
 
-        map.addLayer(
-          {
-            id: 'simulation-flood-layer',
-            type: 'raster',
-            source: 'simulation-flood-source',
-            paint: {
-              'raster-opacity': 0.85,
-              'raster-fade-duration': 0,
-              'raster-resampling': renderMode,
-            },
-          },
-          'iligan-buildings-layer'
-        );
+        map.addLayer(buildFloodLayer(renderMode), firstSymbolLayerId);
+      }
+
+      // 4. Add Iligan building footprints (PMTiles vector source)
+      map.addSource('iligan-buildings-source', {
+        type: 'vector',
+        url: BUILDINGS_PMTILES_URL,
+        attribution:
+          'Buildings: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+      });
+
+      // 5. Footprints on the flat view, extrusions once terrain tilts the
+      //    camera. Same layer builder the public map uses, and only one variant
+      //    is ever attached so the worker builds a single bucket per tile.
+      syncBuildingLayers(
+        map,
+        'iligan-buildings-source',
+        buildingModeRef.current
+      );
+      if (buildingModeRef.current === '3d') {
+        map.setLight(FLAT_EXTRUSION_LIGHT);
       }
     });
 
@@ -178,18 +208,14 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
       });
 
       if (!map.getLayer('simulation-flood-layer')) {
+        // Land under whichever building variant is attached so the buildings
+        // stay legible on top of the water they stand in.
+        const anchor = [BUILDING_FOOTPRINT_LAYER_ID, BUILDING_EXTRUSION_LAYER_ID].find(
+          (id) => map.getLayer(id)
+        );
         map.addLayer(
-          {
-            id: 'simulation-flood-layer',
-            type: 'raster',
-            source: 'simulation-flood-source',
-            paint: {
-              'raster-opacity': 0.85,
-              'raster-fade-duration': 0,
-              'raster-resampling': renderMode,
-            },
-          },
-          map.getLayer('iligan-buildings-layer') ? 'iligan-buildings-layer' : undefined
+          buildFloodLayer(renderMode),
+          anchor ?? getFirstBasemapSymbolLayerId(map)
         );
       }
     }
@@ -208,7 +234,7 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
     if (!map || !mapLoaded || !map.getSource('terrain-source')) return;
 
     if (enableTerrain) {
-      map.setTerrain({ source: 'terrain-source', exaggeration: 1.15 });
+      map.setTerrain({ source: 'terrain-source', exaggeration: TERRAIN_EXAGGERATION });
       map.easeTo({ pitch: 35, duration: 600 });
       if (map.getLayer('terrain-hillshade-layer')) {
         map.setLayoutProperty('terrain-hillshade-layer', 'visibility', 'visible');
@@ -222,17 +248,18 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
     }
   }, [enableTerrain, mapLoaded]);
 
-  // Update 3D building visibility dynamically
+  // "3D Buildings" drives the extrusions only: switching it off (or flattening
+  // the terrain) swaps in the footprint fill, so the flood extent always keeps
+  // its street-level context.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapLoaded || !map.getLayer('iligan-buildings-layer')) return;
+    if (!map || !mapLoaded || !map.getSource('iligan-buildings-source')) return;
 
-    map.setLayoutProperty(
-      'iligan-buildings-layer',
-      'visibility',
-      enableBuildings ? 'visible' : 'none'
-    );
-  }, [enableBuildings, mapLoaded]);
+    syncBuildingLayers(map, 'iligan-buildings-source', buildingMode);
+    if (buildingMode === '3d') {
+      map.setLight(FLAT_EXTRUSION_LIGHT);
+    }
+  }, [buildingMode, mapLoaded]);
 
   return (
     <div className="relative w-full h-full min-h-[500px] overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-slate-100">

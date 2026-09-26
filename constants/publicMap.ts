@@ -1,4 +1,4 @@
-import type { StyleSpecification } from 'maplibre-gl';
+import type { LightSpecification, StyleSpecification } from 'maplibre-gl';
 import { ILIGAN_BOUNDS } from '@/lib/map/geoUtils';
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 import type { ReportStatus } from '@/types/report';
@@ -14,14 +14,22 @@ export const BASEMAP_LABELS: Record<BasemapId, string> = {
   satellite: 'Satellite',
 };
 
+const ESRI_IMAGERY_TILE_TEMPLATE =
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+// Single-tile URL for the satellite basemap above. The report thumbnail reads
+// the same tiles directly, so it can never drift from what the live map shows.
+export const satelliteTileUrl = (z: number, x: number, y: number): string =>
+  ESRI_IMAGERY_TILE_TEMPLATE.replace('{z}', String(z))
+    .replace('{y}', String(y))
+    .replace('{x}', String(x));
+
 const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
   sources: {
     'esri-imagery': {
       type: 'raster',
-      tiles: [
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      ],
+      tiles: [ESRI_IMAGERY_TILE_TEMPLATE],
       tileSize: 256,
       attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
     },
@@ -44,6 +52,41 @@ export const AWS_TERRAIN_TILES = [
 export const AWS_TERRAIN_TILE_SIZE = 256;
 export const AWS_TERRAIN_MAX_ZOOM = 12;
 export const AWS_TERRAIN_ENCODING = 'terrarium' as const;
+
+// Iligan building footprint paint (PMTiles) — shared by every map surface
+// (public map 2D/3D layers and the scenario flood map) so extrusions always
+// sit on the OpenFreeMap Positron basemap in the same warm grey, never the
+// cool slate that reads as a foreign overlay.
+export const BUILDING_FILL_COLOR = '#dfdeda';
+export const BUILDING_FILL_OUTLINE_COLOR = '#d0ceca';
+export const BUILDING_FILL_OPACITY = 0.65;
+export const BUILDING_EXTRUSION_COLOR = '#dedcd7';
+export const BUILDING_EXTRUSION_OPACITY = 0.75;
+export const BUILDING_EXTRUSION_HEIGHT = 6;
+export const BUILDING_EXTRUSION_BASE = 0;
+export const BUILDINGS_MIN_ZOOM = 13;
+export const BUILDINGS_PMTILES_URL = 'pmtiles:///data/iligan-buildings.pmtiles';
+
+// Flattened 3D shading. MapLibre shades fill-extrusion walls with a vertical
+// gradient (darker at the base) and lights them from a default 0.5-intensity
+// key; both make extruded volumes read as shaded blocks. Every map surface
+// therefore pins the gradient off and swaps in the same soft, near-ambient
+// light, so buildings render as flat plates at a consistent brightness.
+export const BUILDING_EXTRUSION_VERTICAL_GRADIENT = false;
+export const FLAT_EXTRUSION_LIGHT: LightSpecification = {
+  anchor: 'viewport',
+  position: [1.15, 0, 0],
+  color: '#ffffff',
+  intensity: 0.25,
+};
+
+// Terrain relief: shared vertical exaggeration plus the deliberately faint
+// hillshade that only hints at the ridges under the flat Positron basemap.
+export const TERRAIN_EXAGGERATION = 1.15;
+export const HILLSHADE_EXAGGERATION = 0.35;
+export const HILLSHADE_SHADOW_COLOR = '#475569';
+export const HILLSHADE_HIGHLIGHT_COLOR = '#ffffff';
+export const HILLSHADE_ACCENT_COLOR = '#64748b';
 
 export const ILIGAN_REPORT_BOUNDS = {
   west: ILIGAN_BOUNDS[0][0],

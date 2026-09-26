@@ -5,6 +5,14 @@ import {
   AWS_TERRAIN_TILES,
   AWS_TERRAIN_TILE_SIZE,
   BasemapId,
+  BUILDING_EXTRUSION_VERTICAL_GRADIENT,
+  BUILDINGS_PMTILES_URL,
+  FLAT_EXTRUSION_LIGHT,
+  HILLSHADE_ACCENT_COLOR,
+  HILLSHADE_EXAGGERATION,
+  HILLSHADE_HIGHLIGHT_COLOR,
+  HILLSHADE_SHADOW_COLOR,
+  TERRAIN_EXAGGERATION,
   REPORT_MARKER_COLORS,
   REPORT_MARKER_IMAGE_IDS,
   REPORT_STATUS_LEGEND,
@@ -22,6 +30,13 @@ import {
   DEFAULT_TYPHOON_COLOR,
 } from '@/lib/map/typhoon';
 import { createReportMarkerImage } from '@/lib/map/reportMarkers';
+import { getFirstBasemapSymbolLayerId } from '@/lib/map/basemapLayers';
+import {
+  addBuildingExtrusionLayer,
+  addBuildingFootprintLayer,
+  BUILDING_EXTRUSION_LAYER_ID,
+  BUILDING_FOOTPRINT_LAYER_ID,
+} from '@/lib/map/buildingLayers';
 
 export type MapMode = '2d' | '3d';
 // The pmtiles protocol handler must only be registered once per page load;
@@ -71,7 +86,11 @@ export interface OverlayLayerState {
   basemap?: BasemapId;
 }
 
-// Toggles visibility for building footprint layer (automatically shown in 3D Base mode, hidden in 2D or Satellite).
+// Finds the first symbol/label layer belonging to the underlying basemap style
+// (e.g. street names, road labels, place names), ignoring custom overlay layers.
+export { getFirstBasemapSymbolLayerId };
+
+// Toggles visibility for building footprint layer (2D footprints in 2D Base mode, 3D extrusion in 3D Base mode, hidden on Satellite).
 export const applyBuildingsVisibility = (
   map: any,
   mode: MapMode,
@@ -79,14 +98,49 @@ export const applyBuildingsVisibility = (
 ) => {
   try {
     if (map?.isStyleLoaded && !map.isStyleLoaded()) return;
-    if (map?.getLayer && map.getLayer('iligan-buildings-3d')) {
-      const isSatellite = basemap === 'satellite';
-      const shouldShow = mode === '3d' && !isSatellite;
+    const isSatellite = basemap === 'satellite';
+    const shouldShow3D = mode === '3d' && !isSatellite;
+    const shouldShow2D = mode === '2d' && !isSatellite;
+    const firstSymbolLayer = getFirstBasemapSymbolLayerId(map);
+
+    if (map?.getLayer && map.getLayer(BUILDING_EXTRUSION_LAYER_ID)) {
       map.setLayoutProperty(
-        'iligan-buildings-3d',
+        BUILDING_EXTRUSION_LAYER_ID,
         'visibility',
-        shouldShow ? 'visible' : 'none'
+        shouldShow3D ? 'visible' : 'none'
       );
+      map.setPaintProperty(
+        BUILDING_EXTRUSION_LAYER_ID,
+        'fill-extrusion-vertical-gradient',
+        BUILDING_EXTRUSION_VERTICAL_GRADIENT
+      );
+      // Keep the layer pinned below the basemap labels whether or not it is
+      // currently visible, so a hidden layer can't reappear above the text.
+      if (firstSymbolLayer) {
+        try {
+          map.moveLayer(BUILDING_EXTRUSION_LAYER_ID, firstSymbolLayer);
+        } catch {
+          /* ignore move error */
+        }
+      }
+      if (shouldShow3D && map.setLight) {
+        map.setLight(FLAT_EXTRUSION_LIGHT);
+      }
+    }
+
+    if (map?.getLayer && map.getLayer(BUILDING_FOOTPRINT_LAYER_ID)) {
+      map.setLayoutProperty(
+        BUILDING_FOOTPRINT_LAYER_ID,
+        'visibility',
+        shouldShow2D ? 'visible' : 'none'
+      );
+      if (firstSymbolLayer) {
+        try {
+          map.moveLayer(BUILDING_FOOTPRINT_LAYER_ID, firstSymbolLayer);
+        } catch {
+          /* ignore move error */
+        }
+      }
     }
   } catch {
     /* style not loaded yet */
@@ -367,36 +421,83 @@ export const setupOverlayLayers = async (
       },
     });
 
-    // 2. Track Line (Clean, high-definition storm polyline)
+    // 2. Track Lines (Colored by storm category, solid before current track, dashed forecast)
+    const trackCategoryColorExpr: any = [
+      'match',
+      ['upcase', ['coalesce', ['get', 'typhoon_type'], 'TY']],
+      'STY', TYPHOON_CATEGORY_CONFIG.STY.color,
+      'TY', TYPHOON_CATEGORY_CONFIG.TY.color,
+      'STS', TYPHOON_CATEGORY_CONFIG.STS.color,
+      'TS', TYPHOON_CATEGORY_CONFIG.TS.color,
+      'TD', TYPHOON_CATEGORY_CONFIG.TD.color,
+      'LPA', TYPHOON_CATEGORY_CONFIG.LPA.color,
+      DEFAULT_TYPHOON_COLOR,
+    ];
+
     map.addLayer({
       id: 'typhoon-track-line-glow',
       type: 'line',
       source: 'typhoon-track',
       before: 'report-clusters',
       filter: ['==', ['geometry-type'], 'LineString'],
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+      },
       paint: {
-        'line-color': '#e11d48',
-        'line-width': 3,
-        'line-blur': 1,
+        'line-color': trackCategoryColorExpr,
+        'line-width': 3.5,
+        'line-blur': 1.5,
         'line-opacity': 0.35,
       },
     });
 
+    // Solid line before/at current track (observed historical path)
     map.addLayer({
       id: 'typhoon-track-line',
       type: 'line',
       source: 'typhoon-track',
       before: 'report-clusters',
-      filter: ['==', ['geometry-type'], 'LineString'],
+      filter: [
+        'all',
+        ['==', ['geometry-type'], 'LineString'],
+        ['!=', ['get', 'track_type'], 'forecast'],
+      ],
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+      },
       paint: {
-        'line-color': '#e11d48',
-        'line-width': 2,
-        'line-dasharray': [4, 2],
-        'line-opacity': 0.9,
+        'line-color': trackCategoryColorExpr,
+        'line-width': 2.2,
+        'line-opacity': 0.95,
       },
     });
 
-    // 3. Track Milestone Nodes (Prominent radar milestone discs)
+    // Dashed line after current track (projected forecast path)
+    map.addLayer({
+      id: 'typhoon-track-line-forecast',
+      type: 'line',
+      source: 'typhoon-track',
+      before: 'report-clusters',
+      filter: [
+        'all',
+        ['==', ['geometry-type'], 'LineString'],
+        ['==', ['get', 'track_type'], 'forecast'],
+      ],
+      layout: {
+        'line-cap': 'round',
+        'line-join': 'round',
+      },
+      paint: {
+        'line-color': trackCategoryColorExpr,
+        'line-width': 2.2,
+        'line-dasharray': [4, 2],
+        'line-opacity': 0.85,
+      },
+    });
+
+    // 3. Track Milestone Nodes (Prominent radar milestone discs, uniform size across all points)
     // Only renders nodes for official classifications ('STY', 'TY', 'STS', 'TS', 'TD', 'LPA')
     const officialCategoryFilter = [
       'all',
@@ -434,7 +535,7 @@ export const setupOverlayLayers = async (
           'LPA', TYPHOON_CATEGORY_CONFIG.LPA.color,
           DEFAULT_TYPHOON_COLOR,
         ],
-        'circle-opacity': 0.28,
+        'circle-opacity': 0.32,
         'circle-blur': 0.5,
       },
     });
@@ -532,6 +633,7 @@ export const setupOverlayLayers = async (
     ['typhoon-forecast-cone-outline', typhoonVis],
     ['typhoon-track-line-glow', typhoonVis],
     ['typhoon-track-line', typhoonVis],
+    ['typhoon-track-line-forecast', typhoonVis],
     ['typhoon-track-point-halo', typhoonVis],
     ['typhoon-track-point-circle', typhoonVis],
     ['typhoon-track-point-dot', typhoonVis],
@@ -828,45 +930,52 @@ export const setupOverlayLayers = async (
     map.setLayoutProperty('himawari-ir-layer', 'visibility', state.showHimawariIR ? 'visible' : 'none');
   }
 
-  // --- Iligan City building footprints (3D extrusion for 3D view only, PMTiles) ---
+  // --- Iligan City building footprints (2D footprints for 2D mode, 3D extrusion for 3D mode, PMTiles) ---
   if (!map.getSource('iligan-buildings')) {
     map.addSource('iligan-buildings', {
       type: 'vector',
-      url: 'pmtiles:///data/iligan-buildings.pmtiles',
+      url: BUILDINGS_PMTILES_URL,
       attribution:
         'Buildings: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
     });
-
-    const isSatellite = state.basemap === 'satellite';
-    const shouldShowBuildings = state.mapMode === '3d' && !isSatellite;
-
-    // 3D building extrusion for 3D/terrain view only on Base map (hidden on Satellite)
-    map.addLayer({
-      id: 'iligan-buildings-3d',
-      type: 'fill-extrusion',
-      source: 'iligan-buildings',
-      'source-layer': 'buildings',
-      minzoom: 13,
-      layout: {
-        visibility: shouldShowBuildings ? 'visible' : 'none',
-      },
-      paint: {
-        'fill-extrusion-color': '#cbd5e1',
-        'fill-extrusion-height': 6,
-        'fill-extrusion-base': 0,
-        'fill-extrusion-opacity': 0.85,
-      },
-    });
-  } else {
-    // Keep visibility in sync when basemap/mode changes
-    applyBuildingsVisibility(map, state.mapMode, state.basemap);
   }
 
+  const isSatellite = state.basemap === 'satellite';
+  const shouldShowBuildings3D = state.mapMode === '3d' && !isSatellite;
+  const shouldShowBuildings2D = state.mapMode === '2d' && !isSatellite;
+  const firstSymbolLayer = getFirstBasemapSymbolLayerId(map);
+
+  // 2D building footprints for 2D view on Base (Positron) map, inserted beneath basemap text labels
+  if (!map.getLayer(BUILDING_FOOTPRINT_LAYER_ID)) {
+    addBuildingFootprintLayer(
+      map,
+      'iligan-buildings',
+      firstSymbolLayer,
+      shouldShowBuildings2D
+    );
+  }
+
+  // 3D building extrusion for 3D/terrain view only on Base map (hidden on Satellite)
+  if (!map.getLayer(BUILDING_EXTRUSION_LAYER_ID)) {
+    addBuildingExtrusionLayer(
+      map,
+      'iligan-buildings',
+      firstSymbolLayer,
+      shouldShowBuildings3D
+    );
+
+    if (shouldShowBuildings3D && map.setLight) {
+      map.setLight(FLAT_EXTRUSION_LIGHT);
+    }
+  }
+
+  // Keep visibility in sync when basemap/mode changes
+  applyBuildingsVisibility(map, state.mapMode, state.basemap);
+
 // Guarantee layer stacking order:
-  // Base -> Himawari Satellite -> 3D Buildings -> Flood Hazard -> Rainfall Grid -> Barangay -> PAR -> Typhoon Cone -> Typhoon Track -> Typhoon Points -> Report Pins
+  // Base -> Buildings (under labels) -> Basemap Labels -> Himawari Satellite -> Flood Hazard -> Rainfall Grid -> Barangay -> PAR -> Typhoon Cone -> Typhoon Track -> Typhoon Points -> Report Pins
   const orderedLayers = [
     'himawari-ir-layer',
-    'iligan-buildings-3d',
     'flood-hazard-fill',
     'landslide-fill',
     'storm-surge-ssa1-fill',
@@ -884,6 +993,7 @@ export const setupOverlayLayers = async (
     'typhoon-forecast-cone-outline',
     'typhoon-track-line-glow',
     'typhoon-track-line',
+    'typhoon-track-line-forecast',
     'typhoon-track-point-halo',
     'typhoon-track-point-circle',
     'typhoon-track-point-dot',
@@ -909,7 +1019,7 @@ export const setupOverlayLayers = async (
         encoding: AWS_TERRAIN_ENCODING,
       });
     }
-    map.setTerrain({ source: 'terrain', exaggeration: 1.15 });
+    map.setTerrain({ source: 'terrain', exaggeration: TERRAIN_EXAGGERATION });
 
     // Subtle hillshade on Base (Positron) map to give depth and definition to white slopes.
     // Omitted on Satellite since aerial photos already provide natural lighting and contrast.
@@ -920,12 +1030,14 @@ export const setupOverlayLayers = async (
           id: 'hillshade',
           type: 'hillshade',
           source: 'terrain',
-          before: 'iligan-buildings-3d',
+          before: map.getLayer('iligan-buildings-2d')
+            ? 'iligan-buildings-2d'
+            : (map.getLayer('iligan-buildings-3d') ? 'iligan-buildings-3d' : undefined),
           paint: {
-            'hillshade-exaggeration': 0.35,
-            'hillshade-shadow-color': '#475569',
-            'hillshade-highlight-color': '#ffffff',
-            'hillshade-accent-color': '#64748b',
+            'hillshade-exaggeration': HILLSHADE_EXAGGERATION,
+            'hillshade-shadow-color': HILLSHADE_SHADOW_COLOR,
+            'hillshade-highlight-color': HILLSHADE_HIGHLIGHT_COLOR,
+            'hillshade-accent-color': HILLSHADE_ACCENT_COLOR,
           },
         });
       }

@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
-import { PAR_BOUNDARY_GEOJSON } from '@/lib/map/typhoon';
+import {
+  enrichTyphoonTrackGeoJson,
+  formatTyphoonDisplayName,
+  PAR_BOUNDARY_GEOJSON,
+} from '@/lib/map/typhoon';
 import { fetchPanahonLiveCyclone } from '@/lib/map/panahon';
 import type { TyphoonApiResponse } from '@/types/typhoon';
 
@@ -23,11 +27,18 @@ async function fetchServerTyphoonTrack(): Promise<TyphoonApiResponse> {
 
     if (res.ok) {
       const data = await res.json();
+      const enrichedTrack = enrichTyphoonTrackGeoJson(
+        data.track || { type: 'FeatureCollection', features: [] }
+      );
+      const cleanStormName = data.stormName
+        ? formatTyphoonDisplayName(data.stormName)
+        : (data.activeStorms?.[0]?.name ? formatTyphoonDisplayName(data.activeStorms[0].name) : null);
+
       return {
-        track: data.track || { type: 'FeatureCollection', features: [] },
+        track: enrichedTrack,
         par: data.par || PAR_BOUNDARY_GEOJSON,
         hasActiveTyphoon: Boolean(data.hasActiveTyphoon),
-        stormName: data.stormName || null,
+        stormName: cleanStormName,
         stormCategory: data.stormCategory || null,
         activeStorms: Array.isArray(data.activeStorms) ? data.activeStorms : [],
         latestPosition: data.latestPosition || null,
@@ -43,17 +54,20 @@ async function fetchServerTyphoonTrack(): Promise<TyphoonApiResponse> {
   try {
     const livePanahon = await fetchPanahonLiveCyclone();
     if (livePanahon && Array.isArray(livePanahon.features) && livePanahon.features.length > 0) {
-      const pointFeatures = livePanahon.features.filter((f: any) => f.geometry?.type === 'Point');
+      const enrichedTrack = enrichTyphoonTrackGeoJson(livePanahon);
+      const pointFeatures = enrichedTrack.features.filter((f: any) => f.geometry?.type === 'Point');
       const hasActive = pointFeatures.length > 0;
       const latestFeature = hasActive ? pointFeatures[pointFeatures.length - 1] : null;
-      const stormName =
-        latestFeature?.properties?.typhoon_name ||
-        latestFeature?.properties?.local_name ||
-        'Active Cyclone';
+      const stormName = latestFeature?.properties?.typhoon_name
+        ? formatTyphoonDisplayName(
+            latestFeature.properties.typhoon_name,
+            latestFeature.properties?.international_name
+          )
+        : 'Active Cyclone';
       const stormCategory = latestFeature?.properties?.typhoon_type || null;
 
       return {
-        track: livePanahon,
+        track: enrichedTrack,
         par: PAR_BOUNDARY_GEOJSON,
         hasActiveTyphoon: hasActive,
         stormName,

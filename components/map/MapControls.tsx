@@ -76,20 +76,24 @@ const formatRainfallBand = (mm: number) =>
 
 function PillToggle({
   label,
-  color,
+  color = '#7B1113',
   checked,
   onChange,
   credit,
   subtitle,
   loading = false,
+  indicatorDot,
+  count,
 }: {
   label: string;
-  color: string;
+  color?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   credit?: { href: string; label: string };
   subtitle?: string;
   loading?: boolean;
+  indicatorDot?: string;
+  count?: number;
 }) {
   return (
     <div className="flex items-center justify-between gap-2 select-none group w-full">
@@ -102,30 +106,45 @@ function PillToggle({
       >
         {/* Pill track */}
         <span
-          className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/80 transition-colors duration-200"
-          style={{ backgroundColor: checked ? color : '#cbd5e1' }}
+          className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/70 transition-colors duration-200"
+          style={{ backgroundColor: checked ? color : '#E2E8F0' }}
         >
           {/* Circle thumb */}
           <span
-            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${
+            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-xs ring-1 ring-black/5 transition-transform duration-200 ${
               checked ? 'translate-x-[15px]' : 'translate-x-[2px]'
             }`}
           />
         </span>
-        <span className="flex items-center gap-1.5 min-w-0 text-xs text-slate-700 font-medium group-hover:text-slate-900">
-          <span className="truncate">{label}</span>
+        <span className={`flex items-center gap-1.5 min-w-0 text-xs transition-colors ${
+          checked ? 'font-semibold text-slate-800 group-hover:text-slate-950' : 'font-normal text-slate-400'
+        }`}>
+          {indicatorDot && (
+            <span
+              className="w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10"
+              style={{ backgroundColor: indicatorDot }}
+            />
+          )}
+          <span className="truncate leading-none">{label}</span>
           {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
           {loading && (
             <Spinner size="xs" iconClassName="bg-slate-400" />
           )}
         </span>
       </button>
+      {typeof count === 'number' && (
+        <span className={`text-[10px] font-bold tabular-nums shrink-0 px-1.5 py-0.5 rounded-full ${
+          checked ? 'text-slate-600 bg-slate-100' : 'text-slate-300 bg-slate-50'
+        }`}>
+          {count}
+        </span>
+      )}
       {credit && (
         <a
           href={credit.href}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline shrink-0"
+          className="text-[10px] text-slate-400 hover:text-slate-900 hover:underline shrink-0"
           title={`Data source: ${credit.label}`}
         >
           © {credit.label}
@@ -179,7 +198,7 @@ function Card({
           </button>
         </div>
         {open && (
-          <div className="px-2.5 pb-2.5 pt-1 border-t border-slate-100/80">
+          <div className="px-3 pb-3 pt-2 border-t border-slate-100/80">
             {children}
           </div>
         )}
@@ -300,11 +319,11 @@ export function MapViewToggle({
           3D
         </span>
         <span
-          className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/80 transition-colors duration-200"
-          style={{ backgroundColor: is3D ? '#7B1113' : '#cbd5e1' }}
+          className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/70 transition-colors duration-200"
+          style={{ backgroundColor: is3D ? '#7B1113' : '#E2E8F0' }}
         >
           <span
-            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-sm ring-1 ring-black/5 transition-transform duration-200 ${
+            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-xs ring-1 ring-black/5 transition-transform duration-200 ${
               is3D ? 'translate-x-[15px]' : 'translate-x-[2px]'
             }`}
           />
@@ -316,14 +335,18 @@ export function MapViewToggle({
 
 /* ─── Report controls card ────────────────────────────────────────────── */
 
-export function formatReportWindowSubtitle(hours?: number | null): string {
-  if (hours === null) return 'Showing reports from all time';
-  if (hours === undefined || hours === 48) return 'Showing reports from the last 48 hours';
-  if (hours === 24) return 'Showing reports from the last 24 hours';
+export function formatReportWindowSubtitle(hours?: number | null, count?: number): string {
+  const countStr = typeof count === 'number'
+    ? `${count} ${count === 1 ? 'report' : 'reports'}`
+    : 'reports';
+
+  if (hours === null) return `Showing ${countStr} from all time`;
+  if (hours === undefined || hours === 48) return `Showing ${countStr} from the last 48 hours`;
+  if (hours === 24) return `Showing ${countStr} from the last 24 hours`;
   if (hours % 24 === 0 && hours > 48) {
-    return `Showing reports from the last ${hours / 24} days`;
+    return `Showing ${countStr} from the last ${hours / 24} days`;
   }
-  return `Showing reports from the last ${hours} hours`;
+  return `Showing ${countStr} from the last ${hours} hours`;
 }
 
 interface ReportControlsProps {
@@ -335,6 +358,8 @@ interface ReportControlsProps {
   reportWindowHours?: number | null;
   isLoading?: boolean;
   isSidebarItem?: boolean;
+  totalReports?: number;
+  statusCounts?: Record<ReportStatus, number>;
 }
 
 export function ReportControls({
@@ -346,6 +371,8 @@ export function ReportControls({
   reportWindowHours,
   isLoading = false,
   isSidebarItem = false,
+  totalReports,
+  statusCounts,
 }: ReportControlsProps) {
   const legend =
     reportStatusToggleStatuses ??
@@ -360,21 +387,26 @@ export function ReportControls({
       isSidebarItem={isSidebarItem}
       badge={
         isLoading ? (
-          <Spinner size="xs" iconClassName="bg-slate-400" className="ml-1" />
+          <Spinner size="xs" iconClassName="bg-slate-400" />
+        ) : typeof totalReports === 'number' && totalReports > 0 ? (
+          <span className="rounded-full bg-gakit-maroon/10 px-1.5 py-0.5 text-[10px] font-bold text-gakit-maroon tabular-nums">
+            {totalReports}
+          </span>
         ) : undefined
       }
     >
-      <div className="text-[10px] text-slate-400 font-medium mb-1.5">
-        {formatReportWindowSubtitle(reportWindowHours)}
+      <div className="text-[10px] text-slate-400 font-medium mb-2 leading-snug">
+        {formatReportWindowSubtitle(reportWindowHours, totalReports)}
       </div>
-      <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+      <div className="space-y-1.5">
         {REPORT_STATUS_LEGEND.filter(({ status }) =>
           legend.includes(status)
         ).map(({ status, label }) => (
           <PillToggle
             key={status}
             label={label}
-            color={REPORT_MARKER_COLORS[status]}
+            indicatorDot={REPORT_MARKER_COLORS[status]}
+            count={statusCounts?.[status]}
             checked={visibleReportStatuses[status]}
             onChange={(checked) => onReportStatusChange(status, checked)}
           />
@@ -485,7 +517,6 @@ export function DataLayerControls({
 
         <PillToggle
           label="Flood"
-          color="#3B82F6"
           checked={showFloodHazard}
           onChange={onShowFloodHazardChange}
           credit={{
@@ -514,7 +545,6 @@ export function DataLayerControls({
 
         <PillToggle
           label="Landslide"
-          color="#7C2D12"
           checked={showLandslide}
           onChange={onShowLandslideChange}
           credit={{
@@ -543,7 +573,6 @@ export function DataLayerControls({
 
         <PillToggle
           label="Storm Surge"
-          color="#DC2626"
           checked={showStormSurge}
           onChange={(checked) => {
             if (!checked) onStormSurgeAdvisoryChange(null);
@@ -588,7 +617,6 @@ export function DataLayerControls({
 
         <PillToggle
           label="Rainfall Accumulation"
-          color="#0284C7"
           checked={showRainfall}
           onChange={onShowRainfallChange}
           loading={showRainfall && isLoadingRainfall}
@@ -633,8 +661,8 @@ export function DataLayerControls({
                 <RotateCwFadingClock className="h-3 w-3 shrink-0 text-sky-500" />
                 <span>
                   {blended
-                    ? 'GSMaP_NOW+NRT Hybrid · Hourly'
-                    : `GSMaP_NOW · Hourly${rainfallHours > 1 ? ' (NRT warming up)' : ''}`}
+                     ? 'GSMaP_NOW+NRT Hybrid · Hourly'
+                     : `GSMaP_NOW · Hourly${rainfallHours > 1 ? ' (NRT warming up)' : ''}`}
                 </span>
               </div>
             )}
@@ -665,7 +693,6 @@ export function DataLayerControls({
 
         <PillToggle
           label="Himawari IR Satellite"
-          color="#6366f1"
           checked={showHimawariIR}
           onChange={onShowHimawariIRChange}
           loading={showHimawariIR && isLoadingHimawari}
@@ -691,7 +718,7 @@ export function DataLayerControls({
                   step={0.01}
                   onChange={onHimawariOpacityChange}
                   ariaLabel="Himawari IR layer opacity"
-                  accent="#6366f1"
+                  accent="#7B1113"
                 />
                 <span className="text-[10px] font-semibold text-slate-600 w-7 text-right">{Math.round(himawariOpacity * 100)}%</span>
               </div>
@@ -702,7 +729,6 @@ export function DataLayerControls({
 
         <PillToggle
           label="Typhoon Tracker"
-          color="#ef4444"
           checked={showTyphoonTrack}
           onChange={(checked) => onShowTyphoonTrackChange?.(checked)}
           loading={showTyphoonTrack && isLoadingTyphoon}
@@ -798,7 +824,6 @@ export function DataLayerControls({
 
             <PillToggle
               label="Barangay Boundaries"
-              color="#06B6D4"
               checked={showBarangayBoundaries}
               onChange={(checked) => onShowBarangayBoundariesChange?.(checked)}
               credit={{

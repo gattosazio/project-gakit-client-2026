@@ -10,7 +10,7 @@ import { ScenarioMap } from './components/ScenarioMap';
 import { ScenarioSelector } from './components/ScenarioSelector';
 import { TimelinePlayer } from './components/TimelinePlayer';
 import { TelemetryHUD } from './components/TelemetryHUD';
-import { Spinner } from '@/components/ui/Spinner';
+import { LoadingOverlay } from '@/components/ui/LoadingState';
 
 interface ScenariosTabProps {
   active: boolean;
@@ -23,9 +23,17 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasEverBeenActive, setHasEverBeenActive] = useState(Boolean(active));
 
-  // Load scenario data whenever preset changes
   useEffect(() => {
+    if (active) {
+      setHasEverBeenActive(true);
+    }
+  }, [active]);
+
+  // Load scenario data whenever preset changes (deferred until tab is opened at least once)
+  useEffect(() => {
+    if (!hasEverBeenActive) return;
     let cancelled = false;
 
     async function loadData() {
@@ -60,7 +68,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
     return () => {
       cancelled = true;
     };
-  }, [activePreset]);
+  }, [activePreset, hasEverBeenActive]);
 
   // Interval loop for playback (for dynamic historical and operational alert scenarios)
   useEffect(() => {
@@ -87,17 +95,14 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
     <div className="relative h-[calc(100vh-140px)] min-h-[600px] w-full flex flex-col overflow-hidden rounded-2xl">
       {/* Loading Overlay */}
       {isLoading && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm text-slate-800">
-          <Spinner className="h-8 w-8 text-gakit-maroon mb-2" />
-          <span className="text-sm font-bold tracking-wide">
-            Loading {activePreset.name}...
-          </span>
-        </div>
+        <LoadingOverlay message={`Loading ${activePreset.name}...`} />
       )}
 
       {/* Main Map Canvas */}
       <div className="relative flex-1 w-full h-full">
-        <ScenarioMap currentFrame={currentFrame} bounds={scenarioData?.bounds} />
+        {hasEverBeenActive ? (
+          <ScenarioMap currentFrame={currentFrame} bounds={scenarioData?.bounds} />
+        ) : null}
 
         {/* Top Controls Overlay: flex-col stack on mobile, left/right on desktop */}
         <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-2.5 pointer-events-none">

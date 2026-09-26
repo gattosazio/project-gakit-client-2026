@@ -9,8 +9,9 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Locate, Minus, Navigation, Plus, Satellite } from 'lucide-react';
+import { Locate, Minus, Navigation, Plus } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { LoadingOverlay } from '@/components/ui/LoadingState';
 import { toast } from 'react-toastify';
 
 import * as maplibregl from 'maplibre-gl';
@@ -101,6 +102,7 @@ export interface PublicMapHandle {
   getRainfallHours: () => number;
   refreshReports: () => void;
   shareMyLocation: () => Promise<boolean>;
+  resize?: () => void;
 }
 
 interface PublicMapProps {
@@ -272,7 +274,11 @@ export function PublicMap({
     [rainfall, onRainfallHoursChange]
   );
   const himawari = useHimawariLayer(mapRef, layersReadyRef);
-  const typhoon = useTyphoonLayer(mapRef, layersReadyRef);
+  const typhoonPointClickHandlerRef = useRef<((feature: any, lngLat: [number, number]) => void) | undefined>(undefined);
+  const handleTyphoonPointClick = useCallback((feature: any, lngLat: [number, number]) => {
+    typhoonPointClickHandlerRef.current?.(feature, lngLat);
+  }, []);
+  const typhoon = useTyphoonLayer(mapRef, layersReadyRef, handleTyphoonPointClick);
   const typhoonPopupRef = useRef<any>(null);
 
   useEffect(() => {
@@ -430,6 +436,11 @@ export function PublicMap({
     showBarangayBoundariesRef,
     onReportClickRef,
   });
+  const hideReportPopupRef = useRef(hideReportPopup);
+
+  useEffect(() => {
+    typhoonPointClickHandlerRef.current = showTyphoonPopup;
+  }, [showTyphoonPopup]);
 
   // Aggregate per-barangay report metrics off the same point data that drives
   // the choropleth: a client-side spatial join of each report coordinate into
@@ -439,6 +450,22 @@ export function PublicMap({
     () => backendReports.filter((feature) => visibleReportStatuses[feature.properties.status]),
     [backendReports, visibleReportStatuses]
   );
+
+  const statusCounts = useMemo(() => {
+    const counts: Record<ReportStatus, number> = {
+      VERIFIED: 0,
+      UNVERIFIED: 0,
+      ANOMALY: 0,
+      REJECTED: 0,
+    };
+    backendReports.forEach((r) => {
+      const s = r?.properties?.status as ReportStatus | undefined;
+      if (s && counts[s] !== undefined) {
+        counts[s]++;
+      }
+    });
+    return counts;
+  }, [backendReports]);
 
   const barangayStats = useMemo<Map<string, BarangayStats>>(
     () => aggregateBarangayStats(reportsForStats, barangayGeojson),
@@ -500,6 +527,9 @@ export function PublicMap({
         getRainfallHours: () => rainfall.rainfallHours,
         refreshReports: reportsLayer.invalidateAndReload,
         shareMyLocation: handleShareLocation,
+        resize: () => {
+          mapRef.current?.resize();
+        },
       };
       return () => {
         mapApiRef.current = null;
@@ -520,7 +550,8 @@ export function PublicMap({
     onReadyRef.current = onReady;
     loadMapReportsRef.current = loadMapReports;
     loadRainfallRef.current = loadRainfall;
-  }, [handleLocationSelect, onReportClick, onReady, loadMapReports, loadRainfall]);
+    hideReportPopupRef.current = hideReportPopup;
+  }, [handleLocationSelect, onReportClick, onReady, loadMapReports, loadRainfall, hideReportPopup]);
 
   // When the parent dismisses the selected location (e.g. the report modal is
   // closed), cancel any pending reverse-geocode so a stale address callback
@@ -800,6 +831,7 @@ export function PublicMap({
         layers: interactiveLayers,
       });
       if (hit.length) return;
+      hideReportPopupRef.current?.();
       handleLocationSelectRef.current(e.lngLat.lat, e.lngLat.lng);
     });
 
@@ -1012,6 +1044,8 @@ export function PublicMap({
         reportWindowHours={reportFilters?.createdAfterHours}
         isLoadingReports={isLoadingReports}
         visibleReportsCount={reportsForStats.length}
+        totalReportsCount={backendReports.length}
+        statusCounts={statusCounts}
       />
 
       <div
@@ -1148,46 +1182,12 @@ export function PublicMap({
         </div>
       )}
 
-      {/* Himawari Satellite Preload Indicator Screen */}
+      {/* Himawari Satellite Loading Overlay */}
       {himawari.showHimawariIR && himawari.isLoading && !himawari.hasFrames && (
-        <div className="absolute inset-0 z-[1100] flex items-center justify-center bg-slate-950/20 backdrop-blur-xs transition-opacity duration-300 pointer-events-none">
-          <div className="hud-card flex flex-col items-center gap-3 p-5 shadow-2xl rounded-2xl bg-white/95 border border-indigo-100 max-w-[280px] text-center pointer-events-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="relative flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 border border-indigo-100 shadow-inner">
-              <Satellite className="h-6 w-6 animate-pulse" />
-              <div className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-indigo-500 animate-ping" />
-            </div>
-            <div>
-              <div className="text-sm font-bold text-slate-900 font-heading">
-                Loading Himawari-9 Satellite
-              </div>
-              <div className="text-[11px] text-slate-500 mt-0.5">
-                Streaming hourly infrared cloud motion from JMA…
-              </div>
-            </div>
-            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mt-1">
-              <div
-                className="bg-indigo-600 h-full rounded-full transition-all duration-300 ease-out"
-                style={{
-                  width: `${Math.max(
-                    10,
-                    Math.min(
-                      100,
-                      Math.round(
-                        (himawari.loadProgress.loaded / himawari.loadProgress.total) * 100
-                      )
-                    )
-                  )}%`,
-                }}
-              />
-            </div>
-            <div className="flex items-center justify-between w-full text-[10px] text-slate-400 font-medium">
-              <span>Synchronizing frames</span>
-              <span className="font-mono font-semibold text-slate-600">
-                {Math.min(himawari.loadProgress.total, himawari.loadProgress.loaded)} / {himawari.loadProgress.total}
-              </span>
-            </div>
-          </div>
-        </div>
+        <LoadingOverlay
+          message="Loading Himawari Satellite..."
+          zIndex="z-[1100]"
+        />
       )}
     </div>
   );
