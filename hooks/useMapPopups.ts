@@ -18,7 +18,7 @@ interface UseMapPopupsOptions {
 export interface HoveredBarangay {
   id: string | number;
   name: string;
-  centroid: [number, number];
+  geometry: { type: string; coordinates: any[] };
 }
 
 export function useMapPopups({
@@ -30,9 +30,9 @@ export function useMapPopups({
 }: UseMapPopupsOptions) {
   const reportPopupRef = useRef<any>(null);
   const typhoonPopupRef = useRef<any>(null);
+  const typhoonHoverPopupRef = useRef<any>(null);
   const hoveredBarangayIdRef = useRef<string | number | null>(null);
   const pinnedBarangayIdRef = useRef<string | number | null>(null);
-  const popupFrameRef = useRef<number | null>(null);
   const pendingInspectRef = useRef<MapReportToShow | null>(null);
   const inspectTargetRef = useRef<MapReportToShow | null>(null);
   const [hoveredBarangay, setHoveredBarangay] = useState<HoveredBarangay | null>(null);
@@ -47,12 +47,12 @@ export function useMapPopups({
           closeOnClick: false,
           anchor: 'bottom',
           offset: 20,
-          maxWidth: '240px',
+          maxWidth: '260px',
         });
       }
 
-      const coords = feature.geometry?.coordinates || [lngLat.lng, lngLat.lat];
-      const [lng, lat] = coords;
+      // Close typhoon popup if open to prevent overlapping overlays
+      typhoonPopupRef.current?.remove();
 
       const render = () => {
         reportPopupRef.current.setLngLat(lngLat).setHTML(buildReportPopupHtml(feature));
@@ -67,23 +67,8 @@ export function useMapPopups({
   );
 
   const hideReportPopup = useCallback(() => {
-    if (popupFrameRef.current !== null) {
-      window.cancelAnimationFrame(popupFrameRef.current);
-      popupFrameRef.current = null;
-    }
     reportPopupRef.current?.remove();
   }, []);
-
-  const queueReportPopup = useCallback(
-    (feature: Record<string, any>, lngLat: any) => {
-      if (popupFrameRef.current !== null) return;
-      popupFrameRef.current = window.requestAnimationFrame(() => {
-        popupFrameRef.current = null;
-        showReportPopup(feature, lngLat);
-      });
-    },
-    [showReportPopup]
-  );
 
   const showTyphoonPopup = useCallback(
     (feature: Record<string, any>, lngLat: any) => {
@@ -98,6 +83,10 @@ export function useMapPopups({
           maxWidth: '340px',
         });
       }
+
+      // Close report popup and hover tooltip if open to prevent overlapping overlays
+      reportPopupRef.current?.remove();
+      typhoonHoverPopupRef.current?.remove();
 
       typhoonPopupRef.current
         .setLngLat(lngLat)
@@ -144,7 +133,7 @@ export function useMapPopups({
         setHoveredBarangay({
           id,
           name: feature.properties?.adm4_en ?? 'Barangay',
-          centroid: [centroid[0], centroid[1]],
+          geometry: feature.geometry,
         });
       }
     },
@@ -234,25 +223,19 @@ export function useMapPopups({
   useEffect(() => {
     if (!showTyphoonTrack) {
       typhoonPopupRef.current?.remove();
+      typhoonHoverPopupRef.current?.remove();
     }
   }, [showTyphoonTrack]);
-
-  const handleReportPointsMouseMove = useCallback(
-    (e: any) => {
-      if (e.features?.length && e.features[0].properties?.kind === 'report') {
-        queueReportPopup(e.features[0], e.lngLat);
-      }
-      clearBarangayHover();
-    },
-    [queueReportPopup, clearBarangayHover]
-  );
-
-  const handleReportPointsMouseLeave = useCallback(() => hideReportPopup(), [hideReportPopup]);
 
   const handleReportPointsClick = useCallback(
     (e: any) => {
       if (e.features?.length) {
-        showReportPopup(e.features[0], e.lngLat);
+        // When a details modal consumes the click (incident map) it supersedes
+        // the popup, so don't stack both. Without a consumer (public map) the
+        // popup is the only feedback and stays.
+        if (!onReportClickRef.current) {
+          showReportPopup(e.features[0], e.lngLat);
+        }
         const reportId = e.features[0].properties?.id;
         if (reportId) onReportClickRef.current?.(reportId);
       }
@@ -328,30 +311,79 @@ export function useMapPopups({
     clearBarangayHover();
   }, [mapRef, clearBarangayHover]);
 
+  const showTyphoonHoverTooltip = useCallback(
+    (feature: any, lngLat: any) => {
+      const map = mapRef.current;
+      if (!maplibregl || !map) return;
+      if (typhoonPopupRef.current?.isOpen()) return;
+
+      const dateLabel = feature.properties?.date_label;
+      if (!dateLabel) return;
+
+      if (!typhoonHoverPopupRef.current) {
+        typhoonHoverPopupRef.current = new maplibregl.Popup({
+          closeButton: false,
+          closeOnClick: false,
+          anchor: 'bottom',
+          offset: 14,
+          className: 'typhoon-hover-popup',
+        });
+      }
+
+      const typeCode = feature.properties?.typhoon_type || '';
+      const isCurrent = feature.properties?.is_current;
+
+      typhoonHoverPopupRef.current
+        .setLngLat(lngLat)
+        .setHTML(
+          `<div style="font-family: var(--font-inter), system-ui, sans-serif; font-size: 11px; font-weight: 600; color: #0f172a; padding: 2px 4px; white-space: nowrap; display: flex; align-items: center; gap: 4px;">
+            ${isCurrent ? '<span style="color: #0284c7; font-weight: 700;">Current:</span>' : ''}
+            <span>${dateLabel}</span>
+            ${typeCode ? `<span style="color: #64748b; font-size: 10px;">(${typeCode})</span>` : ''}
+          </div>`
+        );
+
+      if (!typhoonHoverPopupRef.current.isOpen()) {
+        typhoonHoverPopupRef.current.addTo(map);
+      }
+    },
+    [mapRef]
+  );
+
+  const hideTyphoonHoverTooltip = useCallback(() => {
+    typhoonHoverPopupRef.current?.remove();
+  }, []);
+
   const handleTyphoonPointClick = useCallback(
     (e: any) => {
+      hideTyphoonHoverTooltip();
       if (e.features?.length) {
         showTyphoonPopup(e.features[0], e.lngLat);
       }
     },
-    [showTyphoonPopup]
+    [showTyphoonPopup, hideTyphoonHoverTooltip]
   );
 
-  const handleTyphoonPointMouseEnter = useCallback(() => {
-    const map = mapRef.current;
-    if (map) map.getCanvas().style.cursor = 'pointer';
-  }, [mapRef]);
+  const handleTyphoonPointMouseEnter = useCallback(
+    (e: any) => {
+      const map = mapRef.current;
+      if (map) map.getCanvas().style.cursor = 'pointer';
+      if (e.features?.length) {
+        showTyphoonHoverTooltip(e.features[0], e.lngLat);
+      }
+    },
+    [mapRef, showTyphoonHoverTooltip]
+  );
 
   const handleTyphoonPointMouseLeave = useCallback(() => {
     const map = mapRef.current;
     if (map) map.getCanvas().style.cursor = '';
-  }, [mapRef]);
+    hideTyphoonHoverTooltip();
+  }, [mapRef, hideTyphoonHoverTooltip]);
 
   const attachLayerEvents = useCallback(
     (map: any) => {
       const layerListeners: Array<{ event: string; layer: string; handler: (e: any) => void }> = [
-        { event: 'mousemove', layer: 'report-points', handler: handleReportPointsMouseMove },
-        { event: 'mouseleave', layer: 'report-points', handler: handleReportPointsMouseLeave },
         { event: 'click', layer: 'report-points', handler: handleReportPointsClick },
         { event: 'mouseenter', layer: 'report-points', handler: handleReportPointsMouseEnter },
         { event: 'mouseleave', layer: 'report-points', handler: handleReportPointsCursorLeave },
@@ -392,8 +424,6 @@ export function useMapPopups({
       });
     },
     [
-      handleReportPointsMouseMove,
-      handleReportPointsMouseLeave,
       handleReportPointsClick,
       handleReportPointsMouseEnter,
       handleReportPointsCursorLeave,

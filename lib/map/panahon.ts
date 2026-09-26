@@ -1,4 +1,5 @@
-import crypto from 'node:crypto';
+import crypto from 'crypto';
+import { buildColoredTrackLines, formatTyphoonDisplayName } from '@/lib/map/typhoon';
 
 export interface PanahonCycloneNode {
   cyclone_type?: string;
@@ -141,6 +142,28 @@ function buildFullForecastCone(milestones: Array<{ lat: number; lon: number; rad
   return convexHull2D(allPoints);
 }
 
+export function formatTrackDateLabel(dateStr?: string, timeStr?: string, datetimeStr?: string): string {
+  try {
+    const raw = datetimeStr || (dateStr && timeStr ? `${dateStr}T${timeStr}:00` : dateStr || '');
+    if (!raw) return '';
+    const normalized = raw.includes(' ') && !raw.includes('T') ? raw.replace(' ', 'T') : raw;
+    const d = new Date(normalized);
+    if (!isNaN(d.getTime())) {
+      const monthDay = d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+      const time = d.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+      return `${monthDay}, ${time}`;
+    }
+  } catch {}
+  return [dateStr, timeStr].filter(Boolean).join(' ');
+}
+
 /**
  * Converts Panahon live JSON array into MapLibre-compatible GeoJSON FeatureCollection
  */
@@ -156,11 +179,11 @@ export function convertPanahonToGeoJSON(panahonData: PanahonCycloneItem[]): GeoJ
     const match = rawName.match(/^([^{}]*)?(?:\{([^{}]*)\})?$/);
     const localPart = match?.[1]?.trim() || '';
     const intlPart = match?.[2]?.trim() || '';
-    const localName = localPart || intlPart || 'Tropical Cyclone';
-    const internationalName = intlPart;
-    const name = internationalName && internationalName !== localName
-      ? `${localName} (${internationalName})`
-      : localName;
+    const cleanLocalPart = localPart.replace(/^bagyong\s+/i, '').trim();
+    const cleanIntlPart = intlPart.replace(/^bagyong\s+/i, '').trim();
+    const localName = cleanLocalPart || cleanIntlPart || 'Tropical Cyclone';
+    const internationalName = cleanIntlPart;
+    const name = formatTyphoonDisplayName(localName, internationalName);
 
     const info = cyclone.info || {};
     const sortedKeys = Object.keys(info).sort((a, b) => {
@@ -172,8 +195,22 @@ export function convertPanahonToGeoJSON(panahonData: PanahonCycloneItem[]): GeoJ
       return a.localeCompare(b);
     });
 
-    const lineCoords: number[][] = [];
+    // Identify the latest current/anchor observation node (last one with radius === 0)
+    let currentKey: string | null = null;
+    for (const key of sortedKeys) {
+      const node = info[key];
+      const radius = typeof node.radius === 'string' ? parseFloat(node.radius) : Number(node.radius || 0);
+      if (radius === 0) {
+        currentKey = key;
+      }
+    }
+    if (!currentKey && sortedKeys.length > 0) {
+      currentKey = sortedKeys[0];
+    }
+
+    const stormPoints: any[] = [];
     const allMilestones: Array<{ lat: number; lon: number; radius: number }> = [];
+    let currentIdx = -1;
 
     for (const key of sortedKeys) {
       const node = info[key];
@@ -184,10 +221,18 @@ export function convertPanahonToGeoJSON(panahonData: PanahonCycloneItem[]): GeoJ
 
       if (Number.isNaN(lat) || Number.isNaN(lon) || (lat === 0 && lon === 0)) continue;
 
-      lineCoords.push([lon, lat]);
+      const isCurrent = key === currentKey;
+      if (isCurrent) currentIdx = stormPoints.length;
+
       allMilestones.push({ lat, lon, radius });
 
-      features.push({
+      const dateLabel = formatTrackDateLabel(
+        node.date,
+        node.time,
+        node.date && node.time ? `${node.date}T${node.time}:00` : key
+      );
+
+      const ptFeature: any = {
         type: 'Feature',
         geometry: {
           type: 'Point',
@@ -204,24 +249,20 @@ export function convertPanahonToGeoJSON(panahonData: PanahonCycloneItem[]): GeoJ
           date: node.date,
           time: node.time,
           datetime: node.date && node.time ? `${node.date}T${node.time}:00` : key,
+          date_label: dateLabel,
+          is_current: isCurrent,
+          current_label: isCurrent ? (dateLabel ? `Current: ${dateLabel}` : 'Current Position') : '',
         },
-      });
+      };
+
+      stormPoints.push(ptFeature);
+      features.push(ptFeature);
     }
 
-    // Add Track Line
-    if (lineCoords.length >= 2) {
-      features.push({
-        type: 'Feature',
-        geometry: {
-          type: 'LineString',
-          coordinates: lineCoords,
-        },
-        properties: {
-          type: 'track_line',
-          typhoon_name: name,
-        },
-      });
-    }
+    // Add Colored Track Lines (Solid before current track, dashed forecast, colored by category)
+    if (currentIdx === -1 && stormPoints.length > 0) currentIdx = 0;
+    const trackLines = buildColoredTrackLines(stormPoints, currentIdx, name);
+    features.push(...trackLines);
 
     // Add Uncertainty Forecast Cone
     const coneCoords = buildFullForecastCone(allMilestones);

@@ -90,4 +90,29 @@ describe('setupOverlayLayers himawari source', () => {
     expect(terrain!.spec.tiles[0]).toContain('s3.amazonaws.com/elevation-tiles-prod/terrarium');
     expect(terrain!.spec.encoding).toBe('terrarium');
   });
+
+  it('adds both 2D footprints and 3D extrusion layers for buildings', async () => {
+    const addedLayers: any[] = [];
+    const { map } = createMockMap();
+    map.addLayer = (layer: any) => {
+      addedLayers.push(layer);
+    };
+
+    const maplibregl = { addProtocol: () => {} };
+    await setupOverlayLayers(map, maplibregl, { ...baseState, mapMode: '2d' });
+
+    const b2d = addedLayers.find((l) => l.id === 'iligan-buildings-2d');
+    const b3d = addedLayers.find((l) => l.id === 'iligan-buildings-3d');
+
+    expect(b2d).toBeDefined();
+    expect(b2d.type).toBe('fill');
+    expect(b2d.source).toBe('iligan-buildings');
+    expect(b2d.layout.visibility).toBe('visible');
+
+    expect(b3d).toBeDefined();
+    expect(b3d.type).toBe('fill-extrusion');
+    expect(b3d.source).toBe('iligan-buildings');
+    expect(b3d.layout.visibility).toBe('none');
+    expect(b3d.paint['fill-extrusion-vertical-gradient']).toBe(false);
+  });
 });

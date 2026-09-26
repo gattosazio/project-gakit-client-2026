@@ -37,3 +37,22 @@ export function InlineLoader({
 }) {
   return <Spinner size={size} className={className} />;
 }
+
+export function LoadingOverlay({
+  message = 'Loading...',
+  className = '',
+  zIndex = 'z-30',
+}: {
+  message?: string;
+  className?: string;
+  zIndex?: string;
+}) {
+  return (
+    <div
+      className={`absolute inset-0 ${zIndex} flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm text-slate-800 ${className}`}
+    >
+      <Spinner className="h-8 w-8 text-gakit-maroon mb-2" />
+      <span className="text-sm font-bold tracking-wide">{message}</span>
+    </div>
+  );
+}

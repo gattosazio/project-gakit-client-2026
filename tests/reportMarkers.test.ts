@@ -137,3 +137,18 @@ describe('formatDepth', () => {
     expect(formatDepth(depth('waist'))).toContain('90 cm');
   });
 });
+
+describe('formatReportWindowSubtitle', () => {
+  it('formats subtitle with report counts correctly', async () => {
+    const { formatReportWindowSubtitle } = await import('@/components/map/MapControls');
+    expect(formatReportWindowSubtitle(48, 12)).toBe('Showing 12 reports from the last 48 hours');
+    expect(formatReportWindowSubtitle(48, 1)).toBe('Showing 1 report from the last 48 hours');
+    expect(formatReportWindowSubtitle(48, 0)).toBe('Showing 0 reports from the last 48 hours');
+    expect(formatReportWindowSubtitle(null, 5)).toBe('Showing 5 reports from all time');
+    expect(formatReportWindowSubtitle(24, 3)).toBe('Showing 3 reports from the last 24 hours');
+    expect(formatReportWindowSubtitle(72, 8)).toBe('Showing 8 reports from the last 3 days');
+    expect(formatReportWindowSubtitle(12, 2)).toBe('Showing 2 reports from the last 12 hours');
+    expect(formatReportWindowSubtitle(48)).toBe('Showing reports from the last 48 hours');
+  });
+});
+

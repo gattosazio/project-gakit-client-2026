@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { MapPinned, X } from 'lucide-react';
 import type { HoveredBarangay } from '@/hooks/useMapPopups';
+import { nearestPointOnRings, outerRings } from '@/lib/map/mapGeometry';
 import {
   BARANGAY_BANNER_COPY,
   type BarangayBannerKind,
@@ -59,7 +60,7 @@ interface BarangayMetricsCardProps {
  * filters. Numbers come from the same aggregation that tints the choropleth.
  *
  * Mobile collapses to a tiny corner pill that expands on tap. A dashed cyan
- * leader line tracks the polygon centroid live.
+ * leader line tracks the nearest polygon edge live.
  */
 export function BarangayMetricsCard({
   barangay,
@@ -88,17 +89,34 @@ export function BarangayMetricsCard({
         : cardRef.current) ?? cardRef.current;
     if (!map || !container || !target) return null;
 
-    const projected = map.project(barangay.centroid);
     const containerRect = container.getBoundingClientRect();
     const cardRect = target.getBoundingClientRect();
-
-    setFrom({ x: projected.x, y: projected.y });
-    setTo({
+    const anchor = {
       x: cardRect.left - containerRect.left,
       y: cardRect.bottom - containerRect.top,
-    });
+    };
+
+    // The leader line starts at the boundary point nearest the card, measured
+    // in screen pixels so it stays correct under map pitch.
+    const edge = nearestPointOnRings(
+      outerRings(barangay.geometry).map((ring) =>
+        ring.map(([lng, lat]) => {
+          const p = map.project([lng, lat]);
+          return [p.x, p.y] as [number, number];
+        })
+      ),
+      [anchor.x, anchor.y]
+    );
+    if (!edge) {
+      setFrom(null);
+      setTo(null);
+      return null;
+    }
+
+    setFrom({ x: edge[0], y: edge[1] });
+    setTo(anchor);
     setSize({ w: containerRect.width, h: containerRect.height });
-  }, [mapRef, containerRef, barangay.centroid]);
+  }, [mapRef, containerRef, barangay.geometry]);
 
   useLayoutEffect(() => {
     measure();
@@ -215,18 +233,6 @@ export function BarangayMetricsCard({
             strokeDasharray="4 4"
             strokeLinecap="round"
           />
-          <circle cx={from.x} cy={from.y} r={4} fill="#06b6d4" />
-          <circle
-            cx={from.x}
-            cy={from.y}
-            r={4}
-            fill="none"
-            stroke="#0e7490"
-            strokeWidth={1.5}
-            opacity={0.6}
-          />
-          <circle cx={to.x} cy={to.y} r={3} fill="#f8fafc" />
-          <circle cx={to.x} cy={to.y} r={3} fill="none" stroke="#06b6d4" strokeWidth={1.5} />
         </svg>
       )}
 

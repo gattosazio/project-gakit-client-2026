@@ -61,15 +61,17 @@ const DATE_FILTER_OPTIONS: FilterDropdownOption<'24h' | '7d' | 'all'>[] = [
 
 export function AlertsTab({
   active = true,
+  highlightedNotificationId = null,
   onOpenReports,
   onSelectWeatherAlert,
 }: {
   active?: boolean;
+  highlightedNotificationId?: string | null;
   onOpenReports: (reportId?: string) => void;
   onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
 }) {
   const searchParams = useSearchParams();
-  const notificationParam = searchParams.get('notification');
+  const notificationParam = highlightedNotificationId ?? searchParams.get('notification');
   const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(notificationParam);
   const [reports, setReports] = useState<Report[]>([]);
   const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlertType[]>([]);
@@ -87,18 +89,9 @@ export function AlertsTab({
     direction: 'desc',
   });
 
-  // Sync the highlight with the notification URL param. Deferred to a microtask
-  // so it isn't a synchronous setState inside the effect body (and respects any
-  // manual click-away clear until the param actually changes).
+  // Sync the highlight with the notification URL param or prop.
   useEffect(() => {
-    let cancelled = false;
-    void Promise.resolve().then(() => {
-      if (cancelled) return;
-      setActiveHighlightedId(notificationParam);
-    });
-    return () => {
-      cancelled = true;
-    };
+    setActiveHighlightedId(notificationParam);
   }, [notificationParam]);
 
   // Click-away listener: dismisses the maroon highlight when clicking outside the highlighted row/card

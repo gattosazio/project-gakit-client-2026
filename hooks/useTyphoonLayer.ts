@@ -2,14 +2,24 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
-import { fetchTyphoonTrack, PAR_BOUNDARY_GEOJSON } from '@/lib/map/typhoon';
+import * as maplibregl from 'maplibre-gl';
+import {
+  enrichTyphoonTrackGeoJson,
+  fetchTyphoonTrack,
+  PAR_BOUNDARY_GEOJSON,
+} from '@/lib/map/typhoon';
+import {
+  syncCurrentStormMarkers,
+  clearCurrentStormMarkers,
+} from '@/lib/map/typhoonMarker';
 import type { TyphoonApiResponse } from '@/types/typhoon';
 
 const TYPHOON_REFRESH_MS = 10 * 60 * 1000; // 10 mins
 
 export function useTyphoonLayer(
   mapRef: MutableRefObject<any>,
-  layersReadyRef: MutableRefObject<boolean>
+  layersReadyRef: MutableRefObject<boolean>,
+  onPointClick?: (feature: any, lngLat: [number, number]) => void
 ) {
   const [showTyphoonTrack, setShowTyphoonTrack] = useState(false);
   const [typhoonData, setTyphoonData] = useState<TyphoonApiResponse | null>(null);
@@ -18,10 +28,24 @@ export function useTyphoonLayer(
   const showTyphoonTrackRef = useRef(false);
   const typhoonDataRef = useRef<TyphoonApiResponse | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const currentMarkersRef = useRef<any[]>([]);
+  const onPointClickRef = useRef(onPointClick);
+
+  useEffect(() => {
+    onPointClickRef.current = onPointClick;
+  }, [onPointClick]);
 
   useEffect(() => {
     showTyphoonTrackRef.current = showTyphoonTrack;
   }, [showTyphoonTrack]);
+
+  // Clean up all DOM markers on unmount
+  useEffect(() => {
+    return () => {
+      clearCurrentStormMarkers(currentMarkersRef.current);
+      currentMarkersRef.current = [];
+    };
+  }, []);
 
   const applyDataToMap = useCallback((data: TyphoonApiResponse) => {
     const map = mapRef.current;
@@ -33,13 +57,14 @@ export function useTyphoonLayer(
       parSource.setData(data.par || PAR_BOUNDARY_GEOJSON);
     }
 
-    // 2. Update Typhoon GeoJSON source directly with raw official feed
+    // 2. Update Typhoon GeoJSON source directly with enriched official feed
+    const enrichedTrack = data.track ? enrichTyphoonTrackGeoJson(data.track) : null;
     const typhoonSource = map.getSource('typhoon-track') as any;
-    if (typhoonSource && data.track) {
-      typhoonSource.setData(data.track);
+    if (typhoonSource && enrichedTrack) {
+      typhoonSource.setData(enrichedTrack);
     }
 
-    // 3. Ensure visibility is in sync
+    // 3. Ensure MapLibre layer visibility is in sync
     const vis = showTyphoonTrackRef.current ? 'visible' : 'none';
     const layers = [
       'par-boundary-line',
@@ -48,6 +73,7 @@ export function useTyphoonLayer(
       'typhoon-forecast-cone-outline',
       'typhoon-track-line-glow',
       'typhoon-track-line',
+      'typhoon-track-line-forecast',
       'typhoon-track-point-halo',
       'typhoon-track-point-circle',
       'typhoon-track-point-dot',
@@ -58,6 +84,18 @@ export function useTyphoonLayer(
         map.setLayoutProperty(layerId, 'visibility', vis);
       }
     });
+
+    // 4. Update current storm marker and slate date label
+    clearCurrentStormMarkers(currentMarkersRef.current);
+    currentMarkersRef.current = [];
+    if (showTyphoonTrackRef.current && enrichedTrack) {
+      currentMarkersRef.current = syncCurrentStormMarkers(
+        map,
+        maplibregl,
+        enrichedTrack,
+        (feature, coords) => onPointClickRef.current?.(feature, coords)
+      );
+    }
   }, [mapRef]);
 
   const loadData = useCallback(async () => {
@@ -74,7 +112,7 @@ export function useTyphoonLayer(
     }
   }, [applyDataToMap]);
 
-  // Update visibility on MapLibre layers when showTyphoonTrack changes
+  // Update visibility on MapLibre layers and DOM markers when showTyphoonTrack changes
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !layersReadyRef.current) return;
@@ -87,6 +125,7 @@ export function useTyphoonLayer(
       'typhoon-forecast-cone-outline',
       'typhoon-track-line-glow',
       'typhoon-track-line',
+      'typhoon-track-line-forecast',
       'typhoon-track-point-halo',
       'typhoon-track-point-circle',
       'typhoon-track-point-dot',
@@ -98,6 +137,19 @@ export function useTyphoonLayer(
         map.setLayoutProperty(layerId, 'visibility', vis);
       }
     });
+
+    clearCurrentStormMarkers(currentMarkersRef.current);
+    currentMarkersRef.current = [];
+
+    if (showTyphoonTrack && typhoonDataRef.current?.track) {
+      const enrichedTrack = enrichTyphoonTrackGeoJson(typhoonDataRef.current.track);
+      currentMarkersRef.current = syncCurrentStormMarkers(
+        map,
+        maplibregl,
+        enrichedTrack,
+        (feature, coords) => onPointClickRef.current?.(feature, coords)
+      );
+    }
   }, [showTyphoonTrack, mapRef, layersReadyRef]);
 
   // Load data & poll when enabled

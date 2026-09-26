@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildTyphoonPopupHtml,
+  enrichTyphoonTrackGeoJson,
+  formatTrackDateLabel,
+  formatTyphoonDisplayName,
   getTyphoonCategoryColor,
   getTyphoonCategoryLabel,
   PAR_BOUNDARY_GEOJSON,
@@ -8,6 +11,11 @@ import {
   TYPHOON_CATEGORY_CONFIG,
 } from '@/lib/map/typhoon';
 import { convertPanahonToGeoJSON, type PanahonCycloneItem } from '@/lib/map/panahon';
+import {
+  clearCurrentStormMarkers,
+  createCurrentStormMarkerElement,
+  syncCurrentStormMarkers,
+} from '@/lib/map/typhoonMarker';
 
 describe('typhoon utilities', () => {
   it('has valid PAR boundary GeoJSON', () => {
@@ -42,8 +50,8 @@ describe('typhoon utilities', () => {
       radius: 100,
     });
 
-    expect(html).toContain('Bagyong OBET');
-    expect(html).toContain('SAUDEL');
+    expect(html).toContain('OBET (SAUDEL)');
+    expect(html).not.toContain('Bagyong');
     expect(html).toContain('120 km/h');
     expect(html).toContain('975 hPa');
     expect(html).toContain('Forecast Radius');
@@ -63,7 +71,7 @@ describe('typhoon utilities', () => {
     expect(html).toContain('Date/Time:');
   });
 
-  it('strips empty braces and formatting artefacts from popup title', () => {
+  it('strips empty braces, formatting artefacts, and Bagyong prefix from popup title', () => {
     const html = buildTyphoonPopupHtml({
       local_name: 'PILANDOK{}',
       latitude: 20.8,
@@ -71,7 +79,8 @@ describe('typhoon utilities', () => {
       typhoon_type: 'TD',
     });
 
-    expect(html).toContain('Bagyong PILANDOK');
+    expect(html).toContain('PILANDOK');
+    expect(html).not.toContain('Bagyong');
     expect(html).not.toContain('{}');
     expect(html).not.toContain('()');
   });
@@ -125,9 +134,18 @@ describe('typhoon utilities', () => {
     expect(points.length).toBe(3);
     expect(points[0].properties?.typhoon_name).toBe('PILANDOK');
     expect(points[0].properties?.typhoon_type).toBe('TD');
+    expect(points[0].properties?.is_current).toBe(true);
+    expect(points[0].properties?.date_label).toContain('Aug 30');
+    expect(points[0].properties?.current_label).toContain('Current:');
+    expect(points[1].properties?.is_current).toBe(false);
+    expect(points[1].properties?.current_label).toBe('');
 
     const lines = geojson.features.filter((f) => f.geometry.type === 'LineString');
-    expect(lines.length).toBe(1);
+    expect(lines.length).toBe(2);
+    expect(lines[0].properties?.typhoon_type).toBe('TD');
+    expect(lines[0].properties?.color).toBe(TYPHOON_CATEGORY_CONFIG.TD.color);
+    expect(lines[1].properties?.typhoon_type).toBe('LPA');
+    expect(lines[1].properties?.color).toBe(TYPHOON_CATEGORY_CONFIG.LPA.color);
 
     const cones = geojson.features.filter((f) => f.geometry.type === 'MultiPolygon');
     expect(cones.length).toBe(1);
@@ -198,5 +216,250 @@ describe('typhoon utilities', () => {
 
     const cones = geojson.features.filter((f) => f.geometry.type === 'MultiPolygon');
     expect(cones.length).toBe(2);
+  });
+
+  it('formats typhoon display names stripping Bagyong while retaining international name', () => {
+    expect(formatTyphoonDisplayName('Bagyong KRISTINE', 'TRAMI')).toBe('KRISTINE (TRAMI)');
+    expect(formatTyphoonDisplayName('Bagyong KRISTINE {TRAMI}')).toBe('KRISTINE (TRAMI)');
+    expect(formatTyphoonDisplayName('Bagyong OBET (SAUDEL)')).toBe('OBET (SAUDEL)');
+    expect(formatTyphoonDisplayName('Bagyong PILANDOK{}')).toBe('PILANDOK');
+    expect(formatTyphoonDisplayName('PILANDOK')).toBe('PILANDOK');
+    expect(formatTyphoonDisplayName('KRISTINE', 'KRISTINE')).toBe('KRISTINE');
+    expect(formatTyphoonDisplayName('', '')).toBe('Tropical Cyclone');
+  });
+
+  it('enriches raw GeoJSON track with current anchor, date labels, and cleaned storm names', () => {
+    const rawTrack = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [125.0, 15.0] },
+          properties: {
+            typhoon_name: 'Bagyong KRISTINE (TRAMI)',
+            local_name: 'Bagyong KRISTINE',
+            international_name: 'TRAMI',
+            typhoon_type: 'TS',
+            radius: 0,
+            date: '2026-10-22',
+            time: '02:00',
+            datetime: '2026-10-22T02:00:00',
+          },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [124.0, 15.5] },
+          properties: {
+            typhoon_name: 'Bagyong KRISTINE (TRAMI)',
+            local_name: 'Bagyong KRISTINE',
+            international_name: 'TRAMI',
+            typhoon_type: 'STS',
+            radius: 0,
+            date: '2026-10-22',
+            time: '08:00',
+            datetime: '2026-10-22T08:00:00',
+          },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [121.5, 16.8] },
+          properties: {
+            typhoon_name: 'Bagyong KRISTINE (TRAMI)',
+            local_name: 'Bagyong KRISTINE',
+            international_name: 'TRAMI',
+            typhoon_type: 'TY',
+            radius: 120,
+            date: '2026-10-23',
+            time: '08:00',
+            datetime: '2026-10-23T08:00:00',
+          },
+        },
+        {
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: [
+              [125.0, 15.0],
+              [124.0, 15.5],
+              [121.5, 16.8],
+            ],
+          },
+          properties: {
+            type: 'track_line',
+            typhoon_name: 'Bagyong KRISTINE (TRAMI)',
+          },
+        },
+      ],
+    };
+
+    const enriched = enrichTyphoonTrackGeoJson(rawTrack);
+    const points = enriched.features.filter((f: any) => f.geometry.type === 'Point');
+    expect(points.length).toBe(3);
+
+    // First past point: radius 0, but not latest observation
+    expect(points[0].properties.is_current).toBe(false);
+    expect(points[0].properties.current_label).toBe('');
+    expect(points[0].properties.date_label).toContain('Oct 22');
+    expect(points[0].properties.typhoon_name).toBe('KRISTINE (TRAMI)');
+    expect(points[0].properties.local_name).toBe('KRISTINE');
+
+    // Second point: latest radius 0 -> current anchor!
+    expect(points[1].properties.is_current).toBe(true);
+    expect(points[1].properties.current_label).toContain('Current: Oct 22');
+    expect(points[1].properties.current_label).not.toContain('●');
+    expect(points[1].properties.date_label).toContain('Oct 22');
+
+    // Third point: forecast milestone (radius 120 > 0)
+    expect(points[2].properties.is_current).toBe(false);
+    expect(points[2].properties.current_label).toBe('');
+    expect(points[2].properties.date_label).toContain('Oct 23');
+
+    // LineString check: segmented into solid past track and dashed forecast track with category colors
+    const lines = enriched.features.filter((f: any) => f.geometry.type === 'LineString');
+    expect(lines.length).toBe(2);
+
+    // Segment 0: past track up to current point (solid)
+    expect(lines[0].properties.typhoon_name).toBe('KRISTINE (TRAMI)');
+    expect(lines[0].properties.track_type).toBe('past');
+    expect(lines[0].properties.is_forecast).toBe(false);
+    expect(lines[0].properties.typhoon_type).toBe('TS');
+    expect(lines[0].properties.color).toBe(TYPHOON_CATEGORY_CONFIG.TS.color);
+
+    // Segment 1: forecast track after current point (dashed)
+    expect(lines[1].properties.typhoon_name).toBe('KRISTINE (TRAMI)');
+    expect(lines[1].properties.track_type).toBe('forecast');
+    expect(lines[1].properties.is_forecast).toBe(true);
+    expect(lines[1].properties.typhoon_type).toBe('TY');
+    expect(lines[1].properties.color).toBe(TYPHOON_CATEGORY_CONFIG.TY.color);
+  });
+
+  it('guarantees right padding in popup header to prevent close button collision', () => {
+    const html = buildTyphoonPopupHtml({
+      local_name: 'SUPER LONG TYPHOON NAME TESTING TRUNCATION',
+      international_name: 'INTERNATIONAL_NAME',
+      typhoon_type: 'STY',
+      latitude: 16.0,
+      longitude: 125.0,
+    });
+    expect(html).toContain('padding-right: 36px');
+    expect(html).toContain('truncate min-w-0 flex-1');
+  });
+
+  it('normalizes space-separated datetime strings for Safari/WebKit compatibility', () => {
+    // Space separated datetime strings
+    const labelFromSpace = formatTrackDateLabel('', '', '2026-08-30 08:00');
+    expect(labelFromSpace).toContain('Aug 30');
+    expect(labelFromSpace).toContain('8:00 AM');
+
+    const labelFromDateAndTime = formatTrackDateLabel('2026-10-22', '14:00');
+    expect(labelFromDateAndTime).toContain('Oct 22');
+    expect(labelFromDateAndTime).toContain('2:00 PM');
+  });
+
+  it('safely handles SSR environment when document is undefined', () => {
+    // In node environment without document, returns null without throwing
+    const res = createCurrentStormMarkerElement({
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: [125.0, 15.0] },
+      properties: {
+        typhoon_name: 'KRISTINE',
+        typhoon_type: 'TY',
+        date_label: 'Oct 22, 8:00 AM',
+      },
+    });
+    expect(res).toBeNull();
+  });
+
+  it('constructs DOM marker with minimal slate date label', () => {
+    // Provide minimal mock DOM for marker rendering test
+    const createdElements: Array<{ tag: string; attrs: Record<string, string>; styles: Record<string, string> }> = [];
+    const listeners: Record<string, (e?: any) => void> = {};
+
+    const mockElement = (tag: string) => {
+      const el: any = {
+        tagName: tag.toUpperCase(),
+        className: '',
+        style: {},
+        innerHTML: '',
+        children: [] as any[],
+        setAttribute: (k: string, v: string) => {
+          el.attrs = el.attrs || {};
+          el.attrs[k] = v;
+        },
+        appendChild: (child: any) => {
+          el.children.push(child);
+          return child;
+        },
+        addEventListener: (event: string, handler: any) => {
+          listeners[event] = handler;
+        },
+      };
+      return el;
+    };
+
+    const originalDoc = (global as any).document;
+    try {
+      (global as any).document = {
+        createElement: (tag: string) => mockElement(tag),
+        createElementNS: (_ns: string, tag: string) => mockElement(tag),
+      };
+
+      let clickedFeature: any = null;
+      let clickedCoords: any = null;
+
+      const feature: any = {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [124.0, 15.5] },
+        properties: {
+          typhoon_name: 'KRISTINE (TRAMI)',
+          typhoon_type: 'TY',
+          date_label: 'Oct 22, 8:00 AM',
+          is_current: true,
+        },
+      };
+
+      const container = createCurrentStormMarkerElement(feature, (f, coords) => {
+        clickedFeature = f;
+        clickedCoords = coords;
+      });
+
+      expect(container).toBeDefined();
+      expect(container?.className).toBe('gakit-typhoon-marker-container');
+
+      // Verify no SVG or leader line is created
+      const svg = (container as any)?.children.find((c: any) => c.tagName === 'SVG');
+      expect(svg).toBeUndefined();
+
+      // Check Slate Date Label (no line, no card, no "Current", no bullet)
+      const label = (container as any)?.children.find((c: any) => c.className === 'gakit-typhoon-date-label');
+      expect(label).toBeDefined();
+      expect(label.textContent).toBe('Oct 22, 8:00 AM');
+      expect(label.innerHTML).not.toContain('Current');
+      expect(label.innerHTML).not.toContain('●');
+
+      // Check click listener
+      expect(listeners['click']).toBeDefined();
+      listeners['click']({ stopPropagation: () => {} } as any);
+      expect(clickedFeature).toEqual(feature);
+      expect(clickedCoords).toEqual([124.0, 15.5]);
+    } finally {
+      (global as any).document = originalDoc;
+    }
+  });
+
+  it('safely handles marker clearing and syncing lifecycle', () => {
+    let removedCount = 0;
+    const mockMarkers = [
+      { remove: () => { removedCount++; } },
+      { remove: () => { removedCount++; } },
+    ];
+
+    clearCurrentStormMarkers(mockMarkers);
+    expect(removedCount).toBe(2);
+
+    // Handles null / empty safely
+    expect(() => clearCurrentStormMarkers(null as any)).not.toThrow();
+    expect(() => clearCurrentStormMarkers([])).not.toThrow();
+    expect(syncCurrentStormMarkers(null, null, null)).toEqual([]);
   });
 });

@@ -1,7 +1,7 @@
 'use client';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { AdminHeader } from '@/components/AdminHeader';
 import { SideBar } from '@/components/SideBar';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
@@ -27,13 +27,15 @@ const ScenariosTab = dynamic(
   { loading: () => <TabLoading />, ssr: false }
 );
 export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get('tab') as MonitoringFeatureId | null;
   const tabFromParams =
     requestedTab && monitoringFeatureMap[requestedTab] ? requestedTab : 'dashboard';
   const [activeTab, setActiveTab] = useState<MonitoringFeatureId>(tabFromParams);
   const [highlightedReportId, setHighlightedReportId] = useState<string | null>(null);
+  const [highlightedNotificationId, setHighlightedNotificationId] = useState<string | null>(
+    () => searchParams.get('notification')
+  );
   const [selectedWeatherAlert, setSelectedWeatherAlert] = useState<WeatherAlert | null>(null);
   const activeFeature = monitoringFeatureMap[activeTab];
 
@@ -50,7 +52,6 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
       : undefined;
   const initialTime = searchParams.get('time') ?? undefined;
 
-
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
@@ -64,50 +65,96 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     };
   }, []);
 
-
+  // Idle-prefetch tab component chunks so first click is instantaneous
   useEffect(() => {
-    let cancelled = false;
-    void Promise.resolve().then(() => {
-      if (cancelled) return;
-      setActiveTab(tabFromParams);
-    });
-    return () => {
-      cancelled = true;
+    const prefetchTabs = () => {
+      void import('./features/alerts/AlertsTab');
+      void import('./features/reports/ReportsTab');
+      void import('./features/scenarios/ScenariosTab');
     };
-  }, [tabFromParams]);
+
+    if (typeof window !== 'undefined') {
+      if ('requestIdleCallback' in window) {
+        const id = (window as any).requestIdleCallback(prefetchTabs, { timeout: 2000 });
+        return () => (window as any).cancelIdleCallback?.(id);
+      } else {
+        const timer = setTimeout(prefetchTabs, 1000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, []);
+
+  // URL updater: modifies browser address bar with 0ms latency and 0 server round-trips
+  const updateUrl = (newTab: MonitoringFeatureId, queryMutator?: (params: URLSearchParams) => void) => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (newTab === 'dashboard') {
+      params.delete('tab');
+    } else {
+      params.set('tab', newTab);
+    }
+    if (queryMutator) {
+      queryMutator(params);
+    }
+    const query = params.toString();
+    const url = query ? `/monitoring?${query}` : '/monitoring';
+    window.history.replaceState(null, '', url);
+  };
+
+  // Support browser Back and Forward navigation without server round-trips
+  useEffect(() => {
+    const handlePopState = () => {
+      const currentParams = new URLSearchParams(window.location.search);
+      const tabParam = currentParams.get('tab') as MonitoringFeatureId | null;
+      const resolvedTab = tabParam && monitoringFeatureMap[tabParam] ? tabParam : 'dashboard';
+      setActiveTab(resolvedTab);
+      setHighlightedNotificationId(currentParams.get('notification'));
+      setHighlightedReportId(null);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const handleTabChange = (tab: MonitoringFeatureId) => {
     setActiveTab(tab);
     setHighlightedReportId(null);
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('notification');
-    if (tab === 'dashboard') params.delete('tab');
-    else params.set('tab', tab);
-    const query = params.toString();
-    router.replace(query ? `/monitoring?${query}` : '/monitoring', { scroll: false });
+    setHighlightedNotificationId(null);
+    updateUrl(tab, (params) => {
+      params.delete('notification');
+    });
   };
+
   const handleReviewReports = (options?: { status?: ReportStatus; reportId?: string }) => {
     setActiveTab('reports');
     setHighlightedReportId(options?.reportId ?? null);
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('notification');
-    params.set('tab', 'reports');
-    if (options?.status) params.set('status', options.status);
-    else params.delete('status');
-    params.set('time', '24h');
-    const query = params.toString();
-    router.replace(`/monitoring?${query}`, { scroll: false });
+    setHighlightedNotificationId(null);
+    updateUrl('reports', (params) => {
+      params.delete('notification');
+      if (options?.status) params.set('status', options.status);
+      else params.delete('status');
+      params.set('time', '24h');
+    });
   };
+
   const handleOpenReport = (reportId?: string) => {
     setActiveTab('reports');
     setHighlightedReportId(reportId ?? null);
-    router.replace('/monitoring?tab=reports', { scroll: false });
+    setHighlightedNotificationId(null);
+    updateUrl('reports', (params) => {
+      params.delete('notification');
+    });
   };
+
   const handleOpenNotification = (notificationId: string) => {
     setActiveTab('alerts');
     setHighlightedReportId(null);
-    router.replace(`/monitoring?tab=alerts&notification=${encodeURIComponent(notificationId)}`, { scroll: false });
+    setHighlightedNotificationId(notificationId);
+    updateUrl('alerts', (params) => {
+      params.set('notification', notificationId);
+    });
   };
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50/80">
       <SideBar
@@ -131,7 +178,12 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
             <DashboardOverview active={activeTab === 'dashboard'} onReviewReports={handleReviewReports} />
           </div>
           <div className={activeTab === 'alerts' ? 'space-y-4' : 'hidden'}>
-            <AlertsTab active={activeTab === 'alerts'} onOpenReports={handleOpenReport} onSelectWeatherAlert={setSelectedWeatherAlert} />
+            <AlertsTab
+              active={activeTab === 'alerts'}
+              highlightedNotificationId={highlightedNotificationId}
+              onOpenReports={handleOpenReport}
+              onSelectWeatherAlert={setSelectedWeatherAlert}
+            />
           </div>
           <div className={activeTab === 'reports' ? 'space-y-4' : 'hidden'}>
             <ReportsTab

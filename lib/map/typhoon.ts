@@ -126,24 +126,284 @@ export function getTyphoonCategoryLabel(category?: string): string {
 }
 
 /**
+ * Formats typhoon local & international names, ensuring the "Bagyong" prefix
+ * is removed while keeping the international name in parentheses (e.g., "KRISTINE (TRAMI)").
+ */
+export function formatTyphoonDisplayName(local?: string, intl?: string): string {
+  let rawLocal = (local || '').trim();
+  let rawIntl = (intl || '').trim();
+
+  // If local has braces like "KRISTINE{TRAMI}" or "PILANDOK{}"
+  const braceMatch = rawLocal.match(/^([^{}]+?)(?:\s*\{\s*([^{}]*)\s*\})?$/);
+  if (braceMatch) {
+    rawLocal = braceMatch[1] || '';
+    if (!rawIntl && braceMatch[2]) {
+      rawIntl = braceMatch[2];
+    }
+  }
+
+  // Remove "bagyong " prefix
+  let cleanLocal = rawLocal.replace(/^bagyong\s+/i, '').trim();
+  let cleanIntl = rawIntl.replace(/^bagyong\s+/i, '').replace(/[{}]/g, '').trim();
+
+  // If cleanLocal has (INTL)
+  const parenMatch = cleanLocal.match(/^([^(]+?)(?:\s*\(\s*([^)]*)\s*\))?$/);
+  if (parenMatch) {
+    cleanLocal = parenMatch[1].trim();
+    if (!cleanIntl && parenMatch[2]) {
+      cleanIntl = parenMatch[2].replace(/^bagyong\s+/i, '').trim();
+    }
+  }
+
+  cleanLocal = cleanLocal.replace(/[{}]/g, '').trim();
+
+  if (cleanLocal && cleanIntl && cleanLocal.toUpperCase() !== cleanIntl.toUpperCase()) {
+    return `${cleanLocal} (${cleanIntl})`;
+  }
+  if (cleanLocal) return cleanLocal;
+  if (cleanIntl) return cleanIntl;
+  return 'Tropical Cyclone';
+}
+
+/**
+ * Formats a track point timestamp into a human-readable date label (e.g. "Aug 30, 8:00 AM").
+ */
+export function formatTrackDateLabel(dateStr?: string, timeStr?: string, datetimeStr?: string): string {
+  try {
+    const raw = datetimeStr || (dateStr && timeStr ? `${dateStr}T${timeStr}:00` : dateStr || '');
+    if (!raw) return '';
+    const normalized = raw.includes(' ') && !raw.includes('T') ? raw.replace(' ', 'T') : raw;
+    const d = new Date(normalized);
+    if (!isNaN(d.getTime())) {
+      const monthDay = d.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+      });
+      const time = d.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      });
+      return `${monthDay}, ${time}`;
+    }
+  } catch {}
+  return [dateStr, timeStr].filter(Boolean).join(' ');
+}
+
+/**
+ * Builds colored track line segments partitioned into:
+ * - Past track (solid, before/at current position)
+ * - Forecast track (dashed, after current position)
+ * With each segment colored by the cyclone category at that stage.
+ */
+export function buildColoredTrackLines(
+  points: any[],
+  currentIdx: number,
+  stormName: string
+): any[] {
+  if (!Array.isArray(points) || points.length < 2) return [];
+
+  const lines: any[] = [];
+  let currentSegment: {
+    trackType: 'past' | 'forecast';
+    category: string;
+    coords: [number, number][];
+  } | null = null;
+
+  for (let i = 0; i < points.length - 1; i++) {
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const c1 = p1.geometry?.coordinates;
+    const c2 = p2.geometry?.coordinates;
+    if (!c1 || !c2) continue;
+
+    const isForecast = i >= currentIdx;
+    const trackType = isForecast ? 'forecast' : 'past';
+    const rawCat = isForecast
+      ? (p2.properties?.typhoon_type || p1.properties?.typhoon_type)
+      : (p1.properties?.typhoon_type || p2.properties?.typhoon_type);
+    const cat = normalizeTyphoonCategory(rawCat || 'TY');
+
+    if (
+      currentSegment &&
+      currentSegment.trackType === trackType &&
+      currentSegment.category === cat
+    ) {
+      currentSegment.coords.push(c2);
+    } else {
+      if (currentSegment && currentSegment.coords.length >= 2) {
+        const segColor = TYPHOON_CATEGORY_CONFIG[currentSegment.category]?.color || DEFAULT_TYPHOON_COLOR;
+        lines.push({
+          type: 'Feature',
+          geometry: {
+            type: 'LineString',
+            coordinates: currentSegment.coords,
+          },
+          properties: {
+            type: 'track_line',
+            track_type: currentSegment.trackType,
+            is_forecast: currentSegment.trackType === 'forecast',
+            typhoon_type: currentSegment.category,
+            color: segColor,
+            typhoon_name: stormName,
+          },
+        });
+      }
+      currentSegment = {
+        trackType,
+        category: cat,
+        coords: [c1, c2],
+      };
+    }
+  }
+
+  if (currentSegment && currentSegment.coords.length >= 2) {
+    const segColor = TYPHOON_CATEGORY_CONFIG[currentSegment.category]?.color || DEFAULT_TYPHOON_COLOR;
+    lines.push({
+      type: 'Feature',
+      geometry: {
+        type: 'LineString',
+        coordinates: currentSegment.coords,
+      },
+      properties: {
+        type: 'track_line',
+        track_type: currentSegment.trackType,
+        is_forecast: currentSegment.trackType === 'forecast',
+        typhoon_type: currentSegment.category,
+        color: segColor,
+        typhoon_name: stormName,
+      },
+    });
+  }
+
+  return lines;
+}
+
+/**
+ * Enriches a Typhoon FeatureCollection with standardized labels,
+ * tagging the latest actual observation point with `is_current: true` and `current_label`,
+ * generating date labels for all track milestones, cleaning storm titles,
+ * and generating category-colored, solid-past and dashed-forecast track lines.
+ */
+export function enrichTyphoonTrackGeoJson(track: any): any {
+  if (!track || !Array.isArray(track.features)) return track;
+
+  const pointFeatures: any[] = [];
+  const otherFeatures: any[] = [];
+  const fallbackLineFeatures: any[] = [];
+
+  for (const feature of track.features) {
+    if (feature?.geometry?.type === 'Point') {
+      pointFeatures.push(feature);
+    } else if (feature?.geometry?.type === 'LineString') {
+      fallbackLineFeatures.push(feature);
+    } else {
+      const props = { ...(feature?.properties || {}) };
+      if (props.typhoon_name) {
+        props.typhoon_name = formatTyphoonDisplayName(
+          props.local_name || props.typhoon_name,
+          props.international_name
+        );
+      }
+      otherFeatures.push({
+        ...feature,
+        properties: props,
+      });
+    }
+  }
+
+  const stormPointsMap = new Map<string, any[]>();
+  for (const pt of pointFeatures) {
+    const stormKey = pt.properties?.local_name || pt.properties?.typhoon_name || 'default';
+    if (!stormPointsMap.has(stormKey)) {
+      stormPointsMap.set(stormKey, []);
+    }
+    stormPointsMap.get(stormKey)!.push(pt);
+  }
+
+  const enrichedPoints: any[] = [];
+  const generatedLines: any[] = [];
+
+  for (const [, pts] of stormPointsMap.entries()) {
+    let currentIdx = -1;
+    for (let i = 0; i < pts.length; i++) {
+      const r = Number(pts[i].properties?.radius ?? 0);
+      if (r === 0) {
+        currentIdx = i;
+      }
+    }
+    if (currentIdx === -1 && pts.length > 0) {
+      currentIdx = 0;
+    }
+
+    let stormTitle = 'Active Cyclone';
+
+    for (let i = 0; i < pts.length; i++) {
+      const pt = pts[i];
+      const props = { ...(pt.properties || {}) };
+
+      const isCurrent = i === currentIdx;
+      const dateLabel = formatTrackDateLabel(props.date, props.time, props.datetime);
+      const cleanName = formatTyphoonDisplayName(
+        props.local_name || props.typhoon_name,
+        props.international_name
+      );
+      stormTitle = cleanName;
+      const cleanLocal = (props.local_name || '')
+        .replace(/^bagyong\s+/i, '')
+        .replace(/[{}]/g, '')
+        .replace(/\s*\([^)]*\)/g, '')
+        .trim();
+
+      props.typhoon_name = cleanName;
+      if (cleanLocal) props.local_name = cleanLocal;
+      if (props.international_name) {
+        props.international_name = props.international_name
+          .replace(/^bagyong\s+/i, '')
+          .replace(/[{}]/g, '')
+          .trim();
+      }
+
+      props.date_label = dateLabel;
+      props.is_current = isCurrent;
+      props.current_label = isCurrent
+        ? (dateLabel ? `Current: ${dateLabel}` : 'Current Position')
+        : '';
+
+      enrichedPoints.push({
+        ...pt,
+        properties: props,
+      });
+    }
+
+    // Build colored, solid-past / dashed-forecast lines for this storm
+    const coloredLines = buildColoredTrackLines(pts, currentIdx, stormTitle);
+    generatedLines.push(...coloredLines);
+  }
+
+  const linesToInclude = generatedLines.length > 0 ? generatedLines : fallbackLineFeatures;
+
+  return {
+    ...track,
+    features: [...otherFeatures, ...linesToInclude, ...enrichedPoints],
+  };
+}
+
+const escapeHtml = (value: string) =>
+  value.replace(
+    /[&<>"']/g,
+    (ch) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch] || ch
+  );
+
+/**
  * Formats a typhoon point for popup display
  */
 export function buildTyphoonPopupHtml(props: TyphoonProperties): string {
-  const cleanLocal = (props.local_name || props.typhoon_name || '')
-    .replace(/[{}]/g, '')
-    .trim();
-  const cleanIntl = (props.international_name || '')
-    .replace(/[{}]/g, '')
-    .trim();
-
-  let name = 'Tropical Cyclone';
-  if (cleanLocal && cleanIntl && cleanLocal !== cleanIntl) {
-    name = `Bagyong ${cleanLocal} (${cleanIntl})`;
-  } else if (cleanLocal) {
-    name = `Bagyong ${cleanLocal}`;
-  } else if (cleanIntl) {
-    name = cleanIntl;
-  }
+  const name = formatTyphoonDisplayName(
+    props.local_name || props.typhoon_name,
+    props.international_name
+  );
 
   const typeCode = normalizeTyphoonCategory(props.typhoon_type);
   const typeConfig = TYPHOON_CATEGORY_CONFIG[typeCode] || TYPHOON_CATEGORY_CONFIG.TY;
@@ -161,11 +421,11 @@ export function buildTyphoonPopupHtml(props: TyphoonProperties): string {
 
   return `
     <div class="gakit-tooltip typhoon-popup min-w-[260px] sm:min-w-[280px] text-slate-800" style="font-family: var(--font-inter), system-ui, sans-serif;">
-      <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100 pr-6">
+      <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100" style="padding-right: 36px;">
         <span class="inline-flex items-center justify-center px-2 py-0.5 rounded-md text-[10px] font-bold text-white shadow-2xs shrink-0" style="background-color: ${typeConfig.color}">
           ${typeCode}
         </span>
-        <div class="font-bold text-xs text-slate-900 truncate leading-tight">${name}</div>
+        <div class="font-bold text-xs text-slate-900 truncate min-w-0 flex-1 leading-tight" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
       </div>
       <div class="space-y-1.5 text-[11px] leading-relaxed">
         <div class="flex items-center justify-between gap-4">
