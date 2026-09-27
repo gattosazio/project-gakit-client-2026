@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -151,6 +151,33 @@ export function MapSidebar({
   const WeatherIcon = liveCondition ? liveCondition.icon : CloudSun;
   const currentTemp = currentWeather ? `${Math.round(currentWeather.temperature)}°` : null;
 
+  // Suppress the icon-rail hover labels briefly after minimizing: the cursor
+  // rests where the panel was (usually over the top/weather pill), which would
+  // otherwise bloom the "Weather Outlook" label open on mount. Deliberate
+  // hovers after the gate still expand normally.
+  const [railLabelsLive, setRailLabelsLive] = useState(false);
+  const [wasCollapsed, setWasCollapsed] = useState(isCollapsed);
+  if (wasCollapsed !== isCollapsed) {
+    // Rail just (un)mounted: re-arm the hover-label gate during render.
+    setWasCollapsed(isCollapsed);
+    setRailLabelsLive(false);
+  }
+  useEffect(() => {
+    if (!isCollapsed) return;
+    const t = setTimeout(() => setRailLabelsLive(true), 500);
+    return () => clearTimeout(t);
+  }, [isCollapsed]);
+
+  // Full literal class strings (kept whole so Tailwind still generates them).
+  const RAIL_LABEL_BASE =
+    'max-w-0 overflow-hidden whitespace-nowrap text-sm font-bold opacity-0 transition-all duration-300 ease-in-out';
+  const RAIL_LABEL_HOVER =
+    'group-hover:max-w-[150px] group-hover:opacity-100 group-hover:pr-4 group-hover:ml-[-4px]';
+  const RAIL_LABEL_HOVER_WIDE =
+    'group-hover:max-w-[170px] group-hover:opacity-100 group-hover:pr-4 group-hover:ml-[-4px]';
+  const railLabelClass = (wide = false) =>
+    `${RAIL_LABEL_BASE} ${railLabelsLive ? (wide ? RAIL_LABEL_HOVER_WIDE : RAIL_LABEL_HOVER) : ''}`;
+
   const activeLayersCount = [
     showFloodHazard,
     showRainfall,
@@ -191,11 +218,20 @@ export function MapSidebar({
     }, 80);
   };
 
+  // Automatically minimize sidebar to the sleek icon rail when all cards are collapsed
+  useEffect(() => {
+    if (!isCollapsed && !weatherOpen && !layersOpen && !reportsOpen) {
+      onToggleCollapse(true);
+    }
+  }, [isCollapsed, weatherOpen, layersOpen, reportsOpen, onToggleCollapse]);
+
   const handleToggleWeather = (open: boolean) => {
     onToggleWeather(open);
     if (open) {
       onToggleLayers(false);
       onToggleReports(false);
+    } else if (!layersOpen && !reportsOpen) {
+      onToggleCollapse(true);
     }
   };
 
@@ -204,6 +240,8 @@ export function MapSidebar({
     if (open) {
       onToggleWeather(false);
       onToggleReports(false);
+    } else if (!weatherOpen && !reportsOpen) {
+      onToggleCollapse(true);
     }
   };
 
@@ -212,6 +250,8 @@ export function MapSidebar({
     if (open) {
       onToggleWeather(false);
       onToggleLayers(false);
+    } else if (!weatherOpen && !layersOpen) {
+      onToggleCollapse(true);
     }
   };
 
@@ -234,19 +274,6 @@ export function MapSidebar({
         controlsVisible ? 'opacity-100' : 'opacity-0'
       }`}
     >
-      {/* Floating Collapse Button matching SectionJumpControls rounded styling — only shown when expanded */}
-      {!isCollapsed && (
-        <button
-          type="button"
-          onClick={() => onToggleCollapse(true)}
-          className="pointer-events-auto absolute top-1/2 -translate-y-1/2 right-0 translate-x-[calc(100%+8px)] flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/35 text-slate-100 shadow-lg shadow-black/25 ring-1 ring-white/20 backdrop-blur-md transition-all duration-150 hover:bg-slate-900/55 hover:text-white hover:scale-105 active:scale-90 z-[1010]"
-          title="Collapse map controls"
-          aria-label="Collapse map controls"
-        >
-          <ChevronLeft className="h-5 w-5 stroke-[2.25] transition-transform" />
-        </button>
-      )}
-
       {isCollapsed ? (
         /* ─── Collapsed State: Sleek Vertical Icon Rail ─────────────────── */
         <div className={`pointer-events-auto flex flex-col items-start gap-2 select-none ${maxHeightClass}`}>
@@ -267,7 +294,7 @@ export function MapSidebar({
                   </span>
                 )}
               </div>
-              <span className="max-w-0 overflow-hidden whitespace-nowrap text-sm font-bold opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:pr-4 group-hover:ml-[-4px]">
+              <span className={railLabelClass()}>
                 Weather Outlook
               </span>
             </button>
@@ -289,9 +316,9 @@ export function MapSidebar({
                 </span>
               )}
             </div>
-            <span className="max-w-0 overflow-hidden whitespace-nowrap text-sm font-bold opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:pr-4 group-hover:ml-[-4px]">
-              Map Layers
-            </span>
+              <span className={railLabelClass()}>
+                Map Layers
+              </span>
           </button>
 
           {/* Citizen Reports Icon Button */}
@@ -316,9 +343,9 @@ export function MapSidebar({
                 </span>
               )}
             </div>
-            <span className="max-w-0 overflow-hidden whitespace-nowrap text-sm font-bold opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[170px] group-hover:opacity-100 group-hover:pr-4 group-hover:ml-[-4px]">
-              Citizen Reports
-            </span>
+              <span className={railLabelClass(true)}>
+                Citizen Reports
+              </span>
           </button>
 
           {/* Quick Action: Report Flooding */}
@@ -348,7 +375,7 @@ export function MapSidebar({
                   <circle cx="12" cy="17" r="1.15" fill="white" />
                 </svg>
               </div>
-              <span className="max-w-0 overflow-hidden whitespace-nowrap text-sm font-bold text-gakit-maroon opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:pr-4 group-hover:ml-[-4px]">
+              <span className={`${railLabelClass()} text-gakit-maroon`}>
                 Report Flooding
               </span>
             </button>
@@ -356,11 +383,22 @@ export function MapSidebar({
         </div>
       ) : (
         /* ─── Expanded State: Unified Scrollable Card Sidebar ────────────── */
-        <div className={`pointer-events-auto flex flex-col min-h-0 max-h-full ${isEmbedded ? '' : maxHeightClass} w-[calc(100vw-4.5rem)] max-w-[264px] sm:w-[264px] transition-all duration-300 ease-in-out`}>
+        <div className={`relative pointer-events-auto flex flex-col min-h-0 max-h-full ${isEmbedded ? '' : maxHeightClass} w-[calc(100vw-4.5rem)] max-w-[264px] sm:w-[264px] transition-all duration-300 ease-in-out`}>
+          {/* Docked Drawer Handle Tab */}
+          <button
+            type="button"
+            onClick={() => onToggleCollapse(true)}
+            className="absolute top-1/2 -translate-y-1/2 right-0 translate-x-full flex h-12 w-5.5 items-center justify-center rounded-r-xl bg-white/95 border-y border-r border-slate-200/90 shadow-md shadow-slate-900/10 backdrop-blur-md transition-all duration-150 hover:bg-slate-50 hover:w-6 active:scale-95 group cursor-pointer z-[1010]"
+            title="Minimize sidebar"
+            aria-label="Minimize sidebar"
+          >
+            <ChevronLeft className="h-4 w-4 stroke-[2.5] text-slate-400 group-hover:text-gakit-maroon transition-transform duration-150 group-hover:-translate-x-0.5" />
+          </button>
+
           {/* Scrollable Cards Container */}
           <div
             ref={scrollContainerRef}
-            className="sidebar-scroll shrink min-h-0 overflow-y-auto overscroll-contain pr-1 pb-1.5 space-y-1.5"
+            className="sidebar-scroll shrink min-h-0 overflow-y-auto overscroll-contain pr-1 pb-1.5 space-y-1.5 [scrollbar-gutter:stable]"
           >
             {/* Weather Outlook Card */}
             {!hideWeather && (

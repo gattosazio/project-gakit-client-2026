@@ -5,6 +5,7 @@ import { BellRing, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
 import { CurrentConditions } from '@/components/weather/CurrentConditions';
 import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import { alertTitle } from '@/lib/weather/weatherCodes';
+import { isPagasaAlert, shortTitle } from '@/lib/weather/pagasa';
 import type { CurrentWeather, WeatherAlert } from '@/types/weather';
 
 interface StatusStripProps {
@@ -111,7 +112,7 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
                   <BellRing className="h-4 w-4 shrink-0" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-bold">
-                      {alertTitle(alert)}
+                      {isPagasaAlert(alert) ? shortTitle(alert) || alertTitle(alert) : alertTitle(alert)}
                     </span>
                     <span className="block text-xs font-semibold opacity-80">
                       {ALERT_TYPE_LABELS[alert.alertType] ?? 'Advisory'} · issued{' '}

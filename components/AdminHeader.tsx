@@ -20,6 +20,7 @@ import {
 } from '@/lib/notifications/receipts';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
 import { alertDescription, alertTitle } from '@/lib/weather/weatherCodes';
+import { isPagasaAlert, pagasaSubtitle, shortTitle } from '@/lib/weather/pagasa';
 import { formatDateTime } from '@/lib/reports/reportFormatting';
 import type { Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
@@ -71,8 +72,8 @@ function mapWeatherToHeader(alert: WeatherAlert): HeaderNotification {
     SEVERITY_ICON_CLASS[alert.severity] ?? 'bg-cyan-50 text-cyan-700';
   return {
     id: `weather-${alert.id}`,
-    title: alertTitle(alert),
-    detail: alertDescription(alert),
+    title: isPagasaAlert(alert) ? shortTitle(alert) || alertTitle(alert) : alertTitle(alert),
+    detail: isPagasaAlert(alert) ? pagasaSubtitle(alert) : alertDescription(alert),
     createdAt: alert.createdAt,
     icon: WEATHER_ICONS[alert.alertType] ?? CloudRain,
     iconClass: severityClass,
@@ -145,7 +146,7 @@ export function AdminHeader({
   const activeAlerts = useActiveAlerts();
 
   const notifications = useMemo<HeaderNotification[]>(
-    () => [...createNotifications(recentReports), ...(activeAlerts ?? []).map(mapWeatherToHeader)],
+    () => [...createNotifications(recentReports), ...(activeAlerts ?? []).filter((a) => a.alertType !== 'daily_digest').map(mapWeatherToHeader)],
     [recentReports, activeAlerts]
   );
 

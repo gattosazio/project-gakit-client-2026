@@ -92,7 +92,6 @@ export function WeatherChip({
     [open, setControlledOpen]
   );
   const days = digest?.data?.days ?? null;
-  const issuedAt = digest?.createdAt ?? null;
 
   if (!digest || !days || days.length === 0) return null;
 
@@ -136,14 +135,6 @@ export function WeatherChip({
                   {numericLabel}
                 </span>
               )}
-              {issuedAt && open && (
-                <span className="truncate text-[10px] font-normal text-slate-400 tabular-nums">
-                  · {new Date(issuedAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-              )}
             </div>
             <button
               type="button"
@@ -158,8 +149,14 @@ export function WeatherChip({
             </button>
           </div>
 
-          {open && (
-            <div className="px-2.5 pb-2.5 pt-1 space-y-1.5 border-t border-slate-100/80">
+          <div
+            aria-hidden={!open}
+            className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+              open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+            }`}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="px-2.5 pb-2.5 pt-1 space-y-1.5 border-t border-slate-100/80">
               {/* Current Conditions ("Now") */}
               {current && <CurrentConditions current={current} />}
 
@@ -247,8 +244,9 @@ export function WeatherChip({
               <div className="flex items-center justify-end border-t border-slate-100 pt-1.5">
                 <WeatherAttribution />
               </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {selectedDayDate && (
@@ -272,14 +270,6 @@ export function WeatherChip({
             <div className="flex min-w-0 items-center gap-2">
               <PillIcon className="w-3.5 h-3.5 text-gakit-maroon shrink-0" />
               <span className="truncate">Weather Outlook</span>
-              {issuedAt && (
-                <span className="truncate text-[10px] font-normal text-slate-400 tabular-nums">
-                  · {new Date(issuedAt).toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </span>
-              )}
             </div>
             <button
               onClick={() => setOpen(false)}

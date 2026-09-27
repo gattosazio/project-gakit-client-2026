@@ -2,7 +2,8 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { CloudRain, AlertTriangle, Flame, Thermometer, X, Droplet } from 'lucide-react';
 import type { CurrentWeather, WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
-import { alertDescription, alertTitle, digestPeriod, formatDayForecast, getWeatherCondition } from '@/lib/weather/weatherCodes';
+import { alertTitle, digestPeriod, formatDayForecast, getWeatherCondition } from '@/lib/weather/weatherCodes';
+import { hazardSummary, isPagasaAlert, otherProvinceCount, parseLocalTowns, shortTitle } from '@/lib/weather/pagasa';
 import { WeatherAttribution } from './weather/WeatherAttribution';
 import { CurrentConditions } from './weather/CurrentConditions';
 import { RainStrip } from './weather/RainStrip';
@@ -58,14 +59,15 @@ function startOfDay(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-/** "Today", "Tomorrow", or "Sat, Aug 25" */
+/** "Today, Sep 27", "Tomorrow, Sep 28", or "Sat, Aug 25" */
 function friendlyDay(iso: string): string {
   const target = new Date(iso);
   const dayDiff = Math.round((startOfDay(target) - startOfDay(new Date())) / 86_400_000);
+  const date = target.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
 
-  if (dayDiff === 0) return 'Today';
-  if (dayDiff === 1) return 'Tomorrow';
-  if (dayDiff === -1) return 'Yesterday';
+  if (dayDiff === 0) return `Today, ${date}`;
+  if (dayDiff === 1) return `Tomorrow, ${date}`;
+  if (dayDiff === -1) return `Yesterday, ${date}`;
 
   return target.toLocaleDateString('en-PH', {
     weekday: 'short',
@@ -99,6 +101,12 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
   const mounted = useMounted();
   const days = alert.data?.days ?? [];
   const [selectedDate, setSelectedDate] = useState<string>(() => highlightDate || (days[0]?.date ?? ''));
+  const [townsExpanded, setTownsExpanded] = useState(false);
+  const [expandedFor, setExpandedFor] = useState(alert.id);
+  if (expandedFor !== alert.id) {
+    setExpandedFor(alert.id);
+    setTownsExpanded(false);
+  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -112,7 +120,14 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
 
   const config = SEVERITY_CONFIG[alert.severity];
   const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
-  const heading = alertTitle(alert);
+  const pagasa = isPagasaAlert(alert);
+  const heading = pagasa ? shortTitle(alert) || alertTitle(alert) : alertTitle(alert);
+  const towns = pagasa ? parseLocalTowns(alert) : [];
+  const summary = pagasa ? hazardSummary(alert) : null;
+  const otherCount = pagasa ? otherProvinceCount(alert) : 0;
+  const fullText = alert.data?.rawText ?? alert.data?.description ?? '';
+  const showFull = pagasa && fullText.trim().length > (summary ?? '').length + 40;
+  const visibleTowns = townsExpanded ? towns : towns.slice(0, 7);
 
   if (!mounted || typeof document === 'undefined') {
     return null;
@@ -163,10 +178,7 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
             <h3 className="text-base font-bold text-slate-900">{heading}</h3>
             <p className="text-[10px] text-slate-400">
               {alert.alertType === 'daily_digest' && digestPeriod(alert)
-                ? `${digestPeriod(alert)} · Issued ${new Date(alert.createdAt).toLocaleTimeString(
-                    [],
-                    { hour: '2-digit', minute: '2-digit' }
-                  )}`
+                ? digestPeriod(alert)
                 : alert.data?.issuedAt
                 ? `Issued ${new Date(alert.data.issuedAt).toLocaleTimeString([], {
                     hour: '2-digit',
@@ -275,28 +287,77 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
                 </div>
               )}
             </div>
-          ) : (
+          ) : pagasa ? (
             <div className="space-y-3 mb-4">
-              <p className="whitespace-pre-line text-sm text-slate-700 leading-relaxed">
-                {alertDescription(alert)}
-              </p>
-              {alert.data?.affectedAreas && alert.data.affectedAreas.length > 0 && (
+              {summary && (
+                <p className="text-sm text-slate-700 leading-relaxed">{summary}</p>
+              )}
+              {towns.length > 0 && (
                 <div className="rounded-xl bg-slate-50 p-3 border border-slate-200/70 text-xs">
                   <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    Affected Areas (MINPRSD)
+                    Affected areas
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {alert.data.affectedAreas.map((area, idx) => (
-                      <span
-                        key={idx}
-                        className="inline-block rounded-md bg-white px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200 shadow-2xs"
+                    {visibleTowns.map((town) =>
+                      /iligan/i.test(town) ? (
+                        <span
+                          key={town}
+                          title="Your area"
+                          className="inline-block rounded-md bg-maroon-50 px-2 py-0.5 text-xs font-bold text-gakit-maroon border border-maroon-200/80 shadow-2xs"
+                        >
+                          {town}
+                        </span>
+                      ) : (
+                        <span
+                          key={town}
+                          className="inline-block rounded-md bg-white px-2 py-0.5 text-xs font-medium text-slate-700 border border-slate-200 shadow-2xs"
+                        >
+                          {town}
+                        </span>
+                      )
+                    )}
+                    {towns.length > visibleTowns.length && (
+                      <button
+                        type="button"
+                        onClick={() => setTownsExpanded(true)}
+                        className="inline-block rounded-md bg-white px-2 py-0.5 text-xs font-semibold text-gakit-maroon border border-maroon-200/70 hover:bg-maroon-50 transition-colors"
                       >
-                        {area}
-                      </span>
-                    ))}
+                        +{towns.length - visibleTowns.length} more
+                      </button>
+                    )}
+                    {townsExpanded && towns.length > 7 && (
+                      <button
+                        type="button"
+                        onClick={() => setTownsExpanded(false)}
+                        className="inline-block rounded-md px-2 py-0.5 text-xs font-semibold text-slate-500 hover:text-slate-700 transition-colors"
+                      >
+                        Show less
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
+              {otherCount > 0 && (
+                <p className="text-[11px] text-slate-400">
+                  + also covering {otherCount} other province{otherCount === 1 ? '' : 's'}.
+                </p>
+              )}
+              {showFull && (
+                <details className="rounded-xl bg-slate-50 border border-slate-200/70 px-3 py-2">
+                  <summary className="cursor-pointer text-xs font-semibold text-slate-600 hover:text-slate-900">
+                    Full bulletin
+                  </summary>
+                  <p className="mt-2 whitespace-pre-line text-xs text-slate-600 leading-relaxed">
+                    {fullText.trim()}
+                  </p>
+                </details>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3 mb-4">
+              <p className="whitespace-pre-line text-sm text-slate-700 leading-relaxed">
+                {alert.data?.description ?? ''}
+              </p>
             </div>
           )}
         </div>
