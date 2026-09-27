@@ -197,11 +197,16 @@ function Card({
             {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
         </div>
-        {open && (
-          <div className="px-3 pb-3 pt-2 border-t border-slate-100/80">
-            {children}
+        <div
+          aria-hidden={!open}
+          className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+            open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+          }`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            <div className="px-3 pb-3 pt-2 border-t border-slate-100/80">{children}</div>
           </div>
-        )}
+        </div>
       </div>
     );
   }

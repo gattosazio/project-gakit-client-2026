@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
 import { alertDescription, alertTitle } from '@/lib/weather/weatherCodes';
+import { isPagasaAlert, pagasaSubtitle, shortTitle } from '@/lib/weather/pagasa';
 import type { WeatherAlert } from '@/types/weather';
 import { useRouteLoader } from './RouteLoader';
 import { usePrefetchRoute } from '@/hooks/usePrefetchRoute';
@@ -109,10 +110,12 @@ export function PublicHeader({
   }, []);
   const weatherNotifications = useMemo<NotificationItem[]>(
     () =>
-       (activeAlerts ?? []).map((a) => ({
+       (activeAlerts ?? [])
+        .filter((a) => a.alertType !== 'daily_digest')
+        .map((a) => ({
         id: a.id,
-        title: alertTitle(a),
-        subtitle: alertDescription(a),
+        title: isPagasaAlert(a) ? shortTitle(a) || alertTitle(a) : alertTitle(a),
+        subtitle: isPagasaAlert(a) ? pagasaSubtitle(a) : alertDescription(a),
         severity: a.severity,
         alertType: a.alertType,
         sentAt: a.createdAt,

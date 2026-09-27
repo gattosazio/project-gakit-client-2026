@@ -174,7 +174,9 @@ export function AlertsTab({
   const notifications = useMemo(
     () => [
       ...createNotifications(reports),
-      ...weatherAlerts.map(mapWeatherAlertToNotification),
+      ...weatherAlerts
+        .filter((alert) => alert.alertType !== 'daily_digest')
+        .map(mapWeatherAlertToNotification),
     ],
     [reports, weatherAlerts]
   );

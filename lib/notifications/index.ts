@@ -4,6 +4,7 @@
 import type { FloodDepthCode, Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
 import { alertTitle } from '@/lib/weather/weatherCodes';
+import { isPagasaAlert, shortTitle } from '@/lib/weather/pagasa';
 
 export type NotificationType =
   | 'new-report'
@@ -93,7 +94,7 @@ export function mapWeatherAlertToNotification(alert: WeatherAlert): Notification
     id: `weather-${alert.id}`,
     type: 'weather',
     severity: alert.severity as Severity,
-    title: alertTitle(alert),
+    title: isPagasaAlert(alert) ? shortTitle(alert) || alertTitle(alert) : alertTitle(alert),
     location: 'Iligan City',
     sentAt: alert.createdAt,
     weatherAlert: alert,

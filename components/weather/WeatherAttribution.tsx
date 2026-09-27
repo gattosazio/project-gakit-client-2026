@@ -1,4 +1,4 @@
-const OPEN_METEO_URL = 'https://open-meteo.com/';
+const OPEN_METEO_URL = 'https://open-meteo.com/en/docs/ecmwf-api';
 const PAGASA_MINPRSD_URL = 'https://bagong.pagasa.dost.gov.ph/regional-forecast/minprsd';
 
 interface WeatherAttributionProps {
