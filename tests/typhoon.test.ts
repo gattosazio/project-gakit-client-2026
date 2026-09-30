@@ -2,15 +2,18 @@ import { describe, expect, it } from 'vitest';
 import {
   buildTyphoonPopupHtml,
   enrichTyphoonTrackGeoJson,
+  fetchHistoricalStorms,
+  fetchTyphoonTrack,
   formatTrackDateLabel,
   formatTyphoonDisplayName,
   getTyphoonCategoryColor,
   getTyphoonCategoryLabel,
+  isCoordInPar,
   PAR_BOUNDARY_GEOJSON,
   PRIMARY_TYPHOON_CATEGORIES,
   TYPHOON_CATEGORY_CONFIG,
 } from '@/lib/map/typhoon';
-import { convertPanahonToGeoJSON, type PanahonCycloneItem } from '@/lib/map/panahon';
+import { convertPanahonToGeoJSON, isCycloneExpired, type PanahonCycloneItem } from '@/lib/map/panahon';
 import {
   clearCurrentStormMarkers,
   createCurrentStormMarkerElement,
@@ -333,6 +336,167 @@ describe('typhoon utilities', () => {
     expect(lines[1].properties.color).toBe(TYPHOON_CATEGORY_CONFIG.TY.color);
   });
 
+  it('prunes forecast cone, forecast radius, and current markers when enriching historical tracks', () => {
+    const rawTrackWithCone = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'MultiPolygon', coordinates: [[[120, 15], [121, 16], [120, 16]]] },
+          properties: { type: 'smoothed_hull', typhoon_name: 'QUEENIE' },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [128.2, 25.4] },
+          properties: {
+            typhoon_name: 'QUEENIE',
+            typhoon_type: 'TY',
+            radius: 117,
+            is_forecast: true,
+            date: '2026-09-28',
+            time: '14:00',
+          },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [129.5, 27.0] },
+          properties: {
+            typhoon_name: 'QUEENIE',
+            typhoon_type: 'STS',
+            radius: 150,
+            is_forecast: true,
+            date: '2026-09-29',
+            time: '02:00',
+          },
+        },
+      ],
+    };
+
+    const enriched = enrichTyphoonTrackGeoJson(rawTrackWithCone, { isHistorical: true });
+    expect(enriched.isHistorical).toBe(true);
+
+    // 1. Forecast cone (smoothed_hull polygon) is omitted
+    const polygons = enriched.features.filter(
+      (f: any) => f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'
+    );
+    expect(polygons.length).toBe(0);
+
+    // 2. All points have radius 0, is_forecast false, is_current false, empty current_label
+    const points = enriched.features.filter((f: any) => f.geometry.type === 'Point');
+    expect(points.length).toBe(2);
+    for (const pt of points) {
+      expect(pt.properties.radius).toBe(0);
+      expect(pt.properties.is_forecast).toBe(false);
+      expect(pt.properties.is_current).toBe(false);
+      expect(pt.properties.current_label).toBe('');
+      expect(pt.properties.is_historical).toBe(true);
+    }
+
+    // 3. Track lines are all solid past tracks (not dashed forecast)
+    const lines = enriched.features.filter((f: any) => f.geometry.type === 'LineString');
+    expect(lines.length).toBe(1);
+    expect(lines[0].properties.track_type).toBe('past');
+    expect(lines[0].properties.is_forecast).toBe(false);
+
+    // 4. Popup HTML omits Forecast Radius for historical points
+    const popupHtml = buildTyphoonPopupHtml(points[0].properties);
+    expect(popupHtml).not.toContain('Forecast Radius');
+    expect(popupHtml).toContain('QUEENIE');
+
+    // 5. Option B: First and last points show date callouts, without is_current
+    expect(points[0].properties.is_endpoint).toBe(true);
+    expect(points[0].properties.show_date_callout).toBe(true);
+    expect(points[1].properties.is_endpoint).toBe(true);
+    expect(points[1].properties.show_date_callout).toBe(true);
+  });
+
+  it('displays minimal date callouts only at the first and last milestone points of historical tracks', () => {
+    const multiPointTrack = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [136.2, 17.3] },
+          properties: { typhoon_name: 'QUEENIE', typhoon_type: 'TS', date: '2026-09-24', time: '02:00' },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [134.3, 17.7] },
+          properties: { typhoon_name: 'QUEENIE', typhoon_type: 'TS', date: '2026-09-24', time: '08:00' },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [133.3, 18.5] },
+          properties: { typhoon_name: 'QUEENIE', typhoon_type: 'TS', date: '2026-09-24', time: '14:00' },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [131.5, 27.4] },
+          properties: { typhoon_name: 'QUEENIE', typhoon_type: 'TY', date: '2026-09-28', time: '14:00' },
+        },
+      ],
+    };
+
+    const enriched = enrichTyphoonTrackGeoJson(multiPointTrack, { isHistorical: true });
+    const points = enriched.features.filter((f: any) => f.geometry.type === 'Point');
+    expect(points.length).toBe(4);
+
+    // First point (Genesis) -> minimal date callout
+    expect(points[0].properties.show_date_callout).toBe(true);
+    expect(points[0].properties.is_endpoint).toBe(true);
+    expect(points[0].properties.date_label).toContain('Sep 24');
+
+    // Intermediate points -> no date callout
+    expect(points[1].properties.show_date_callout).toBe(false);
+    expect(points[1].properties.is_endpoint).toBe(false);
+    expect(points[2].properties.show_date_callout).toBe(false);
+    expect(points[2].properties.is_endpoint).toBe(false);
+
+    // Last point (Dissipation / Final observation) -> minimal date callout
+    expect(points[3].properties.show_date_callout).toBe(true);
+    expect(points[3].properties.is_endpoint).toBe(true);
+    expect(points[3].properties.date_label).toContain('Sep 28');
+  });
+
+  it('normalizes raw agency categories like AA, LOW, PTC into official LPA nodes', () => {
+    const rawTrackWithAA = {
+      type: 'FeatureCollection',
+      features: [
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [128.8, 25.9] },
+          properties: {
+            typhoon_name: 'PILANDOK',
+            typhoon_type: 'AA',
+            date: '2026-09-06',
+            time: '14:00',
+          },
+        },
+        {
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [129.5, 25.8] },
+          properties: {
+            typhoon_name: 'PILANDOK',
+            typhoon_type: 'LOW',
+            date: '2026-09-07',
+            time: '02:00',
+          },
+        },
+      ],
+    };
+
+    const enriched = enrichTyphoonTrackGeoJson(rawTrackWithAA);
+    const points = enriched.features.filter((f: any) => f.geometry.type === 'Point');
+    expect(points.length).toBe(2);
+    expect(points[0].properties.typhoon_type).toBe('LPA');
+    expect(points[1].properties.typhoon_type).toBe('LPA');
+
+    const popupHtml = buildTyphoonPopupHtml(points[0].properties);
+    expect(popupHtml).toContain('Low Pressure Area');
+    expect(popupHtml).toContain('LPA');
+  });
+
+
   it('guarantees right padding in popup header to prevent close button collision', () => {
     const html = buildTyphoonPopupHtml({
       local_name: 'SUPER LONG TYPHOON NAME TESTING TRUNCATION',
@@ -461,5 +625,99 @@ describe('typhoon utilities', () => {
     expect(() => clearCurrentStormMarkers(null as any)).not.toThrow();
     expect(() => clearCurrentStormMarkers([])).not.toThrow();
     expect(syncCurrentStormMarkers(null, null, null)).toEqual([]);
+  });
+
+  it('correctly determines whether coordinates are within PAR boundary', () => {
+    // Inside PAR
+    expect(isCoordInPar(121.0, 14.5)).toBe(true); // Manila
+    expect(isCoordInPar(124.2, 8.2)).toBe(true); // Iligan
+    expect(isCoordInPar(134.0, 24.0)).toBe(true); // Near northeastern edge
+
+    // Outside PAR
+    expect(isCoordInPar(128.2, 25.4)).toBe(false); // Queenie (north of 25°N)
+    expect(isCoordInPar(136.0, 10.0)).toBe(false); // East of 135°E
+    expect(isCoordInPar(114.0, 10.0)).toBe(false); // West of 115°E
+  });
+
+  it('detects expired storm data when last forecast point + 25h has elapsed', () => {
+    const expiredInfo = {
+      '2026-09-27 14:00': {
+        cyclone_type: 'TY',
+        date: '2026-09-27',
+        time: '14:00',
+        latitude: '25.4',
+        longitude: '128.2',
+        radius: '0',
+      },
+      '2026-09-28 14:00': {
+        cyclone_type: 'TY',
+        date: '2026-09-28',
+        time: '14:00',
+        latitude: '27.4',
+        longitude: '131.5',
+        radius: '117',
+      },
+    };
+    expect(isCycloneExpired(expiredInfo)).toBe(true);
+
+    const freshFutureDate = new Date(Date.now() + 12 * 3600 * 1000).toISOString().slice(0, 10);
+    const activeInfo = {
+      'latest': {
+        cyclone_type: 'TY',
+        date: freshFutureDate,
+        time: '12:00',
+        latitude: '15.0',
+        longitude: '125.0',
+        radius: '100',
+      },
+    };
+    expect(isCycloneExpired(activeInfo)).toBe(false);
+  });
+
+  it('fetches historical storms via client API', async () => {
+    const mockStorms = [
+      { id: '1', name: 'QUEENIE', cycloneName: 'QUEENIE', category: 'TY', pointCount: 23 },
+    ];
+    const globalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: any) => {
+      if (String(url).includes('history=true')) {
+        return {
+          ok: true,
+          json: async () => mockStorms,
+        } as any;
+      }
+      return { ok: false, statusText: 'Not found' } as any;
+    }) as any;
+
+    const result = await fetchHistoricalStorms();
+    expect(result).toHaveLength(1);
+    expect(result[0].cycloneName).toBe('QUEENIE');
+
+    globalThis.fetch = globalFetch;
+  });
+
+  it('fetches specific historical storm track with stormName query', async () => {
+    let requestedUrl = '';
+    const globalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: any) => {
+      requestedUrl = String(url);
+      return {
+        ok: true,
+        json: async () => ({
+          hasActiveTyphoon: false,
+          isHistorical: true,
+          stormName: 'QUEENIE (SURIGAE)',
+          track: { type: 'FeatureCollection', features: [] },
+          par: PAR_BOUNDARY_GEOJSON,
+        }),
+      } as any;
+    }) as any;
+
+    const result = await fetchTyphoonTrack('QUEENIE');
+    expect(requestedUrl).toContain('stormName=QUEENIE');
+    expect(result.isHistorical).toBe(true);
+    expect(result.hasActiveTyphoon).toBe(false);
+
+    globalThis.fetch = globalFetch;
   });
 });

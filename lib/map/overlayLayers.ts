@@ -18,12 +18,18 @@ import {
   REPORT_STATUS_LEGEND,
 } from '@/constants/publicMap';
 import {
+  buildRainfallHeatmapWeight,
   buildRainfallPaintExpression,
   FLOOD_HAZARD_COLORS,
   LANDSLIDE_COLORS,
+  RAINFALL_HEATMAP_COLOR,
   STORM_SURGE_HAZ_COLORS,
 } from '@/lib/map/colorScales';
 import { HIMAWARI_COORDINATES, HIMAWARI_PLACEHOLDER_DATA_URL } from '@/lib/map/himawari';
+import {
+  RAINFALL_COORDINATES,
+  RAINFALL_PLACEHOLDER_DATA_URL,
+} from '@/lib/map/rainfall';
 import {
   PAR_BOUNDARY_GEOJSON,
   TYPHOON_CATEGORY_CONFIG,
@@ -177,7 +183,13 @@ export const applyBarangaySeverityData = (
 // Recolors the rainfall grid for the currently selected accumulation window.
 export const applyRainfallPaint = (map: any, hours: number) => {
   if (!map?.getLayer('rainfall-grid')) return;
-  map.setPaintProperty('rainfall-grid', 'fill-color', buildRainfallPaintExpression(hours));
+  const layer = map.getLayer('rainfall-grid');
+  if (layer?.type === 'fill') {
+    map.setPaintProperty('rainfall-grid', 'fill-color', buildRainfallPaintExpression(hours));
+  } else if (layer?.type === 'heatmap') {
+    map.setPaintProperty('rainfall-grid', 'heatmap-weight', buildRainfallHeatmapWeight(hours));
+  }
+  // When rainfall-grid is a raster layer, colors are rendered directly onto the raster image.
 };
 
 // Animated pulse on the individual-pin halos, driven by one rAF loop per map.
@@ -315,23 +327,22 @@ export const setupOverlayLayers = async (
       }
     }
 
-    // --- Near real-time rainfall grid (JAXA GSMaP) ---
+    // --- Near real-time rainfall raster (JAXA GSMaP) ---
     if (!map.getSource('rainfall')) {
       map.addSource('rainfall', {
-        type: 'geojson',
-        data: { type: 'FeatureCollection', features: [] },
-        attribution:
-          'Rainfall: <a href="https://sharaku.eorc.jaxa.jp/GSMaP/" target="_blank" rel="noopener">JAXA GSMaP</a>',
+        type: 'image',
+        url: RAINFALL_PLACEHOLDER_DATA_URL,
+        coordinates: RAINFALL_COORDINATES,
       });
 
       map.addLayer({
         id: 'rainfall-grid',
-        type: 'fill',
+        type: 'raster',
         source: 'rainfall',
         paint: {
-          'fill-color': buildRainfallPaintExpression(state.rainfallHours),
-          'fill-opacity': 0.6,
-          'fill-antialias': false,
+          'raster-opacity': 0.8,
+          'raster-resampling': 'linear',
+          'raster-fade-duration': 150,
         },
       });
     }
@@ -431,6 +442,8 @@ export const setupOverlayLayers = async (
       'TS', TYPHOON_CATEGORY_CONFIG.TS.color,
       'TD', TYPHOON_CATEGORY_CONFIG.TD.color,
       'LPA', TYPHOON_CATEGORY_CONFIG.LPA.color,
+      'AA', TYPHOON_CATEGORY_CONFIG.LPA.color,
+      'LOW', TYPHOON_CATEGORY_CONFIG.LPA.color,
       DEFAULT_TYPHOON_COLOR,
     ];
 
@@ -498,14 +511,14 @@ export const setupOverlayLayers = async (
     });
 
     // 3. Track Milestone Nodes (Prominent radar milestone discs, uniform size across all points)
-    // Only renders nodes for official classifications ('STY', 'TY', 'STS', 'TS', 'TD', 'LPA')
+    // Renders nodes for official classifications ('STY', 'TY', 'STS', 'TS', 'TD', 'LPA' + agency aliases like 'AA', 'LOW')
     const officialCategoryFilter = [
       'all',
       ['==', ['geometry-type'], 'Point'],
       [
         'in',
         ['upcase', ['coalesce', ['get', 'typhoon_type'], '']],
-        ['literal', ['STY', 'TY', 'STS', 'TS', 'TD', 'LPA']],
+        ['literal', ['STY', 'TY', 'STS', 'TS', 'TD', 'LPA', 'AA', 'LOW', 'PTC', 'DB', 'WV', 'EX']],
       ],
     ];
 
@@ -533,6 +546,8 @@ export const setupOverlayLayers = async (
           'TS', TYPHOON_CATEGORY_CONFIG.TS.color,
           'TD', TYPHOON_CATEGORY_CONFIG.TD.color,
           'LPA', TYPHOON_CATEGORY_CONFIG.LPA.color,
+          'AA', TYPHOON_CATEGORY_CONFIG.LPA.color,
+          'LOW', TYPHOON_CATEGORY_CONFIG.LPA.color,
           DEFAULT_TYPHOON_COLOR,
         ],
         'circle-opacity': 0.32,
@@ -564,6 +579,8 @@ export const setupOverlayLayers = async (
           'TS', TYPHOON_CATEGORY_CONFIG.TS.color,
           'TD', TYPHOON_CATEGORY_CONFIG.TD.color,
           'LPA', TYPHOON_CATEGORY_CONFIG.LPA.color,
+          'AA', TYPHOON_CATEGORY_CONFIG.LPA.color,
+          'LOW', TYPHOON_CATEGORY_CONFIG.LPA.color,
           DEFAULT_TYPHOON_COLOR,
         ],
         'circle-stroke-width': 1.5,
@@ -597,7 +614,17 @@ export const setupOverlayLayers = async (
       before: 'report-clusters',
       filter: officialCategoryFilter,
       layout: {
-        'text-field': ['get', 'typhoon_type'],
+        'text-field': [
+          'match',
+          ['upcase', ['coalesce', ['get', 'typhoon_type'], 'LPA']],
+          'AA', 'LPA',
+          'LOW', 'LPA',
+          'PTC', 'LPA',
+          'DB', 'LPA',
+          'WV', 'LPA',
+          'EX', 'LPA',
+          ['get', 'typhoon_type'],
+        ],
         'text-size': [
           'interpolate',
           ['linear'],

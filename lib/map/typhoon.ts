@@ -1,4 +1,5 @@
 import type {
+  HistoricalStormSummary,
   TyphoonApiResponse,
   TyphoonCategory,
   TyphoonProperties,
@@ -34,6 +35,38 @@ export const PAR_BOUNDARY_GEOJSON: any = {
     },
   ],
 };
+
+/**
+ * Checks if a coordinate [lng, lat] is within the Philippine Area of Responsibility (PAR) boundary polygon.
+ */
+export function isCoordInPar(lng: number, lat: number): boolean {
+  const parCoords: Array<[number, number]> = [
+    [120.0, 25.0],
+    [135.0, 25.0],
+    [135.0, 5.0],
+    [115.0, 5.0],
+    [115.0, 15.0],
+    [120.0, 21.0],
+    [120.0, 25.0],
+  ];
+  let inside = false;
+  const n = parCoords.length;
+  let [p1x, p1y] = parCoords[0];
+  for (let i = 1; i < n; i++) {
+    const [p2x, p2y] = parCoords[i];
+    if (Math.min(p1y, p2y) < lat && lat <= Math.max(p1y, p2y)) {
+      if (lng <= Math.max(p1x, p2x)) {
+        const xinters = p1y !== p2y ? ((lat - p1y) * (p2x - p1x)) / (p2y - p1y) + p1x : p1x;
+        if (p1x === p2x || lng <= xinters) {
+          inside = !inside;
+        }
+      }
+    }
+    p1x = p2x;
+    p1y = p2y;
+  }
+  return inside;
+}
 
 /**
  * Official DOST-PAGASA & Project NOAH 6 Tropical Cyclone Classifications
@@ -199,10 +232,12 @@ export function formatTrackDateLabel(dateStr?: string, timeStr?: string, datetim
 export function buildColoredTrackLines(
   points: any[],
   currentIdx: number,
-  stormName: string
+  stormName: string,
+  options?: { isHistorical?: boolean }
 ): any[] {
   if (!Array.isArray(points) || points.length < 2) return [];
 
+  const isHistorical = Boolean(options?.isHistorical);
   const lines: any[] = [];
   let currentSegment: {
     trackType: 'past' | 'forecast';
@@ -217,7 +252,8 @@ export function buildColoredTrackLines(
     const c2 = p2.geometry?.coordinates;
     if (!c1 || !c2) continue;
 
-    const isForecast = i >= currentIdx;
+    // For historical tracks, the entire path is in the past: all segments are solid 'past' lines
+    const isForecast = !isHistorical && i >= currentIdx;
     const trackType = isForecast ? 'forecast' : 'past';
     const rawCat = isForecast
       ? (p2.properties?.typhoon_type || p1.properties?.typhoon_type)
@@ -285,9 +321,13 @@ export function buildColoredTrackLines(
  * generating date labels for all track milestones, cleaning storm titles,
  * and generating category-colored, solid-past and dashed-forecast track lines.
  */
-export function enrichTyphoonTrackGeoJson(track: any): any {
+export function enrichTyphoonTrackGeoJson(
+  track: any,
+  options?: { isHistorical?: boolean }
+): any {
   if (!track || !Array.isArray(track.features)) return track;
 
+  const isHistorical = Boolean(options?.isHistorical || track?.isHistorical);
   const pointFeatures: any[] = [];
   const otherFeatures: any[] = [];
   const fallbackLineFeatures: any[] = [];
@@ -299,6 +339,15 @@ export function enrichTyphoonTrackGeoJson(track: any): any {
       fallbackLineFeatures.push(feature);
     } else {
       const props = { ...(feature?.properties || {}) };
+      // Omit forecast cone (smoothed_hull) for historical / inactive tracks
+      if (
+        isHistorical &&
+        (props.type === 'smoothed_hull' ||
+          feature?.geometry?.type === 'Polygon' ||
+          feature?.geometry?.type === 'MultiPolygon')
+      ) {
+        continue;
+      }
       if (props.typhoon_name) {
         props.typhoon_name = formatTyphoonDisplayName(
           props.local_name || props.typhoon_name,
@@ -326,23 +375,36 @@ export function enrichTyphoonTrackGeoJson(track: any): any {
 
   for (const [, pts] of stormPointsMap.entries()) {
     let currentIdx = -1;
-    for (let i = 0; i < pts.length; i++) {
-      const r = Number(pts[i].properties?.radius ?? 0);
-      if (r === 0) {
-        currentIdx = i;
+    if (!isHistorical) {
+      for (let i = 0; i < pts.length; i++) {
+        const r = Number(pts[i].properties?.radius ?? 0);
+        if (r === 0) {
+          currentIdx = i;
+        }
       }
-    }
-    if (currentIdx === -1 && pts.length > 0) {
-      currentIdx = 0;
+      if (currentIdx === -1 && pts.length > 0) {
+        currentIdx = 0;
+      }
     }
 
     let stormTitle = 'Active Cyclone';
+    const hasMultiplePoints = pts.length > 1;
+    const sameStartEnd =
+      hasMultiplePoints &&
+      pts[0]?.geometry?.coordinates?.[0] === pts[pts.length - 1]?.geometry?.coordinates?.[0] &&
+      pts[0]?.geometry?.coordinates?.[1] === pts[pts.length - 1]?.geometry?.coordinates?.[1];
 
     for (let i = 0; i < pts.length; i++) {
       const pt = pts[i];
       const props = { ...(pt.properties || {}) };
 
-      const isCurrent = i === currentIdx;
+      const isCurrent = !isHistorical && i === currentIdx;
+      // Option B: show minimal date label at genesis (first) and dissipation (last) points of historical tracks
+      const isFirst = isHistorical && i === 0 && !sameStartEnd;
+      const isLast = isHistorical && i === pts.length - 1;
+      const isEndpoint = isFirst || isLast;
+      const showDateCallout = isCurrent || isEndpoint;
+
       const dateLabel = formatTrackDateLabel(props.date, props.time, props.datetime);
       const cleanName = formatTyphoonDisplayName(
         props.local_name || props.typhoon_name,
@@ -364,11 +426,20 @@ export function enrichTyphoonTrackGeoJson(track: any): any {
           .trim();
       }
 
+      props.typhoon_type = normalizeTyphoonCategory(props.typhoon_type);
       props.date_label = dateLabel;
       props.is_current = isCurrent;
       props.current_label = isCurrent
         ? (dateLabel ? `Current: ${dateLabel}` : 'Current Position')
         : '';
+      props.is_endpoint = isEndpoint;
+      props.show_date_callout = showDateCallout;
+
+      if (isHistorical) {
+        props.radius = 0;
+        props.is_forecast = false;
+        props.is_historical = true;
+      }
 
       enrichedPoints.push({
         ...pt,
@@ -377,7 +448,7 @@ export function enrichTyphoonTrackGeoJson(track: any): any {
     }
 
     // Build colored, solid-past / dashed-forecast lines for this storm
-    const coloredLines = buildColoredTrackLines(pts, currentIdx, stormTitle);
+    const coloredLines = buildColoredTrackLines(pts, currentIdx, stormTitle, { isHistorical });
     generatedLines.push(...coloredLines);
   }
 
@@ -385,6 +456,7 @@ export function enrichTyphoonTrackGeoJson(track: any): any {
 
   return {
     ...track,
+    isHistorical,
     features: [...otherFeatures, ...linesToInclude, ...enrichedPoints],
   };
 }
@@ -408,7 +480,7 @@ export function buildTyphoonPopupHtml(props: TyphoonProperties): string {
   const typeCode = normalizeTyphoonCategory(props.typhoon_type);
   const typeConfig = TYPHOON_CATEGORY_CONFIG[typeCode] || TYPHOON_CATEGORY_CONFIG.TY;
 
-  const isForecast = (props.radius ?? 0) > 0;
+  const isForecast = props.is_forecast !== false && !props.is_historical && (props.radius ?? 0) > 0;
 
   const dateStr = props.datetime
     ? new Date(props.datetime).toLocaleString([], {
@@ -418,6 +490,7 @@ export function buildTyphoonPopupHtml(props: TyphoonProperties): string {
         minute: '2-digit',
       })
     : `${props.date || ''} ${props.time || ''}`.trim() || 'Active';
+
 
   return `
     <div class="gakit-tooltip typhoon-popup min-w-[260px] sm:min-w-[280px] text-slate-800" style="font-family: var(--font-inter), system-ui, sans-serif;">
@@ -478,8 +551,9 @@ export function buildTyphoonPopupHtml(props: TyphoonProperties): string {
 /**
  * Fetches typhoon track data from the client proxy API
  */
-export async function fetchTyphoonTrack(): Promise<TyphoonApiResponse> {
-  const res = await fetch('/api/typhoon-track', {
+export async function fetchTyphoonTrack(stormName?: string | null): Promise<TyphoonApiResponse> {
+  const query = stormName ? `?stormName=${encodeURIComponent(stormName)}` : '';
+  const res = await fetch(`/api/typhoon-track${query}`, {
     headers: { Accept: 'application/json' },
   });
 
@@ -489,3 +563,23 @@ export async function fetchTyphoonTrack(): Promise<TyphoonApiResponse> {
 
   return res.json();
 }
+
+/**
+ * Fetches list of archived recent storms
+ */
+export async function fetchHistoricalStorms(): Promise<HistoricalStormSummary[]> {
+  try {
+    const res = await fetch('/api/typhoon-track?history=true', {
+      headers: { Accept: 'application/json' },
+    });
+
+    if (!res.ok) {
+      return [];
+    }
+
+    return await res.json();
+  } catch {
+    return [];
+  }
+}
+

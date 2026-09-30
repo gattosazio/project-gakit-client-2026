@@ -16,6 +16,8 @@ export interface StormPointFeature {
     datetime?: string;
     date_label?: string;
     is_current?: boolean;
+    show_date_callout?: boolean;
+    is_endpoint?: boolean;
     windspeed?: number;
     pressure?: number;
     radius?: number;
@@ -91,11 +93,13 @@ export function syncCurrentStormMarkers(
   if (!map || !maplibreglInstance || !trackGeoJson?.features) return [];
 
   const markers: any[] = [];
-  const currentPoints = trackGeoJson.features.filter(
-    (f: any) => f?.geometry?.type === 'Point' && f?.properties?.is_current === true
+  const targetPoints = trackGeoJson.features.filter(
+    (f: any) =>
+      f?.geometry?.type === 'Point' &&
+      (f?.properties?.show_date_callout === true || f?.properties?.is_current === true)
   );
 
-  for (const feature of currentPoints) {
+  for (const feature of targetPoints) {
     const coords = feature.geometry.coordinates;
     if (!Array.isArray(coords) || coords.length < 2) continue;
 

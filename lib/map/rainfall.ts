@@ -1,4 +1,5 @@
 import { cachedGet } from '@/lib/backend/apiCache';
+import { RAINFALL_BAND_EDGES } from '@/lib/map/colorScales';
 import type { RainfallGrid, RainfallResponse } from '@/types/rainfall';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
@@ -81,10 +82,141 @@ export function fetchRainfall(
   });
 }
 
-// GSMaP cells are 0.1 degrees on a side. Render each point as a solid square
-// covering its cell so the map shows a continuous rainfall field (weather-radar
-// style) instead of a scatter of dots.
+// GSMaP cells are 0.1 degrees on a side.
 const CELL_DEG = 0.1;
+
+export const RAINFALL_BOUNDS = {
+  west: 116.5,
+  east: 127.0,
+  south: 4.5,
+  north: 21.5,
+} as const;
+
+export const RAINFALL_COORDINATES: [number, number][] = [
+  [RAINFALL_BOUNDS.west, RAINFALL_BOUNDS.north], // [116.5, 21.5]
+  [RAINFALL_BOUNDS.east, RAINFALL_BOUNDS.north], // [127.0, 21.5]
+  [RAINFALL_BOUNDS.east, RAINFALL_BOUNDS.south], // [127.0, 4.5]
+  [RAINFALL_BOUNDS.west, RAINFALL_BOUNDS.south], // [116.5, 4.5]
+];
+
+export const RAINFALL_PLACEHOLDER_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=';
+
+// Official JAXA GSMaP contour palette in RGBA format
+// Alpha is 255 (fully opaque) — overall transparency is controlled by raster-opacity on the layer
+const RAINFALL_RGBA_STOPS: [number, number, number, number][] = [
+  [0, 0, 150, 255],    // 1 dark navy
+  [0, 100, 255, 255],  // 2 blue
+  [0, 180, 255, 255],  // 3 light blue
+  [51, 219, 128, 255], // 4 green
+  [155, 235, 74, 255], // 5 yellow-green
+  [255, 235, 0, 255],  // 6 yellow
+  [255, 179, 0, 255],  // 7 amber
+  [255, 100, 0, 255],  // 8 orange
+  [235, 30, 0, 255],   // 9 red-orange
+  [175, 0, 0, 255],    // 10 dark red
+];
+
+function getRainfallRgba(precipMm: number, edges: number[]): [number, number, number, number] {
+  if (precipMm < edges[0]) {
+    return [0, 0, 0, 0];
+  }
+  const lastIdx = edges.length - 1;
+  if (precipMm >= edges[lastIdx]) {
+    return RAINFALL_RGBA_STOPS[lastIdx];
+  }
+  for (let i = 0; i < lastIdx; i++) {
+    const low = edges[i];
+    const high = edges[i + 1];
+    if (precipMm >= low && precipMm < high) {
+      const t = (precipMm - low) / (high - low);
+      const c1 = RAINFALL_RGBA_STOPS[i];
+      const c2 = RAINFALL_RGBA_STOPS[i + 1];
+      return [
+        Math.round(c1[0] + t * (c2[0] - c1[0])),
+        Math.round(c1[1] + t * (c2[1] - c1[1])),
+        Math.round(c1[2] + t * (c2[2] - c1[2])),
+        Math.round(c1[3] + t * (c2[3] - c1[3])),
+      ];
+    }
+  }
+  return RAINFALL_RGBA_STOPS[0];
+}
+
+/**
+ * Generates a smooth, hardware-filtered rainfall raster data URL from GSMaP points.
+ * Ensures the overlay renders as continuous meteorological radar bands at any zoom
+ * level without breaking into isolated dots or showing pixelated grid seams.
+ */
+export function generateRainfallDataUrl(
+  rainfall: RainfallResponse,
+  hours: number
+): string | null {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return null;
+  }
+  if (!rainfall.features || rainfall.features.length === 0) {
+    return RAINFALL_PLACEHOLDER_DATA_URL;
+  }
+
+  const cols = Math.round((RAINFALL_BOUNDS.east - RAINFALL_BOUNDS.west) / CELL_DEG);
+  const rows = Math.round((RAINFALL_BOUNDS.north - RAINFALL_BOUNDS.south) / CELL_DEG);
+
+  // Fill 2D matrix with precipitation values
+  const matrix = new Float32Array(cols * rows);
+  for (const feature of rainfall.features) {
+    const [lng, lat] = feature.geometry.coordinates;
+    const col = Math.round((lng - (RAINFALL_BOUNDS.west + CELL_DEG / 2)) / CELL_DEG);
+    const row = Math.round(((RAINFALL_BOUNDS.north - CELL_DEG / 2) - lat) / CELL_DEG);
+    if (col >= 0 && col < cols && row >= 0 && row < rows) {
+      matrix[row * cols + col] = feature.properties.precip_mm;
+    }
+  }
+
+  const edges = RAINFALL_BAND_EDGES[hours] ?? RAINFALL_BAND_EDGES[1];
+
+  // Render base raster
+  const baseCanvas = document.createElement('canvas');
+  baseCanvas.width = cols;
+  baseCanvas.height = rows;
+  const baseCtx = baseCanvas.getContext('2d');
+  if (!baseCtx) return null;
+
+  const imgData = baseCtx.createImageData(cols, rows);
+  const data = imgData.data;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const precip = matrix[r * cols + c];
+      const idx = (r * cols + c) * 4;
+      if (precip >= edges[0]) {
+        const [red, green, blue, alpha] = getRainfallRgba(precip, edges);
+        data[idx] = red;
+        data[idx + 1] = green;
+        data[idx + 2] = blue;
+        data[idx + 3] = alpha;
+      }
+    }
+  }
+  baseCtx.putImageData(imgData, 0, 0);
+
+  // Smooth upscale (3x) with canvas filter
+  const scale = 3;
+  const smoothCanvas = document.createElement('canvas');
+  smoothCanvas.width = cols * scale;
+  smoothCanvas.height = rows * scale;
+  const smoothCtx = smoothCanvas.getContext('2d');
+  if (!smoothCtx) return null;
+
+  smoothCtx.imageSmoothingEnabled = true;
+  smoothCtx.imageSmoothingQuality = 'high';
+  if ('filter' in smoothCtx) {
+    smoothCtx.filter = 'blur(2px)';
+  }
+  smoothCtx.drawImage(baseCanvas, 0, 0, smoothCanvas.width, smoothCanvas.height);
+
+  return smoothCanvas.toDataURL('image/png');
+}
 
 export function buildRainfallGrid(rainfall: RainfallResponse): RainfallGrid {
   const half = CELL_DEG / 2;
