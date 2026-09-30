@@ -92,7 +92,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
   const currentFrame = scenarioData?.frames[currentIndex];
 
   return (
-    <div className="relative h-[calc(100vh-140px)] min-h-[600px] w-full flex flex-col overflow-hidden rounded-2xl">
+    <div className="relative h-[100dvh] w-full flex flex-col overflow-hidden">
       {/* Loading Overlay */}
       {isLoading && (
         <LoadingOverlay message={`Loading ${activePreset.name}...`} />
@@ -104,8 +104,9 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
           <ScenarioMap currentFrame={currentFrame} bounds={scenarioData?.bounds} />
         ) : null}
 
-        {/* Top Controls Overlay: flex-col stack on mobile, left/right on desktop */}
-        <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-2.5 pointer-events-none">
+        {/* Top Controls Overlay: flex-col stack on mobile, left/right on desktop.
+            Offset clears the floating pill header (12+48 mobile, 16+56 desktop). */}
+        <div className="absolute top-[4.5rem] left-3 right-3 md:top-20 md:left-4 md:right-4 z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-2.5 pointer-events-none">
           <div className="pointer-events-auto w-full md:w-auto md:max-w-md">
             <ScenarioSelector
               activePreset={activePreset}

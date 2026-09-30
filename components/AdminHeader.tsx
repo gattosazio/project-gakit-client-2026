@@ -26,6 +26,8 @@ import type { Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
 import { MobileSignOutButton } from './SideBar';
 import { SettingsDropdown } from './SettingsDropdown';
+import { BentoMenu } from './BentoMenu';
+import { monitoringBentoTiles } from '@/lib/navigation/bentoMenu';
 import type { StaffRole } from '@/lib/auth/roles';
 
 interface AdminHeaderProps {
@@ -35,6 +37,7 @@ interface AdminHeaderProps {
   badge?: string;
   role?: StaffRole | null;
   onNotificationClick?: (notificationId: string) => void;
+  showBentoMenu?: boolean;
 }
 
 interface HeaderNotification {
@@ -135,6 +138,7 @@ export function AdminHeader({
   badge,
   role = null,
   onNotificationClick,
+  showBentoMenu = false,
 }: AdminHeaderProps) {
   const [recentReports, setRecentReports] = useState<Report[]>([]);
   const [readIds, setReadIds] = useState<string[]>([]);
@@ -397,6 +401,7 @@ export function AdminHeader({
       </div>
 
       <div className="flex items-center gap-2.5">
+        {showBentoMenu && <BentoMenu items={monitoringBentoTiles} />}
         <div ref={notificationRef} className="relative">
           <button
             type="button"

@@ -22,10 +22,6 @@ const ReportsTab = dynamic(
   () => import('./features/reports/ReportsTab').then((m) => ({ default: m.ReportsTab })),
   { loading: () => <TabLoading />, ssr: false }
 );
-const ScenariosTab = dynamic(
-  () => import('./features/scenarios/ScenariosTab').then((m) => ({ default: m.ScenariosTab })),
-  { loading: () => <TabLoading />, ssr: false }
-);
 export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get('tab') as MonitoringFeatureId | null;
@@ -70,7 +66,6 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     const prefetchTabs = () => {
       void import('./features/alerts/AlertsTab');
       void import('./features/reports/ReportsTab');
-      void import('./features/scenarios/ScenariosTab');
     };
 
     if (typeof window !== 'undefined') {
@@ -172,6 +167,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           badge={activeFeature.badge}
           role={initialAuth?.role ?? null}
           onNotificationClick={handleOpenNotification}
+          showBentoMenu
         />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20 md:px-7 md:py-6 lg:px-8 lg:pb-8 space-y-6">
           <div className={activeTab === 'dashboard' ? 'min-w-0 space-y-4' : 'hidden'}>
@@ -192,9 +188,6 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
               initialStatus={initialStatus}
               initialTime={initialTime}
             />
-          </div>
-          <div className={activeTab === 'scenarios' ? 'h-full min-w-0 space-y-4' : 'hidden'}>
-            <ScenariosTab active={activeTab === 'scenarios'} />
           </div>
         </main>
       </div>

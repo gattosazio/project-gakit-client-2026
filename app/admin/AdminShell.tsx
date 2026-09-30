@@ -45,7 +45,6 @@ export function AdminShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {
         portalSubtitle="Admin Portal"
         onTabChange={handleTabChange}
         initialAuth={initialAuth}
-        showPublicMapLink={false}
       />
 
       <div className="h-full min-w-0 flex-1 flex flex-col overflow-hidden bg-white lg:rounded-[2rem] lg:rounded-l-[2.75rem]">

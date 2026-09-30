@@ -4,20 +4,18 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useEffect } from 'react';
 import Image from 'next/image';
-import { LogOut, Map, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
+import { LogOut, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { PortalNavItem } from '@/types/portal';
 import { useRouteLoader } from './RouteLoader';
-import { usePrefetchRoute } from '@/hooks/usePrefetchRoute';
 
 interface SideBarProps<T extends string> {
   activeTab: T;
   items: PortalNavItem<T>[];
   portalSubtitle: string;
   onTabChange: (tab: T) => void;
-  showPublicMapLink?: boolean;
 }
 
 export function SignOutConfirmDialog({
@@ -136,7 +134,6 @@ export function SideBar<T extends string>({
   portalSubtitle,
   onTabChange,
   initialAuth,
-  showPublicMapLink = true,
 }: SideBarProps<T> & { initialAuth?: AuthSnapshot }) {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -144,7 +141,7 @@ export function SideBar<T extends string>({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [email, setEmail] = useState<string | null>(initialAuth?.email ?? null);
   const [role, setRole] = useState<StaffRole | null>(initialAuth?.role ?? null);
-  const { navigate, loadingOverlay } = useRouteLoader();
+  const { loadingOverlay } = useRouteLoader();
 
   useEffect(() => {
     if (initialAuth !== undefined) return;
@@ -161,9 +158,6 @@ export function SideBar<T extends string>({
       cancelled = true;
     };
   }, [initialAuth]);
-
-  // Idle-time prefetch of the public map so "exit to map" navigations are instant.
-  usePrefetchRoute(showPublicMapLink ? '/' : null);
 
   async function handleLogOut() {
     setIsSigningOut(true);
@@ -205,20 +199,7 @@ export function SideBar<T extends string>({
       </div>
 
       <nav className={`flex-1 space-y-1 overflow-y-auto py-6 ${isCollapsed ? 'px-2' : 'px-4'}`}>
-        {showPublicMapLink && (
-          <button
-            onClick={() => navigate('/')}
-            title="Public Hazard Map"
-            className={`group flex w-full items-center rounded-2xl py-3 text-sm font-semibold text-slate-600 transition-all duration-200 hover:bg-white hover:text-gakit-maroon hover:shadow-sm ${
-              isCollapsed ? 'justify-center px-3' : 'gap-3 px-4'
-            }`}
-          >
-            <Map className="h-4 w-4 text-slate-400 transition-colors group-hover:text-gakit-maroon" />
-            <span className={isCollapsed ? 'sr-only' : ''}>Public Hazard Map</span>
-          </button>
-        )}
-
-        <div className={`pb-2 pt-6 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 ${isCollapsed ? 'sr-only' : 'px-4'}`}>
+        <div className={`pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 ${isCollapsed ? 'sr-only' : 'px-4'}`}>
           Menu
         </div>
         {items.map((feature) => {
