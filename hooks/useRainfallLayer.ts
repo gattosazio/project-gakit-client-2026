@@ -6,10 +6,12 @@ import { applyRainfallPaint } from '@/lib/map/overlayLayers';
 import {
   buildRainfallGrid,
   fetchRainfall,
+  generateRainfallDataUrl,
+  RAINFALL_COORDINATES,
   rainfallCellCenterFor,
+  type RainfallAccumulationHours,
 } from '@/lib/map/rainfall';
-import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
-import type { RainfallGrid } from '@/types/rainfall';
+import type { RainfallGrid, RainfallResponse } from '@/types/rainfall';
 
 // Mirrors the server-side GSMaP cache TTL.
 const RAINFALL_TTL_MS = 10 * 60 * 1000;
@@ -32,7 +34,8 @@ export function useRainfallLayer(
   const [isLoading, setIsLoading] = useState(false);
 
   const rainfallHoursRef = useRef<RainfallAccumulationHours>(1);
-  const rainfallSourceRef = useRef<RainfallGrid | null>(null);
+  const rainfallSourceRef = useRef<RainfallResponse | RainfallGrid | null>(null);
+  const rainfallDataUrlRef = useRef<string | null>(null);
   const rainfallCellsRef = useRef<Map<string, number>>(new Map());
   const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const showRainfallRef = useRef(showRainfall);
@@ -52,23 +55,29 @@ export function useRainfallLayer(
       const rainfall = await fetchRainfall(window);
       // Drop stale responses if the user switched windows mid-request.
       if (window !== rainfallHoursRef.current) return;
-      const grid = buildRainfallGrid(rainfall);
-      rainfallSourceRef.current = grid;
 
       // Index cells by their exact 0.1-degree center so checkLocation can do an
       // O(1) lookup instead of scanning every grid feature.
       const cells = new Map<string, number>();
-      for (const feature of grid.features) {
-        const ring = feature.geometry.coordinates[0];
-        const cellLng = Math.round(((ring[0][0] + ring[2][0]) / 2) * 100) / 100;
-        const cellLat = Math.round(((ring[0][1] + ring[2][1]) / 2) * 100) / 100;
+      for (const feature of rainfall.features) {
+        const [lng, lat] = feature.geometry.coordinates;
+        const cellLng = Math.round(lng * 100) / 100;
+        const cellLat = Math.round(lat * 100) / 100;
         cells.set(`${cellLng},${cellLat}`, feature.properties.precip_mm);
       }
       rainfallCellsRef.current = cells;
+      rainfallSourceRef.current = rainfall;
+
+      const dataUrl = generateRainfallDataUrl(rainfall, window);
+      rainfallDataUrlRef.current = dataUrl;
 
       const map = mapRef.current;
-      const source = map?.getSource?.('rainfall');
-      if (source) source.setData(grid);
+      const source = map?.getSource?.('rainfall') as any;
+      if (source?.updateImage && dataUrl) {
+        source.updateImage({ url: dataUrl, coordinates: RAINFALL_COORDINATES });
+      } else if (source?.setData) {
+        source.setData(rainfall);
+      }
       applyRainfallPaint(map, window);
 
       // Ensure layer visibility strictly matches current toggle state even if response arrived late
@@ -151,8 +160,16 @@ export function useRainfallLayer(
   // Re-applies data fetched before the style finished loading; called from the
   // style-load handler on initial load and after every basemap switch.
   const applyPreloaded = useCallback((map: any) => {
-    if (rainfallSourceRef.current) {
-      map.getSource('rainfall')?.setData(rainfallSourceRef.current);
+    if (rainfallDataUrlRef.current) {
+      const source = map?.getSource?.('rainfall') as any;
+      if (source?.updateImage) {
+        source.updateImage({
+          url: rainfallDataUrlRef.current,
+          coordinates: RAINFALL_COORDINATES,
+        });
+      } else if (source?.setData && rainfallSourceRef.current) {
+        source.setData(rainfallSourceRef.current);
+      }
       applyRainfallPaint(map, rainfallHoursRef.current);
       if (map?.getLayer('rainfall-grid')) {
         map.setLayoutProperty(

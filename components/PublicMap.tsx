@@ -198,7 +198,7 @@ export function PublicMap({
   const hideAttributionRef = useRef(hideAttribution);
   const loadMapReportsRef = useRef<(() => void | Promise<void>) | null>(null);
   const loadRainfallRef = useRef<((hours?: any) => Promise<void> | void) | null>(null);
-  const loadTyphoonRef = useRef<(() => Promise<void> | void) | null>(null);
+  const loadTyphoonRef = useRef<((stormName?: string | null) => Promise<any> | void) | null>(null);
   const onMapLoadRef = useRef<(() => void) | null>(null);
   const moveendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastFetchedBoundsRef = useRef<{ west: number; south: number; east: number; north: number } | null>(null);
@@ -293,7 +293,13 @@ export function PublicMap({
     }
     return false;
   });
-  const [weatherOpen, setWeatherOpen] = useState(() => !hideWeather);
+  const [weatherOpen, setWeatherOpen] = useState(() => {
+    if (hideWeather) return false;
+    const collapsedOnStart =
+      defaultSidebarCollapsed ?? (!fullScreen || (typeof window !== 'undefined' && window.innerWidth < 768));
+    if (collapsedOnStart) return false;
+    return weatherExpandedByDefault ?? true;
+  });
   const [layersOpen, setLayersOpen] = useState(() => Boolean(hideWeather));
   const [reportsOpen, setReportsOpen] = useState(false);
 
@@ -1026,6 +1032,10 @@ export function PublicMap({
         hasActiveTyphoon={typhoon.typhoonData?.hasActiveTyphoon}
         activeStorms={typhoon.typhoonData?.activeStorms}
         onFocusStorm={typhoon.focusStorm}
+        historicalStorms={typhoon.historicalStorms}
+        selectedHistoricalStorm={typhoon.selectedHistoricalStorm}
+        onSelectHistoricalStorm={typhoon.selectHistoricalStorm}
+        isLoadingHistory={typhoon.isLoadingHistory}
         showBarangayBoundaries={showBarangayBoundaries}
         onShowBarangayBoundariesChange={handleShowBarangayBoundariesChange}
         showBarangayBoundariesToggle={!hideBarangayBoundariesToggle}

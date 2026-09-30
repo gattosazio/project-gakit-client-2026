@@ -1,5 +1,10 @@
 import crypto from 'crypto';
-import { buildColoredTrackLines, formatTyphoonDisplayName } from '@/lib/map/typhoon';
+import {
+  buildColoredTrackLines,
+  formatTyphoonDisplayName,
+  isCoordInPar,
+  normalizeTyphoonCategory,
+} from '@/lib/map/typhoon';
 
 export interface PanahonCycloneNode {
   cyclone_type?: string;
@@ -15,6 +20,37 @@ export interface PanahonCycloneNode {
 export interface PanahonCycloneItem {
   cyclone_name?: string;
   info?: Record<string, PanahonCycloneNode>;
+}
+
+/**
+ * Checks if a Panahon cyclone payload item is expired according to PAGASA/Panahon rules.
+ * Panahon hides storms where Date.parse(last_node) + 25 hours <= now.
+ */
+export function isCycloneExpired(
+  info?: Record<string, PanahonCycloneNode>,
+  maxAgeMs = 25 * 3600 * 1000
+): boolean {
+  if (!info || Object.keys(info).length === 0) return true;
+  const sortedKeys = Object.keys(info).sort((a, b) => {
+    const na = Number(a);
+    const nb = Number(b);
+    if (!Number.isNaN(na) && !Number.isNaN(nb)) return na - nb;
+    return a.localeCompare(b);
+  });
+  const lastKey = sortedKeys[sortedKeys.length - 1];
+  const lastNode = info[lastKey];
+  if (!lastNode) return true;
+  const rawDate =
+    lastNode.date && lastNode.time
+      ? `${lastNode.date}T${lastNode.time}:00`
+      : lastNode.date || lastKey;
+  const normalized =
+    rawDate.includes(' ') && !rawDate.includes('T') ? rawDate.replace(' ', 'T') : rawDate;
+  const formatted =
+    normalized.includes('+') || normalized.includes('Z') ? normalized : `${normalized}+08:00`;
+  const parsedTime = Date.parse(formatted);
+  if (Number.isNaN(parsedTime)) return false;
+  return Date.now() > parsedTime + maxAgeMs;
 }
 
 /**
@@ -167,7 +203,10 @@ export function formatTrackDateLabel(dateStr?: string, timeStr?: string, datetim
 /**
  * Converts Panahon live JSON array into MapLibre-compatible GeoJSON FeatureCollection
  */
-export function convertPanahonToGeoJSON(panahonData: PanahonCycloneItem[]): GeoJSON.FeatureCollection {
+export function convertPanahonToGeoJSON(
+  panahonData: PanahonCycloneItem[],
+  filterExpired = false
+): GeoJSON.FeatureCollection {
   if (!Array.isArray(panahonData) || !panahonData.length) {
     return { type: 'FeatureCollection', features: [] };
   }
@@ -175,6 +214,9 @@ export function convertPanahonToGeoJSON(panahonData: PanahonCycloneItem[]): GeoJ
   const features: GeoJSON.Feature[] = [];
 
   for (const cyclone of panahonData) {
+    if (filterExpired && isCycloneExpired(cyclone.info)) {
+      continue;
+    }
     const rawName = cyclone.cyclone_name || '';
     const match = rawName.match(/^([^{}]*)?(?:\{([^{}]*)\})?$/);
     const localPart = match?.[1]?.trim() || '';
@@ -217,7 +259,7 @@ export function convertPanahonToGeoJSON(panahonData: PanahonCycloneItem[]): GeoJ
       const lat = typeof node.latitude === 'string' ? parseFloat(node.latitude) : Number(node.latitude || 0);
       const lon = typeof node.longitude === 'string' ? parseFloat(node.longitude) : Number(node.longitude || 0);
       const radius = typeof node.radius === 'string' ? parseFloat(node.radius) : Number(node.radius || 0);
-      const ctype = (node.cyclone_type || 'TD').trim().toUpperCase();
+      const ctype = normalizeTyphoonCategory(node.cyclone_type);
 
       if (Number.isNaN(lat) || Number.isNaN(lon) || (lat === 0 && lon === 0)) continue;
 
@@ -252,6 +294,8 @@ export function convertPanahonToGeoJSON(panahonData: PanahonCycloneItem[]): GeoJ
           date_label: dateLabel,
           is_current: isCurrent,
           current_label: isCurrent ? (dateLabel ? `Current: ${dateLabel}` : 'Current Position') : '',
+          is_inside_par: isCoordInPar(lon, lat),
+          isInsidePar: isCoordInPar(lon, lat),
         },
       };
 
@@ -355,7 +399,7 @@ export async function fetchPanahonLiveCyclone(): Promise<GeoJSON.FeatureCollecti
     const rawData = await apiRes.json();
     if (!Array.isArray(rawData) || !rawData.length) return null;
 
-    return convertPanahonToGeoJSON(rawData);
+    return convertPanahonToGeoJSON(rawData, true);
   } catch (err) {
     console.error('Panahon live cyclone fetch error:', err);
     return null;

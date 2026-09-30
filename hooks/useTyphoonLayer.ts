@@ -5,6 +5,7 @@ import type { MutableRefObject } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import {
   enrichTyphoonTrackGeoJson,
+  fetchHistoricalStorms,
   fetchTyphoonTrack,
   PAR_BOUNDARY_GEOJSON,
 } from '@/lib/map/typhoon';
@@ -12,7 +13,7 @@ import {
   syncCurrentStormMarkers,
   clearCurrentStormMarkers,
 } from '@/lib/map/typhoonMarker';
-import type { TyphoonApiResponse } from '@/types/typhoon';
+import type { HistoricalStormSummary, TyphoonApiResponse } from '@/types/typhoon';
 
 const TYPHOON_REFRESH_MS = 10 * 60 * 1000; // 10 mins
 
@@ -24,12 +25,20 @@ export function useTyphoonLayer(
   const [showTyphoonTrack, setShowTyphoonTrack] = useState(false);
   const [typhoonData, setTyphoonData] = useState<TyphoonApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [historicalStorms, setHistoricalStorms] = useState<HistoricalStormSummary[]>([]);
+  const [selectedHistoricalStorm, setSelectedHistoricalStorm] = useState<string | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const showTyphoonTrackRef = useRef(false);
   const typhoonDataRef = useRef<TyphoonApiResponse | null>(null);
+  const selectedHistoricalStormRef = useRef<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentMarkersRef = useRef<any[]>([]);
   const onPointClickRef = useRef(onPointClick);
+
+  useEffect(() => {
+    selectedHistoricalStormRef.current = selectedHistoricalStorm;
+  }, [selectedHistoricalStorm]);
 
   useEffect(() => {
     onPointClickRef.current = onPointClick;
@@ -58,7 +67,8 @@ export function useTyphoonLayer(
     }
 
     // 2. Update Typhoon GeoJSON source directly with enriched official feed
-    const enrichedTrack = data.track ? enrichTyphoonTrackGeoJson(data.track) : null;
+    const isHistorical = Boolean(selectedHistoricalStormRef.current || data.isHistorical);
+    const enrichedTrack = data.track ? enrichTyphoonTrackGeoJson(data.track, { isHistorical }) : null;
     const typhoonSource = map.getSource('typhoon-track') as any;
     if (typhoonSource && enrichedTrack) {
       typhoonSource.setData(enrichedTrack);
@@ -85,10 +95,10 @@ export function useTyphoonLayer(
       }
     });
 
-    // 4. Update current storm marker and slate date label
+    // 4. Update date callouts (current position for live storm, start/end dates for historical tracks)
     clearCurrentStormMarkers(currentMarkersRef.current);
     currentMarkersRef.current = [];
-    if (showTyphoonTrackRef.current && enrichedTrack) {
+    if (showTyphoonTrackRef.current && enrichedTrack && (data.hasActiveTyphoon || isHistorical)) {
       currentMarkersRef.current = syncCurrentStormMarkers(
         map,
         maplibregl,
@@ -98,19 +108,35 @@ export function useTyphoonLayer(
     }
   }, [mapRef]);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (stormName?: string | null) => {
     try {
       setIsLoading(true);
-      const data = await fetchTyphoonTrack();
+      const data = await fetchTyphoonTrack(stormName);
       typhoonDataRef.current = data;
       setTyphoonData(data);
       applyDataToMap(data);
+      return data;
     } catch (error) {
       console.error('Failed to load typhoon track data', error);
+      return null;
     } finally {
       setIsLoading(false);
     }
   }, [applyDataToMap]);
+
+  const loadHistory = useCallback(async () => {
+    try {
+      setIsLoadingHistory(true);
+      const storms = await fetchHistoricalStorms();
+      setHistoricalStorms(storms);
+      return storms;
+    } catch (err) {
+      console.error('Failed to load historical storms', err);
+      return [];
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  }, []);
 
   // Update visibility on MapLibre layers and DOM markers when showTyphoonTrack changes
   useEffect(() => {
@@ -142,13 +168,20 @@ export function useTyphoonLayer(
     currentMarkersRef.current = [];
 
     if (showTyphoonTrack && typhoonDataRef.current?.track) {
-      const enrichedTrack = enrichTyphoonTrackGeoJson(typhoonDataRef.current.track);
-      currentMarkersRef.current = syncCurrentStormMarkers(
-        map,
-        maplibregl,
-        enrichedTrack,
-        (feature, coords) => onPointClickRef.current?.(feature, coords)
+      const isHistorical = Boolean(
+        selectedHistoricalStormRef.current || typhoonDataRef.current.isHistorical
       );
+      if (typhoonDataRef.current.hasActiveTyphoon || isHistorical) {
+        const enrichedTrack = enrichTyphoonTrackGeoJson(typhoonDataRef.current.track, {
+          isHistorical,
+        });
+        currentMarkersRef.current = syncCurrentStormMarkers(
+          map,
+          maplibregl,
+          enrichedTrack,
+          (feature, coords) => onPointClickRef.current?.(feature, coords)
+        );
+      }
     }
   }, [showTyphoonTrack, mapRef, layersReadyRef]);
 
@@ -162,16 +195,20 @@ export function useTyphoonLayer(
       return;
     }
 
-    void loadData();
+    void loadHistory();
+
+    if (!selectedHistoricalStormRef.current) {
+      void loadData();
+    }
 
     timerRef.current = setInterval(() => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !selectedHistoricalStormRef.current) {
         void loadData();
       }
     }, TYPHOON_REFRESH_MS);
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !selectedHistoricalStormRef.current) {
         void loadData();
       }
     };
@@ -184,12 +221,15 @@ export function useTyphoonLayer(
       }
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [showTyphoonTrack, loadData]);
+  }, [showTyphoonTrack, loadData, loadHistory]);
 
   // Zoom out to fit the full Philippine Area of Responsibility (PAR)
   const toggleTyphoonTrack = useCallback(
     (next: boolean) => {
       setShowTyphoonTrack(next);
+      if (!next) {
+        setSelectedHistoricalStorm(null);
+      }
       const map = mapRef.current;
       if (!map) return;
       if (next) {
@@ -258,6 +298,34 @@ export function useTyphoonLayer(
     [mapRef]
   );
 
+  const selectHistoricalStorm = useCallback(
+    async (stormName: string | null) => {
+      setSelectedHistoricalStorm(stormName);
+      const data = await loadData(stormName);
+      const map = mapRef.current;
+      if (!map) return;
+
+      if (stormName && data?.track?.features?.length) {
+        // Give map a moment to re-render features then focus bounds
+        setTimeout(() => {
+          focusStorm(stormName);
+        }, 80);
+      } else {
+        const camera = map.cameraForBounds(
+          [
+            [114.0, 4.0],
+            [136.0, 26.0],
+          ],
+          { padding: 24 }
+        );
+        if (camera) {
+          map.flyTo({ center: camera.center, zoom: camera.zoom, pitch: 0, duration: 1000 });
+        }
+      }
+    },
+    [loadData, focusStorm, mapRef]
+  );
+
   // Re-apply preloaded data when style is reloaded
   const applyPreloaded = useCallback(
     (map: any) => {
@@ -278,5 +346,9 @@ export function useTyphoonLayer(
     focusStorm,
     applyPreloaded,
     visibleRef: showTyphoonTrackRef,
+    historicalStorms,
+    selectedHistoricalStorm,
+    selectHistoricalStorm,
+    isLoadingHistory,
   };
 }

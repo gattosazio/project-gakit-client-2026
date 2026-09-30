@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -15,7 +15,7 @@ import { useActiveAlerts, useCurrentWeather } from '@/lib/weather/weatherStore';
 import { getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
 import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
 import type { ReportStatus } from '@/types/report';
-import type { ActiveStormSummary } from '@/types/typhoon';
+import type { ActiveStormSummary, HistoricalStormSummary } from '@/types/typhoon';
 
 export interface MapSidebarProps {
   isCollapsed: boolean;
@@ -58,6 +58,10 @@ export interface MapSidebarProps {
   hasActiveTyphoon?: boolean;
   activeStorms?: ActiveStormSummary[];
   onFocusStorm?: (stormName?: string) => void;
+  historicalStorms?: HistoricalStormSummary[];
+  selectedHistoricalStorm?: string | null;
+  onSelectHistoricalStorm?: (stormName: string | null) => void;
+  isLoadingHistory?: boolean;
   showBarangayBoundaries?: boolean;
   onShowBarangayBoundariesChange?: (checked: boolean) => void;
   showBarangayBoundariesToggle?: boolean;
@@ -115,6 +119,10 @@ export function MapSidebar({
   hasActiveTyphoon = false,
   activeStorms,
   onFocusStorm,
+  historicalStorms,
+  selectedHistoricalStorm,
+  onSelectHistoricalStorm,
+  isLoadingHistory = false,
   showBarangayBoundaries = false,
   onShowBarangayBoundariesChange,
   showBarangayBoundariesToggle = true,
@@ -151,32 +159,28 @@ export function MapSidebar({
   const WeatherIcon = liveCondition ? liveCondition.icon : CloudSun;
   const currentTemp = currentWeather ? `${Math.round(currentWeather.temperature)}°` : null;
 
-  // Suppress the icon-rail hover labels briefly after minimizing: the cursor
-  // rests where the panel was (usually over the top/weather pill), which would
-  // otherwise bloom the "Weather Outlook" label open on mount. Deliberate
-  // hovers after the gate still expand normally.
+  // Suppress icon-rail hover labels briefly after minimizing on desktop: the cursor
+  // rests where the panel was, which would otherwise bloom the label open on mount.
+  // Touch / mobile devices never bloom hover labels since they lack fine hover.
   const [railLabelsLive, setRailLabelsLive] = useState(false);
-  const [wasCollapsed, setWasCollapsed] = useState(isCollapsed);
-  if (wasCollapsed !== isCollapsed) {
-    // Rail just (un)mounted: re-arm the hover-label gate during render.
-    setWasCollapsed(isCollapsed);
-    setRailLabelsLive(false);
-  }
   useEffect(() => {
     if (!isCollapsed) return;
+    // Only schedule timer on desktop devices capable of true pointer hover
+    if (typeof window !== 'undefined' && !window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+      return;
+    }
     const t = setTimeout(() => setRailLabelsLive(true), 500);
-    return () => clearTimeout(t);
+    return () => {
+      clearTimeout(t);
+      setRailLabelsLive(false);
+    };
   }, [isCollapsed]);
 
-  // Full literal class strings (kept whole so Tailwind still generates them).
+  // Full literal class strings (rail-label-expand is scoped to @media (hover: hover) in globals.css).
   const RAIL_LABEL_BASE =
-    'max-w-0 overflow-hidden whitespace-nowrap text-sm font-bold opacity-0 transition-all duration-300 ease-in-out';
-  const RAIL_LABEL_HOVER =
-    'group-hover:max-w-[150px] group-hover:opacity-100 group-hover:pr-4 group-hover:ml-[-4px]';
-  const RAIL_LABEL_HOVER_WIDE =
-    'group-hover:max-w-[170px] group-hover:opacity-100 group-hover:pr-4 group-hover:ml-[-4px]';
+    'max-w-0 overflow-hidden whitespace-nowrap text-sm font-bold opacity-0 transition-all duration-300 ease-in-out pointer-events-none select-none';
   const railLabelClass = (wide = false) =>
-    `${RAIL_LABEL_BASE} ${railLabelsLive ? (wide ? RAIL_LABEL_HOVER_WIDE : RAIL_LABEL_HOVER) : ''}`;
+    `${RAIL_LABEL_BASE} ${railLabelsLive ? (wide ? 'rail-label-expand-wide' : 'rail-label-expand') : ''}`;
 
   const activeLayersCount = [
     showFloodHazard,
@@ -218,6 +222,14 @@ export function MapSidebar({
     }, 80);
   };
 
+  const handleCollapseSidebar = useCallback(() => {
+    (document.activeElement as HTMLElement)?.blur();
+    onToggleCollapse(true);
+    onToggleWeather(false);
+    onToggleLayers(false);
+    onToggleReports(false);
+  }, [onToggleCollapse, onToggleWeather, onToggleLayers, onToggleReports]);
+
   // Automatically minimize sidebar to the sleek icon rail when all cards are collapsed
   useEffect(() => {
     if (!isCollapsed && !weatherOpen && !layersOpen && !reportsOpen) {
@@ -230,8 +242,12 @@ export function MapSidebar({
     if (open) {
       onToggleLayers(false);
       onToggleReports(false);
-    } else if (!layersOpen && !reportsOpen) {
-      onToggleCollapse(true);
+    } else {
+      (document.activeElement as HTMLElement)?.blur();
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      if (isMobile || (!layersOpen && !reportsOpen)) {
+        onToggleCollapse(true);
+      }
     }
   };
 
@@ -240,8 +256,12 @@ export function MapSidebar({
     if (open) {
       onToggleWeather(false);
       onToggleReports(false);
-    } else if (!weatherOpen && !reportsOpen) {
-      onToggleCollapse(true);
+    } else {
+      (document.activeElement as HTMLElement)?.blur();
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      if (isMobile || (!weatherOpen && !reportsOpen)) {
+        onToggleCollapse(true);
+      }
     }
   };
 
@@ -250,8 +270,12 @@ export function MapSidebar({
     if (open) {
       onToggleWeather(false);
       onToggleLayers(false);
-    } else if (!weatherOpen && !layersOpen) {
-      onToggleCollapse(true);
+    } else {
+      (document.activeElement as HTMLElement)?.blur();
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+      if (isMobile || (!weatherOpen && !layersOpen)) {
+        onToggleCollapse(true);
+      }
     }
   };
 
@@ -387,7 +411,7 @@ export function MapSidebar({
           {/* Docked Drawer Handle Tab */}
           <button
             type="button"
-            onClick={() => onToggleCollapse(true)}
+            onClick={handleCollapseSidebar}
             className="absolute top-1/2 -translate-y-1/2 right-0 translate-x-full flex h-12 w-5.5 items-center justify-center rounded-r-xl bg-white/95 border-y border-r border-slate-200/90 shadow-md shadow-slate-900/10 backdrop-blur-md transition-all duration-150 hover:bg-slate-50 hover:w-6 active:scale-95 group cursor-pointer z-[1010]"
             title="Minimize sidebar"
             aria-label="Minimize sidebar"
@@ -441,6 +465,10 @@ export function MapSidebar({
                 hasActiveTyphoon={hasActiveTyphoon}
                 activeStorms={activeStorms}
                 onFocusStorm={onFocusStorm}
+                historicalStorms={historicalStorms}
+                selectedHistoricalStorm={selectedHistoricalStorm}
+                onSelectHistoricalStorm={onSelectHistoricalStorm}
+                isLoadingHistory={isLoadingHistory}
                 showBarangayBoundaries={showBarangayBoundaries}
                 onShowBarangayBoundariesChange={onShowBarangayBoundariesChange}
                 showBarangayBoundariesToggle={showBarangayBoundariesToggle}

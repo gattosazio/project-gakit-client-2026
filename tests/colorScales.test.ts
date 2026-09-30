@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildRainfallHeatmapWeight,
   buildRainfallPaintExpression,
   FLOOD_HAZARD_COLORS,
   FLOOD_HAZARD_LEGEND,
@@ -10,6 +11,7 @@ import {
   RAINFALL_BAND_COLORS,
   rainfallBandValues,
   RAINFALL_GRADIENT_CSS,
+  RAINFALL_HEATMAP_COLOR,
   RAINFALL_LEGEND_STOPS,
   RAINFALL_PAINT_STOPS,
 } from '@/lib/map/colorScales';
@@ -149,5 +151,29 @@ describe('rainfall legends', () => {
     for (const hours of ACCUMULATION_WINDOWS) {
       expect(RAINFALL_LEGEND_STOPS[hours].map((stop) => stop.color)).toEqual(reference);
     }
+  });
+
+  it('builds smooth WebGL heatmap weight expressions matching class thresholds', () => {
+    const weight1 = buildRainfallHeatmapWeight(1) as unknown[];
+    expect(weight1[0]).toBe('interpolate');
+    expect(weight1[1]).toEqual(['linear']);
+    expect(weight1[2]).toEqual(['get', 'precip_mm']);
+    expect(weight1[3]).toBe(0);
+    expect(weight1[4]).toBe(0);
+    expect(weight1[weight1.length - 2]).toBe(25); // 25 mm/hr max class
+    expect(weight1[weight1.length - 1]).toBe(1);
+
+    const weight24 = buildRainfallHeatmapWeight(24) as unknown[];
+    expect(weight24[weight24.length - 2]).toBe(250); // 250 mm max class for 24h
+    expect(weight24[weight24.length - 1]).toBe(1);
+  });
+
+  it('defines a continuous heatmap color ramp starting transparent', () => {
+    expect(RAINFALL_HEATMAP_COLOR[0]).toBe('interpolate');
+    expect(RAINFALL_HEATMAP_COLOR[1]).toEqual(['linear']);
+    expect(RAINFALL_HEATMAP_COLOR[2]).toEqual(['heatmap-density']);
+    expect(RAINFALL_HEATMAP_COLOR[3]).toBe(0);
+    expect(RAINFALL_HEATMAP_COLOR[4]).toBe('rgba(0, 0, 150, 0)');
+    expect(RAINFALL_HEATMAP_COLOR[RAINFALL_HEATMAP_COLOR.length - 1]).toBe(RAINFALL_BAND_COLORS[9]);
   });
 });

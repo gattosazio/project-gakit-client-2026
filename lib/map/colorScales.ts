@@ -164,3 +164,50 @@ export const rainfallBandValues = (hours: number): number[] => {
   const edges = RAINFALL_BAND_EDGES[hours] ?? RAINFALL_BAND_EDGES[FALLBACK_HOURS];
   return [...edges];
 };
+
+// Continuous WebGL heatmap color ramp using MapLibre's heatmap-density.
+// Maps smoothly across JAXA GSMaP's 10 official contour color bands.
+export const RAINFALL_HEATMAP_COLOR = [
+  'interpolate',
+  ['linear'],
+  ['heatmap-density'],
+  0,
+  'rgba(0, 0, 150, 0)', // zero rain: completely transparent
+  0.08,
+  RAINFALL_BAND_COLORS[0], // dark navy (trace)
+  0.18,
+  RAINFALL_BAND_COLORS[1], // blue
+  0.28,
+  RAINFALL_BAND_COLORS[2], // light blue
+  0.38,
+  RAINFALL_BAND_COLORS[3], // green
+  0.48,
+  RAINFALL_BAND_COLORS[4], // yellow-green
+  0.58,
+  RAINFALL_BAND_COLORS[5], // yellow
+  0.68,
+  RAINFALL_BAND_COLORS[6], // amber
+  0.78,
+  RAINFALL_BAND_COLORS[7], // orange
+  0.88,
+  RAINFALL_BAND_COLORS[8], // red-orange
+  1.0,
+  RAINFALL_BAND_COLORS[9], // dark red
+];
+
+// MapLibre expression for weighting points in the WebGL heatmap based on
+// precipitation accumulation mm relative to the selected time window.
+export const buildRainfallHeatmapWeight = (hours: number) => {
+  const edges = RAINFALL_BAND_EDGES[hours] ?? RAINFALL_BAND_EDGES[FALLBACK_HOURS];
+  const stops: (number | string | any[])[] = [0, 0];
+  edges.forEach((edge, idx) => {
+    const weight = Math.round(((idx + 1) / edges.length) * 100) / 100;
+    stops.push(edge, weight);
+  });
+  return [
+    'interpolate',
+    ['linear'],
+    ['get', 'precip_mm'],
+    ...stops,
+  ];
+};

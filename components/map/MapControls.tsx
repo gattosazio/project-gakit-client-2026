@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, Info, Layers, ListFilter, RotateCwFadingClock } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Check, ChevronDown, ChevronUp, History, Info, Layers, ListFilter, RotateCwFadingClock, Search, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import {
   REPORT_MARKER_COLORS,
@@ -29,7 +30,7 @@ import {
   TYPHOON_CATEGORY_CONFIG,
   getTyphoonCategoryColor,
 } from '@/lib/map/typhoon';
-import type { ActiveStormSummary } from '@/types/typhoon';
+import type { ActiveStormSummary, HistoricalStormSummary } from '@/types/typhoon';
 import { TyphoonScaleModal } from '@/components/TyphoonScaleModal';
 
 const JAXA_GSMAP_URL = 'https://sharaku.eorc.jaxa.jp/GSMaP/';
@@ -448,6 +449,10 @@ interface DataLayerControlsProps {
   hasActiveTyphoon?: boolean;
   activeStorms?: ActiveStormSummary[];
   onFocusStorm?: (stormName?: string) => void;
+  historicalStorms?: HistoricalStormSummary[];
+  selectedHistoricalStorm?: string | null;
+  onSelectHistoricalStorm?: (stormName: string | null) => void;
+  isLoadingHistory?: boolean;
   showBarangayBoundaries?: boolean;
   onShowBarangayBoundariesChange?: (checked: boolean) => void;
   /** Whether the caller may toggle administrative barangay boundaries. */
@@ -459,6 +464,333 @@ interface DataLayerControlsProps {
   onStormSurgeAdvisoryChange: (next: 1 | 2 | 3 | 4 | null) => void;
   isSidebarItem?: boolean;
   activeLayersCount?: number;
+}
+
+function getStormYear(storm: HistoricalStormSummary): string {
+  if (storm.lastSeen) {
+    const d = new Date(storm.lastSeen);
+    if (!Number.isNaN(d.getTime())) {
+      return String(d.getFullYear());
+    }
+  }
+  const dateCandidates = [storm.startDate, storm.endDate];
+  for (const candidate of dateCandidates) {
+    if (!candidate) continue;
+    const yearMatch = candidate.match(/\b(20\d\d)\b/);
+    if (yearMatch) {
+      return yearMatch[1];
+    }
+    const d = new Date(candidate);
+    if (!Number.isNaN(d.getTime())) {
+      return String(d.getFullYear());
+    }
+  }
+  return String(new Date().getFullYear());
+}
+
+function StormTrackSelector({
+  hasActiveTyphoon,
+  activeTyphoonName,
+  historicalStorms,
+  selectedHistoricalStorm,
+  onSelectHistoricalStorm,
+  isLoadingHistory = false,
+}: {
+  hasActiveTyphoon: boolean;
+  activeTyphoonName?: string | null;
+  historicalStorms: HistoricalStormSummary[];
+  selectedHistoricalStorm?: string | null;
+  onSelectHistoricalStorm?: (stormName: string | null) => void;
+  isLoadingHistory?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [menuPos, setMenuPos] = useState<{ top?: number; bottom?: number; left: number; width: number }>({
+    left: 0,
+    width: 240,
+  });
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setSearchQuery('');
+      return;
+    }
+    const timer = setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 50);
+
+    const handlePointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!buttonRef.current?.contains(target) && !menuRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    };
+    const handleScrollOrResize = (event: Event) => {
+      if (menuRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('resize', handleScrollOrResize);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('resize', handleScrollOrResize);
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    if (open) {
+      setOpen(false);
+      return;
+    }
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      const width = Math.max(rect.width, 240);
+      const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < 280 && rect.top > 280) {
+        setMenuPos({
+          bottom: window.innerHeight - rect.top + 4,
+          left,
+          width,
+        });
+      } else {
+        setMenuPos({
+          top: rect.bottom + 4,
+          left,
+          width,
+        });
+      }
+    }
+    setOpen(true);
+  };
+
+  const activeStormLabel = selectedHistoricalStorm
+    ? selectedHistoricalStorm
+    : hasActiveTyphoon
+    ? (activeTyphoonName ? `Current: ${activeTyphoonName}` : 'Current (Active Storm)')
+    : 'Current (No Active Storm)';
+
+  const currentYear = new Date().getFullYear();
+  const query = searchQuery.trim().toLowerCase();
+
+  const filteredStorms = historicalStorms.filter((storm) => {
+    if (!query) return true;
+    const year = getStormYear(storm);
+    const name = (storm.cycloneName || storm.name || '').toLowerCase();
+    const category = (storm.category || '').toLowerCase();
+    return name.includes(query) || category.includes(query) || year.includes(query);
+  });
+
+  const showCurrentOption = !query || 'current live active storm track dost pagasa'.includes(query);
+
+  const stormsByYear = new Map<string, HistoricalStormSummary[]>();
+  for (const storm of filteredStorms) {
+    const year = getStormYear(storm);
+    if (!stormsByYear.has(year)) {
+      stormsByYear.set(year, []);
+    }
+    stormsByYear.get(year)!.push(storm);
+  }
+  const sortedYears = Array.from(stormsByYear.keys()).sort((a, b) => Number(b) - Number(a));
+
+  return (
+    <div className="pt-1.5 border-t border-slate-100 space-y-1">
+      <div className="flex items-center justify-between text-[9.5px] uppercase tracking-wider text-slate-400 font-bold">
+        <span className="flex items-center gap-1">
+          <History className="w-3 h-3 text-slate-400" />
+          Track Source
+        </span>
+        {isLoadingHistory && <Spinner size="xs" />}
+      </div>
+
+      {/* Trigger Button: floating dropdown trigger with neutral styling */}
+      <button
+        ref={buttonRef}
+        type="button"
+        onClick={toggle}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-left text-[11px] font-medium text-slate-700 hover:border-slate-300 focus:outline-none focus:border-slate-400 shadow-2xs transition-colors cursor-pointer"
+      >
+        <span className="flex items-center gap-1.5 min-w-0 truncate">
+          <span
+            className={`w-2 h-2 rounded-full shrink-0 ${
+              selectedHistoricalStorm
+                ? 'bg-slate-600'
+                : hasActiveTyphoon
+                ? 'bg-emerald-500 animate-pulse'
+                : 'bg-slate-300'
+            }`}
+          />
+          <span className="truncate">{activeStormLabel}</span>
+        </span>
+        <ChevronDown
+          className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200 ${
+            open ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {/* Floating Popover: rendered via portal so it floats over cards/map without expanding card */}
+      {open &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            style={{
+              position: 'fixed',
+              ...(menuPos.top !== undefined ? { top: menuPos.top } : {}),
+              ...(menuPos.bottom !== undefined ? { bottom: menuPos.bottom } : {}),
+              left: menuPos.left,
+              width: menuPos.width,
+            }}
+            className="z-[1400] max-h-72 flex flex-col rounded-xl border border-slate-200/90 bg-white/95 backdrop-blur-md shadow-xl shadow-slate-900/10 text-slate-700 animate-in fade-in zoom-in-95 duration-100 overflow-hidden"
+          >
+            {/* Sticky Search Header */}
+            <div className="p-1.5 border-b border-slate-100 bg-white/80 shrink-0">
+              <div className="relative flex items-center">
+                <Search className="w-3.5 h-3.5 absolute left-2 text-slate-400 pointer-events-none" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    e.stopPropagation();
+                    if (e.key === 'Escape') setOpen(false);
+                  }}
+                  placeholder="Search storm or year..."
+                  className="w-full pl-7 pr-6 py-1 text-[11px] bg-slate-50 border border-slate-200 rounded-lg text-slate-700 placeholder:text-slate-400 focus:outline-none focus:border-slate-300 focus:bg-white transition-colors"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSearchQuery('');
+                      searchInputRef.current?.focus();
+                    }}
+                    className="absolute right-2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                    title="Clear search"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable Cyclone Options */}
+            <div className="overflow-y-auto overscroll-contain flex-1 p-1 space-y-0.5">
+              {/* Current DOST-PAGASA Option */}
+              {showCurrentOption && (
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={!selectedHistoricalStorm}
+                  onClick={() => {
+                    onSelectHistoricalStorm?.(null);
+                    setOpen(false);
+                  }}
+                  className={`flex items-center justify-between w-full px-2.5 py-1.5 rounded-lg text-[11px] transition-colors text-left cursor-pointer ${
+                    !selectedHistoricalStorm
+                      ? 'bg-slate-100 font-semibold text-slate-900'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="flex items-center gap-2 min-w-0 truncate">
+                    <span
+                      className={`w-2 h-2 rounded-full shrink-0 ${
+                        hasActiveTyphoon ? 'bg-emerald-500' : 'bg-slate-300'
+                      }`}
+                    />
+                    <span className="truncate">
+                      {hasActiveTyphoon
+                        ? (activeTyphoonName ? `Current: ${activeTyphoonName}` : 'Current (Active storm)')
+                        : 'Current (No active storm)'}
+                    </span>
+                  </span>
+                  {!selectedHistoricalStorm && (
+                    <Check className="w-3.5 h-3.5 text-slate-700 shrink-0 ml-1.5" />
+                  )}
+                </button>
+              )}
+
+              {/* Grouped Historical Seasons */}
+              {sortedYears.map((year) => {
+                const stormsInYear = stormsByYear.get(year) || [];
+                const isCurrentYear = Number(year) === currentYear;
+                const seasonLabel = isCurrentYear ? `${year} Season (Current)` : `${year} Season`;
+
+                return (
+                  <div key={year} className="space-y-0.5">
+                    <div className="px-2.5 pt-2 pb-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-400 border-t border-slate-100 first:border-t-0 first:pt-1">
+                      {seasonLabel}
+                    </div>
+                    {stormsInYear.map((storm) => {
+                      const isSelected = selectedHistoricalStorm === storm.cycloneName;
+                      const datePart = [storm.startDate, storm.endDate].filter(Boolean).join(' – ');
+                      return (
+                        <button
+                          key={storm.id}
+                          type="button"
+                          role="option"
+                          aria-selected={isSelected}
+                          onClick={() => {
+                            onSelectHistoricalStorm?.(storm.cycloneName);
+                            setOpen(false);
+                          }}
+                          className={`flex items-start justify-between w-full px-2.5 py-1.5 rounded-lg text-[11px] transition-colors text-left cursor-pointer ${
+                            isSelected
+                              ? 'bg-slate-100 font-semibold text-slate-900'
+                              : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1 pr-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="w-1.5 h-1.5 rounded-full shrink-0 mt-0.5"
+                                style={{ backgroundColor: getTyphoonCategoryColor(storm.category) }}
+                              />
+                              <span className="truncate font-semibold">{storm.cycloneName}</span>
+                              <span className="text-[9px] text-slate-400 font-mono shrink-0">
+                                [{storm.category}]
+                              </span>
+                            </div>
+                            {datePart && (
+                              <div className="text-[9.5px] text-slate-400 pl-3 leading-tight truncate mt-0.5">
+                                {datePart} · {storm.pointCount} pts
+                              </div>
+                            )}
+                          </div>
+                          {isSelected && (
+                            <Check className="w-3.5 h-3.5 text-slate-700 shrink-0 mt-0.5" />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+
+              {/* Empty State */}
+              {filteredStorms.length === 0 && (
+                <div className="px-3 py-5 text-center text-[11px] text-slate-400">
+                  {searchQuery ? `No cyclone tracks match "${searchQuery}"` : 'No cyclone tracks found'}
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
 }
 
 export function DataLayerControls({
@@ -486,6 +818,10 @@ export function DataLayerControls({
   hasActiveTyphoon = false,
   activeStorms,
   onFocusStorm,
+  historicalStorms,
+  selectedHistoricalStorm,
+  onSelectHistoricalStorm,
+  isLoadingHistory = false,
   showBarangayBoundaries = false,
   onShowBarangayBoundariesChange,
   showBarangayBoundariesToggle = true,
@@ -745,12 +1081,29 @@ export function DataLayerControls({
         {showTyphoonTrack && (
           <div className="pl-7 pt-1 pb-1 space-y-1.5">
             <div className="text-[10px] leading-snug text-slate-400">
-              {hasActiveTyphoon
-                ? (activeTyphoonName
-                    ? `Tracking ${activeTyphoonName}${typhoonObservedAt && formatTyphoonTime(typhoonObservedAt) ? ` · as of ${formatTyphoonTime(typhoonObservedAt)}` : ''}`
-                    : `Active storm tracked${typhoonObservedAt && formatTyphoonTime(typhoonObservedAt) ? ` · as of ${formatTyphoonTime(typhoonObservedAt)}` : ''}`)
-                : `No active storm inside PAR${typhoonObservedAt && formatTyphoonTime(typhoonObservedAt) ? ` · as of ${formatTyphoonTime(typhoonObservedAt)}` : ''}`}
+              {selectedHistoricalStorm ? (
+                <span>Viewing archived cyclone track</span>
+              ) : hasActiveTyphoon ? (
+                activeTyphoonName ? (
+                  `Tracking ${activeTyphoonName}${activeStorms?.[0]?.isInsidePar === false ? ' (Outside PAR)' : ''}${typhoonObservedAt && formatTyphoonTime(typhoonObservedAt) ? ` · as of ${formatTyphoonTime(typhoonObservedAt)}` : ''}`
+                ) : (
+                  `Active storm tracked${activeStorms?.[0]?.isInsidePar === false ? ' (Outside PAR)' : ''}${typhoonObservedAt && formatTyphoonTime(typhoonObservedAt) ? ` · as of ${formatTyphoonTime(typhoonObservedAt)}` : ''}`
+                )
+              ) : (
+                `No active storm inside PAR${typhoonObservedAt && formatTyphoonTime(typhoonObservedAt) ? ` · as of ${formatTyphoonTime(typhoonObservedAt)}` : ''}`
+              )}
             </div>
+
+            {historicalStorms && historicalStorms.length > 0 && (
+              <StormTrackSelector
+                hasActiveTyphoon={hasActiveTyphoon}
+                activeTyphoonName={activeTyphoonName}
+                historicalStorms={historicalStorms}
+                selectedHistoricalStorm={selectedHistoricalStorm}
+                onSelectHistoricalStorm={onSelectHistoricalStorm}
+                isLoadingHistory={isLoadingHistory}
+              />
+            )}
             <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100">
               <div className="flex items-center gap-1">
                 {PRIMARY_TYPHOON_CATEGORIES.map((code) => {
