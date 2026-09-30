@@ -19,6 +19,8 @@ import { WeatherAlertModal } from './WeatherAlertModal';
 import { LocationSearch, type SearchedLocation } from '@/app/public-view/components/LocationSearch';
 import { HowToReportPopover } from '@/components/header/HowToReportPopover';
 import { UserNavMenu } from '@/components/header/UserNavMenu';
+import { BentoMenu } from './BentoMenu';
+import { monitoringBentoTiles } from '@/lib/navigation/bentoMenu';
 
 export function PublicHeader({
   activeSection,
@@ -26,12 +28,23 @@ export function PublicHeader({
   onNavigateSection,
   onSearchSelect,
   onLocate,
+  showBentoMenu = false,
+  showSectionNav = true,
+  showBottomNav = true,
 }: {
   activeSection?: 'hazard-map' | 'about';
   initialAuth?: AuthSnapshot;
   onNavigateSection?: (id: 'hazard-map' | 'about') => void;
   onSearchSelect?: (location: SearchedLocation) => void;
   onLocate?: () => void | Promise<void>;
+  /** Adds the bento portals launcher left of the bell. */
+  showBentoMenu?: boolean;
+  /** Hides the About button and the account pill. For pages with no About
+   *  section, where the bento home row is the way back to the portal. */
+  showSectionNav?: boolean;
+  /** Hides the mobile bottom bar. The bell moves into the top cluster when
+   *  this is false, since the bottom bar is otherwise its only mobile home. */
+  showBottomNav?: boolean;
 }) {
   const router = useRouter();
   const { navigate, loadingOverlay } = useRouteLoader();
@@ -246,31 +259,34 @@ export function PublicHeader({
 
         {/* Desktop Navigation & Actions */}
         <div className="hidden items-center gap-2 md:flex">
-          <nav className="flex items-center gap-1.5 text-sm font-semibold">
-            <button
-              onClick={() => scrollToSection('about')}
-              className={`inline-flex items-center justify-center rounded-full px-4 py-1.5 font-heading text-xs font-bold transition-all duration-150 active:scale-95 ${
-                activeSection === 'about'
-                  ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
-                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-              }`}
-            >
-              About
-            </button>
-            {!isChecking && (
+          {showSectionNav && (
+            <nav className="flex items-center gap-1.5 text-sm font-semibold">
               <button
-                onClick={handleAccountClick}
-                className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-4 py-1.5 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:scale-95"
+                onClick={() => scrollToSection('about')}
+                className={`inline-flex items-center justify-center rounded-full px-4 py-1.5 font-heading text-xs font-bold transition-all duration-150 active:scale-95 ${
+                  activeSection === 'about'
+                    ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
+                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+                }`}
               >
-                <span className="tracking-wide">{accountLabel}</span>
+                About
               </button>
-            )}
-          </nav>
+              {!isChecking && (
+                <button
+                  onClick={handleAccountClick}
+                  className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-4 py-1.5 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:scale-95"
+                >
+                  <span className="tracking-wide">{accountLabel}</span>
+                </button>
+              )}
+            </nav>
+          )}
 
-          <span className="mx-1 h-5 w-px bg-slate-200/80" />
+          {!showSectionNav && <span className="mx-1 h-5 w-px bg-slate-200/80" />}
 
           {/* Right cluster: info, notifications, account */}
           <div className="flex items-center gap-1">
+            {showBentoMenu && <BentoMenu items={monitoringBentoTiles} />}
             <HowToReportPopover
               isOpen={isInfoOpen}
               onToggle={() => {
@@ -314,6 +330,24 @@ export function PublicHeader({
 
         {/* Mobile top-right cluster */}
         <div className="flex items-center gap-1 md:hidden">
+          {showBentoMenu && <BentoMenu items={monitoringBentoTiles} />}
+          {/* Without the bottom bar the bell has no mobile home, so it moves up here. */}
+          {!showBottomNav && (
+            <NotificationBell
+              notifications={weatherNotifications}
+              onSelectAlert={setSelectedAlert}
+              onMarkRead={markAlertRead}
+              variant="header"
+              isOpen={isNotifOpen}
+              onOpenChange={(next) => {
+                setIsNotifOpen(next);
+                if (next) {
+                  setIsMenuOpen(false);
+                  setIsInfoOpen(false);
+                }
+              }}
+            />
+          )}
           <HowToReportPopover
             isOpen={isInfoOpen}
             onToggle={() => {
@@ -342,53 +376,55 @@ export function PublicHeader({
       </div>
     </header>
 
-    <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-2 md:hidden">
-      <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 p-1.5 hud-card">
-        <button
-          onClick={() => scrollToSection('hazard-map')}
-          className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
-            activeSection === 'hazard-map'
-              ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
-              : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
-          }`}
-        >
-          <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
-          <span className="text-[10px] font-semibold">Map</span>
-        </button>
-        <button
-          onClick={() => scrollToSection('about')}
-          className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
-            activeSection === 'about'
-              ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
-              : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
-          }`}
-        >
-          <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
-          <span className="text-[10px] font-semibold">About</span>
-        </button>
-        <NotificationBell
-          notifications={weatherNotifications}
-          onSelectAlert={setSelectedAlert}
-          onMarkRead={markAlertRead}
-          variant="mobile-nav"
-          onOpenChange={(next) => {
-            if (next) {
-              setIsMenuOpen(false);
-              setIsInfoOpen(false);
-            }
-          }}
-        />
-        {!isChecking && (
+    {showBottomNav && (
+      <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-2 md:hidden">
+        <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 p-1.5 hud-card">
           <button
-            onClick={handleAccountClick}
-            className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70 active:scale-95"
+            onClick={() => scrollToSection('hazard-map')}
+            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
+              activeSection === 'hazard-map'
+                ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
+            }`}
           >
-            <UserRound className="h-5 w-5" />
-            <span className="text-[10px] font-semibold">{accountLabel}</span>
+            <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
+            <span className="text-[10px] font-semibold">Map</span>
           </button>
-        )}
-      </div>
-    </nav>
+          <button
+            onClick={() => scrollToSection('about')}
+            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
+              activeSection === 'about'
+                ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
+            }`}
+          >
+            <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
+            <span className="text-[10px] font-semibold">About</span>
+          </button>
+          <NotificationBell
+            notifications={weatherNotifications}
+            onSelectAlert={setSelectedAlert}
+            onMarkRead={markAlertRead}
+            variant="mobile-nav"
+            onOpenChange={(next) => {
+              if (next) {
+                setIsMenuOpen(false);
+                setIsInfoOpen(false);
+              }
+            }}
+          />
+          {!isChecking && (
+            <button
+              onClick={handleAccountClick}
+              className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70 active:scale-95"
+            >
+              <UserRound className="h-5 w-5" />
+              <span className="text-[10px] font-semibold">{accountLabel}</span>
+            </button>
+          )}
+        </div>
+      </nav>
+    )}
     <SignOutConfirmDialog
       isOpen={showSignOutConfirm}
       isSigningOut={isSigningOut}
