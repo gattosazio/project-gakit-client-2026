@@ -119,10 +119,10 @@ export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
 };
 
 export const REPORT_MARKER_COLORS: Record<ReportStatus, string> = {
-  UNVERIFIED: '#F59E0B',
+  UNVERIFIED: '#64748B',
   VERIFIED: '#2563EB',
-  ANOMALY: '#DC2626',
-  REJECTED: '#64748B',
+  ANOMALY: '#7C3AED',
+  REJECTED: '#334155',
 };
 
 export const REPORT_MARKER_IMAGE_IDS: Record<ReportStatus, string> = {

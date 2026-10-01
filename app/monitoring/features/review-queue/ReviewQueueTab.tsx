@@ -123,23 +123,26 @@ const priorities: Array<'All' | Priority> = ['All', 'High', 'Medium', 'Low'];
 const reasons: Array<'All' | FlagReason> = ['All', 'AI Conflict', 'Depth Mismatch', 'Weak Evidence', 'Duplicate Pattern'];
 const REVIEW_ITEMS_PER_PAGE = 3;
 
+// Verdicts follow the report status palette, priority stays on a monochrome
+// maroon ramp so it reads as ordered magnitude without competing hues, and
+// evidence strength reuses the status hues.
 const verdictStyles: Record<AIVerdict, string> = {
-  Verified: 'bg-green-50 text-hazard-safe border-green-200',
-  Anomaly: 'bg-red-50 text-hazard-critical border-red-200',
-  'Needs Review': 'bg-amber-50 text-hazard-pending border-amber-200',
+  Verified: 'bg-blue-50 text-blue-700 border-blue-200',
+  Anomaly: 'bg-violet-50 text-violet-700 border-violet-200',
+  'Needs Review': 'bg-slate-50 text-slate-600 border-slate-200',
 };
 
 const priorityStyles: Record<Priority, string> = {
-  High: 'text-hazard-critical',
-  Medium: 'text-hazard-pending',
-  Low: 'text-slate-500',
+  High: 'text-maroon-700',
+  Medium: 'text-maroon-500',
+  Low: 'text-maroon-300',
 };
 
 const supportStyles: Record<EvidenceSupport, string> = {
-  Strong: 'bg-green-50 text-hazard-safe border-green-200',
-  Partial: 'bg-maroon-50 text-gakit-maroon border-maroon-200',
-  Weak: 'bg-amber-50 text-hazard-pending border-amber-200',
-  Mismatch: 'bg-red-50 text-hazard-critical border-red-200',
+  Strong: 'bg-blue-50 text-blue-700 border-blue-200',
+  Partial: 'bg-slate-100 text-slate-700 border-slate-200',
+  Weak: 'bg-slate-50 text-slate-500 border-slate-200',
+  Mismatch: 'bg-violet-50 text-violet-700 border-violet-200',
 };
 
 export function ReviewQueueTab() {

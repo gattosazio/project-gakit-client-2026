@@ -37,26 +37,32 @@ export interface StatusMeta {
   color: string;
 }
 
+/**
+ * Validation state of a report. Deliberately kept off the DEPTH_BAR_COLOR
+ * traffic-light ramp so a status badge and a water-level reading are never
+ * mistaken for one another; PENDING and REJECTED are separated by treatment
+ * (light outlined vs dark filled) rather than hue.
+ */
 export const STATUS_META: Record<ReportStatus, StatusMeta> = {
   UNVERIFIED: {
     label: 'Pending',
-    badgeClass: 'bg-amber-50 text-hazard-pending border-amber-200',
-    color: '#F59E0B',
+    badgeClass: 'bg-slate-50 text-slate-600 border-slate-200',
+    color: '#64748B',
   },
   VERIFIED: {
     label: 'Verified',
-    badgeClass: 'bg-green-50 text-hazard-safe border-green-200',
-    color: '#10B981',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+    color: '#2563EB',
   },
   ANOMALY: {
     label: 'Anomaly',
-    badgeClass: 'bg-red-50 text-hazard-critical border-red-200',
-    color: '#EF4444',
+    badgeClass: 'bg-violet-50 text-violet-700 border-violet-200',
+    color: '#7C3AED',
   },
   REJECTED: {
     label: 'Rejected',
-    badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
-    color: '#94A3B8',
+    badgeClass: 'bg-slate-800 text-white border-slate-700',
+    color: '#334155',
   },
 };
 

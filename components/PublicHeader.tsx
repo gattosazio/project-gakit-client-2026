@@ -210,6 +210,11 @@ export function PublicHeader({
   const accountLabel =
     home === '/admin' ? 'Admin' : home === '/monitoring' ? 'Monitoring' : 'Login';
 
+  // Once signed in the bento launcher is the way back into a portal, so it
+  // takes over from the pill. Anonymous visitors keep the pill, because it is
+  // the only sign-in CTA in this header.
+  const accountPillVisible = !showBentoMenu || !home;
+
   const handleAccountClick = () => {
     navigate(home ?? '/login');
   };
@@ -271,7 +276,7 @@ export function PublicHeader({
               >
                 About
               </button>
-              {!isChecking && (
+              {!isChecking && accountPillVisible && (
                 <button
                   onClick={handleAccountClick}
                   className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-4 py-1.5 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:scale-95"
@@ -413,7 +418,7 @@ export function PublicHeader({
               }
             }}
           />
-          {!isChecking && (
+          {!isChecking && accountPillVisible && (
             <button
               onClick={handleAccountClick}
               className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70 active:scale-95"

@@ -20,15 +20,15 @@ const GROUP_ORDER_HINT: Record<QueueGroup, string> = {
 };
 
 const GROUP_ROW_BAR: Record<QueueGroup, string> = {
-  critical: 'border-l-red-500',
-  flagged: 'border-l-orange-400',
-  pending: 'border-l-amber-400',
+  critical: 'border-l-violet-500',
+  flagged: 'border-l-blue-400',
+  pending: 'border-l-slate-300',
 };
 
 const GROUP_ICON: Record<QueueGroup, string> = {
-  critical: 'text-red-600',
-  flagged: 'text-orange-500',
-  pending: 'text-amber-500',
+  critical: 'text-violet-600',
+  flagged: 'text-blue-500',
+  pending: 'text-slate-500',
 };
 
 const QUEUE_LIMIT = 8;
@@ -56,13 +56,13 @@ export function AttentionQueue({
         {total > 0 ? (
           <div className="flex flex-wrap items-center gap-2">
             {counts.critical > 0 && (
-              <CountChip label={`${counts.critical} critical`} className="bg-red-50 text-red-700 border-red-200" />
+              <CountChip label={`${counts.critical} critical`} className="bg-violet-50 text-violet-700 border-violet-200" />
             )}
             {counts.flagged > 0 && (
-              <CountChip label={`${counts.flagged} flagged`} className="bg-orange-50 text-orange-700 border-orange-200" />
+              <CountChip label={`${counts.flagged} flagged`} className="bg-blue-50 text-blue-700 border-blue-200" />
             )}
             {counts.pending > 0 && (
-              <CountChip label={`${counts.pending} pending`} className="bg-amber-50 text-amber-700 border-amber-200" />
+              <CountChip label={`${counts.pending} pending`} className="bg-slate-100 text-slate-600 border-slate-200" />
             )}
           </div>
         ) : null}
