@@ -21,11 +21,11 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
       {/* Mobile Quick Strip (compact 1-row telemetry) */}
       <div className="flex md:hidden items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-          <div className="flex items-center gap-1 text-sky-700">
-            <Activity className="h-3.5 w-3.5" />
+          <div className="flex items-center gap-1 text-indigo-700">
+            <CloudRain className="h-3.5 w-3.5" />
             <span>
-              {currentFrame.q_peak_m3s.toLocaleString()}{' '}
-              <span className="font-normal text-[11px] text-slate-500">m³/s</span>
+              {currentFrame.hourly_rain_mm.toFixed(1)}{' '}
+              <span className="font-normal text-[11px] text-slate-500">mm/h</span>
             </span>
           </div>
           <span className="text-slate-300">•</span>

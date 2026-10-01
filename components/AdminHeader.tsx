@@ -26,8 +26,6 @@ import type { Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
 import { MobileSignOutButton } from './SideBar';
 import { SettingsDropdown } from './SettingsDropdown';
-import { BentoMenu } from './BentoMenu';
-import { monitoringBentoTiles } from '@/lib/navigation/bentoMenu';
 import type { StaffRole } from '@/lib/auth/roles';
 
 interface AdminHeaderProps {
@@ -37,7 +35,6 @@ interface AdminHeaderProps {
   badge?: string;
   role?: StaffRole | null;
   onNotificationClick?: (notificationId: string) => void;
-  showBentoMenu?: boolean;
 }
 
 interface HeaderNotification {
@@ -138,7 +135,6 @@ export function AdminHeader({
   badge,
   role = null,
   onNotificationClick,
-  showBentoMenu = false,
 }: AdminHeaderProps) {
   const [recentReports, setRecentReports] = useState<Report[]>([]);
   const [readIds, setReadIds] = useState<string[]>([]);
@@ -400,8 +396,7 @@ export function AdminHeader({
         </div>
       </div>
 
-      <div className="flex items-center gap-2.5">
-        {showBentoMenu && <BentoMenu items={monitoringBentoTiles} />}
+      <div className="flex items-center gap-1.5 sm:gap-2">
         <div ref={notificationRef} className="relative">
           <button
             type="button"
@@ -414,11 +409,11 @@ export function AdminHeader({
             }}
             className={`relative rounded-full p-2.5 transition-all duration-150 active:scale-95 ${
               isOpen
-                ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+                ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80 font-bold'
                 : 'bg-slate-50 ring-1 ring-slate-200 hover:bg-slate-100 hover:text-gakit-maroon'
             }`}
           >
-            <Bell className="h-5 w-5 text-slate-600" />
+            <Bell className={`h-5 w-5 ${isOpen ? 'text-gakit-maroon' : 'text-slate-600'}`} />
             {unreadCount > 0 && (
               <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-hazard-critical px-1 text-[10px] font-bold text-white">
                 {unreadCount > 9 ? '9+' : unreadCount}

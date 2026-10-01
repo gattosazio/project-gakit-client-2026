@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { useEffect } from 'react';
+import Link from 'next/link';
 import Image from 'next/image';
 import { LogOut, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
@@ -10,6 +11,8 @@ import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { PortalNavItem } from '@/types/portal';
 import { useRouteLoader } from './RouteLoader';
+import { BentoMenu } from './BentoMenu';
+import { monitoringBentoTiles } from '@/lib/navigation/bentoMenu';
 
 interface SideBarProps<T extends string> {
   activeTab: T;
@@ -200,7 +203,18 @@ export function SideBar<T extends string>({
 
       <nav className={`flex-1 space-y-1 overflow-y-auto py-6 ${isCollapsed ? 'px-2' : 'px-4'}`}>
         <div className={`pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 ${isCollapsed ? 'sr-only' : 'px-4'}`}>
-          Menu
+          Apps
+        </div>
+        <BentoMenu
+          items={monitoringBentoTiles}
+          variant="sidebar"
+          isCollapsed={isCollapsed}
+        />
+
+        <div className={isCollapsed ? 'my-3 border-t border-slate-200/80 mx-1' : 'pt-6 pb-2'}>
+          <span className={`text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 ${isCollapsed ? 'sr-only' : 'px-4'}`}>
+            Console
+          </span>
         </div>
         {items.map((feature) => {
           const Icon = feature.icon;
@@ -211,17 +225,17 @@ export function SideBar<T extends string>({
               key={feature.id}
               onClick={() => onTabChange(feature.id)}
               title={feature.badge ? `${feature.label} (${feature.badge})` : feature.label}
-              className={`group flex w-full items-center rounded-2xl py-3 text-sm font-semibold transition-all duration-200 ${
+              className={`group flex w-full items-center rounded-2xl text-sm font-semibold transition-all duration-200 ${
                 isActive
                   ? 'bg-slate-200 text-slate-900'
                   : 'text-slate-600 hover:bg-white hover:text-gakit-maroon hover:shadow-sm'
               } ${
-                isCollapsed ? 'justify-center px-3' : 'gap-3 px-4'
+                isCollapsed ? 'justify-center px-3 py-2.5' : 'gap-3 px-4 py-3'
               }`}
             >
               <div className="relative shrink-0">
                 <Icon
-                  className={`h-4 w-4 transition-colors ${isActive ? 'text-gakit-maroon' : 'text-slate-400 group-hover:text-gakit-maroon'}`}
+                  className={`h-5 w-5 transition-colors ${isActive ? 'text-gakit-maroon' : 'text-slate-400 group-hover:text-gakit-maroon'}`}
                 />
                 {feature.badge && isCollapsed && (
                   <span className="absolute -top-1 -right-1 flex h-2 w-2">
@@ -250,8 +264,8 @@ export function SideBar<T extends string>({
       </nav>
 
       <div className={`border-t border-slate-100 ${isCollapsed ? 'p-2' : 'p-4'}`}>
-        <div className={`mb-3 flex items-center rounded-2xl border border-slate-200 bg-slate-50 ${isCollapsed ? 'justify-center p-3' : 'gap-3 p-3'}`}>
-          <UserRound className="h-4 w-4 shrink-0 text-gakit-maroon" />
+        <div className={`mb-3 flex items-center rounded-2xl border border-slate-200 bg-slate-50 ${isCollapsed ? 'justify-center p-2.5' : 'gap-3 p-3'}`}>
+          <UserRound className="h-5 w-5 shrink-0 text-gakit-maroon" />
           <div className={isCollapsed ? 'hidden' : 'min-w-0'}>
             <div className="truncate text-xs font-semibold text-slate-900">
               {email || 'staff_gakit@gmail.com'}
@@ -269,7 +283,7 @@ export function SideBar<T extends string>({
             isCollapsed ? 'justify-center px-3' : 'gap-3 px-3'
           }`}
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="h-4.5 w-4.5" />
           <span className={isCollapsed ? 'sr-only' : ''}>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
         </button>
       </div>

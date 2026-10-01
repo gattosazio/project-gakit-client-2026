@@ -1,5 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="currentColor" role="img" aria-label="Flood Scenarios placeholder mark">
-  <rect x="5" y="5" width="22" height="38" rx="6" />
-  <rect x="30" y="5" width="13" height="18" rx="5" />
-  <rect x="30" y="26" width="13" height="17" rx="5" />
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <rect width="48" height="48" rx="12" fill="#F0F9FF"/>
+  <path d="M10 21C13.5 18 16.5 18 20 21C23.5 24 26.5 24 30 21C33.5 18 36.5 18 38 19.5" stroke="#0369A1" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M10 27C13.5 24 16.5 24 20 27C23.5 30 26.5 30 30 27C33.5 24 36.5 24 38 25.5" stroke="#0284C7" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M10 33C13.5 30 16.5 30 20 33C23.5 36 26.5 36 30 33C33.5 30 36.5 30 38 31.5" stroke="#38BDF8" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="34" cy="14" r="2.5" fill="#0284C7"/>
 </svg>

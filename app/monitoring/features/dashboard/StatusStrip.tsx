@@ -62,43 +62,45 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
 
   return (
     <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
-      <div className="flex flex-wrap items-stretch gap-3 p-3">
-        <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-200/70 bg-slate-50/80 px-3 py-2">
-          <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
-          <span className="text-sm font-semibold text-slate-700">
-            {manilaClock(new Date())}
-          </span>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 p-3 min-w-0">
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3 min-w-0">
+          <div className="flex shrink-0 items-center gap-2 rounded-xl border border-slate-200/70 bg-slate-50/80 px-2.5 py-2 sm:px-3">
+            <CalendarDays className="h-4 w-4 shrink-0 text-slate-400" />
+            <span className="text-xs sm:text-sm font-semibold text-slate-700">
+              {manilaClock(new Date())}
+            </span>
+          </div>
+
+          {current ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (digest) setModalAlert(digest);
+              }}
+              disabled={!digest}
+              title={digest ? 'Weather outlook for Iligan' : 'Weather outlook unavailable'}
+              aria-haspopup="dialog"
+              className="group flex min-w-0 items-center gap-1.5 rounded-xl transition-colors disabled:cursor-default"
+            >
+              <CurrentConditions current={current} />
+              <ChevronUp
+                className={`h-3.5 w-3.5 shrink-0 transition-all ${
+                  digest
+                    ? 'text-slate-300 group-hover:text-gakit-maroon group-hover:-translate-y-0.5'
+                    : 'text-slate-200'
+                }`}
+                aria-hidden="true"
+              />
+            </button>
+          ) : (
+            <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-200/70 bg-slate-50/80 px-3 py-2">
+              <span className="text-xs font-medium text-slate-400">Conditions unavailable</span>
+            </div>
+          )}
         </div>
 
-        {current ? (
-          <button
-            type="button"
-            onClick={() => {
-              if (digest) setModalAlert(digest);
-            }}
-            disabled={!digest}
-            title={digest ? 'Weather outlook for Iligan' : 'Weather outlook unavailable'}
-            aria-haspopup="dialog"
-            className="group flex items-center gap-1.5 rounded-xl transition-colors disabled:cursor-default"
-          >
-            <CurrentConditions current={current} />
-            <ChevronUp
-              className={`h-3.5 w-3.5 shrink-0 transition-all ${
-                digest
-                  ? 'text-slate-300 group-hover:text-gakit-maroon group-hover:-translate-y-0.5'
-                  : 'text-slate-200'
-              }`}
-              aria-hidden="true"
-            />
-          </button>
-        ) : (
-          <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-slate-200/70 bg-slate-50/80 px-3 py-2">
-            <span className="text-xs font-medium text-slate-400">Conditions unavailable</span>
-          </div>
-        )}
-
         {activeAlerts.length > 0 ? (
-          <div className="ml-auto flex min-w-0 flex-1 flex-col gap-1.5">
+          <div className="flex w-full lg:w-auto lg:ml-auto min-w-0 flex-col gap-1.5">
             {activeAlerts.map((alert) => {
               const chipClass = SEVERITY_CHIP[alert.severity] ?? SEVERITY_CHIP.info;
               return (
@@ -107,14 +109,14 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
                   type="button"
                   onClick={() => setModalAlert(alert)}
                   aria-haspopup="dialog"
-                  className={`flex min-w-[17rem] max-w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors ${chipClass}`}
+                  className={`flex w-full lg:min-w-[17rem] items-center gap-2 sm:gap-2.5 rounded-xl border px-3 py-2 text-left transition-colors min-w-0 ${chipClass}`}
                 >
                   <BellRing className="h-4 w-4 shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-bold">
+                  <span className="min-w-0 flex-1 overflow-hidden">
+                    <span className="block truncate text-xs sm:text-sm font-bold">
                       {isPagasaAlert(alert) ? shortTitle(alert) || alertTitle(alert) : alertTitle(alert)}
                     </span>
-                    <span className="block text-xs font-semibold opacity-80">
+                    <span className="block truncate text-[11px] sm:text-xs font-semibold opacity-80">
                       {ALERT_TYPE_LABELS[alert.alertType] ?? 'Advisory'} · issued{' '}
                       {shortTime(alert.data?.issuedAt ?? alert.createdAt)}
                     </span>
@@ -131,7 +133,7 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
             })}
           </div>
         ) : (
-          <p className="ml-auto flex items-center text-xs font-medium text-slate-400">
+          <p className="flex items-center text-xs font-medium text-slate-400 lg:ml-auto">
             No active advisories from DOST-PAGASA
           </p>
         )}

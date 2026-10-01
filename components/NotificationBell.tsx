@@ -78,7 +78,7 @@ export function NotificationBell({
 
   useEffect(() => {
     if (!open) return;
-    const handleClick = (e: MouseEvent) => {
+    const handleClick = (e: MouseEvent | TouchEvent) => {
       if (
         panelRef.current &&
         !panelRef.current.contains(e.target as Node) &&
@@ -89,7 +89,11 @@ export function NotificationBell({
       }
     };
     document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick, { passive: true });
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+    };
   }, [open, setOpen]);
 
   const total = notifications.length;
@@ -101,16 +105,16 @@ export function NotificationBell({
 
   const buttonClassName =
     variant === 'header'
-      ? `relative rounded-full p-2.5 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:scale-95 ${
+      ? `relative flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 ${
           open
-            ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
+            ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80 font-bold'
             : ''
         }`
       : variant === 'mobile-nav'
-        ? `relative flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
+        ? `relative flex w-full flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-150 active:scale-95 ${
             open
-              ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
-              : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
+              ? 'bg-slate-200 text-slate-900 font-bold'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
           }`
         : 'relative flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl active:scale-95 md:backdrop-blur';
 
@@ -130,7 +134,7 @@ export function NotificationBell({
         title={`${count} notification${count !== 1 ? 's' : ''}`}
         aria-label="Notifications"
       >
-        <Bell className={`${iconClassName} ${variant === 'header' ? 'text-slate-600' : open ? 'text-gakit-maroon' : 'text-slate-500'}`} />
+        <Bell className={`${iconClassName} ${open ? 'text-gakit-maroon' : variant === 'header' ? 'text-slate-600' : 'text-slate-500'}`} />
         {count > 0 && (
           <span
             className={`absolute flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ${
@@ -152,16 +156,16 @@ export function NotificationBell({
       {open && (
         <div
           ref={panelRef}
-          className={`z-[1300] overflow-hidden rounded-xl border border-canvas-grey bg-white shadow-xl ${
+          className={`z-[1300] overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-2xl backdrop-blur-xl ring-1 ring-slate-900/10 ${
             variant === 'header'
-              ? 'absolute right-0 top-auto mt-2 w-80'
+              ? 'fixed inset-x-3.5 top-16 shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-2.5 md:w-80 animate-in fade-in zoom-in-95 duration-100'
               : variant === 'mobile-nav'
-                ? 'fixed inset-x-4 bottom-24 w-auto md:hidden'
-                : 'absolute right-0 top-full mt-2 w-80'
+                ? 'fixed inset-x-4 bottom-20 w-auto md:hidden animate-in fade-in slide-in-from-bottom-2 duration-150'
+                : 'absolute right-0 top-full mt-2.5 w-80 shadow-xl'
           }`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-canvas-grey px-4 py-3">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-900">Notifications</p>
               <p className="text-xs text-slate-500">
@@ -170,7 +174,7 @@ export function NotificationBell({
             </div>
             <button
               onClick={() => setOpen(false)}
-              className="rounded-md p-1 text-slate-400 hover:bg-canvas-light hover:text-slate-700 transition-colors"
+              className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
               aria-label="Close notifications"
             >
               <X className="h-4 w-4" />
@@ -179,7 +183,7 @@ export function NotificationBell({
 
           {/* Tabs */}
           {total > 0 && (
-            <div className="flex border-b border-canvas-grey">
+            <div className="flex border-b border-slate-100">
               <button
                 type="button"
                 onClick={() => setTab('unread')}
@@ -217,7 +221,7 @@ export function NotificationBell({
               {tab === 'unread' ? 'No unread notifications' : 'No read notifications'}
             </div>
           ) : (
-            <div className="max-h-80 divide-y divide-canvas-grey overflow-y-auto">
+            <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
               {activeList.map((item) => {
                 const config = SEVERITY_CONFIG[item.severity];
                 const Icon = item.alertType ? (ALERT_ICONS[item.alertType] ?? CloudRain) : Bell;
@@ -241,7 +245,7 @@ export function NotificationBell({
                       }
                       setOpen(false);
                     }}
-                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas-light"
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
                   >
                     <span className={`rounded-lg p-2 ${config.bg}`}>
                       <Icon className={`h-4 w-4 ${config.icon}`} />

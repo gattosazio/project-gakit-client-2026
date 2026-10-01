@@ -11,6 +11,7 @@ import { ScenarioSelector } from './components/ScenarioSelector';
 import { TimelinePlayer } from './components/TimelinePlayer';
 import { TelemetryHUD } from './components/TelemetryHUD';
 import { LoadingOverlay } from '@/components/ui/LoadingState';
+import { ScenarioDisclaimerModal } from './components/ScenarioDisclaimerModal';
 
 interface ScenariosTabProps {
   active: boolean;
@@ -98,6 +99,9 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
         <LoadingOverlay message={`Loading ${activePreset.name}...`} />
       )}
 
+      {/* Educational Disclaimer Modal for first-time visitors */}
+      <ScenarioDisclaimerModal />
+
       {/* Main Map Canvas */}
       <div className="relative flex-1 w-full h-full">
         {hasEverBeenActive ? (
@@ -105,9 +109,9 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
         ) : null}
 
         {/* Top Controls Overlay: flex-col stack on mobile, left/right on desktop.
-            Offset clears the floating pill header (12+48 mobile, 16+56 desktop). */}
-        <div className="absolute top-[4.5rem] left-3 right-3 md:top-20 md:left-4 md:right-4 z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-2.5 pointer-events-none">
-          <div className="pointer-events-auto w-full md:w-auto md:max-w-md">
+            Desktop cards align with the floating pill header top edge. */}
+        <div className="absolute top-[4.5rem] left-3 right-3 md:top-4 md:left-4 md:right-4 z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-2.5 pointer-events-none">
+          <div className="pointer-events-auto w-full md:w-96">
             <ScenarioSelector
               activePreset={activePreset}
               onSelectPreset={setActivePreset}
@@ -115,7 +119,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
             />
           </div>
 
-          <div className="pointer-events-auto w-full md:w-auto md:w-80">
+          <div className="pointer-events-auto w-full md:w-96">
             <TelemetryHUD
               currentFrame={currentFrame}
               totalRainfallMm={scenarioData?.total_rainfall_mm ?? parseFloat(activePreset.totalRain)}

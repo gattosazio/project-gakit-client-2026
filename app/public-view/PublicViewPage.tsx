@@ -91,6 +91,13 @@ export function PublicViewPage({
 
   const scrollToSection = useCallback((sectionId: SectionId) => {
     smoothScrollTo(sectionId);
+    if (typeof window !== 'undefined') {
+      if (sectionId === 'hazard-map' && window.location.hash) {
+        window.history.replaceState(null, '', window.location.pathname);
+      } else if (sectionId === 'about' && window.location.hash !== '#about') {
+        window.history.replaceState(null, '', `${window.location.pathname}#about`);
+      }
+    }
   }, [smoothScrollTo]);
 
   // Track which section is in view using IntersectionObserver + rAF top/bottom checks.
@@ -129,8 +136,14 @@ export function PublicViewPage({
         if (!scroller) return;
         if (scroller.scrollTop < 80) {
           setActiveSection('hazard-map');
+          if (typeof window !== 'undefined' && window.location.hash) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
         } else if (scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 60) {
           setActiveSection('about');
+          if (typeof window !== 'undefined' && window.location.hash !== '#about') {
+            window.history.replaceState(null, '', `${window.location.pathname}#about`);
+          }
         }
       });
     };
@@ -144,10 +157,22 @@ export function PublicViewPage({
     };
   }, []);
 
-  // Open on the map: scroll it into view after mount (snap settles it cleanly).
+  // Open on the map (or about if specified by URL hash): scroll it into view after mount
   useEffect(() => {
-    scrollToMap();
-  }, [scrollToMap]);
+    if (typeof window !== 'undefined') {
+      if ('scrollRestoration' in window.history) {
+        window.history.scrollRestoration = 'manual';
+      }
+      if (window.location.hash === '#about') {
+        smoothScrollTo('about');
+      } else {
+        if (scrollContainerRef.current) {
+          scrollContainerRef.current.scrollTop = 0;
+        }
+        scrollToMap();
+      }
+    }
+  }, [scrollToMap, smoothScrollTo]);
 
   // Keep the free-tier backend warm while this page is open (opt-in).
   // Only active during a dev session, so it never burns idle instance-hours.
@@ -488,6 +513,7 @@ export function PublicViewPage({
                   fullScreen
                   hasBottomNav
                   hideBarangayBoundariesToggle
+                  hideShareLocation
                   onStartReport={handleStartReport}
                 />
               </div>

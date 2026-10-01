@@ -9,7 +9,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Locate, Minus, Navigation, Plus } from 'lucide-react';
+import { Loader2, Locate } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { LoadingOverlay } from '@/components/ui/LoadingState';
 import { toast } from 'react-toastify';
@@ -152,11 +152,50 @@ const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
   REJECTED: true,
 };
 
+function MinimalCompass({
+  bearing = 0,
+  isActive = false,
+  className = 'h-4 w-4',
+}: {
+  bearing?: number;
+  isActive?: boolean;
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <g
+        style={{
+          transform: `rotate(${-bearing}deg)`,
+          transformOrigin: '12px 12px',
+        }}
+      >
+        {/* Up Arrow (North - turns Maroon when active, slate when inactive) */}
+        <path
+          d="M12 3 L16.5 11 H7.5 Z"
+          fill={isActive ? '#7A0019' : '#64748B'}
+        />
+
+        {/* Down Arrow (South - Slate) */}
+        <path
+          d="M12 21 L7.5 13 H16.5 Z"
+          fill="#94A3B8"
+        />
+      </g>
+    </svg>
+  );
+}
+
 export function PublicMap({
   onLocationSelect,
   selectedLocation,
   mapApiRef,
-  hideShareLocation = false,
+  hideShareLocation = true,
   hideWeather = false,
   hideAttribution = false,
   reportStatusToggleStatuses,
@@ -212,6 +251,7 @@ export function PublicMap({
   const stormSurgeAdvisoryRef = useRef<1 | 2 | 3 | 4>(4);
   const [mapReady, setMapReady] = useState(false);
   const [mapBearing, setMapBearing] = useState(0);
+  const [mapPitch, setMapPitch] = useState(0);
 
   const handleResetNorth = useCallback(() => {
     if (!mapRef.current) return;
@@ -821,6 +861,12 @@ export function PublicMap({
     map.on('rotateend', () => {
       setMapBearing(map.getBearing());
     });
+    map.on('pitch', () => {
+      setMapPitch(map.getPitch());
+    });
+    map.on('pitchend', () => {
+      setMapPitch(map.getPitch());
+    });
 
     map.on('click', (e: any) => {
       // Click-to-report only fires on empty map space (pins and interactive features own their clicks).
@@ -1085,52 +1131,38 @@ export function PublicMap({
             className="flex h-9 w-9 items-center justify-center text-slate-700 hud-pill hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94] disabled:cursor-not-allowed"
           >
             {isShareLocating ? (
-              <Spinner size="sm" />
+              <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
             ) : (
               <Locate className="h-4 w-4" strokeWidth={2.5} />
             )}
           </button>
         )}
 
-        {/* Zoom & Compass Widget */}
-        <div className="flex h-[84px] w-8 flex-col overflow-hidden hud-pill md:h-[96px] md:w-9">
-          <button
-            type="button"
-            onClick={() => mapRef.current?.zoomIn()}
-            aria-label="Zoom in"
-            title="Zoom in"
-            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95"
-          >
-            <Plus className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2.5} />
-          </button>
-          <span className="h-px w-full bg-slate-200/80" />
-          <button
-            type="button"
-            onClick={() => mapRef.current?.zoomOut()}
-            aria-label="Zoom out"
-            title="Zoom out"
-            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95"
-          >
-            <Minus className="h-3 w-3 md:h-3.5 md:w-3.5" strokeWidth={2.5} />
-          </button>
-          <span className="h-px w-full bg-slate-200/80" />
-          <button
-            type="button"
-            onClick={handleResetNorth}
-            aria-label="Reset orientation and view to Iligan City"
-            title="Reset to North / Iligan City view"
-            className="flex flex-1 items-center justify-center text-slate-700 transition-colors hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-95"
-          >
-            <Navigation
-              className="h-3 w-3 transition-transform duration-200 ease-out md:h-3.5 md:w-3.5"
-              strokeWidth={2.5}
-              style={{
-                transform: `rotate(${-45 - mapBearing}deg)`,
-                color: Math.abs(mapBearing) > 1 ? '#7B1113' : '#64748b',
-              }}
-            />
-          </button>
-        </div>
+        {/* Standalone Minimal Compass Button */}
+        {(() => {
+          const isOffNorth =
+            Math.abs(mapBearing) > 0.5 ||
+            (mapMode === '3d' ? Math.abs(mapPitch - 45) > 1 : mapPitch > 1);
+          return (
+            <button
+              type="button"
+              onClick={handleResetNorth}
+              aria-label="Reset orientation and view to Iligan City"
+              title={
+                isOffNorth
+                  ? `Facing ${Math.round((360 - mapBearing) % 360)}° · Click to reset North`
+                  : 'Facing North · Click to center Iligan City view'
+              }
+              className="flex h-9 w-9 items-center justify-center text-slate-700 hud-pill hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94]"
+            >
+              <MinimalCompass
+                bearing={mapBearing}
+                isActive={isOffNorth}
+                className="h-4 w-4"
+              />
+            </button>
+          );
+        })()}
       </div>
 
       {!hideAttribution && (
