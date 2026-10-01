@@ -427,7 +427,7 @@ export function ReportsTab({
                               : selectedReport?.id === report.id
                               ? 'bg-maroon-100/80'
                               : 'hover:bg-canvas-light/70'
-                          } ${needsReview ? 'border-l-2 border-hazard-critical' : ''}`}
+                            } ${needsReview ? 'border-l-2 border-violet-500' : ''}`}
                         >
                           <button
                             type="button"
@@ -439,7 +439,7 @@ export function ReportsTab({
                                 {report.location.address || 'Unknown location'}
                               </span>
                               {needsReview && (
-                                <span className="shrink-0 rounded-full bg-red-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-hazard-critical ring-1 ring-red-200">
+                                <span className="shrink-0 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 ring-1 ring-violet-200">
                                   Needs review
                                 </span>
                               )}
@@ -449,13 +449,9 @@ export function ReportsTab({
                                 {report.id.slice(0, 8)}
                               </span>
                               <span
-                                className="flex items-center gap-1.5 font-semibold"
+                                className="font-semibold"
                                 style={{ color: DEPTH_BAR_COLOR[report.depth.code] }}
                               >
-                                <span
-                                  className="h-2 w-2 rounded-full"
-                                  style={{ backgroundColor: DEPTH_BAR_COLOR[report.depth.code] }}
-                                />
                                 {formatReportDepth(report.depth, report.depthCm)}
                               </span>
                               {report.reference && (

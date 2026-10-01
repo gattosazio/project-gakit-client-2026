@@ -8,8 +8,6 @@ export interface BentoTile {
   label: string;
   href: string;
   iconSrc: string;
-  /** Spans both grid columns as a full-width "home" row. Keep at most one. */
-  wide?: boolean;
   badge?: string;
 }
 
@@ -22,7 +20,6 @@ export const monitoringBentoTiles: BentoTile[] = [
     label: 'Monitoring Portal',
     href: '/monitoring',
     iconSrc: '/images/bento-monitoring-portal.svg',
-    wide: true,
   },
   {
     id: 'flood-scenarios',

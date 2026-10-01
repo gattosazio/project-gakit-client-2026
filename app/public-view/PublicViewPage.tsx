@@ -451,6 +451,7 @@ export function PublicViewPage({
         onNavigateSection={scrollToSection}
         onSearchSelect={handleSearchedLocationSelect}
         onLocate={handleLocate}
+        showBentoMenu
       />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}

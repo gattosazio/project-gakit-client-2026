@@ -30,7 +30,7 @@ const config: Config = {
         
         // Hazard Status Colors
         'hazard-critical': '#EF4444',  // Red - Critical/Impassable
-        'hazard-verified': '#7A0019',   // Maroon - Verified floods
+        'hazard-deepest': '#7A0019',    // Maroon - Overhead flood depth
         'hazard-pending': '#F59E0B',    // Amber - Pending reports
         'hazard-safe': '#10B981',       // Green - Safe routes
         
