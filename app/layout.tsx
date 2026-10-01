@@ -49,8 +49,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="font-sans">
-        {children}
-        <ClientProviders />
+        <ClientProviders>
+          {children}
+        </ClientProviders>
       </body>
     </html>
   );

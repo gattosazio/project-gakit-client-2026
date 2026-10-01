@@ -1,9 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { BookOpen, MapPinned, UserRound } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, BookOpen, Info, MapPinned, UserRound, Waves } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
@@ -20,7 +21,7 @@ import { LocationSearch, type SearchedLocation } from '@/app/public-view/compone
 import { HowToReportPopover } from '@/components/header/HowToReportPopover';
 import { UserNavMenu } from '@/components/header/UserNavMenu';
 import { BentoMenu } from './BentoMenu';
-import { monitoringBentoTiles } from '@/lib/navigation/bentoMenu';
+import { getBentoTilesForRole } from '@/lib/navigation/bentoMenu';
 
 export function PublicHeader({
   activeSection,
@@ -53,7 +54,6 @@ export function PublicHeader({
   const [email, setEmail] = useState<string | null>(initialAuth?.email ?? null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const activeAlerts = useActiveAlerts();
@@ -71,8 +71,7 @@ export function PublicHeader({
       if (
         userMenuRef.current &&
         !userMenuRef.current.contains(target) &&
-        mobileUserMenuRef.current &&
-        !mobileUserMenuRef.current.contains(target)
+        (!mobileUserMenuRef.current || !mobileUserMenuRef.current.contains(target))
       ) {
         setIsMenuOpen(false);
       }
@@ -206,7 +205,15 @@ export function PublicHeader({
   }
 
   const home = role ? homePathForRole(role) : null;
+  const bentoTiles = useMemo(() => getBentoTilesForRole(role), [role]);
   usePrefetchRoute(home ?? '/login');
+
+  // Prefetch all portal routes during idle time for fast switching
+  useEffect(() => {
+    bentoTiles.forEach((tile) => {
+      router.prefetch(tile.href);
+    });
+  }, [bentoTiles, router]);
   const accountLabel =
     home === '/admin' ? 'Admin' : home === '/monitoring' ? 'Monitoring' : 'Login';
 
@@ -220,20 +227,66 @@ export function PublicHeader({
   };
 
   const scrollToSection = (id: 'hazard-map' | 'about') => {
-    onNavigateSection?.(id);
+    if (onNavigateSection) {
+      onNavigateSection(id);
+    } else {
+      router.push('/');
+    }
   };
+
+  // Escape shortcut to go back when on subpages (like /flood-scenarios)
+  useEffect(() => {
+    if (showSectionNav) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        const activeTag = document.activeElement?.tagName.toLowerCase();
+        if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
+        if (!isMenuOpen && !isInfoOpen && !showSignOutConfirm) {
+          router.push('/');
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showSectionNav, isMenuOpen, isInfoOpen, showSignOutConfirm, router]);
 
   return (
     <>
     <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-5xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
       <div className="flex h-12 md:h-14 items-center justify-between px-3.5 md:px-5">
         {/* Left: Brand Logo & Title */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+          {!showSectionNav && (
+            <button
+              type="button"
+              onClick={() => router.push('/')}
+              aria-label="Back to Hazard Map"
+              title="Back to Hazard Map"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-all hover:bg-slate-200 hover:text-gakit-maroon active:scale-95 shrink-0 ring-1 ring-slate-200/80 shadow-xs"
+            >
+              <ChevronLeft className="h-4.5 w-4.5 stroke-[2.5]" />
+            </button>
+          )}
+
+          {!showSectionNav && (
+            <div className="flex items-center gap-1.5 md:hidden min-w-0 ml-3.5">
+              <span className="font-heading text-[11px] font-bold uppercase tracking-wider text-slate-700 truncate">
+                FLOOD SIM
+              </span>
+              <sup className="select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase tracking-wider text-amber-800 ring-1 ring-inset ring-amber-200/70 leading-none shadow-xs shrink-0">
+                BETA
+              </sup>
+            </div>
+          )}
+
           <button
             type="button"
-            onClick={() => scrollToSection('hazard-map')}
-            className="group flex items-center rounded-lg transition-transform duration-200 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
+            onClick={() => (showSectionNav ? scrollToSection('hazard-map') : router.push('/'))}
+            className={`group items-center rounded-lg transition-transform duration-200 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 ${
+              !showSectionNav ? 'hidden md:flex' : 'flex'
+            }`}
             aria-label="Go to the GAKIT hazard map"
+            title={showSectionNav ? undefined : 'Return to public map'}
           >
             <div className="flex h-8 md:h-9 items-center justify-center">
               <Image
@@ -252,53 +305,56 @@ export function PublicHeader({
           </button>
         </div>
 
-        {/* Center: Integrated Location Search (Single Responsive Instance) */}
-        {onSearchSelect && (
-          <LocationSearch
-            variant="header-compact"
-            onSelect={onSearchSelect}
-            onLocate={onLocate}
-            className="mx-1.5 flex-1 min-w-0 md:mx-2 md:flex-initial md:w-64 lg:w-80"
-          />
-        )}
+        {/* Center: Title (for Scenario Simulator) OR Location Search (for Hazard Map) */}
+        <div className="flex flex-1 items-center justify-center px-2 min-w-0">
+          {!showSectionNav && (
+            <div className="hidden md:inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-slate-100/80 px-3.5 py-1 shadow-xs backdrop-blur-sm">
+              <Waves className="h-3.5 w-3.5 text-sky-600 shrink-0" />
+              <span className="font-heading text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                FLOOD SCENARIO SIMULATOR
+              </span>
+              <sup className="select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase tracking-wider text-amber-800 ring-1 ring-inset ring-amber-200/70 leading-none shadow-xs shrink-0">
+                BETA
+              </sup>
+            </div>
+          )}
+          {onSearchSelect && (
+            <LocationSearch
+              variant="header-compact"
+              onSelect={onSearchSelect}
+              onLocate={onLocate}
+              className="w-full max-w-md lg:max-w-lg"
+            />
+          )}
+        </div>
 
         {/* Desktop Navigation & Actions */}
-        <div className="hidden items-center gap-2 md:flex">
-          {showSectionNav && (
-            <nav className="flex items-center gap-1.5 text-sm font-semibold">
-              <button
-                onClick={() => scrollToSection('about')}
-                className={`inline-flex items-center justify-center rounded-full px-4 py-1.5 font-heading text-xs font-bold transition-all duration-150 active:scale-95 ${
-                  activeSection === 'about'
-                    ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80'
-                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-                }`}
-              >
-                About
-              </button>
-              {!isChecking && accountPillVisible && (
-                <button
-                  onClick={handleAccountClick}
-                  className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-4 py-1.5 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:scale-95"
-                >
-                  <span className="tracking-wide">{accountLabel}</span>
-                </button>
-              )}
-            </nav>
+        <div className="hidden items-center justify-end gap-1.5 md:flex shrink-0">
+          {showSectionNav && !isChecking && accountPillVisible && (
+            <button
+              onClick={handleAccountClick}
+              className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-3.5 py-1.5 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:scale-95"
+            >
+              <span className="tracking-wide">{accountLabel}</span>
+            </button>
           )}
 
-          {!showSectionNav && <span className="mx-1 h-5 w-px bg-slate-200/80" />}
-
           {/* Right cluster: info, notifications, account */}
-          <div className="flex items-center gap-1">
-            {showBentoMenu && <BentoMenu items={monitoringBentoTiles} />}
+          <div className="flex items-center gap-0.5">
+            {showBentoMenu && (
+              <BentoMenu
+                items={bentoTiles}
+                onNavigateSection={scrollToSection}
+                activeSection={activeSection}
+              />
+            )}
             <HowToReportPopover
               isOpen={isInfoOpen}
               onToggle={() => {
                 setIsInfoOpen((open) => !open);
                 setIsMenuOpen(false);
-                setIsNotifOpen(false);
               }}
+              onNavigateAbout={() => scrollToSection('about')}
               containerRef={infoRef}
             />
             <NotificationBell
@@ -306,21 +362,12 @@ export function PublicHeader({
               onSelectAlert={setSelectedAlert}
               onMarkRead={markAlertRead}
               variant="header"
-              isOpen={isNotifOpen}
-              onOpenChange={(next) => {
-                setIsNotifOpen(next);
-                if (next) {
-                  setIsMenuOpen(false);
-                  setIsInfoOpen(false);
-                }
-              }}
             />
             <UserNavMenu
               email={email}
               isOpen={isMenuOpen}
               onToggle={() => {
                 setIsMenuOpen((isOpen) => !isOpen);
-                setIsNotifOpen(false);
                 setIsInfoOpen(false);
               }}
               onSignOutClick={() => {
@@ -335,7 +382,14 @@ export function PublicHeader({
 
         {/* Mobile top-right cluster */}
         <div className="flex items-center gap-1 md:hidden">
-          {showBentoMenu && <BentoMenu items={monitoringBentoTiles} />}
+          {/* Show bento menu in top header only when bottom nav is absent (e.g. on /flood-scenarios) */}
+          {showBentoMenu && !showBottomNav && (
+            <BentoMenu
+              items={bentoTiles}
+              onNavigateSection={scrollToSection}
+              activeSection={activeSection}
+            />
+          )}
           {/* Without the bottom bar the bell has no mobile home, so it moves up here. */}
           {!showBottomNav && (
             <NotificationBell
@@ -343,14 +397,6 @@ export function PublicHeader({
               onSelectAlert={setSelectedAlert}
               onMarkRead={markAlertRead}
               variant="header"
-              isOpen={isNotifOpen}
-              onOpenChange={(next) => {
-                setIsNotifOpen(next);
-                if (next) {
-                  setIsMenuOpen(false);
-                  setIsInfoOpen(false);
-                }
-              }}
             />
           )}
           <HowToReportPopover
@@ -358,74 +404,91 @@ export function PublicHeader({
             onToggle={() => {
               setIsInfoOpen((v) => !v);
               setIsMenuOpen(false);
-              setIsNotifOpen(false);
             }}
+            onNavigateAbout={() => scrollToSection('about')}
             containerRef={mobileInfoRef}
           />
-          <UserNavMenu
-            email={email}
-            isOpen={isMenuOpen}
-            onToggle={() => {
-              setIsMenuOpen((isOpen) => !isOpen);
-              setIsInfoOpen(false);
-              setIsNotifOpen(false);
-            }}
-            onSignOutClick={() => {
-              setIsMenuOpen(false);
-              setShowSignOutConfirm(true);
-            }}
-            isSigningOut={isSigningOut}
-            containerRef={mobileUserMenuRef}
-          />
+          {!isChecking && (
+            email ? (
+              <UserNavMenu
+                email={email}
+                isOpen={isMenuOpen}
+                variant="header"
+                onToggle={() => {
+                  setIsMenuOpen((isOpen) => !isOpen);
+                  setIsInfoOpen(false);
+                }}
+                onSignOutClick={() => {
+                  setIsMenuOpen(false);
+                  setShowSignOutConfirm(true);
+                }}
+                isSigningOut={isSigningOut}
+                containerRef={mobileUserMenuRef}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={handleAccountClick}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95"
+                title="Login"
+                aria-label="Login"
+              >
+                <UserRound className="h-5 w-5" />
+              </button>
+            )
+          )}
         </div>
       </div>
     </header>
 
     {showBottomNav && (
-      <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-4 pb-2 md:hidden">
-        <div className="pointer-events-auto mx-auto flex max-w-sm items-center justify-center gap-1.5 p-1.5 hud-card">
+      <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-3 pb-2 md:hidden">
+        <div className="pointer-events-auto mx-auto grid max-w-sm grid-cols-4 items-center gap-1 p-1.5 hud-card">
+          {/* 1. Map */}
           <button
             onClick={() => scrollToSection('hazard-map')}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
+            className={`flex w-full flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-150 active:scale-95 ${
               activeSection === 'hazard-map'
-                ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
+                ? 'bg-slate-200 text-slate-900 font-bold'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
             }`}
           >
             <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
             <span className="text-[10px] font-semibold">Map</span>
           </button>
-          <button
-            onClick={() => scrollToSection('about')}
-            className={`flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 transition-all duration-150 active:scale-95 ${
-              activeSection === 'about'
-                ? 'bg-maroon-50 text-gakit-maroon ring-1 ring-maroon-200/80 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70'
-            }`}
-          >
-            <BookOpen className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
-            <span className="text-[10px] font-semibold">About</span>
-          </button>
+
+          {/* 2. Alerts */}
           <NotificationBell
             notifications={weatherNotifications}
             onSelectAlert={setSelectedAlert}
             onMarkRead={markAlertRead}
             variant="mobile-nav"
-            onOpenChange={(next) => {
-              if (next) {
-                setIsMenuOpen(false);
-                setIsInfoOpen(false);
-              }
-            }}
+            className="flex w-full flex-col items-center justify-center"
           />
-          {!isChecking && accountPillVisible && (
-            <button
-              onClick={handleAccountClick}
-              className="flex flex-1 flex-col items-center gap-1 rounded-xl px-3 py-2 text-slate-500 transition-all duration-150 hover:bg-slate-50 hover:text-gakit-maroon active:bg-maroon-50/70 active:scale-95"
-            >
-              <UserRound className="h-5 w-5" />
-              <span className="text-[10px] font-semibold">{accountLabel}</span>
-            </button>
+
+          {/* 3. About */}
+          <button
+            onClick={() => scrollToSection('about')}
+            className={`flex w-full flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-150 active:scale-95 ${
+              activeSection === 'about'
+                ? 'bg-slate-200 text-slate-900 font-bold'
+                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
+            }`}
+          >
+            <Info className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
+            <span className="text-[10px] font-semibold">About</span>
+          </button>
+
+          {/* 4. Apps (Rightmost) */}
+          {showBentoMenu ? (
+            <BentoMenu
+              items={bentoTiles}
+              variant="mobile-nav"
+              onNavigateSection={scrollToSection}
+              activeSection={activeSection}
+            />
+          ) : (
+            <div />
           )}
         </div>
       </nav>

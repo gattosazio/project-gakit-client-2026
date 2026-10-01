@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Locate, MapPin, Search, X } from 'lucide-react';
-import { Spinner } from '@/components/ui/Spinner';
+import { Loader2, Locate, MapPin, Search, X } from 'lucide-react';
 import { searchLocations } from '@/lib/map/geoUtils';
 import type { LocationSearchResult } from '@/lib/map/geoUtils';
 
@@ -16,20 +15,38 @@ export function LocationSearch({
   isLocating = false,
   variant = 'standalone',
   className = '',
+  placeholder = 'Search street, barangay, or landmark in Iligan City...',
 }: {
   onSelect: (location: SearchedLocation) => void;
   onLocate?: () => void | Promise<void>;
   isLocating?: boolean;
   variant?: 'standalone' | 'header-compact';
   className?: string;
+  placeholder?: string;
 }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<LocationSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [isInternalLocating, setIsInternalLocating] = useState(false);
   const searchAbortRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  const activeLocating = isLocating || isInternalLocating;
+
+  const handleLocateClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!onLocate || activeLocating) return;
+    setIsInternalLocating(true);
+    try {
+      await onLocate();
+      setIsFocused(false);
+    } finally {
+      setIsInternalLocating(false);
+    }
+  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
@@ -129,12 +146,33 @@ export function LocationSearch({
       ref={containerRef}
       className={
         isCompact
-          ? `relative flex h-8 md:h-9 items-center rounded-full bg-slate-100/90 md:[background-color:var(--hud-inner-bg-desktop)] pl-3 pr-1 py-1 ring-1 ring-slate-200/90 transition-all duration-150 focus-within:!bg-white focus-within:ring-2 focus-within:ring-gakit-maroon/50 focus-within:shadow-md ${className}`
-          : `relative flex h-[52px] items-center pl-4 pr-1.5 py-1.5 hud-pill focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
+          ? `relative flex h-8 md:h-9 items-center rounded-full bg-slate-100/90 md:[background-color:var(--hud-inner-bg-desktop)] ${
+              onLocate ? 'pl-1 md:pl-1.5' : 'pl-3'
+            } pr-1 py-1 ring-1 ring-slate-200/90 transition-all duration-150 focus-within:!bg-white focus-within:ring-2 focus-within:ring-gakit-maroon/50 focus-within:shadow-md ${className}`
+          : `relative flex h-[52px] items-center ${
+              onLocate ? 'pl-1.5' : 'pl-4'
+            } pr-1.5 py-1.5 hud-pill focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
       }
     >
       <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-1.5 md:gap-2">
-        <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" strokeWidth={2} />
+        {onLocate ? (
+          <button
+            type="button"
+            onClick={handleLocateClick}
+            disabled={activeLocating}
+            title="Locate my position (GPS)"
+            aria-label={activeLocating ? 'Locating your device…' : 'Locate my position'}
+            className={`flex shrink-0 items-center justify-center rounded-full text-slate-500 hover:text-gakit-maroon hover:bg-slate-200/80 active:scale-95 transition-all ${
+              isCompact ? 'h-6 w-6 md:h-7 md:w-7' : 'h-8 w-8 md:h-9 md:w-9'
+            } ${activeLocating ? 'text-gakit-maroon' : ''}`}
+          >
+            {activeLocating ? (
+              <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 animate-spin text-gakit-maroon" />
+            ) : (
+              <Locate className="h-3.5 w-3.5 md:h-4 md:w-4" strokeWidth={2.2} />
+            )}
+          </button>
+        ) : null}
         <input
           value={searchQuery}
           onFocus={() => setIsFocused(true)}
@@ -144,9 +182,9 @@ export function LocationSearch({
             setSearchError(null);
             setIsFocused(true);
           }}
-          placeholder="Search street, barangay, or landmark"
+          placeholder={placeholder}
           aria-label="Search for a location in Iligan City"
-          className="min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400"
+          className="min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 truncate"
         />
         {searchQuery && (
           <button
@@ -167,7 +205,7 @@ export function LocationSearch({
           }`}
         >
           {isSearching ? (
-            <Spinner size="sm" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
           ) : (
             <Search className="h-3.5 w-3.5" strokeWidth={2.5} />
           )}
@@ -191,23 +229,20 @@ export function LocationSearch({
             <button
               type="button"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={async () => {
-                setIsFocused(false);
-                await onLocate();
-              }}
-              disabled={isLocating}
+              onClick={handleLocateClick}
+              disabled={activeLocating}
               className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left font-medium transition-colors hover:bg-maroon-50/70 border-b border-slate-100/80 group"
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-maroon-50 text-gakit-maroon group-hover:bg-maroon-100">
-                {isLocating ? (
-                  <Spinner size="sm" />
+                {activeLocating ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
                 ) : (
                   <Locate className="h-4 w-4 text-gakit-maroon" strokeWidth={2.5} />
                 )}
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-xs font-semibold text-slate-800 group-hover:text-gakit-maroon">
-                  {isLocating ? 'Locating your device…' : 'Use your current location'}
+                  {activeLocating ? 'Locating your device…' : 'Use your current location'}
                 </span>
                 <span className="text-[10px] text-slate-400">
                   Share GPS position on map
