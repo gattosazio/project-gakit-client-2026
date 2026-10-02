@@ -108,22 +108,24 @@ function createNotifications(reports: Report[]): HeaderNotification[] {
         title: 'Critical report requires staff review',
         detail,
         createdAt: report.createdAt,
-        icon: Bell,
+        icon: AlertTriangle,
+        iconClass: 'bg-red-50 text-red-700',
+      }];
+    }
+
+    if (report.status === 'UNVERIFIED' && report.depth.code === 'shoulder') {
+      return [{
+        id: `review-${report.id}`,
+        title: 'High flood depth requires review',
+        detail,
+        createdAt: report.createdAt,
+        icon: AlertTriangle,
         iconClass: 'bg-amber-50 text-amber-700',
       }];
     }
 
-    if (report.status === 'UNVERIFIED') {
-      return [{
-        id: `new-${report.id}`,
-        title: 'New report submitted',
-        detail,
-        createdAt: report.createdAt,
-        icon: Bell,
-        iconClass: 'bg-blue-50 text-blue-700',
-      }];
-    }
-
+    // Routine unverified reports (waist, knee, ankle) are handled in the
+    // Priority Triage Queue and do not ring the notification bell to avoid alert fatigue.
     return [];
   });
 }

@@ -21,40 +21,38 @@ const TREND_CHIP: Record<Trend, string> = {
 
 function trendLabel(comparison: PeriodComparison): string {
   const { delta } = comparison;
-  if (delta > 0) return `+${delta} vs previous 24h`;
-  if (delta < 0) return `${delta} vs previous 24h`;
-  return 'same as previous 24h';
+  if (delta > 0) return `+${delta} vs prior 24h`;
+  if (delta < 0) return `${delta} vs prior 24h`;
+  return 'No change vs prior 24h';
 }
 
 export function TodayActivity({ hourly, comparison, deepSpots, spots }: TodayActivityProps) {
-  const totalInWindow = useMemo(
-    () => hourly.reduce((sum, bucket) => sum + bucket.count, 0),
-    [hourly]
-  );
+  const totalInWindow = comparison.last24;
   const maxHourly = useMemo(
     () => Math.max(0, ...hourly.map((bucket) => bucket.count)),
     [hourly]
   );
-  const ticks = useMemo(() => niceTicks(maxHourly), [maxHourly]);
-  const maxTick = ticks[ticks.length - 1] || 1;
+  const ticks = useMemo(() => niceTicks(Math.max(2, maxHourly)), [maxHourly]);
+  const displayTicks = useMemo(() => [...ticks].reverse(), [ticks]);
+  const maxTick = ticks[ticks.length - 1] || 2;
 
   return (
     <section className="grid grid-cols-1 gap-5 xl:grid-cols-3">
       <ActivityCard
         icon={BarChart3}
-        title="Incoming reports"
-        subtitle={hourly.length ? 'Hourly volume, last 24 hours' : 'No data in the window'}
+        title="Report Inflow"
+        subtitle={hourly.length ? 'Hourly submission distribution, last 24h' : 'No data in window'}
       >
         <div className="flex items-end justify-between gap-2">
           <p className="flex items-baseline gap-1.5">
             <span className="text-2xl font-bold tabular-nums tracking-[-0.02em] text-slate-900">
               {totalInWindow}
             </span>
-            <span className="text-xs font-medium text-slate-500">reports in 24h</span>
+            <span className="text-xs font-medium text-slate-500">reports in last 24h</span>
           </p>
           <span
             className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${TREND_CHIP[comparison.trend]}`}
-            title="Based on the last 100 reports returned by the API"
+            title={`Current 24h: ${comparison.last24} | Prior 24h: ${comparison.prev24} (net change: ${comparison.delta > 0 ? '+' : ''}${comparison.delta})`}
           >
             {comparison.trend === 'rising' ? '▲' : comparison.trend === 'falling' ? '▼' : '–'}{' '}
             {trendLabel(comparison)}
@@ -62,9 +60,9 @@ export function TodayActivity({ hourly, comparison, deepSpots, spots }: TodayAct
         </div>
 
         {hourly.length > 0 ? (
-          <div className="mt-4 flex h-40 gap-2">
+          <div className="mt-3.5 flex h-36 gap-2">
             <div className="activity-hourly-axis">
-              {ticks.map((tick) => (
+              {displayTicks.map((tick) => (
                 <span key={tick}>{tick}</span>
               ))}
             </div>
@@ -100,43 +98,45 @@ export function TodayActivity({ hourly, comparison, deepSpots, spots }: TodayAct
             </div>
           </div>
         ) : (
-          <p className="mt-6 py-8 text-center text-sm text-slate-500">
-            No reports submitted yet.
+          <p className="mt-4 py-8 text-center text-sm text-slate-500">
+            No incident reports recorded in the last 24 hours.
           </p>
         )}
       </ActivityCard>
 
       <ActivityCard
         icon={Waves}
-        title="Deepest flooding"
-        subtitle="Worst reported flood depth by spot, last 24h"
+        title="Peak Flood Depths"
+        subtitle="Highest reported water levels by location, last 24h"
       >
         {deepSpots.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-500">No reports submitted yet.</p>
+          <p className="py-8 text-center text-sm text-slate-500">
+            No incident reports recorded in the last 24 hours.
+          </p>
         ) : (
           <>
             <ol className="divide-y divide-slate-100">
               {deepSpots.map((spot, index) => (
-                <li key={spot.label} className="flex items-center justify-between gap-3 py-2.5">
-                  <span className="flex min-w-0 items-center gap-3">
+                <li key={spot.label} className="flex items-center justify-between gap-3 py-1.5 sm:py-2">
+                  <span className="flex min-w-0 items-center gap-2.5">
                     <span
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold text-white"
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[10px] font-bold text-white"
                       style={{ backgroundColor: DEPTH_BAR_COLOR[spot.code] }}
                     >
                       {index + 1}
                     </span>
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-slate-800">
+                      <span className="block truncate text-xs font-semibold text-slate-800">
                         {spot.label}
                       </span>
-                      <span className="block text-xs text-slate-500">
+                      <span className="block text-[11px] text-slate-500">
                         {spot.count} report{spot.count === 1 ? '' : 's'} · up to{' '}
-                        {spot.maxDepthCm > 0 ? `${spot.maxDepthCm} cm` : 'record depth'}
+                        {spot.maxDepthCm > 0 ? `${spot.maxDepthCm} cm` : spot.depthLabel}
                       </span>
                     </span>
                   </span>
                   <span
-                    className="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold"
+                    className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold"
                     style={{
                       backgroundColor: `${DEPTH_BAR_COLOR[spot.code]}1A`,
                       color: DEPTH_BAR_COLOR[spot.code],
@@ -147,14 +147,14 @@ export function TodayActivity({ hourly, comparison, deepSpots, spots }: TodayAct
                 </li>
               ))}
             </ol>
-            <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 border-t border-slate-100 pt-3">
+            <div className="mt-2.5 flex flex-wrap gap-x-2.5 gap-y-1 border-t border-slate-100 pt-2">
               {DISPLAY_DEPTHS.map((code) => (
                 <span
                   key={code}
-                  className="flex items-center gap-1 text-[10px] font-semibold text-slate-500"
+                  className="flex items-center gap-1 text-[10px] font-medium text-slate-500"
                 >
                   <span
-                    className="h-1.5 w-3 rounded-full"
+                    className="h-1.5 w-2.5 rounded-full"
                     style={{ backgroundColor: DEPTH_BAR_COLOR[code] }}
                   />
                   {DEPTH_LABELS[code]}
@@ -167,24 +167,26 @@ export function TodayActivity({ hourly, comparison, deepSpots, spots }: TodayAct
 
       <ActivityCard
         icon={MapPinned}
-        title="Most reported"
-        subtitle="Locations with the most reports, last 24h"
+        title="Incident Hotspots"
+        subtitle="Locations with highest report density, last 24h"
       >
         {spots.length === 0 ? (
-          <p className="py-8 text-center text-sm text-slate-500">No reports submitted yet.</p>
+          <p className="py-8 text-center text-sm text-slate-500">
+            No incident reports recorded in the last 24 hours.
+          </p>
         ) : (
           <ol className="divide-y divide-slate-100">
             {spots.map((spot, index) => (
-              <li key={spot.label} className="flex items-center justify-between gap-3 py-2.5">
-                <span className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-slate-500">
+              <li key={spot.label} className="flex items-center justify-between gap-3 py-2 sm:py-2.5">
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-slate-100 text-[10px] font-bold text-slate-500">
                     {index + 1}
                   </span>
-                  <span className="truncate text-sm font-medium text-slate-700">
+                  <span className="truncate text-xs font-medium text-slate-700">
                     {spot.label}
                   </span>
                 </span>
-                <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-700">
+                <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-700">
                   {spot.count}
                 </span>
               </li>
@@ -208,17 +210,17 @@ function ActivityCard({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-[16rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
-      <div className="flex items-center justify-between border-b border-slate-100 p-5">
+    <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-3.5">
         <div>
-          <h3 className="font-bold text-slate-900">{title}</h3>
+          <h3 className="text-sm font-bold text-slate-900 sm:text-base">{title}</h3>
           <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
         </div>
-        <span className="rounded-xl bg-maroon-50 p-2.5 text-gakit-maroon">
+        <span className="rounded-lg bg-maroon-50 p-2 text-gakit-maroon">
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <div className="flex-1 p-5">{children}</div>
+      <div className="flex flex-1 flex-col justify-between p-4 sm:p-5">{children}</div>
     </div>
   );
 }

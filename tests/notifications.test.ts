@@ -18,10 +18,10 @@ function makeReport(overrides: Partial<Report> & { id: string }): Report {
 }
 
 describe('createNotifications', () => {
-  it('maps an UNVERIFIED shallow report to new-report / medium', () => {
+  it('maps an UNVERIFIED shallow report to new-report / medium when includeRoutine is true', () => {
     const [notification] = createNotifications([
       makeReport({ id: 'r1' }),
-    ]);
+    ], { includeRoutine: true });
 
     expect(notification).toMatchObject({
       id: 'new-r1',
@@ -33,12 +33,24 @@ describe('createNotifications', () => {
     });
   });
 
-  it('escalates UNVERIFIED head/overhead reports to needs-review / critical', () => {
+  it('filters out routine UNVERIFIED shallow reports by default to prevent alert fatigue', () => {
+    const notifications = createNotifications([
+      makeReport({ id: 'r1', depth: { code: 'knee', label: 'Knee', approximateCm: 45 } }),
+      makeReport({ id: 'r2', depth: { code: 'ankle', label: 'Ankle', approximateCm: 15 } }),
+      makeReport({ id: 'r3', depth: { code: 'waist', label: 'Waist', approximateCm: 100 } }),
+    ]);
+
+    expect(notifications).toEqual([]);
+  });
+
+  it('escalates UNVERIFIED head/overhead/shoulder reports to needs-review', () => {
     const [head] = createNotifications([makeReport({ id: 'r2', depth: { code: 'head', label: 'Head', approximateCm: 150 } })]);
     const [overhead] = createNotifications([makeReport({ id: 'r3', depth: { code: 'overhead', label: 'Overhead', approximateCm: 200 } })]);
+    const [shoulder] = createNotifications([makeReport({ id: 'r3b', depth: { code: 'shoulder', label: 'Shoulder', approximateCm: 130 } })]);
 
     expect(head).toMatchObject({ id: 'review-r2', type: 'needs-review', severity: 'critical' });
     expect(overhead).toMatchObject({ id: 'review-r3', type: 'needs-review', severity: 'critical' });
+    expect(shoulder).toMatchObject({ id: 'review-r3b', type: 'needs-review', severity: 'high' });
   });
 
   it('maps ANOMALY and REJECTED statuses with their own ids and severities', () => {
@@ -58,20 +70,25 @@ describe('createNotifications', () => {
     expect(notifications).toEqual([]);
   });
 
-  it('falls back to Unknown location when the address is missing', () => {
+  it('falls back to Unknown location when the address is missing on a critical report', () => {
     const [notification] = createNotifications([
-      makeReport({ id: 'r7', location: { latitude: 8, longitude: 124, address: null } }),
+      makeReport({
+        id: 'r7',
+        depth: { code: 'head', label: 'Head', approximateCm: 150 },
+        location: { latitude: 8, longitude: 124, address: null },
+      }),
     ]);
     expect(notification.location).toBe('Unknown location');
   });
 
-  it('processes a mixed batch independently', () => {
+  it('processes a mixed batch independently in default high-signal mode', () => {
     const notifications = createNotifications([
-      makeReport({ id: 'a' }),
-      makeReport({ id: 'b', status: 'ANOMALY' }),
-      makeReport({ id: 'c', status: 'VERIFIED' }),
+      makeReport({ id: 'a' }), // shallow knee -> omitted
+      makeReport({ id: 'b', status: 'ANOMALY' }), // flagged
+      makeReport({ id: 'c', status: 'VERIFIED' }), // verified -> omitted
+      makeReport({ id: 'd', depth: { code: 'head', label: 'Head', approximateCm: 150 } }), // critical review
     ]);
-    expect(notifications.map((n) => n.id)).toEqual(['new-a', 'flagged-b']);
+    expect(notifications.map((n) => n.id)).toEqual(['flagged-b', 'review-d']);
   });
 });
 

@@ -316,7 +316,6 @@ export function WeatherChip({
         <WeatherAlertModal
           alert={digest}
           highlightDate={selectedDayDate}
-          current={current}
           onClose={() => setSelectedDayDate(null)}
         />
       )}

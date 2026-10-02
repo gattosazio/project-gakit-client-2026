@@ -213,30 +213,30 @@ export function DashboardOverview({
   const needsActionNow = counts.critical + counts.flagged;
   const workload = [
     {
-      label: 'Need action now',
+      label: 'Immediate Action',
       value: needsActionNow,
-      detail: 'Critical + flagged, last 24h',
+      detail: 'Critical & flagged reports',
       icon: AlertTriangle,
       color: 'text-violet-600',
     },
     {
-      label: 'Pending review',
+      label: 'Pending Triage',
       value: counts.pending,
-      detail: 'Unverified, last 24h',
+      detail: 'Awaiting operational review',
       icon: Clock,
       color: 'text-slate-500',
     },
     {
-      label: 'Verified',
+      label: 'Verified Reports',
       value: verifiedInWindow,
-      detail: 'Confirmed, last 24h',
+      detail: 'Validated in trailing 24h',
       icon: CheckCircle2,
       color: 'text-blue-600',
     },
     {
-      label: 'Received today',
+      label: "Today's Intake",
       value: stats?.reportsToday ?? 0,
-      detail: 'All reports, today',
+      detail: 'Calendar-day total',
       icon: FileText,
       color: 'text-gakit-maroon',
     },
@@ -254,12 +254,12 @@ export function DashboardOverview({
           onViewAll={handleViewAll}
         />
 
-        <div className="flex min-h-[16rem] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
-          <div className="flex items-center justify-between border-b border-slate-100 p-5 md:p-6">
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 sm:px-5 sm:py-3.5">
             <div>
-              <h2 className="font-bold text-slate-900">Workload</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                What drifted through the last 24 hours.
+              <h2 className="text-sm font-bold text-slate-900 sm:text-base">Workload Summary</h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                24-hour intake and review summary.
               </p>
             </div>
           </div>
@@ -267,26 +267,26 @@ export function DashboardOverview({
             {workload.map((metric) => {
               const Icon = metric.icon;
               return (
-                <div key={metric.label} className="flex items-center justify-between px-5 py-3.5 md:px-6">
-                  <div className="flex items-center gap-3">
-                    <Icon className={`h-4 w-4 ${metric.color}`} />
+                <div key={metric.label} className="flex items-center justify-between px-4 py-2.5 sm:px-5 sm:py-3">
+                  <div className="flex items-center gap-2.5">
+                    <Icon className={`h-4 w-4 shrink-0 ${metric.color}`} />
                     <div>
-                      <div className="text-sm font-medium text-slate-600">{metric.label}</div>
-                      <div className="text-xs text-slate-400">{metric.detail}</div>
+                      <div className="text-xs font-semibold text-slate-700 sm:text-sm">{metric.label}</div>
+                      <div className="text-[11px] text-slate-400 sm:text-xs">{metric.detail}</div>
                     </div>
                   </div>
-                  <span className="text-2xl font-bold tracking-[-0.02em] text-slate-900 tabular-nums">
+                  <span className="text-xl font-bold tracking-[-0.02em] text-slate-900 tabular-nums">
                     {metric.value}
                   </span>
                 </div>
               );
             })}
           </div>
-          <div className="border-t border-slate-100 p-4 md:p-5">
+          <div className="border-t border-slate-100 p-3 sm:px-5 sm:py-3">
             <button
               type="button"
               onClick={() => (counts.pending > 0 ? handleViewAll('UNVERIFIED') : onReviewReports?.())}
-              className="w-full rounded-xl bg-gakit-maroon px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-maroon-800"
+              className="w-full rounded-lg bg-gakit-maroon px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-maroon-800"
             >
               {counts.pending > 0
                 ? `Review ${counts.pending} pending report${counts.pending === 1 ? '' : 's'}`
