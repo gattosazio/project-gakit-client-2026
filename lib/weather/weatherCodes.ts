@@ -25,7 +25,7 @@ const CONDITIONS: Record<number, WeatherCondition> = {
   0: { label: 'Clear', icon: Sun },
   1: { label: 'Mainly clear', icon: CloudSun },
   2: { label: 'Partly cloudy', icon: CloudSun },
-  3: { label: 'Overcast', icon: Cloudy },
+  3: { label: 'Cloudy', icon: Cloudy },
   45: { label: 'Foggy', icon: CloudFog },
   48: { label: 'Foggy', icon: CloudFog },
   51: { label: 'Light drizzle', icon: CloudDrizzle },

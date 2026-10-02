@@ -31,7 +31,7 @@ function day(partial: Partial<WeatherDayData>): WeatherDayData {
 describe('formatDayForecast', () => {
   it('shows the chance for non-precipitation days', () => {
     expect(formatDayForecast(day({ conditionCode: 3, rainChance: 30 }))).toBe(
-      'Overcast · 30% chance of rain'
+      'Cloudy · 30% chance of rain'
     );
   });
 
@@ -103,7 +103,7 @@ describe('digestPeriod', () => {
 describe('digestSubtitle', () => {
   it('returns the first day forecast', () => {
     const alert = makeAlert([makeDay({ conditionCode: 3, rainChance: 30 })]);
-    expect(digestSubtitle(alert)).toBe('Overcast · 30% chance of rain');
+    expect(digestSubtitle(alert)).toBe('Cloudy · 30% chance of rain');
   });
 
   it('returns an empty string when there are no days', () => {
@@ -128,7 +128,7 @@ describe('alertTitle', () => {
 
 describe('alertDescription', () => {
   it('returns the first day forecast for a daily digest', () => {
-    expect(alertDescription(makeAlert([makeDay({ conditionCode: 3, rainChance: 30 })]))).toBe('Overcast · 30% chance of rain');
+    expect(alertDescription(makeAlert([makeDay({ conditionCode: 3, rainChance: 30 })]))).toBe('Cloudy · 30% chance of rain');
   });
 
   it('returns the data description for a severe alert', () => {
