@@ -13,12 +13,14 @@ import { PortalNavItem } from '@/types/portal';
 import { useRouteLoader } from './RouteLoader';
 import { BentoMenu } from './BentoMenu';
 import { monitoringBentoTiles } from '@/lib/navigation/bentoMenu';
+import { TopoBackground } from '@/app/public-view/components/TopoBackground';
 
 interface SideBarProps<T extends string> {
   activeTab: T;
   items: PortalNavItem<T>[];
   portalSubtitle: string;
   onTabChange: (tab: T) => void;
+  showTopo?: boolean;
 }
 
 export function SignOutConfirmDialog({
@@ -137,6 +139,7 @@ export function SideBar<T extends string>({
   portalSubtitle,
   onTabChange,
   initialAuth,
+  showTopo = false,
 }: SideBarProps<T> & { initialAuth?: AuthSnapshot }) {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -177,6 +180,7 @@ export function SideBar<T extends string>({
         isCollapsed ? 'w-20' : 'w-60'
       }`}
     >
+      {showTopo && <TopoBackground className="-z-10 opacity-[0.15]" />}
       <button
         type="button"
         onClick={() => setIsCollapsed((collapsed) => !collapsed)}
