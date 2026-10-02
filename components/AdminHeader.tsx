@@ -25,6 +25,7 @@ import { formatDateTime } from '@/lib/reports/reportFormatting';
 import type { Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
 import { MobileSignOutButton } from './SideBar';
+import { TopoBackground } from '@/app/public-view/components/TopoBackground';
 import { SettingsDropdown } from './SettingsDropdown';
 import type { StaffRole } from '@/lib/auth/roles';
 
@@ -34,6 +35,7 @@ interface AdminHeaderProps {
   icon?: LucideIcon;
   badge?: string;
   role?: StaffRole | null;
+  showTopo?: boolean;
   onNotificationClick?: (notificationId: string) => void;
 }
 
@@ -136,6 +138,7 @@ export function AdminHeader({
   icon: Icon,
   badge,
   role = null,
+  showTopo = false,
   onNotificationClick,
 }: AdminHeaderProps) {
   const [recentReports, setRecentReports] = useState<Report[]>([]);
@@ -379,8 +382,13 @@ export function AdminHeader({
   };
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 md:h-24 md:px-9 md:py-4">
-      <div className="flex min-w-0 items-center gap-4">
+    <header className="relative flex h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 md:h-24 md:px-9 md:py-4">
+      {showTopo && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <TopoBackground className="opacity-[0.15]" />
+        </div>
+      )}
+      <div className="relative flex min-w-0 items-center gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
             <h1 className="truncate text-lg font-bold tracking-[-0.02em] text-slate-900 md:text-xl lg:text-[1.75rem]">
@@ -398,7 +406,7 @@ export function AdminHeader({
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 sm:gap-2">
+      <div className="relative flex items-center gap-1.5 sm:gap-2">
         <div ref={notificationRef} className="relative">
           <button
             type="button"

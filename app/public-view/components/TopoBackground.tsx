@@ -4,7 +4,7 @@ export function TopoBackground({ className = '' }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none absolute top-0 inset-x-0 h-screen select-none overflow-hidden ${className}`}
+      className={`pointer-events-none absolute inset-0 select-none overflow-hidden ${className}`}
     >
       <svg
         className="h-full w-full object-cover"

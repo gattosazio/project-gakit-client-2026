@@ -158,6 +158,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
         portalSubtitle="Monitoring Portal"
         onTabChange={handleTabChange}
         initialAuth={initialAuth}
+        showTopo
       />
       <div className="h-full min-w-0 flex-1 flex flex-col overflow-hidden bg-white lg:rounded-[2rem] lg:rounded-l-[2.75rem]">
         <AdminHeader
@@ -166,6 +167,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           icon={activeFeature.icon}
           badge={activeFeature.badge}
           role={initialAuth?.role ?? null}
+          showTopo
           onNotificationClick={handleOpenNotification}
         />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20 md:px-7 md:py-6 lg:px-8 lg:pb-8 space-y-6">
