@@ -104,6 +104,20 @@ describe('hourlyBuckets', () => {
     expect(buckets[3].count).toBe(0);
   });
 
+  it('places reports created mid-hour into the current hour slot', () => {
+    const nowHourStart = Math.floor(NOW / HOUR) * HOUR;
+    const buckets = hourlyBuckets(
+      [
+        makeReport({ id: 'mid-current-hour', createdAt: new Date(nowHourStart + 30 * 60_000).toISOString() }),
+        makeReport({ id: 'mid-past-hour', createdAt: new Date(nowHourStart - 2 * HOUR + 15 * 60_000).toISOString() }),
+      ],
+      24,
+      NOW
+    );
+    expect(buckets[23].count).toBe(1); // current hour slot
+    expect(buckets[21].count).toBe(1); // 2 hours back slot
+  });
+
   it('ignores reports outside the window', () => {
     const nowHourStart = Math.floor(NOW / HOUR) * HOUR;
     const buckets = hourlyBuckets(

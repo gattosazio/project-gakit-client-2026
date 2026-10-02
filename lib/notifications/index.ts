@@ -26,7 +26,20 @@ export interface Notification {
   weatherAlert?: WeatherAlert;
 }
 
-export function createNotifications(reports: Report[]): Notification[] {
+export interface CreateNotificationsOptions {
+  /**
+   * When true, also generates notifications for routine shallow unverified reports.
+   * Defaults to false so routine submissions do not cause notification fatigue.
+   */
+  includeRoutine?: boolean;
+}
+
+export function createNotifications(
+  reports: Report[],
+  options: CreateNotificationsOptions = {}
+): Notification[] {
+  const { includeRoutine = false } = options;
+
   return reports.flatMap<Notification>((report) => {
     const location = report.location.address || 'Unknown location';
 
@@ -72,7 +85,20 @@ export function createNotifications(reports: Report[]): Notification[] {
       }];
     }
 
-    if (report.status === 'UNVERIFIED') {
+    if (report.status === 'UNVERIFIED' && report.depth.code === 'shoulder') {
+      return [{
+        id: `review-${report.id}`,
+        type: 'needs-review',
+        severity: 'high',
+        title: 'High flood depth requires review',
+        location,
+        depth: report.depth.code,
+        sentAt: report.createdAt,
+        reportId: report.id,
+      }];
+    }
+
+    if (report.status === 'UNVERIFIED' && includeRoutine) {
       return [{
         id: `new-${report.id}`,
         type: 'new-report',

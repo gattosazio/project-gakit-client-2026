@@ -1,11 +1,10 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { CloudRain, AlertTriangle, Flame, Thermometer, X, Droplet } from 'lucide-react';
-import type { CurrentWeather, WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
+import type { WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
 import { alertTitle, digestPeriod, formatDayForecast, getWeatherCondition } from '@/lib/weather/weatherCodes';
 import { hazardSummary, isPagasaAlert, otherProvinceCount, parseLocalTowns, shortTitle } from '@/lib/weather/pagasa';
 import { WeatherAttribution } from './weather/WeatherAttribution';
-import { CurrentConditions } from './weather/CurrentConditions';
 import { RainStrip } from './weather/RainStrip';
 
 const emptySubscribe = () => () => {};
@@ -90,21 +89,22 @@ function friendlyShortDay(iso: string): string {
 
 interface WeatherAlertModalProps {
   alert: WeatherAlert;
+  allAlerts?: WeatherAlert[];
   /** ISO date of the day to emphasize (e.g. the card the user clicked). */
   highlightDate?: string;
-  /** Live conditions snapshot; rendered above the body when provided. */
-  current?: CurrentWeather | null;
   onClose: () => void;
 }
 
-export function WeatherAlertModal({ alert, highlightDate, current, onClose }: WeatherAlertModalProps) {
+export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAlertModalProps) {
   const mounted = useMounted();
-  const days = alert.data?.days ?? [];
+  const activeAlert = alert;
+
+  const days = activeAlert.data?.days ?? [];
   const [selectedDate, setSelectedDate] = useState<string>(() => highlightDate || (days[0]?.date ?? ''));
   const [townsExpanded, setTownsExpanded] = useState(false);
-  const [expandedFor, setExpandedFor] = useState(alert.id);
-  if (expandedFor !== alert.id) {
-    setExpandedFor(alert.id);
+  const [expandedFor, setExpandedFor] = useState(activeAlert.id);
+  if (expandedFor !== activeAlert.id) {
+    setExpandedFor(activeAlert.id);
     setTownsExpanded(false);
   }
 
@@ -118,14 +118,14 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
     };
   }, [onClose]);
 
-  const config = SEVERITY_CONFIG[alert.severity];
-  const Icon = ALERT_ICONS[alert.alertType] ?? CloudRain;
-  const pagasa = isPagasaAlert(alert);
-  const heading = pagasa ? shortTitle(alert) || alertTitle(alert) : alertTitle(alert);
-  const towns = pagasa ? parseLocalTowns(alert) : [];
-  const summary = pagasa ? hazardSummary(alert) : null;
-  const otherCount = pagasa ? otherProvinceCount(alert) : 0;
-  const fullText = alert.data?.rawText ?? alert.data?.description ?? '';
+  const config = SEVERITY_CONFIG[activeAlert.severity];
+  const Icon = ALERT_ICONS[activeAlert.alertType] ?? CloudRain;
+  const pagasa = isPagasaAlert(activeAlert);
+  const heading = pagasa ? shortTitle(activeAlert) || alertTitle(activeAlert) : alertTitle(activeAlert);
+  const towns = pagasa ? parseLocalTowns(activeAlert) : [];
+  const summary = pagasa ? hazardSummary(activeAlert) : null;
+  const otherCount = pagasa ? otherProvinceCount(activeAlert) : 0;
+  const fullText = activeAlert.data?.rawText ?? activeAlert.data?.description ?? '';
   const showFull = pagasa && fullText.trim().length > (summary ?? '').length + 40;
   const visibleTowns = townsExpanded ? towns : towns.slice(0, 7);
 
@@ -151,14 +151,14 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
             </span>
             <div className="flex items-center gap-2">
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${config.badge}`}>
-                {ALERT_TYPE_LABELS[alert.alertType]}
+                {ALERT_TYPE_LABELS[activeAlert.alertType]}
               </span>
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-md ${config.badge}`}>
-                {alert.severity.charAt(0).toUpperCase() + alert.severity.slice(1)}
+                {activeAlert.severity.charAt(0).toUpperCase() + activeAlert.severity.slice(1)}
               </span>
-              {alert.data?.source && (
+              {activeAlert.data?.source && (
                 <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
-                  {alert.data.source}
+                  {activeAlert.data.source}
                 </span>
               )}
             </div>
@@ -177,26 +177,24 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
           <div>
             <h3 className="text-base font-bold text-slate-900">{heading}</h3>
             <p className="text-[10px] text-slate-400">
-              {alert.alertType === 'daily_digest' && digestPeriod(alert)
-                ? digestPeriod(alert)
-                : alert.data?.issuedAt
-                ? `Issued ${new Date(alert.data.issuedAt).toLocaleTimeString([], {
+              {activeAlert.alertType === 'daily_digest' && digestPeriod(activeAlert)
+                ? digestPeriod(activeAlert)
+                : activeAlert.data?.issuedAt
+                ? `Issued ${new Date(activeAlert.data.issuedAt).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
-                  })} · Valid until ${new Date(alert.validTo).toLocaleTimeString([], {
+                  })} · Valid until ${new Date(activeAlert.validTo).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}`
-                : `Issued ${new Date(alert.createdAt).toLocaleTimeString([], {
+                : `Issued ${new Date(activeAlert.createdAt).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                   })}`}
             </p>
           </div>
 
-          {current && (
-            <CurrentConditions current={current} />
-          )}
+
 
           {days.length > 0 ? (
             <div className="space-y-3">
@@ -356,7 +354,7 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
           ) : (
             <div className="space-y-3 mb-4">
               <p className="whitespace-pre-line text-sm text-slate-700 leading-relaxed">
-                {alert.data?.description ?? ''}
+                {activeAlert.data?.description ?? ''}
               </p>
             </div>
           )}
@@ -364,7 +362,7 @@ export function WeatherAlertModal({ alert, highlightDate, current, onClose }: We
 
         {/* Footer */}
         <div className="flex items-center justify-between gap-3 border-t border-canvas-grey p-4 md:px-5 md:py-3.5">
-          <WeatherAttribution source={alert.data?.source ?? (alert.alertType === 'daily_digest' ? 'Open-Meteo' : 'DOST-PAGASA MINPRSD')} />
+          <WeatherAttribution source={activeAlert.data?.source ?? (activeAlert.alertType === 'daily_digest' ? 'Open-Meteo' : 'DOST-PAGASA MINPRSD')} />
           <button
             onClick={onClose}
             className="rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-maroon-800 transition-colors"

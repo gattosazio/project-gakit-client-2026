@@ -79,15 +79,17 @@ export function hourlyBuckets(
 ): HourlyBucket[] {
   const hourMs = 3_600_000;
   const currentHourStart = Math.floor(now / hourMs) * hourMs;
+  const windowStart = currentHourStart - (hours - 1) * hourMs;
   const counts = new Array<number>(hours).fill(0);
   for (const report of reports) {
-    const elapsedHours = Math.floor((currentHourStart - new Date(report.createdAt).getTime()) / hourMs);
-    if (elapsedHours >= 0 && elapsedHours < hours) {
-      counts[hours - 1 - elapsedHours] += 1;
+    const reportTime = new Date(report.createdAt).getTime();
+    const slotIndex = Math.floor((reportTime - windowStart) / hourMs);
+    if (slotIndex >= 0 && slotIndex < hours) {
+      counts[slotIndex] += 1;
     }
   }
   return counts.map((count, index) => {
-    const slotStart = currentHourStart - (hours - 1 - index) * hourMs;
+    const slotStart = windowStart + index * hourMs;
     return {
       label: new Date(slotStart).toLocaleTimeString([], {
         hour: '2-digit',
@@ -161,12 +163,12 @@ export function comparePeriods(reports: Report[], now = Date.now()): PeriodCompa
 }
 
 export function niceTicks(max: number, steps = 4): number[] {
+  if (max <= 0) return [0];
   const rawStep = max / steps;
-  if (rawStep <= 0) return [0];
-  const pow = Math.pow(10, Math.floor(Math.log10(rawStep)));
-  const normalized = rawStep / pow;
+  const pow = Math.pow(10, Math.floor(Math.log10(Math.max(1, rawStep))));
+  const normalized = Math.max(1, rawStep) / pow;
   const stepPct = normalized <= 1.5 ? 1 : normalized <= 3 ? 2 : normalized <= 7 ? 5 : 10;
-  const step = stepPct * pow;
+  const step = Math.max(1, Math.round(stepPct * pow));
   const ticks: number[] = [];
   for (let value = 0; value <= max; value += step) ticks.push(value);
   if (ticks[ticks.length - 1] < max) ticks.push(Math.ceil(max / step) * step);
