@@ -41,15 +41,15 @@ describe('formatDayForecast', () => {
     );
   });
 
-  it('uses the natural phrasing for precipitation days with mm', () => {
+  it('uses clean phrasing without mm for precipitation days', () => {
     expect(
       formatDayForecast(day({ conditionCode: 53, rainChance: 60, rainMm: 1.2 }))
-    ).toBe('60% chance of drizzle (1.2mm)');
+    ).toBe('60% chance of drizzle');
   });
 
-  it('omits the mm suffix when zero for precipitation days', () => {
-    expect(formatDayForecast(day({ conditionCode: 61, rainChance: 20, rainMm: 0 }))).toBe(
-      '20% chance of light rain'
+  it('normalizes low-chance precipitation days to partly cloudy', () => {
+    expect(formatDayForecast(day({ conditionCode: 80, rainChance: 4, rainMm: 2.5 }))).toBe(
+      'Partly cloudy · 4% chance of rain'
     );
   });
 });

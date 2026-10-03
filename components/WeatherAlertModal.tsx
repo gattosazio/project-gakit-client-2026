@@ -262,12 +262,16 @@ export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAler
                   </div>
 
                   {/* Hourly Rain Timeline */}
-                  {activeDay.hours && activeDay.hours.length > 0 && (
+                  {((activeDay.hourlyProbabilities && activeDay.hourlyProbabilities.length > 0) ||
+                    (activeDay.hours && activeDay.hours.length > 0)) && (
                     <div className="pt-2 border-t border-slate-200/60">
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
-                        Hourly Rainfall Timeline (mm)
+                        Hourly Precipitation Chance
                       </div>
-                      <RainStrip hours={activeDay.hours} />
+                      <RainStrip
+                        hours={activeDay.hours}
+                        probabilities={activeDay.hourlyProbabilities}
+                      />
                     </div>
                   )}
 
@@ -275,7 +279,7 @@ export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAler
                   <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200/60 text-center">
                     <div className="rounded-lg bg-white p-2 shadow-2xs ring-1 ring-canvas-grey">
                       <span className="block text-[10px] text-slate-400 font-medium">Precipitation</span>
-                      <span className="text-xs font-bold text-slate-800 tabular-nums">{activeDay.rainMm.toFixed(1)} mm</span>
+                      <span className="text-xs font-bold text-slate-800 tabular-nums">~{activeDay.rainMm.toFixed(1)} mm</span>
                     </div>
                     <div className="rounded-lg bg-white p-2 shadow-2xs ring-1 ring-canvas-grey">
                       <span className="block text-[10px] text-slate-400 font-medium">Peak Wind</span>
