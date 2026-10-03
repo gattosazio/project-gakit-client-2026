@@ -90,7 +90,7 @@ function WeatherForecastContent({
           </div>
         </div>
         <div className="mt-2 pt-1.5 border-t border-slate-200/60">
-          <RainStrip hours={today.hours} />
+          <RainStrip hours={today.hours} probabilities={today.hourlyProbabilities} />
         </div>
       </button>
 

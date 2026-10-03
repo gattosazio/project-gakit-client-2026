@@ -31,7 +31,7 @@ export function CurrentConditions({ current }: { current: CurrentWeather }) {
         </div>
         <span className="block truncate text-[11px] font-medium text-slate-500">
           {condition.label}
-          {current.precipitation > 0 && ` · ${current.precipitation.toFixed(1)} mm`}
+          {current.precipitation >= 0.3 && ` · ${current.precipitation.toFixed(1)} mm`}
         </span>
       </span>
       <span className="shrink-0 text-right">

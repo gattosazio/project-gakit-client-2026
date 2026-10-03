@@ -104,12 +104,16 @@ export function getWeatherCondition(code: number, isDay = true): WeatherConditio
  * natural "X% chance of light drizzle (1.2mm)" phrasing.
  */
 export function formatDayForecast(day: WeatherDayData): string {
-  const condition = getWeatherCondition(day.conditionCode);
-  const isPrecip = day.conditionCode >= 51;
+  let condition = getWeatherCondition(day.conditionCode);
+  const isPrecip = day.conditionCode >= 51 && day.rainChance >= 20;
 
   if (isPrecip) {
-    const mm = day.rainMm > 0 ? ` (${day.rainMm.toFixed(1)}mm)` : '';
-    return `${day.rainChance}% chance of ${condition.label.toLowerCase()}${mm}`;
+    return `${day.rainChance}% chance of ${condition.label.toLowerCase()}`;
+  }
+  // If the rain chance is low (< 20%) but the day carried a precipitation code,
+  // display partly cloudy rather than claiming an active shower.
+  if (day.conditionCode >= 51 && day.rainChance < 20) {
+    condition = getWeatherCondition(2); // Partly cloudy
   }
   if (day.rainChance <= 0) return `${condition.label} · No rain expected`;
   return `${condition.label} · ${day.rainChance}% chance of rain`;

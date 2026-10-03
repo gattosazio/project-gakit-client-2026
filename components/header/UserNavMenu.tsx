@@ -45,7 +45,7 @@ export function UserNavMenu({
                   ? 'bg-slate-200 text-slate-900 font-bold'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
               }`
-            : `flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 ${
+            : `flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 ${
                 isOpen ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80 font-bold' : ''
               }`
         }
@@ -53,7 +53,7 @@ export function UserNavMenu({
         aria-haspopup="menu"
         aria-label="Account menu"
       >
-        <UserRound className={`h-5 w-5 ${isOpen ? 'text-gakit-maroon' : isMobileNav ? 'text-slate-500' : 'text-slate-600'}`} />
+        <UserRound className={`${isMobileNav ? 'h-5 w-5' : 'h-4 w-4 md:h-5 md:w-5'} ${isOpen ? 'text-gakit-maroon' : isMobileNav ? 'text-slate-500' : 'text-slate-600'}`} />
         {isMobileNav && (
           <span className="text-[10px] font-semibold">Profile</span>
         )}

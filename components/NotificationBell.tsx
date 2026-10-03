@@ -105,7 +105,7 @@ export function NotificationBell({
 
   const buttonClassName =
     variant === 'header'
-      ? `relative flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 ${
+      ? `relative flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 ${
           open
             ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80 font-bold'
             : ''
@@ -119,7 +119,7 @@ export function NotificationBell({
         : 'relative flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl active:scale-95 md:backdrop-blur';
 
   const iconClassName =
-    variant === 'mobile-nav' ? 'h-5 w-5' : 'h-5 w-5';
+    variant === 'mobile-nav' ? 'h-5 w-5' : 'h-4 w-4 md:h-5 md:w-5';
 
   return (
     <div className={`relative ${className}`}>
@@ -137,9 +137,9 @@ export function NotificationBell({
         <Bell className={`${iconClassName} ${open ? 'text-gakit-maroon' : variant === 'header' ? 'text-slate-600' : 'text-slate-500'}`} />
         {count > 0 && (
           <span
-            className={`absolute flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white shadow-sm ${
+            className={`absolute flex h-3.5 min-w-[14px] md:h-4 md:min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 md:px-1 text-[9px] md:text-[10px] font-bold text-white shadow-sm ${
               variant === 'header'
-                ? '-right-1 -top-1'
+                ? '-right-0.5 -top-0.5 md:-right-1 md:-top-1'
                 : variant === 'mobile-nav'
                   ? '-right-0.5 -top-0.5'
                   : '-top-1.5 -right-1.5 h-5 min-w-[20px]'

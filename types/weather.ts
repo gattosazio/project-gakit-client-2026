@@ -16,6 +16,8 @@ export interface WeatherDayData {
   windMax: number;
   /** Hourly precipitation (mm) across the local day; absent when unavailable. */
   hours?: number[];
+  /** Hourly precipitation probability (0-100%) across the local day; absent when unavailable. */
+  hourlyProbabilities?: number[];
 }
 
 export interface CurrentWeather {

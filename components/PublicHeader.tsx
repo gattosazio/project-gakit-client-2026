@@ -32,6 +32,7 @@ export function PublicHeader({
   showBentoMenu = false,
   showSectionNav = true,
   showBottomNav = true,
+  extraAction,
 }: {
   activeSection?: 'hazard-map' | 'about';
   initialAuth?: AuthSnapshot;
@@ -46,6 +47,8 @@ export function PublicHeader({
   /** Hides the mobile bottom bar. The bell moves into the top cluster when
    *  this is false, since the bottom bar is otherwise its only mobile home. */
   showBottomNav?: boolean;
+  /** Extra action slot rendered in the actions cluster (e.g. Map Display Settings). */
+  extraAction?: React.ReactNode;
 }) {
   const router = useRouter();
   const { navigate, loadingOverlay } = useRouteLoader();
@@ -264,12 +267,12 @@ export function PublicHeader({
               title="Back to Hazard Map"
               className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-all hover:bg-slate-200 hover:text-gakit-maroon active:scale-95 shrink-0 ring-1 ring-slate-200/80 shadow-xs"
             >
-              <ChevronLeft className="h-4.5 w-4.5 stroke-[2.5]" />
+              <ChevronLeft className="h-4 w-4 stroke-[2.5]" />
             </button>
           )}
 
           {!showSectionNav && (
-            <div className="flex items-center gap-1.5 md:hidden min-w-0 ml-3.5">
+            <div className="flex items-center gap-1.5 md:hidden min-w-0 ml-1 sm:ml-2">
               <span className="font-heading text-[11px] font-bold uppercase tracking-wider text-slate-700 truncate">
                 FLOOD SIM
               </span>
@@ -341,6 +344,7 @@ export function PublicHeader({
 
           {/* Right cluster: info, notifications, account */}
           <div className="flex items-center gap-0.5">
+            {extraAction}
             {showBentoMenu && (
               <BentoMenu
                 items={bentoTiles}
@@ -381,7 +385,8 @@ export function PublicHeader({
         </div>
 
         {/* Mobile top-right cluster */}
-        <div className="flex items-center gap-1 md:hidden">
+        <div className="flex items-center gap-0.5 sm:gap-1 md:hidden">
+          {extraAction}
           {/* Show bento menu in top header only when bottom nav is absent (e.g. on /flood-scenarios) */}
           {showBentoMenu && !showBottomNav && (
             <BentoMenu
@@ -429,11 +434,11 @@ export function PublicHeader({
               <button
                 type="button"
                 onClick={handleAccountClick}
-                className="flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95"
+                className="flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95"
                 title="Login"
                 aria-label="Login"
               >
-                <UserRound className="h-5 w-5" />
+                <UserRound className="h-4 w-4 md:h-5 md:w-5" />
               </button>
             )
           )}
