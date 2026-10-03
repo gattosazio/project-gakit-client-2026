@@ -1,6 +1,7 @@
 'use client';
 
 import { PublicHeader } from '@/components/PublicHeader';
+import { ScenarioDisplayPopover } from '@/components/header/ScenarioDisplayPopover';
 import type { AuthSnapshot } from '@/lib/auth/roles';
 import { ScenariosTab } from './ScenariosTab';
 
@@ -17,6 +18,7 @@ export function FloodScenariosShell({ initialAuth }: { initialAuth?: AuthSnapsho
         showBentoMenu
         showSectionNav={false}
         showBottomNav={false}
+        extraAction={<ScenarioDisplayPopover />}
       />
       <ScenariosTab active />
     </div>
