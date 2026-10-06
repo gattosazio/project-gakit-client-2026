@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Activity, CloudRain, Droplets, Waves, ChevronDown, ChevronUp, Layers } from 'lucide-react';
+import { CloudRain, Droplets, Waves, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import type { ScenarioFrame } from '@/types/scenario';
 
 interface TelemetryHUDProps {
@@ -48,62 +48,58 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
         </button>
       </div>
 
-      {/* Grid of Key Metrics (always visible on md+, collapsible on mobile) */}
+      {/* Key Metrics Section (always visible on md+, collapsible on mobile) */}
       <div
         className={`${
-          mobileExpanded ? 'grid' : 'hidden md:grid'
-        } grid-cols-2 gap-2.5 ${mobileExpanded ? 'mt-2.5 pt-2.5 border-t border-slate-100' : ''}`}
+          mobileExpanded ? 'flex' : 'hidden md:flex'
+        } flex-col gap-2.5 ${mobileExpanded ? 'mt-2.5 pt-2.5 border-t border-slate-100' : ''}`}
       >
-        {/* River Discharge Q_peak */}
-        <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-sky-700 mb-1">
-            <Activity className="h-3.5 w-3.5" />
-            <span>Peak Discharge</span>
+        {/* Inundated Area (Hero Metric) */}
+        <div className="rounded-xl border border-slate-200/70 bg-slate-50/90 p-2.5">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-gakit-maroon">
+              <Waves className="h-3.5 w-3.5" />
+              <span>Inundated Area</span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium">
+              {isStatic ? 'Benchmark Footprint' : 'Active Footprint'}
+            </span>
           </div>
-          <div className="text-xl font-bold tracking-tight text-slate-900">
-            {currentFrame.q_peak_m3s.toLocaleString()}{' '}
-            <span className="text-xs font-normal text-slate-500">m³/s</span>
-          </div>
-        </div>
-
-        {/* Inundated Area */}
-        <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-gakit-maroon mb-1">
-            <Waves className="h-3.5 w-3.5" />
-            <span>Inundated Area</span>
-          </div>
-          <div className="text-xl font-bold tracking-tight text-slate-900">
+          <div className="text-2xl font-bold tracking-tight text-slate-900">
             {currentFrame.inundated_km2.toFixed(2)}{' '}
             <span className="text-xs font-normal text-slate-500">km²</span>
           </div>
         </div>
 
-        {/* Rain Rate */}
-        <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-700 mb-1">
-            <CloudRain className="h-3.5 w-3.5" />
-            <span>{isStatic ? 'Peak Intensity' : 'Hourly Precip'}</span>
+        {/* Rainfall 2-Column Row */}
+        <div className="grid grid-cols-2 gap-2.5">
+          {/* Rain Rate */}
+          <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-700 mb-1">
+              <CloudRain className="h-3.5 w-3.5" />
+              <span>{isStatic ? 'Peak Intensity' : 'Hourly Precip'}</span>
+            </div>
+            <div className="text-lg font-bold text-slate-900">
+              {currentFrame.hourly_rain_mm.toFixed(1)}{' '}
+              <span className="text-xs font-normal text-slate-500">mm/h</span>
+            </div>
           </div>
-          <div className="text-lg font-bold text-slate-900">
-            {currentFrame.hourly_rain_mm.toFixed(1)}{' '}
-            <span className="text-xs font-normal text-slate-500">mm/h</span>
-          </div>
-        </div>
 
-        {/* Cumulative Rain */}
-        <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
-          <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 mb-1">
-            <Droplets className="h-3.5 w-3.5" />
-            <span>{isStatic ? 'Total Rain' : 'Accumulated'}</span>
-          </div>
-          <div className="text-lg font-bold text-slate-900">
-            {currentFrame.cum_rain_mm.toFixed(1)}{' '}
-            {!isStatic && (
-              <span className="text-xs font-normal text-slate-500">/ {totalRainfallMm} mm</span>
-            )}
-            {isStatic && (
-              <span className="text-xs font-normal text-slate-500">mm</span>
-            )}
+          {/* Cumulative Rain */}
+          <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 mb-1">
+              <Droplets className="h-3.5 w-3.5" />
+              <span>{isStatic ? 'Total Rain' : 'Accumulated'}</span>
+            </div>
+            <div className="text-lg font-bold text-slate-900">
+              {currentFrame.cum_rain_mm.toFixed(1)}{' '}
+              {!isStatic && (
+                <span className="text-xs font-normal text-slate-500">/ {totalRainfallMm} mm</span>
+              )}
+              {isStatic && (
+                <span className="text-xs font-normal text-slate-500">mm</span>
+              )}
+            </div>
           </div>
         </div>
       </div>

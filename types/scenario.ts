@@ -5,7 +5,7 @@ export interface ScenarioFrame {
   hourly_rain_mm: number;
   cum_rain_mm: number;
   inundated_km2: number;
-  q_peak_m3s: number;
+  q_peak_m3s?: number;
   narrative: string;
   raster_uri: string;
 }
