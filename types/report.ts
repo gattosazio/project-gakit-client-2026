@@ -18,6 +18,8 @@ export interface Report {
   depth: DepthCategory;
   depthCm?: number | null;
   reference?: FloodReference | null;
+  /** Public URL of citizen-submitted evidence photo, when one was attached. */
+  photoUrl?: string | null;
   status: ReportStatus;
   observedAt: string;
   createdAt: string;
@@ -30,6 +32,8 @@ export interface MapReportProperties {
   depth: DepthCategory;
   depthCm?: number | null;
   reference?: FloodReference | null;
+  /** Public URL of citizen-submitted evidence photo, when one was attached. */
+  photoUrl?: string | null;
   status: ReportStatus;
   observedAt: string;
   createdAt: string;

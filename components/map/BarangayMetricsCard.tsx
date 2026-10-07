@@ -8,7 +8,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { MapPinned, X } from 'lucide-react';
+import { HelpCircle, MapPinned, X } from 'lucide-react';
 import type { HoveredBarangay } from '@/hooks/useMapPopups';
 import { nearestPointOnRings, outerRings } from '@/lib/map/mapGeometry';
 import {
@@ -160,6 +160,7 @@ export function BarangayMetricsCard({
   );
 
   const bannerStyle = BANNER_STYLE[banner];
+  const [showLegend, setShowLegend] = useState(false);
   const depthCounts = stats?.depthCounts ?? {};
   const shownDepths = DEPTH_ORDER.filter((code) => (depthCounts[code] ?? 0) > 0);
 
@@ -174,27 +175,36 @@ export function BarangayMetricsCard({
       </div>
 
       <div className="mt-2 divide-y divide-slate-200/70 overflow-hidden rounded-xl border border-slate-200/70 bg-slate-50/80">
-        <SummaryRow label="Reports" value={String(stats?.total ?? 0)} />
+        <SummaryRow
+          label="Reports"
+          value={String(stats?.total ?? 0)}
+          hint="filed here by residents"
+        />
         <SummaryRow
           label="Worst flood"
           value={stats?.worstDepth ? DEPTH_LABELS[stats.worstDepth] : '—'}
+          hint="deepest recorded"
           accent={
             stats?.worstDepth
               ? { color: DEPTH_BAR_COLOR[stats.worstDepth] }
               : undefined
           }
         />
-        <SummaryRow label="Newest" value={ageLabel ?? '—'} />
+        <SummaryRow
+          label="Newest"
+          value={ageLabel ?? '—'}
+          hint="most recent report"
+        />
       </div>
 
       {shownDepths.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1" aria-label="Reports by depth">
+        <div className="mt-2 flex flex-wrap gap-1" aria-label="Reports by water depth">
           {shownDepths.map((code) => (
             <span
               key={code}
               className="rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white"
               style={{ backgroundColor: DEPTH_BAR_COLOR[code] }}
-              title={DEPTH_LABELS[code]}
+              title={`${depthCounts[code]} report(s) at ${DEPTH_LABELS[code]}`}
             >
               {depthCounts[code]} {DEPTH_LABELS[code].split(' ')[0].toLowerCase()}
             </span>
@@ -204,12 +214,51 @@ export function BarangayMetricsCard({
 
       <div className="mt-2 flex items-center gap-2 text-[9px] text-slate-400">
         <span className="flex-1">
-          Within {windowLabel} · visible statuses
+          {stats?.verified ?? 0} verified · {stats?.unverified ?? 0} pending
         </span>
-        <span>
-          {String(stats?.verified ?? 0)} verified · {String(stats?.unverified ?? 0)} pending
-        </span>
+        <button
+          type="button"
+          onClick={() => setShowLegend((open) => !open)}
+          aria-expanded={showLegend}
+          className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 font-semibold text-slate-500 underline underline-offset-2 transition-colors hover:text-gakit-maroon"
+        >
+          <HelpCircle className="h-3 w-3" />
+          Meaning
+        </button>
       </div>
+
+      {showLegend && (
+        <dl className="mt-1.5 space-y-1 rounded-lg border border-slate-200/70 bg-white/70 px-2 py-1.5 text-[9px] leading-tight text-slate-500">
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 font-bold text-slate-600">Reports</dt>
+            <dd>how many residents filed a report in this barangay</dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 font-bold text-slate-600">Worst flood</dt>
+            <dd>the deepest water level recorded here so far</dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 font-bold text-slate-600">Newest</dt>
+            <dd>how long ago the most recent report came in</dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 font-bold text-slate-600">Colour chips</dt>
+            <dd>how many reports fall at each water depth — colour shows depth, not whether the report was checked</dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 font-bold text-slate-600">Verified</dt>
+            <dd>staff have confirmed the report is accurate</dd>
+          </div>
+          <div className="flex gap-1.5">
+            <dt className="shrink-0 font-bold text-slate-600">Pending</dt>
+            <dd>submitted but not yet reviewed by staff</dd>
+          </div>
+          <div className="border-t border-slate-200/70 pt-1">
+            Counts only include reports within the {windowLabel} and the status
+            filters currently switched on in the map.
+          </div>
+        </dl>
+      )}
     </>
   );
 
@@ -284,16 +333,25 @@ export function BarangayMetricsCard({
 function SummaryRow({
   label,
   value,
+  hint,
   accent,
 }: {
   label: string;
   value: string;
+  hint?: string;
   accent?: { color: string };
 }) {
   return (
-    <div className="flex items-center justify-between px-3 py-1">
-      <span className="text-[9px] font-medium uppercase tracking-wide text-slate-400">
-        {label}
+    <div className="flex items-center justify-between gap-2 px-3 py-1">
+      <span className="min-w-0">
+        <span className="block text-[9px] font-medium uppercase tracking-wide text-slate-400">
+          {label}
+        </span>
+        {hint && (
+          <span className="block truncate text-[9px] leading-tight text-slate-400">
+            {hint}
+          </span>
+        )}
       </span>
       <span
         className={`text-xs font-bold tabular-nums leading-tight ${accent ? '' : 'text-slate-900'}`}

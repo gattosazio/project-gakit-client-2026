@@ -7,6 +7,7 @@ import {
   CloudSun,
   Layers,
   ListFilter,
+  Waves,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { WeatherChip } from '@/components/map/WeatherChip';
@@ -372,36 +373,22 @@ export function MapSidebar({
               </span>
           </button>
 
-          {/* Quick Action: Report Flooding */}
+          {/* Report Flooding (desktop only — mobile uses the bottom-nav FAB) */}
           {onStartReport && (
             <button
               type="button"
               onClick={onStartReport}
-              className="flex h-10 md:h-11 items-center hud-pill hover:bg-white hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer shrink-0"
+              className="hidden md:flex h-10 md:h-11 items-center rounded-2xl bg-gakit-maroon text-white shadow-md hover:bg-maroon-900 hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer shrink-0"
               title="Report flooding"
               aria-label="Report flooding"
             >
               <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
-                <svg
-                  viewBox="0 0 24 24"
+                <Waves
                   className="h-5 w-5 shrink-0 transition-transform group-hover:scale-110"
                   aria-hidden="true"
-                >
-                  <path
-                    d="M 12 5.5 L 19.8 19 L 4.2 19 Z"
-                    fill="#7B1113"
-                    stroke="#7B1113"
-                    strokeWidth="4.5"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                  <line x1="12" y1="9.5" x2="12" y2="13.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
-                  <circle cx="12" cy="17" r="1.15" fill="white" />
-                </svg>
+                />
               </div>
-              <span className={`${railLabelClass()} text-gakit-maroon`}>
-                Report Flooding
-              </span>
+              <span className={railLabelClass()}>Report Flooding</span>
             </button>
           )}
         </div>
@@ -497,9 +484,9 @@ export function MapSidebar({
             </div>
           </div>
 
-          {/* Primary Action Row: Report Flooding */}
+          {/* Primary Action Row: Report Flooding (mobile uses the bottom-nav FAB) */}
           {onStartReport && (
-            <div className="mt-1.5 shrink-0">
+            <div className="mt-1.5 hidden shrink-0 md:block">
               <button
                 type="button"
                 onClick={onStartReport}
@@ -507,30 +494,10 @@ export function MapSidebar({
                 aria-label="Report flooding"
                 title="Report flooding"
               >
-                <svg
-                  viewBox="0 0 24 24"
-                  className="h-5 w-5 shrink-0 transition-transform group-hover:scale-110"
+                <Waves
+                  className="h-5 w-5 shrink-0 text-gakit-maroon transition-transform group-hover:scale-110"
                   aria-hidden="true"
-                >
-                  <path
-                    d="M 12 5.5 L 19.8 19 L 4.2 19 Z"
-                    fill="#7B1113"
-                    stroke="#7B1113"
-                    strokeWidth="4.5"
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                  />
-                  <line
-                    x1="12"
-                    y1="9.5"
-                    x2="12"
-                    y2="13.5"
-                    stroke="white"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                  />
-                  <circle cx="12" cy="17" r="1.15" fill="white" />
-                </svg>
+                />
                 <span className="text-sm font-bold text-gakit-maroon group-hover:text-maroon-900 transition-colors">
                   Report Flooding
                 </span>

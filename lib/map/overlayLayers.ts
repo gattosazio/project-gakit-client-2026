@@ -686,13 +686,20 @@ export const setupOverlayLayers = async (
 
   // --- Report markers as clustered GeoJSON (GPU-rendered, no DOM churn) ---
   if (!map.getSource('reports')) {
-    // Per-status counts let clusters inherit the dominant report status color.
+    // Per-status counts let a cluster inherit its dominant report status
+    // colour, so the colour language is consistent at every zoom level.
     map.addSource('reports', {
       type: 'geojson',
       data: { type: 'FeatureCollection', features: [] },
       cluster: true,
       clusterMaxZoom: 14,
       clusterRadius: 15,
+      clusterProperties: {
+        verified: ['+', ['case', ['==', ['get', 'status'], 'VERIFIED'], 1, 0]],
+        unverified: ['+', ['case', ['==', ['get', 'status'], 'UNVERIFIED'], 1, 0]],
+        anomaly: ['+', ['case', ['==', ['get', 'status'], 'ANOMALY'], 1, 0]],
+        rejected: ['+', ['case', ['==', ['get', 'status'], 'REJECTED'], 1, 0]],
+      },
     });
 
     REPORT_STATUS_LEGEND.forEach(({ status }) => {
@@ -702,7 +709,8 @@ export const setupOverlayLayers = async (
       if (image) map.addImage(imageId, image, { pixelRatio: 2 });
     });
 
-    // Status colors for individual-pin glow (clusters stay neutral indigo).
+    // Status colors for the individual-pin glow. Cluster discs are coloured
+    // separately by dominant status (see the report-clusters layer below).
     const statusColor = (expr: any) => [
       'match', expr,
       'VERIFIED', REPORT_MARKER_COLORS.VERIFIED,
@@ -711,7 +719,8 @@ export const setupOverlayLayers = async (
       REPORT_MARKER_COLORS.UNVERIFIED,
     ];
 
-    // Solid cluster disc (neutral indigo), radius scales with count but is
+    // Solid cluster disc coloured by the dominant report status, so a cluster
+    // reads the same as the pins it contains. Radius scales with count but is
     // capped so clusters don't balloon when zoomed out.
     map.addLayer({
       id: 'report-clusters',
@@ -719,7 +728,31 @@ export const setupOverlayLayers = async (
       source: 'reports',
       filter: ['has', 'point_count'],
       paint: {
-        'circle-color': '#6366f1',
+        'circle-color': [
+          'case',
+          [
+            '>=', ['get', 'verified'],
+            ['max', ['get', 'unverified'], ['get', 'anomaly'], ['get', 'rejected']],
+          ],
+          REPORT_MARKER_COLORS.VERIFIED,
+          [
+            '>=', ['get', 'unverified'],
+            ['max', ['get', 'verified'], ['get', 'anomaly'], ['get', 'rejected']],
+          ],
+          REPORT_MARKER_COLORS.UNVERIFIED,
+          [
+            '>=', ['get', 'anomaly'],
+            ['max', ['get', 'verified'], ['get', 'unverified'], ['get', 'rejected']],
+          ],
+          REPORT_MARKER_COLORS.ANOMALY,
+          [
+            '>=', ['get', 'rejected'],
+            ['max', ['get', 'verified'], ['get', 'unverified'], ['get', 'anomaly']],
+          ],
+          REPORT_MARKER_COLORS.REJECTED,
+          // No clear majority — mixed cluster.
+          '#6366f1',
+        ],
         'circle-radius': [
           'interpolate', ['linear'], ['get', 'point_count'],
           2, 11, 5, 12.5, 10, 14, 25, 16, 50, 17,

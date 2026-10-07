@@ -270,7 +270,7 @@ export function BentoMenu({
         onClick={() => setIsOpen((open) => !open)}
         className={
           isMobileNav
-            ? `relative flex w-full flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-150 active:scale-95 ${
+            ? `relative flex w-full flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1 transition-all duration-150 active:scale-95 ${
                 isOpen
                   ? 'bg-slate-200 text-slate-900 font-bold'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'

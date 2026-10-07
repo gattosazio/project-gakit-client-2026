@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { MapPin, RotateCcw, Search } from 'lucide-react';
+import { Camera, MapPin, RotateCcw, Search } from 'lucide-react';
 import {
   DEPTH_BAR_COLOR,
   DEPTH_LABELS,
@@ -463,6 +463,14 @@ export function ReportsTab({
                               >
                                 · {timeAgo(report.createdAt)}
                               </span>
+                              {report.photoUrl && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-slate-400"
+                                  title="Photo attached"
+                                >
+                                  · <Camera className="h-3.5 w-3.5" aria-hidden="true" /> Photo
+                                </span>
+                              )}
                             </div>
                           </button>
                           <StatusDropdown

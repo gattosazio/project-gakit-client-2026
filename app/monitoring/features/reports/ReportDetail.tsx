@@ -50,6 +50,7 @@ export function ReportDetail({
   const [closing, setClosing] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
   const [copiedCoord, setCopiedCoord] = useState(false);
+  const [photoOpen, setPhotoOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
 
   const requestClose = useCallback(() => {
@@ -63,6 +64,11 @@ export function ReportDetail({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        // Escape closes the photo lightbox first, not the whole details card.
+        if (photoOpen) {
+          setPhotoOpen(false);
+          return;
+        }
         requestClose();
       }
     };
@@ -70,7 +76,7 @@ export function ReportDetail({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [modal, requestClose]);
+  }, [modal, requestClose, photoOpen]);
 
   // Focus the dialog on open and restore on close; lock body scroll while open.
   useEffect(() => {
@@ -155,6 +161,12 @@ export function ReportDetail({
           onViewOnMap={onViewOnMap}
         />
 
+        <PhotoEvidence
+          photoUrl={report.photoUrl}
+          reportId={report.id}
+          onOpen={() => setPhotoOpen(true)}
+        />
+
         <FieldGroup title="Flood report">
           <DetailItem label="Depth" value={formatReportDepth(report.depth, report.depthCm)} />
           {report.reference ? (
@@ -176,33 +188,71 @@ export function ReportDetail({
     </div>
   );
 
-  if (modal) {
-    return createPortal(
-      <div className={`gakit-modal-overlay ${closing ? 'gakit-modal-closing' : ''}`}>
-        <div
-          className="fixed inset-0 z-[1300] flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-6 backdrop-blur-xs"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) requestClose();
-          }}
-        >
+  const lightbox =
+    photoOpen && report.photoUrl
+      ? createPortal(
           <div
-            ref={panelRef}
-            tabIndex={-1}
             role="dialog"
             aria-modal="true"
-            aria-label="Report details"
-            className="gakit-modal-open w-full max-w-xl overflow-hidden rounded-t-2xl bg-white shadow-2xl border border-slate-200/80 ring-1 ring-slate-900/5 outline-none sm:max-h-[85vh] sm:rounded-2xl"
+            aria-label="Report photo"
+            className="fixed inset-0 z-[1400] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xs"
+            onClick={() => setPhotoOpen(false)}
           >
-            <div className="h-1.5 w-10 rounded-full bg-slate-200 sm:hidden" style={{ margin: '8px auto 4px' }} />
-            {content}
+            <button
+              type="button"
+              onClick={() => setPhotoOpen(false)}
+              aria-label="Close photo"
+              className="absolute right-4 top-4 rounded-lg border border-white/20 bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            {/* eslint-disable-next-line @next/next/no-img-element -- Supabase host isn't in next.config images.remotePatterns */}
+            <img
+              src={report.photoUrl}
+              alt={`Photo evidence for report ${report.id}`}
+              className="max-h-[90vh] max-w-full rounded-xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>,
+          document.body
+        )
+      : null;
+
+  if (modal) {
+    return createPortal(
+      <>
+        {lightbox}
+        <div className={`gakit-modal-overlay ${closing ? 'gakit-modal-closing' : ''}`}>
+          <div
+            className="fixed inset-0 z-[1300] flex items-end justify-center bg-slate-950/50 sm:items-center sm:p-6 backdrop-blur-xs"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) requestClose();
+            }}
+          >
+            <div
+              ref={panelRef}
+              tabIndex={-1}
+              role="dialog"
+              aria-modal="true"
+              aria-label="Report details"
+              className="gakit-modal-open w-full max-w-xl overflow-hidden rounded-t-2xl bg-white shadow-2xl border border-slate-200/80 ring-1 ring-slate-900/5 outline-none sm:max-h-[85vh] sm:rounded-2xl"
+            >
+              <div className="h-1.5 w-10 rounded-full bg-slate-200 sm:hidden" style={{ margin: '8px auto 4px' }} />
+              {content}
+            </div>
           </div>
         </div>
-      </div>,
+      </>,
       document.body
     );
   }
 
-  return <aside className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">{content}</aside>;
+  return (
+    <>
+      {lightbox}
+      <aside className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">{content}</aside>
+    </>
+  );
 }
 
 function LocationPreview({
@@ -256,6 +306,40 @@ function LocationPreview({
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function PhotoEvidence({
+  photoUrl,
+  reportId,
+  onOpen,
+}: {
+  photoUrl?: string | null;
+  reportId: string;
+  onOpen: () => void;
+}) {
+  return (
+    <div>
+      <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">Photo evidence</h4>
+      {photoUrl ? (
+        <button
+          type="button"
+          onClick={onOpen}
+          aria-label="View photo full size"
+          className="block w-full cursor-zoom-in overflow-hidden rounded-lg border border-canvas-grey bg-canvas-light focus:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- Supabase host isn't in next.config images.remotePatterns */}
+          <img
+            src={photoUrl}
+            alt={`Photo evidence for report ${reportId}`}
+            loading="lazy"
+            className="max-h-64 w-full object-cover"
+          />
+        </button>
+      ) : (
+        <p className="text-sm text-slate-400">No photo submitted</p>
+      )}
     </div>
   );
 }
