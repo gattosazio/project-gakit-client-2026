@@ -1,6 +1,7 @@
 'use client';
 
 import { MapPin, Locate, X, AlertTriangle } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { LocationSearch, type SearchedLocation } from './LocationSearch';
 
 export interface SelectedLocation {
@@ -16,6 +17,7 @@ export function LocationPromptModal({
   onChooseLocation,
   onSearchLocationSelect,
   mode = 'assessment',
+  isLocating = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -23,6 +25,7 @@ export function LocationPromptModal({
   onChooseLocation: () => void;
   onSearchLocationSelect: (location: SearchedLocation) => void;
   mode?: 'assessment' | 'report';
+  isLocating?: boolean;
 }) {
   if (!isOpen) return null;
 
@@ -53,14 +56,15 @@ export function LocationPromptModal({
             type="button"
             onClick={onClose}
             aria-label="Close location picker"
-            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+            disabled={isLocating}
+            className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
         <div className="p-5 pt-3 space-y-3">
-          <div>
+          <div className={isLocating ? 'pointer-events-none opacity-50' : ''}>
             <div className="mb-2 text-xs font-semibold text-slate-700">
               {isReport ? 'Search flooded area or barangay' : 'Search for an address or barangay'}
             </div>
@@ -77,15 +81,21 @@ export function LocationPromptModal({
 
           <button
             onClick={onUseCurrentLocation}
-            className="w-full p-4 rounded-xl border-2 border-gakit-maroon bg-maroon-50/60 text-left hover:bg-maroon-100/70 transition-colors group"
+            disabled={isLocating}
+            aria-busy={isLocating}
+            className="w-full p-4 rounded-xl border-2 border-gakit-maroon bg-maroon-50/60 text-left hover:bg-maroon-100/70 transition-colors group disabled:cursor-wait disabled:hover:bg-maroon-50/60"
           >
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white shadow-xs text-gakit-maroon">
-                <Locate className="w-5 h-5 text-gakit-maroon" />
+                {isLocating ? (
+                  <Spinner size="sm" iconClassName="bg-gakit-maroon" />
+                ) : (
+                  <Locate className="w-5 h-5 text-gakit-maroon" />
+                )}
               </div>
               <div>
                 <div className="font-semibold text-slate-900 text-sm">
-                  Use my current location
+                  {isLocating ? 'Getting your location…' : 'Use my current location'}
                 </div>
                 <div className="text-xs text-slate-600">
                   {isReport ? 'Report flood at your GPS position.' : 'Assess hazards at your current GPS spot.'}
@@ -96,7 +106,8 @@ export function LocationPromptModal({
 
           <button
             onClick={onChooseLocation}
-            className="w-full p-4 rounded-xl border-2 border-slate-200 text-left hover:border-gakit-maroon hover:bg-slate-50 transition-colors group"
+            disabled={isLocating}
+            className="w-full p-4 rounded-xl border-2 border-slate-200 text-left hover:border-gakit-maroon hover:bg-slate-50 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-slate-200 disabled:hover:bg-transparent"
           >
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-700 group-hover:bg-maroon-50 group-hover:text-gakit-maroon transition-colors">

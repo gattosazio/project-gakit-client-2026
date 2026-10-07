@@ -7,7 +7,8 @@ import { HazardAssessmentModal } from '@/components/HazardAssessmentModal';
 import { ReportModal } from '@/components/ReportModal';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
-import { createReport, pingHealth } from './actions/publicView';
+import { createReport, pingHealth, uploadReportPhoto } from './actions/publicView';
+import type { PreparedPhoto } from '@/lib/reports/photoUpload';
 import { isWithinIligan, reverseGeocode } from '@/lib/map/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type { CreateReportInput, DepthCategory, FloodReference, Report, ReportStatus } from '@/types/report';
@@ -24,6 +25,10 @@ import {
   type SubmittedReport,
 } from './components/SuccessModal';
 import { TopoBackground } from './components/TopoBackground';
+import {
+  FirstVisitGuide,
+  hasSeenFirstVisitGuide,
+} from '@/components/FirstVisitGuide';
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
@@ -56,6 +61,9 @@ export function PublicViewPage({
   const [locationPromptMode, setLocationPromptMode] = useState<'assessment' | 'report'>('assessment');
   const [isManualLocationMode, setIsManualLocationMode] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
+  const [isPreparing, setIsPreparing] = useState(false);
   const [withinCity, setWithinCity] = useState<boolean | null>(null);
   const [activeSection, setActiveSection] = useState<SectionId>('hazard-map');
   const [aboutTab, setAboutTab] = useState<'about' | 'privacy'>('about');
@@ -208,6 +216,23 @@ export function PublicViewPage({
   // re-evaluated; the duplicate call only refines the address in place.
   const lastAssessmentDecision = useRef<{ key: string; at: number } | null>(null);
 
+  // Visible feedback while the geofence check runs before a modal opens.
+  // Held for a minimum of 400ms so a cached/fast response doesn't flash it.
+  const withPreparing = useCallback(async <T,>(work: Promise<T>): Promise<T> => {
+    const started = Date.now();
+    setIsPreparing(true);
+    try {
+      return await work;
+    } finally {
+      const remaining = 400 - (Date.now() - started);
+      if (remaining > 0) {
+        setTimeout(() => setIsPreparing(false), remaining);
+      } else {
+        setIsPreparing(false);
+      }
+    }
+  }, []);
+
   // Opens the assessment modal for any location, inside or outside Iligan City.
   // The server is the authoritative geofence; withinCity only drives courtesy UI
   // (report CTA enabled vs. outside-city notice).
@@ -221,7 +246,7 @@ export function PublicViewPage({
     lastAssessmentDecision.current = { key, at: Date.now() };
     let within: boolean | null = null;
     try {
-      within = await isWithinIligan(location.lat, location.lng);
+      within = await withPreparing(isWithinIligan(location.lat, location.lng));
     } catch {
       within = null;
     }
@@ -229,13 +254,13 @@ export function PublicViewPage({
     setSelectedLocation(location);
     setIsReportModalOpen(false);
     setIsAssessmentOpen(true);
-  }, []);
+  }, [withPreparing]);
 
   const openReportModalFor = useCallback(
     async (location: SelectedLocation) => {
       let within: boolean | null = null;
       try {
-        within = await isWithinIligan(location.lat, location.lng);
+        within = await withPreparing(isWithinIligan(location.lat, location.lng));
       } catch {
         within = null;
       }
@@ -244,7 +269,7 @@ export function PublicViewPage({
       setIsAssessmentOpen(false);
       setIsReportModalOpen(true);
     },
-    []
+    [withPreparing]
   );
 
   const handleStartReport = useCallback(() => {
@@ -264,16 +289,27 @@ export function PublicViewPage({
   const handleMapReady = useCallback(() => {
     if (!hasOpenedPromptRef.current) {
       hasOpenedPromptRef.current = true;
-      try {
-        const alreadyShown = sessionStorage.getItem('gakit:location-prompt-shown');
-        if (!alreadyShown) {
+      // A first-time visitor gets the orientation guide instead of the location
+      // prompt — two competing modals on arrival is what confused the team.
+      if (!hasSeenFirstVisitGuide()) {
+        setIsGuideOpen(true);
+        try {
+          sessionStorage.setItem('gakit:location-prompt-shown', 'true');
+        } catch {
+          /* storage unavailable; harmless */
+        }
+      } else {
+        try {
+          const alreadyShown = sessionStorage.getItem('gakit:location-prompt-shown');
+          if (!alreadyShown) {
+            setLocationPromptMode('assessment');
+            setIsLocationPromptOpen(true);
+            sessionStorage.setItem('gakit:location-prompt-shown', 'true');
+          }
+        } catch {
           setLocationPromptMode('assessment');
           setIsLocationPromptOpen(true);
-          sessionStorage.setItem('gakit:location-prompt-shown', 'true');
         }
-      } catch {
-        setLocationPromptMode('assessment');
-        setIsLocationPromptOpen(true);
       }
     }
     setRainfallHours(mapRef.current?.getRainfallHours?.() ?? 1);
@@ -283,6 +319,7 @@ export function PublicViewPage({
     const isReportMode = locationPromptMode === 'report';
     const attempt = (canRetry: boolean) => {
       if (!navigator.geolocation) {
+        setIsLocating(false);
         toast.error('Location sharing is not supported by this browser.', {
           position: 'top-right',
           autoClose: 3000,
@@ -290,7 +327,6 @@ export function PublicViewPage({
         return;
       }
 
-      setIsLocationPromptOpen(false);
       setIsManualLocationMode(false);
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -301,6 +337,10 @@ export function PublicViewPage({
             address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
           };
 
+          // Close the prompt only once we actually have a fix, so the
+          // locating state in the button is the visible feedback meanwhile.
+          setIsLocating(false);
+          setIsLocationPromptOpen(false);
           setSelectedLocation(fallbackLocation);
           if (isReportMode) {
             setLocationPromptMode('assessment');
@@ -315,6 +355,9 @@ export function PublicViewPage({
             attempt(false);
             return;
           }
+          // Keep the prompt open on failure so the user can retry or pick
+          // another option instead of being dumped back on the map.
+          setIsLocating(false);
           if (error.code === 1) {
             toast.error('To use your location, allow location access for this site.', {
               position: 'top-right',
@@ -335,6 +378,7 @@ export function PublicViewPage({
         { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 }
       );
     };
+    setIsLocating(true);
     attempt(true);
   }, [locationPromptMode, openAssessmentModalFor, openReportModalFor]);
 
@@ -438,6 +482,7 @@ export function PublicViewPage({
     depth: CreateReportInput['depth'];
     depthCm: number;
     reference: { id: FloodReference; label: string; landmark: string };
+    photo?: PreparedPhoto;
   }): Promise<void> => {
     const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
 
@@ -451,6 +496,20 @@ export function PublicViewPage({
       depthCm: data.depthCm,
       reference: data.reference.id,
     });
+
+    // The report exists at this point, so a failed photo upload is reported but
+    // never rolls the submission back.
+    if (data.photo) {
+      try {
+        await uploadReportPhoto(report.id, data.photo.blob);
+      } catch (uploadError) {
+        console.error('Report photo upload failed:', uploadError);
+        toast.error(
+          'Your report was submitted, but the photo could not be uploaded.',
+          { position: 'top-right', autoClose: 5000 }
+        );
+      }
+    }
 
     setLastSubmittedReport({
       id: report.id,
@@ -477,6 +536,7 @@ export function PublicViewPage({
         onSearchSelect={handleSearchedLocationSelect}
         onLocate={handleLocate}
         showBentoMenu
+        onStartReport={handleStartReport}
       />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
@@ -576,7 +636,19 @@ export function PublicViewPage({
         onChooseLocation={handleChooseLocation}
         onSearchLocationSelect={handleSearchedLocationSelect}
         mode={locationPromptMode}
+        isLocating={isLocating}
       />
+
+      {/* Spinner-only pill shown while the geofence check prepares a modal */}
+      {isPreparing && (
+        <div
+          role="status"
+          aria-label="Preparing"
+          className="fixed top-4 left-1/2 z-[1350] flex -translate-x-1/2 items-center rounded-full border border-slate-200/80 bg-white/95 px-3 py-2 shadow-lg backdrop-blur-md"
+        >
+          <Spinner size="sm" iconClassName="bg-gakit-maroon" />
+        </div>
+      )}
 
       <HazardAssessmentModal
         isOpen={isAssessmentOpen}
@@ -618,6 +690,8 @@ export function PublicViewPage({
           scrollToMap();
         }}
       />
+
+      <FirstVisitGuide isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
     </div>
   );
 }

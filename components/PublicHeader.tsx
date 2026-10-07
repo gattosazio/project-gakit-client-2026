@@ -33,12 +33,16 @@ export function PublicHeader({
   showSectionNav = true,
   showBottomNav = true,
   extraAction,
+  onStartReport,
 }: {
   activeSection?: 'hazard-map' | 'about';
   initialAuth?: AuthSnapshot;
   onNavigateSection?: (id: 'hazard-map' | 'about') => void;
   onSearchSelect?: (location: SearchedLocation) => void;
   onLocate?: () => void | Promise<void>;
+  /** Starts the flood-reporting flow. When provided, a raised primary action
+   *  button is centred in the mobile bottom nav. */
+  onStartReport?: () => void;
   /** Adds the bento portals launcher left of the bell. */
   showBentoMenu?: boolean;
   /** Hides the About button and the account pill. For pages with no About
@@ -448,11 +452,11 @@ export function PublicHeader({
 
     {showBottomNav && (
       <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-3 pb-2 md:hidden">
-        <div className="pointer-events-auto mx-auto grid max-w-sm grid-cols-4 items-center gap-1 p-1.5 hud-card">
+        <div className="pointer-events-auto mx-auto grid max-w-sm grid-cols-5 items-end gap-1 rounded-full border-0 bg-white/95 px-1.5 py-1 shadow-[0_6px_24px_-6px_rgba(15,23,42,0.18)] backdrop-blur-md">
           {/* 1. Map */}
           <button
             onClick={() => scrollToSection('hazard-map')}
-            className={`flex w-full flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-150 active:scale-95 ${
+            className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1 transition-all duration-150 active:scale-95 ${
               activeSection === 'hazard-map'
                 ? 'bg-slate-200 text-slate-900 font-bold'
                 : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
@@ -471,10 +475,32 @@ export function PublicHeader({
             className="flex w-full flex-col items-center justify-center"
           />
 
-          {/* 3. About */}
+          {/* 3. Report flooding — raised centre FAB overlapping the pill's top edge */}
+          {onStartReport ? (
+            <button
+              type="button"
+              onClick={onStartReport}
+              aria-label="Report flooding"
+              title="Report flooding"
+              className="flex w-full flex-col items-center justify-center gap-1 active:scale-95"
+            >
+              <span className="-mt-7 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_8px_20px_-4px_rgba(15,23,42,0.28)] ring-1 ring-slate-200/70">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gakit-maroon text-white">
+                  <Waves className="h-6 w-6" />
+                </span>
+              </span>
+              <span className="text-[10px] font-bold leading-none text-gakit-maroon">
+                Report
+              </span>
+            </button>
+          ) : (
+            <div />
+          )}
+
+          {/* 4. About */}
           <button
             onClick={() => scrollToSection('about')}
-            className={`flex w-full flex-col items-center justify-center gap-1 rounded-xl px-2 py-1.5 transition-all duration-150 active:scale-95 ${
+            className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1 transition-all duration-150 active:scale-95 ${
               activeSection === 'about'
                 ? 'bg-slate-200 text-slate-900 font-bold'
                 : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
@@ -484,7 +510,7 @@ export function PublicHeader({
             <span className="text-[10px] font-semibold">About</span>
           </button>
 
-          {/* 4. Apps (Rightmost) */}
+          {/* 5. Apps (Rightmost) */}
           {showBentoMenu ? (
             <BentoMenu
               items={bentoTiles}

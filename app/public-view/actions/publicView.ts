@@ -58,10 +58,13 @@ async function request<T>(
 
     let status: number | undefined;
     try {
+      // FormData bodies must keep the browser-generated multipart boundary, so
+      // the explicit JSON content type is only set for non-FormData bodies.
+      const isFormData = typeof FormData !== 'undefined' && options?.body instanceof FormData;
       const response = await fetch(`${API_URL}${path}`, {
         ...options,
         headers: {
-          'Content-Type': 'application/json',
+          ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
           ...(await authHeaders()),
           ...(options?.headers ?? {}),
         },
@@ -139,6 +142,28 @@ export async function createReport(
     }
     throw error;
   }
+}
+
+/**
+ * Attach a prepared evidence photo to an already-created report.
+ *
+ * Deliberately separate from {@link createReport}: the report is the valuable
+ * artefact, so an upload failure must never discard it. Failures are surfaced
+ * to the caller but never block the submission itself.
+ */
+export async function uploadReportPhoto(
+  reportId: string,
+  blob: Blob,
+  signal?: AbortSignal
+): Promise<ReportRecord> {
+  const form = new FormData();
+  form.append('photo', blob, 'evidence.jpg');
+
+  return request<ReportRecord>(`/api/v1/reports/${encodeURIComponent(reportId)}/photo`, {
+    method: 'POST',
+    body: form,
+    signal,
+  });
 }
 
 export function buildMapReportsUrl(bounds: MapBounds): string {

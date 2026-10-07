@@ -16,6 +16,8 @@ import {
 import { FloodReferenceIllustration } from '@/components/reporting/FloodReferenceIllustration';
 import { FloodDepthScale } from '@/components/reporting/FloodDepthScale';
 import { FilterDropdown } from '@/components/ui/FilterDropdown';
+import { PhotoCapture } from '@/components/reporting/PhotoCapture';
+import type { PreparedPhoto } from '@/lib/reports/photoUpload';
 import type { FloodDepth, FloodDepthCategory } from '@/app/public-view/actions/publicView';
 
 const REFERENCE_ICONS: Record<FloodReference, typeof Car> = {
@@ -41,6 +43,8 @@ export interface ReportModalProps {
     depth: FloodDepth;
     depthCm: number;
     reference: { id: FloodReference; label: string; landmark: string };
+    /** Pre-compressed evidence photo, uploaded after the report is created. */
+    photo?: PreparedPhoto;
   }) => Promise<void>;
   /** Server-authoritative geofence result; false disables reporting (courtesy UI only). */
   withinCity?: boolean | null;
@@ -69,12 +73,14 @@ export function ReportModal({
   const [selectedReference, setSelectedReference] = useState<FloodReference>('adult');
   const [depthCategories, setDepthCategories] = useState<FloodDepthCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
 
   const resetForm = () => {
     setSelectedCm(null);
     setCustomCm('');
     setSelectedReference('adult');
     setHoveredCm(null);
+    setPhoto(null);
   };
 
   // Reset transient form state when the modal opens/closes.
@@ -173,6 +179,7 @@ export function ReportModal({
           label: referenceMeta.label,
           landmark: `${selectedCm} cm`,
         },
+        photo: photo ?? undefined,
       });
       resetForm();
       onClose();
@@ -342,6 +349,13 @@ export function ReportModal({
                   </div>
                 </section>
               )}
+
+              <section>
+                <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-400">
+                  Photo evidence
+                </h3>
+                <PhotoCapture photo={photo} onChange={setPhoto} disabled={isSubmitting} />
+              </section>
             </div>
           )}
         </div>
