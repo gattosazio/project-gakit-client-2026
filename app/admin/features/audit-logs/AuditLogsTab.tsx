@@ -96,6 +96,7 @@ export function AuditLogsTab({ active = true }: { active?: boolean }) {
                 setCurrentPage(1);
               }}
               placeholder="Filter by actor email"
+              aria-label="Filter audit logs by actor email"
               className="w-full bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
             />
           </label>
@@ -105,6 +106,7 @@ export function AuditLogsTab({ active = true }: { active?: boolean }) {
               setAction(event.target.value);
               setCurrentPage(1);
             }}
+            aria-label="Filter by action"
             className="rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 text-sm text-slate-700 outline-none focus:border-gakit-maroon/40 focus:bg-white"
           >
             <option value="all">All actions</option>
@@ -158,7 +160,10 @@ export function AuditLogsTab({ active = true }: { active?: boolean }) {
         </div>
       }
     >
-      <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
+      <div
+        aria-busy={loading}
+        className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm"
+      >
         {error ? (
           <div className="p-6 text-sm text-red-700">{error}</div>
         ) : (
@@ -167,17 +172,18 @@ export function AuditLogsTab({ active = true }: { active?: boolean }) {
               <table className="w-full text-sm">
                 <thead className="bg-canvas-light text-slate-500">
                   <tr>
-                    <th className="px-5 py-3 text-left font-semibold">Time</th>
-                    <th className="px-5 py-3 text-left font-semibold">Action</th>
-                    <th className="px-5 py-3 text-left font-semibold">Actor</th>
-                    <th className="px-5 py-3 text-left font-semibold">Resource</th>
-                    <th className="px-5 py-3 text-left font-semibold">Details</th>
-                    <th className="px-5 py-3 text-left font-semibold">IP</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">Time</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">Action</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">Actor</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">Resource</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">Details</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">IP</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-canvas-grey">
                   {logs.map((log) => {
                     const meta = auditActionMeta(log.action);
+                    const detailsText = formatJsonDetails(log.details);
                     return (
                       <tr key={log.id} className="hover:bg-canvas-light/70">
                         <td className="whitespace-nowrap px-5 py-3.5 text-slate-600">
@@ -207,12 +213,26 @@ export function AuditLogsTab({ active = true }: { active?: boolean }) {
                           </div>
                         </td>
                         <td className="max-w-[16rem] px-5 py-3.5 text-xs text-slate-600">
-                          <span
-                            className="block truncate"
-                            title={formatJsonDetails(log.details)}
-                          >
-                            {formatJsonDetails(log.details)}
-                          </span>
+                          {detailsText ? (
+                            <details className="group">
+                              <summary
+                                className="cursor-pointer list-none [&::-webkit-details-marker]:hidden"
+                                title={detailsText}
+                              >
+                                <span className="block truncate group-open:whitespace-normal group-open:break-words">
+                                  {detailsText}
+                                </span>
+                                <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-gakit-maroon group-open:hidden">
+                                  Show more
+                                </span>
+                              </summary>
+                              <pre className="mt-2 whitespace-pre-wrap break-words font-sans">
+                                {detailsText}
+                              </pre>
+                            </details>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
                         </td>
                         <td className="px-5 py-3.5 font-mono text-xs text-slate-400">
                           {log.ipAddress ?? '—'}
@@ -237,6 +257,7 @@ export function AuditLogsTab({ active = true }: { active?: boolean }) {
             <div className="divide-y divide-canvas-grey lg:hidden">
               {logs.map((log) => {
                 const meta = auditActionMeta(log.action);
+                const detailsText = formatJsonDetails(log.details);
                 return (
                   <div key={log.id} className="space-y-1.5 p-4">
                     <div className="flex items-center justify-between gap-3">
@@ -257,9 +278,19 @@ export function AuditLogsTab({ active = true }: { active?: boolean }) {
                       {log.resourceId ? ` · ${shortenId(log.resourceId)}` : ''}
                       {log.ipAddress ? ` · ${log.ipAddress}` : ''}
                     </div>
-                    <div className="line-clamp-2 text-xs text-slate-600">
-                      {formatJsonDetails(log.details)}
-                    </div>
+                    {detailsText && (
+                      <details className="text-xs text-slate-600">
+                        <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                          <span className="line-clamp-2">{detailsText}</span>
+                          <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-wide text-gakit-maroon">
+                            Show more
+                          </span>
+                        </summary>
+                        <pre className="mt-2 whitespace-pre-wrap break-words font-sans">
+                          {detailsText}
+                        </pre>
+                      </details>
+                    )}
                   </div>
                 );
               })}

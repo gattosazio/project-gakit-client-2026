@@ -1,19 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { Settings } from 'lucide-react';
-import { ROLE_ADMIN, type StaffRole } from '@/lib/auth/roles';
 
 /**
- * Account/portal menu behind the header gear icon. Everyone signed into a
- * portal sees "Settings"; on the monitoring portal administrators additionally
- * see "Administration", which is swapped for "Monitoring Portal" while already
- * inside the admin portal so the menu never lists the current portal.
+ * Account/settings menu behind the header gear icon. Cross-portal navigation
+ * lives in the Apps (bento) launcher, so this menu only surfaces Settings.
  */
-export function SettingsDropdown({ role }: { role: StaffRole | null }) {
+export function SettingsDropdown() {
   const router = useRouter();
-  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
@@ -62,23 +58,6 @@ export function SettingsDropdown({ role }: { role: StaffRole | null }) {
             >
               Settings
             </button>
-            {role === ROLE_ADMIN && (pathname.startsWith('/admin') ? (
-              <button
-                type="button"
-                onClick={() => go('/monitoring')}
-                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-canvas-light"
-              >
-                Monitoring Portal
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => go('/admin')}
-                className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition-colors hover:bg-canvas-light"
-              >
-                Administration
-              </button>
-            ))}
           </div>
         </div>
       )}

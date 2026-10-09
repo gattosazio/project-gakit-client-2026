@@ -1,11 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Shield, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { Dialog } from '@/components/ui/Dialog';
+import { Switch } from '@/components/ui/Switch';
 import { createRole, updateRole } from '../../actions/admin';
+import { roleGrantsPortalAccess } from '@/lib/auth/roles';
 import type { RoleView } from '@/types/admin';
 
+const MIN_ROLE_NAME_LENGTH = 2;
+const MAX_ROLE_NAME_LENGTH = 50;
 const SLUG_RE = /^[a-z0-9_]+$/;
 
 export function RoleModal({
@@ -23,24 +28,19 @@ export function RoleModal({
   const [isActive, setIsActive] = useState(role?.isActive ?? true);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
-  const [slugError, setSlugError] = useState<string | null>(null);
+  const titleId = useId();
 
   const trimmedName = name.trim().toLowerCase();
-  const canSubmit =
-    trimmedName.length >= 2 &&
-    trimmedName.length <= 50 &&
-    SLUG_RE.test(trimmedName) &&
-    !submitting;
-
-  const handleNameChange = (value: string) => {
-    const normalized = value.trim().toLowerCase();
-    setName(value);
-    setSlugError(
-      normalized && !SLUG_RE.test(normalized)
-        ? 'Use lowercase letters, digits, and underscores only.'
-        : null
-    );
-  };
+  const nameError = !trimmedName
+    ? null
+    : trimmedName.length < MIN_ROLE_NAME_LENGTH
+    ? `Use at least ${MIN_ROLE_NAME_LENGTH} characters.`
+    : trimmedName.length > MAX_ROLE_NAME_LENGTH
+    ? `Use at most ${MAX_ROLE_NAME_LENGTH} characters.`
+    : !SLUG_RE.test(trimmedName)
+    ? 'Use lowercase letters, digits, and underscores only.'
+    : null;
+  const canSubmit = trimmedName.length > 0 && !nameError && !submitting;
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -67,30 +67,20 @@ export function RoleModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label={isEditing ? 'Edit role' : 'Add a role'}
-    >
-      <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-200"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Dialog isOpen onClose={onClose} ariaLabelledBy={titleId} maxWidthClass="max-w-md">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-maroon-50">
               <Shield className="h-5 w-5 text-gakit-maroon" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 id={titleId} className="text-base font-semibold text-slate-900">
                 {isEditing ? 'Edit role' : 'Add a role'}
               </h2>
               <p className="text-sm text-slate-500">
                 {isEditing
                   ? 'Update the description or activation state.'
-                  : 'A role is a named group users can be assigned to.'}
+                  : 'A role is an organizational label users can be assigned to.'}
               </p>
             </div>
           </div>
@@ -103,6 +93,16 @@ export function RoleModal({
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {(!isEditing || (role && !roleGrantsPortalAccess(role.name))) && (
+          <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Roles are organizational labels. Only the built-in{' '}
+            <span className="font-semibold">admin</span> and{' '}
+            <span className="font-semibold">staff</span> roles grant access to
+            the admin and monitoring portals, so users assigned this role will
+            not be able to sign in to protected areas.
+          </div>
+        )}
 
         {serverError && (
           <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -117,13 +117,14 @@ export function RoleModal({
               <input
                 type="text"
                 value={name}
-                onChange={(event) => handleNameChange(event.target.value)}
+                onChange={(event) => setName(event.target.value)}
                 placeholder="e.g. dispatcher"
+                maxLength={MAX_ROLE_NAME_LENGTH}
                 autoFocus
                 className="mt-1.5 w-full rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2.5 font-mono text-sm text-slate-700 outline-none transition-colors placeholder:font-sans placeholder:text-slate-400 focus:border-gakit-maroon/40 focus:bg-white focus:ring-2 focus:ring-gakit-maroon/10"
               />
-              {slugError && (
-                <span className="mt-1 block text-xs text-red-600">{slugError}</span>
+              {nameError && (
+                <span className="mt-1 block text-xs text-red-600">{nameError}</span>
               )}
             </label>
           )}
@@ -140,29 +141,14 @@ export function RoleModal({
             />
           </label>
 
-          <label className="flex items-center justify-between gap-4 rounded-lg border border-canvas-grey px-3 py-2.5">
-            <span className="text-sm font-semibold text-slate-700">
-              Active role
-              <span className="mt-0.5 block text-xs font-normal text-slate-500">
-                Inactive roles can&apos;t be assigned to new users.
-              </span>
-            </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isActive}
-              onClick={() => setIsActive((value) => !value)}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-                isActive ? 'bg-gakit-maroon' : 'bg-slate-200'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
-                  isActive ? 'left-[1.375rem]' : 'left-0.5'
-                }`}
-              />
-            </button>
-          </label>
+          {isEditing && (
+            <Switch
+              checked={isActive}
+              onChange={setIsActive}
+              label="Active role"
+              description="Inactive roles can't be assigned to new users."
+            />
+          )}
         </div>
 
         <div className="mt-6 flex justify-end gap-2">
@@ -184,7 +170,6 @@ export function RoleModal({
             {submitting ? 'Saving…' : isEditing ? 'Save changes' : 'Create role'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

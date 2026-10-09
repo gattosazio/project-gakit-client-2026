@@ -31,6 +31,15 @@ export async function getStaffRole(
   return role === ROLE_ADMIN || role === ROLE_STAFF ? role : null;
 }
 
+/**
+ * Whether a named role grants access to any protected portal route. Only the
+ * built-in `admin` and `staff` roles do; every other catalog role is an
+ * organizational label that confers no access (see `canAccessPath`).
+ */
+export function roleGrantsPortalAccess(roleName: string): boolean {
+  return roleName === ROLE_ADMIN || roleName === ROLE_STAFF;
+}
+
 export function homePathForRole(role: StaffRole | null): string | null {
   if (role === ROLE_ADMIN || role === ROLE_STAFF) return '/monitoring';
   return null;

@@ -1,18 +1,19 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { LogOut, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { Dialog } from '@/components/ui/Dialog';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { PortalNavItem } from '@/types/portal';
 import { useRouteLoader } from './RouteLoader';
 import { BentoMenu } from './BentoMenu';
-import { monitoringBentoTiles } from '@/lib/navigation/bentoMenu';
+import { getBentoTilesForRole } from '@/lib/navigation/bentoMenu';
 import { TopoBackground } from '@/app/public-view/components/TopoBackground';
 
 interface SideBarProps<T extends string> {
@@ -34,53 +35,44 @@ export function SignOutConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
 }) {
-  if (!isOpen) return null;
+  const titleId = useId();
   return (
-    <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      onClick={onCancel}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Confirm sign out"
-    >
-      <div
-        className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-200"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50">
-            <LogOut className="h-5 w-5 text-red-600" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-slate-900">Sign out</h2>
-            <p className="text-sm text-slate-500">End your portal session</p>
-          </div>
+    <Dialog isOpen={isOpen} onClose={onCancel} ariaLabelledBy={titleId} maxWidthClass="max-w-sm">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50">
+          <LogOut className="h-5 w-5 text-red-600" />
         </div>
-        <p className="mt-4 text-sm text-slate-600">
-          Are you sure you want to sign out? You will need to sign in again to
-          access the portal.
-        </p>
-        <div className="mt-5 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={isSigningOut}
-            className="rounded-lg border border-canvas-grey px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={isSigningOut}
-            className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-          >
-            {isSigningOut && <Spinner size="sm" iconClassName="bg-white" />}
-            {isSigningOut ? 'Signing out…' : 'Sign out'}
-          </button>
+        <div>
+          <h2 id={titleId} className="text-base font-semibold text-slate-900">
+            Sign out
+          </h2>
+          <p className="text-sm text-slate-500">End your portal session</p>
         </div>
       </div>
-    </div>
+      <p className="mt-4 text-sm text-slate-600">
+        Are you sure you want to sign out? You will need to sign in again to
+        access the portal.
+      </p>
+      <div className="mt-5 flex justify-end gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isSigningOut}
+          className="rounded-lg border border-canvas-grey px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={isSigningOut}
+          className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+        >
+          {isSigningOut && <Spinner size="sm" iconClassName="bg-white" />}
+          {isSigningOut ? 'Signing out…' : 'Sign out'}
+        </button>
+      </div>
+    </Dialog>
   );
 }
 
@@ -210,7 +202,7 @@ export function SideBar<T extends string>({
           Apps
         </div>
         <BentoMenu
-          items={monitoringBentoTiles}
+          items={getBentoTilesForRole(role)}
           variant="sidebar"
           isCollapsed={isCollapsed}
         />
@@ -272,7 +264,7 @@ export function SideBar<T extends string>({
           <UserRound className="h-5 w-5 shrink-0 text-gakit-maroon" />
           <div className={isCollapsed ? 'hidden' : 'min-w-0'}>
             <div className="truncate text-xs font-semibold text-slate-900">
-              {email || 'staff_gakit@gmail.com'}
+              {email || '—'}
             </div>
             <div className="text-[11px] capitalize text-slate-500">
               {role || 'Loading role...'}

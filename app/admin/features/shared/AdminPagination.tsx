@@ -22,7 +22,12 @@ export function AdminPagination({
 
   return (
     <div className="flex flex-col gap-3 border-t border-canvas-grey px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="text-sm text-slate-500">
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="text-sm text-slate-500"
+      >
         Showing {startItem}-{endItem} of {totalItems} {itemLabel}
       </div>
 
@@ -44,7 +49,7 @@ export function AdminPagination({
         <button
           type="button"
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
-          disabled={currentPage >= totalPages || totalPages === 0}
+          disabled={currentPage >= totalPages}
           className="inline-flex items-center gap-2 rounded-lg border border-canvas-grey px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-50"
         >
           Next

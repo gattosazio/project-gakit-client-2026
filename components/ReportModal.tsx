@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { Bike, Bus, Car, MapPin, UserRound, X } from 'lucide-react';
+import { useModalA11y } from '@/hooks/useModalA11y';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
 import { listDepthCategories } from '@/app/public-view/actions/publicView';
@@ -67,6 +68,8 @@ export function ReportModal({
   onSubmit,
   withinCity,
 }: ReportModalProps) {
+  const titleId = useId();
+  const panelRef = useModalA11y<HTMLDivElement>({ enabled: isOpen });
   const [selectedCm, setSelectedCm] = useState<number | null>(null);
   const [customCm, setCustomCm] = useState('');
   const [hoveredCm, setHoveredCm] = useState<number | null>(null);
@@ -210,10 +213,17 @@ export function ReportModal({
         className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs pointer-events-auto md:hidden"
         onClick={handleClose}
       />
-      <div className="relative z-10 bg-white rounded-t-3xl shadow-2xl w-full max-h-[82vh] flex flex-col pointer-events-auto md:rounded-2xl md:max-h-[calc(100vh-8rem)] md:h-auto md:max-w-96 border border-slate-200/90 ring-1 ring-slate-900/5">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="relative z-10 bg-white rounded-t-3xl shadow-2xl w-full max-h-[82vh] flex flex-col pointer-events-auto md:rounded-2xl md:max-h-[calc(100vh-8rem)] md:h-auto md:max-w-96 border border-slate-200/90 ring-1 ring-slate-900/5 outline-none"
+      >
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-canvas-grey">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 font-heading">
+            <h2 id={titleId} className="text-xl font-bold text-slate-900 font-heading">
               Report Flooding
             </h2>
             <div className="text-xs text-slate-500 mt-1">

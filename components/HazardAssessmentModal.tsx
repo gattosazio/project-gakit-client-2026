@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { MapPin, X } from 'lucide-react';
 import { SiteConditionsCard } from '@/components/reporting/SiteConditionsCard';
+import { useModalA11y } from '@/hooks/useModalA11y';
 import type { LocationRiskInfo } from '@/components/PublicMap';
 
 interface HazardAssessmentModalProps {
@@ -30,6 +31,8 @@ export function HazardAssessmentModal({
   rainfallHours,
   withinCity,
 }: HazardAssessmentModalProps) {
+  const titleId = useId();
+  const panelRef = useModalA11y<HTMLDivElement>({ enabled: isOpen });
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
   const [locationRisk, setLocationRisk] = useState<LocationRiskInfo | null>(null);
 
@@ -81,10 +84,17 @@ export function HazardAssessmentModal({
         className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs pointer-events-auto md:hidden"
         onClick={onClose}
       />
-      <div className="relative z-10 bg-white rounded-t-3xl shadow-2xl w-full max-h-[82vh] flex flex-col pointer-events-auto md:rounded-2xl md:max-h-[calc(100vh-8rem)] md:h-auto md:max-w-96 border border-slate-200/90 ring-1 ring-slate-900/5">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="relative z-10 bg-white rounded-t-3xl shadow-2xl w-full max-h-[82vh] flex flex-col pointer-events-auto md:rounded-2xl md:max-h-[calc(100vh-8rem)] md:h-auto md:max-w-96 border border-slate-200/90 ring-1 ring-slate-900/5 outline-none"
+      >
         <div className="flex items-center justify-between p-4 md:p-6 border-b border-canvas-grey">
           <div>
-            <h2 className="text-xl font-bold text-slate-900 font-heading">
+            <h2 id={titleId} className="text-xl font-bold text-slate-900 font-heading">
               Hazard Assessment
             </h2>
             <div className="text-xs text-slate-500 mt-1">
