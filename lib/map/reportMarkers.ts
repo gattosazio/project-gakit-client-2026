@@ -108,6 +108,7 @@ export const buildReportsGeoJson = (
         address: props.address,
         depthLabel,
         statusLabel: REPORT_STATUS_LABELS[props.status] || props.status,
+        validationScore: props.validationScore,
         createdAt: new Date(props.createdAt).toLocaleString(),
       },
     });
@@ -166,6 +167,7 @@ export const buildReportPopupHtml = (feature: Record<string, any>): string => {
         : ''}
       ${props.depthLabel ? row('Depth', props.depthLabel) : ''}
       ${props.statusLabel ? row('Status', props.statusLabel) : ''}
+      ${props.validationScore != null ? row('Score', `${props.validationScore}/100`) : ''}
       ${props.elevation != null ? row('Elevation', `${Number(props.elevation).toFixed(1)} m`) : ''}
       ${props.createdAt ? row('Reported', props.createdAt) : ''}
     </div>`;

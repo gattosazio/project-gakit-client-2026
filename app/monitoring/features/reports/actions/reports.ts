@@ -1,6 +1,7 @@
 import { cachedGet, invalidateApiCache } from '@/lib/backend/apiCache';
 import { RateLimitedError } from '@/lib/backend/apiErrors';
 import { authHeaders } from '@/lib/supabase/client';
+import { reporterHeaders } from '@/lib/reports/reporterIdentity';
 import type {
   CreateReportInput,
   FloodDepthCode,
@@ -19,6 +20,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     ...rest,
     headers: {
       'Content-Type': 'application/json',
+      ...(typeof window !== 'undefined' ? reporterHeaders() : {}),
       ...(await authHeaders()),
       ...(extraHeaders ?? {}),
     },

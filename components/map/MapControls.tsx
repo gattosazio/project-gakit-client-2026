@@ -14,6 +14,7 @@ import {
 } from '@/lib/map/rainfall';
 import {
   FLOOD_HAZARD_GRADIENT_CSS,
+  SIMULATION_DEPTH_GRADIENT_CSS,
   LANDSLIDE_GRADIENT_CSS,
   STORM_SURGE_GRADIENT_CSS,
   STORM_SURGE_LEGEND,
@@ -21,6 +22,11 @@ import {
   RAINFALL_LEGEND_STOPS,
   rainfallBandValues,
 } from '@/lib/map/colorScales';
+import {
+  SIMULATED_FLOOD_HORIZONS,
+  type SimulatedFloodHorizon,
+  type SimulatedFloodTelemetry,
+} from '@/lib/map/surrogate';
 import type { MapMode } from '@/lib/map/overlayLayers';
 import type { ReportStatus } from '@/types/report';
 import { PillSlider } from '@/components/ui/PillSlider';
@@ -39,6 +45,19 @@ const formatRainfallTime = (isoUtc: string) => {
   const date = new Date(`${isoUtc}Z`);
   if (Number.isNaN(date.getTime())) return 'as of unknown time';
   return `as of ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+const formatSimulationClock = (isoTimestamp: string) => {
+  const raw = isoTimestamp.includes('T') ? isoTimestamp : isoTimestamp.replace(' ', 'T');
+  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
+  const date = new Date(hasTimezone ? raw : `${raw}Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const formatSimulationTime = (isoTimestamp: string) => {
+  const clock = formatSimulationClock(isoTimestamp);
+  return clock ? `as of ${clock}` : 'as of unknown time';
 };
 
 const formatTyphoonTime = (isoString?: string | null) => {
@@ -429,6 +448,14 @@ interface DataLayerControlsProps {
   onToggle: (open: boolean) => void;
   showFloodHazard: boolean;
   onShowFloodHazardChange: (checked: boolean) => void;
+  showSimulatedFlood?: boolean;
+  onShowSimulatedFloodChange?: (checked: boolean) => void;
+  isLoadingSimulatedFlood?: boolean;
+  simulatedFloodHorizon?: SimulatedFloodHorizon;
+  onSimulatedFloodHorizonChange?: (horizon: SimulatedFloodHorizon) => void;
+  simulatedFloodTelemetry?: SimulatedFloodTelemetry | null;
+  simulatedFloodOpacity?: number;
+  onSimulatedFloodOpacityChange?: (value: number) => void;
   showRainfall: boolean;
   onShowRainfallChange: (checked: boolean) => void;
   isLoadingRainfall?: boolean;
@@ -798,6 +825,14 @@ export function DataLayerControls({
   onToggle,
   showFloodHazard,
   onShowFloodHazardChange,
+  showSimulatedFlood = false,
+  onShowSimulatedFloodChange,
+  isLoadingSimulatedFlood = false,
+  simulatedFloodHorizon = 0,
+  onSimulatedFloodHorizonChange,
+  simulatedFloodTelemetry,
+  simulatedFloodOpacity = 0.85,
+  onSimulatedFloodOpacityChange,
   showRainfall,
   onShowRainfallChange,
   isLoadingRainfall = false,
@@ -947,6 +982,107 @@ export function DataLayerControls({
               <span>Low</span>
               <span>Medium</span>
               <span>High</span>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+          AI Simulation
+          <CoverageChip label="Iligan City" detail="Real-time ONNX Physics Surrogate" />
+        </div>
+
+        <PillToggle
+          label="Flood Simulation"
+          checked={showSimulatedFlood}
+          onChange={(checked) => onShowSimulatedFloodChange?.(checked)}
+          loading={showSimulatedFlood && isLoadingSimulatedFlood}
+          credit={{
+            href: 'https://sharaku.eorc.jaxa.jp/GSMaP/',
+            label: 'JAXA GSMaP',
+          }}
+        />
+        {showSimulatedFlood && (
+          <div className="pl-7 pt-1 pb-1 space-y-1.5">
+            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1 flex items-center justify-between gap-2">
+              <span>Forecast horizon</span>
+              <span className="normal-case tracking-normal font-medium flex items-center gap-1.5">
+                {simulatedFloodTelemetry?.timestamp && (
+                  <span className="text-slate-500">
+                    {simulatedFloodHorizon > 0 && simulatedFloodTelemetry.forecastValidTime
+                      ? formatSimulationClock(simulatedFloodTelemetry.forecastValidTime)
+                      : formatSimulationTime(simulatedFloodTelemetry.timestamp)}
+                  </span>
+                )}
+                {simulatedFloodTelemetry?.forecastSource && (
+                  <span
+                    className="rounded border border-slate-200 bg-slate-100 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-slate-500"
+                    title={
+                      simulatedFloodTelemetry.forecastSource === 'gsmap_rnc'
+                        ? 'JAXA GSMaP_RNC nowcast layers'
+                        : 'Estimated fallback (satellite extrapolation + NWP)'
+                    }
+                  >
+                    {simulatedFloodTelemetry.forecastSource === 'gsmap_rnc' ? 'RNC' : 'est.'}
+                  </span>
+                )}
+              </span>
+            </div>
+            <div
+              className="grid grid-cols-4 gap-1"
+              role="group"
+              aria-label="Simulation forecast horizon"
+            >
+              {SIMULATED_FLOOD_HORIZONS.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => onSimulatedFloodHorizonChange?.(h)}
+                  aria-pressed={simulatedFloodHorizon === h}
+                  className={`rounded-lg py-1 text-xs font-bold transition-colors duration-150 ${
+                    simulatedFloodHorizon === h
+                      ? 'bg-gakit-maroon text-white shadow-[0_2px_4px_rgba(123,17,19,0.35)] ring-1 ring-gakit-maroon'
+                      : 'bg-white text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  {h === 0 ? 'Live' : `+${h}h`}
+                </button>
+              ))}
+            </div>
+
+            {simulatedFloodTelemetry && (
+              <div className="pt-0.5">
+                <div className="grid grid-cols-3 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
+                  <span>Inundated</span>
+                  <span className="text-center">Max depth</span>
+                  <span className="text-right">Rain</span>
+                </div>
+                <div className="grid grid-cols-3 text-xs font-bold text-slate-700">
+                  <span>{simulatedFloodTelemetry.inundatedKm2.toFixed(2)} km²</span>
+                  <span className="text-center">
+                    {simulatedFloodTelemetry.maxDepthM.toFixed(2)} m
+                  </span>
+                  <span className="text-right">
+                    {typeof simulatedFloodTelemetry.effectiveRainfallMm === 'number'
+                      ? `${simulatedFloodTelemetry.effectiveRainfallMm.toFixed(1)} mm`
+                      : '—'}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-1 w-full">
+              <div className="flex items-center gap-1.5 w-full">
+                <div
+                  className="h-2.5 flex-1 rounded-full"
+                  style={{ background: SIMULATION_DEPTH_GRADIENT_CSS }}
+                />
+                <span className="text-[10px] font-semibold text-slate-500 shrink-0">m</span>
+              </div>
+              <div className="flex w-full justify-between text-[9px] text-slate-500 mt-1">
+                <span>0.2 m</span>
+                <span>0.5–1.5 m</span>
+                <span>&gt;1.5 m</span>
+              </div>
             </div>
           </div>
         )}

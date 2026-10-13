@@ -471,6 +471,20 @@ export function ReportsTab({
                                   · <Camera className="h-3.5 w-3.5" aria-hidden="true" /> Photo
                                 </span>
                               )}
+                              {report.validationScore != null && (
+                                <span
+                                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold border ${
+                                    report.validationScore >= 70
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : report.validationScore >= 30
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                                  }`}
+                                  title={`Automated validation score: ${report.validationScore}/100`}
+                                >
+                                  Score: {report.validationScore}
+                                </span>
+                              )}
                             </div>
                           </button>
                           <StatusDropdown

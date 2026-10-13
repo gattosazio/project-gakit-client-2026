@@ -9,7 +9,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth, uploadReportPhoto } from './actions/publicView';
 import type { PreparedPhoto } from '@/lib/reports/photoUpload';
-import { isWithinIligan, reverseGeocode } from '@/lib/map/geoUtils';
+import { isRawCoordinateString, isWithinIligan, preloadGeoData, reverseGeocode } from '@/lib/map/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
 import type { CreateReportInput, DepthCategory, FloodReference, Report, ReportStatus } from '@/types/report';
 import type { AuthSnapshot } from '@/lib/auth/roles';
@@ -182,6 +182,11 @@ export function PublicViewPage({
     }
   }, [scrollToMap, smoothScrollTo]);
 
+  // Pre-warm local barangay boundaries & Overture landmark dataset in memory
+  useEffect(() => {
+    preloadGeoData();
+  }, []);
+
   // Keep the free-tier backend warm while this page is open (opt-in).
   // Only active during a dev session, so it never burns idle instance-hours.
   useEffect(() => {
@@ -236,36 +241,64 @@ export function PublicViewPage({
   // Opens the assessment modal for any location, inside or outside Iligan City.
   // The server is the authoritative geofence; withinCity only drives courtesy UI
   // (report CTA enabled vs. outside-city notice).
-  const openAssessmentModalFor = useCallback(async (location: SelectedLocation) => {
-    const key = `${location.lat.toFixed(4)},${location.lng.toFixed(4)}`;
-    const lastDecision = lastAssessmentDecision.current;
-    if (lastDecision && lastDecision.key === key && Date.now() - lastDecision.at < 2000) {
-      setSelectedLocation(location);
-      return;
-    }
-    lastAssessmentDecision.current = { key, at: Date.now() };
-    let within: boolean | null = null;
-    try {
-      within = await withPreparing(isWithinIligan(location.lat, location.lng));
-    } catch {
-      within = null;
-    }
-    setWithinCity(within);
-    setSelectedLocation(location);
-    setIsReportModalOpen(false);
-    setIsAssessmentOpen(true);
-  }, [withPreparing]);
+  const openAssessmentModalFor = useCallback(
+    async (location: SelectedLocation) => {
+      const key = `${location.lat.toFixed(4)},${location.lng.toFixed(4)}`;
+      const lastDecision = lastAssessmentDecision.current;
+      if (lastDecision && lastDecision.key === key && Date.now() - lastDecision.at < 2000) {
+        if (!isRawCoordinateString(location.address)) {
+          setSelectedLocation(location);
+        }
+        return;
+      }
+      lastAssessmentDecision.current = { key, at: Date.now() };
+
+      let within: boolean | null = null;
+      let finalAddress = location.address;
+      try {
+        const [withinRes, resolvedAddress] = await withPreparing(
+          Promise.all([
+            isWithinIligan(location.lat, location.lng),
+            isRawCoordinateString(location.address)
+              ? reverseGeocode(location.lat, location.lng)
+              : Promise.resolve(location.address),
+          ])
+        );
+        within = withinRes;
+        finalAddress = resolvedAddress;
+      } catch {
+        within = null;
+      }
+
+      setWithinCity(within);
+      setSelectedLocation({ lat: location.lat, lng: location.lng, address: finalAddress });
+      setIsReportModalOpen(false);
+      setIsAssessmentOpen(true);
+    },
+    [withPreparing]
+  );
 
   const openReportModalFor = useCallback(
     async (location: SelectedLocation) => {
       let within: boolean | null = null;
+      let finalAddress = location.address;
       try {
-        within = await withPreparing(isWithinIligan(location.lat, location.lng));
+        const [withinRes, resolvedAddress] = await withPreparing(
+          Promise.all([
+            isWithinIligan(location.lat, location.lng),
+            isRawCoordinateString(location.address)
+              ? reverseGeocode(location.lat, location.lng)
+              : Promise.resolve(location.address),
+          ])
+        );
+        within = withinRes;
+        finalAddress = resolvedAddress;
       } catch {
         within = null;
       }
+
       setWithinCity(within);
-      setSelectedLocation(location);
+      setSelectedLocation({ lat: location.lat, lng: location.lng, address: finalAddress });
       setIsAssessmentOpen(false);
       setIsReportModalOpen(true);
     },
@@ -329,7 +362,7 @@ export function PublicViewPage({
 
       setIsManualLocationMode(false);
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        async (position) => {
           const { latitude, longitude } = position.coords;
           const fallbackLocation = {
             lat: latitude,
@@ -342,13 +375,28 @@ export function PublicViewPage({
           setIsLocating(false);
           setIsLocationPromptOpen(false);
           setSelectedLocation(fallbackLocation);
+
+          // Resolve real human-readable address immediately
+          let resolvedAddress = fallbackLocation.address;
+          try {
+            resolvedAddress = await reverseGeocode(latitude, longitude);
+          } catch {
+            // keep fallback coords
+          }
+
+          const targetLocation = {
+            lat: latitude,
+            lng: longitude,
+            address: resolvedAddress,
+          };
+          setSelectedLocation(targetLocation);
+
           if (isReportMode) {
             setLocationPromptMode('assessment');
-            void openReportModalFor(fallbackLocation);
+            void openReportModalFor(targetLocation);
           } else {
-            void openAssessmentModalFor(fallbackLocation);
+            void openAssessmentModalFor(targetLocation);
           }
-          void resolveLocation(latitude, longitude).then(setSelectedLocation);
         },
         (error) => {
           if (canRetry && error.code !== 1) {
@@ -397,23 +445,35 @@ export function PublicViewPage({
   const handleLocationSelect = useCallback(
     (location: SelectedLocation) => {
       if (isReportModalOpen) {
-        if (
-          selectedLocation &&
-          Math.abs(selectedLocation.lat - location.lat) < 1e-4 &&
-          Math.abs(selectedLocation.lng - location.lng) < 1e-4
-        ) {
-          setSelectedLocation(location);
-        }
+        setSelectedLocation((prev) => {
+          if (!prev) return location;
+          if (
+            Math.abs(prev.lat - location.lat) < 1e-3 &&
+            Math.abs(prev.lng - location.lng) < 1e-3
+          ) {
+            return {
+              ...prev,
+              address: isRawCoordinateString(prev.address) ? location.address : prev.address,
+            };
+          }
+          return location;
+        });
         return;
       }
       if (isAssessmentOpen) {
-        if (
-          selectedLocation &&
-          Math.abs(selectedLocation.lat - location.lat) < 1e-4 &&
-          Math.abs(selectedLocation.lng - location.lng) < 1e-4
-        ) {
-          setSelectedLocation(location);
-        }
+        setSelectedLocation((prev) => {
+          if (!prev) return location;
+          if (
+            Math.abs(prev.lat - location.lat) < 1e-3 &&
+            Math.abs(prev.lng - location.lng) < 1e-3
+          ) {
+            return {
+              ...prev,
+              address: isRawCoordinateString(prev.address) ? location.address : prev.address,
+            };
+          }
+          return location;
+        });
         return;
       }
       setIsLocationPromptOpen(false);
@@ -434,7 +494,6 @@ export function PublicViewPage({
       locationPromptMode,
       openAssessmentModalFor,
       openReportModalFor,
-      selectedLocation,
     ]
   );
 
@@ -484,13 +543,24 @@ export function PublicViewPage({
     reference: { id: FloodReference; label: string; landmark: string };
     photo?: PreparedPhoto;
   }): Promise<void> => {
+    let addressToUse = selectedLocation?.address;
+    if (isRawCoordinateString(addressToUse)) {
+      try {
+        const resolved = await reverseGeocode(data.location.lat, data.location.lng);
+        if (resolved && !isRawCoordinateString(resolved)) {
+          addressToUse = resolved;
+        }
+      } catch {
+        // Fallback to coordinates if offline reverse-geocoding fails
+      }
+    }
     const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
 
     const report: Report = await createReport({
       location: {
         latitude: data.location.lat,
         longitude: data.location.lng,
-        address: selectedLocation?.address || fallbackAddress,
+        address: addressToUse || fallbackAddress,
       },
       depth: data.depth,
       depthCm: data.depthCm,

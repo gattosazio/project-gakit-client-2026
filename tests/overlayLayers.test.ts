@@ -115,4 +115,25 @@ describe('setupOverlayLayers himawari source', () => {
     expect(b3d.layout.visibility).toBe('none');
     expect(b3d.paint['fill-extrusion-vertical-gradient']).toBe(false);
   });
+
+  it('registers simulation-flood image source and raster layer with coordinates', async () => {
+    const { map, addedSources } = createMockMap();
+    const addedLayers: any[] = [];
+    map.addLayer = (layer: any) => {
+      addedLayers.push(layer);
+    };
+
+    const maplibregl = { addProtocol: () => {} };
+    await setupOverlayLayers(map, maplibregl, { ...baseState, showSimulatedFlood: true });
+
+    const simSource = addedSources.find((s) => s.id === 'simulation-flood');
+    expect(simSource).toBeDefined();
+    expect(simSource!.spec.type).toBe('image');
+    expect(simSource!.spec.coordinates).toHaveLength(4);
+
+    const simLayer = addedLayers.find((l) => l.id === 'simulation-flood-grid');
+    expect(simLayer).toBeDefined();
+    expect(simLayer.type).toBe('raster');
+    expect(simLayer.source).toBe('simulation-flood');
+  });
 });

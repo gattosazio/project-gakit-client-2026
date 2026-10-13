@@ -1,6 +1,7 @@
 'use client';
 
-import { MapPin, Locate, X, AlertTriangle } from 'lucide-react';
+import Image from 'next/image';
+import { MapPin, Locate, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { LocationSearch, type SearchedLocation } from './LocationSearch';
 
@@ -37,13 +38,17 @@ export function LocationPromptModal({
         <div className="flex items-center justify-between px-5 pt-4 pb-1">
           <div className="flex items-center gap-2">
             {isReport && (
-              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-gakit-maroon">
-                <AlertTriangle className="h-3.5 w-3.5 text-gakit-maroon stroke-[2.5]" />
-              </div>
+              <Image
+                src="/images/report-logo.svg"
+                alt="Report flooded location"
+                width={32}
+                height={32}
+                className="h-8 w-8 shrink-0 object-contain"
+              />
             )}
             <div>
               <h3 className="text-base font-bold text-slate-900 font-heading">
-                {isReport ? 'Report Flood Location' : 'Select Location to Assess'}
+                {isReport ? 'Report Flooded Location' : 'Select Location to Assess'}
               </h3>
               <p className="text-xs text-slate-500">
                 {isReport

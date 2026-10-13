@@ -25,6 +25,7 @@ import {
 import {
   ILIGAN_CENTER,
   getIliganBarangays,
+  preloadGeoData,
   reverseGeocode,
   type GeoJsonCollection,
 } from '@/lib/map/geoUtils';
@@ -74,6 +75,7 @@ import { useRainfallLayer } from '@/hooks/useRainfallLayer';
 import { useReportsLayer } from '@/hooks/useReportsLayer';
 import { useHimawariLayer } from '@/hooks/useHimawariLayer';
 import { useTyphoonLayer } from '@/hooks/useTyphoonLayer';
+import { useSimulatedFloodLayer } from '@/hooks/useSimulatedFloodLayer';
 import { buildTyphoonPopupHtml } from '@/lib/map/typhoon';
 
 export interface LocationRiskInfo {
@@ -245,6 +247,7 @@ export function PublicMap({
   const mapModeRef = useRef<MapMode>('2d');
   const basemapRef = useRef<BasemapId>(defaultBasemap);
   const showFloodHazardRef = useRef(false);
+  const showSimulatedFloodRef = useRef(false);
   const showRainfallRef = useRef(false);
   const showLandslideRef = useRef(false);
   const showStormSurgeRef = useRef(false);
@@ -266,6 +269,7 @@ export function PublicMap({
 
   // ─── Overlay card state & Sub-layer flags ──────────────────────────────────
   const [showFloodHazard, setShowFloodHazard] = useState(false);
+  const [showSimulatedFlood, setShowSimulatedFlood] = useState(false);
   const [showRainfall, setShowRainfall] = useState(false);
   const [showBarangayBoundaries, setShowBarangayBoundaries] = useState(defaultShowBarangayBoundaries);
   const showBarangayBoundariesRef = useRef(defaultShowBarangayBoundaries);
@@ -295,6 +299,7 @@ export function PublicMap({
 
   useEffect(() => {
     let cancelled = false;
+    preloadGeoData();
     getIliganBarangays().then((geo) => {
       if (!cancelled) setBarangayGeojson(geo);
     });
@@ -320,6 +325,7 @@ export function PublicMap({
   }, []);
   const typhoon = useTyphoonLayer(mapRef, layersReadyRef, handleTyphoonPointClick);
   const typhoonPopupRef = useRef<any>(null);
+  const simulatedFlood = useSimulatedFloodLayer(mapRef, showSimulatedFlood);
 
   useEffect(() => {
     loadTyphoonRef.current = typhoon.loadData;
@@ -350,6 +356,18 @@ export function PublicMap({
     showFloodHazardRef.current = checked;
     if (mapRef.current?.getLayer('flood-hazard-fill')) {
       mapRef.current.setLayoutProperty('flood-hazard-fill', 'visibility', checked ? 'visible' : 'none');
+    }
+  }, []);
+
+  const handleShowSimulatedFloodChange = useCallback((checked: boolean) => {
+    setShowSimulatedFlood(checked);
+    showSimulatedFloodRef.current = checked;
+    if (mapRef.current?.getLayer('simulation-flood-grid')) {
+      mapRef.current.setLayoutProperty(
+        'simulation-flood-grid',
+        'visibility',
+        checked ? 'visible' : 'none'
+      );
     }
   }, []);
 
@@ -419,6 +437,7 @@ export function PublicMap({
   useEffect(() => {
     mapModeRef.current = mapMode;
     showFloodHazardRef.current = showFloodHazard;
+    showSimulatedFloodRef.current = showSimulatedFlood;
     showRainfallRef.current = showRainfall;
     showBarangayBoundariesRef.current = showBarangayBoundaries;
     showLandslideRef.current = showLandslide;
@@ -427,6 +446,7 @@ export function PublicMap({
   }, [
     mapMode,
     showFloodHazard,
+    showSimulatedFlood,
     showRainfall,
     showBarangayBoundaries,
     showLandslide,
@@ -599,11 +619,14 @@ export function PublicMap({
     hideReportPopupRef.current = hideReportPopup;
   }, [handleLocationSelect, onReportClick, onReady, loadMapReports, loadRainfall, hideReportPopup]);
 
-  // When the parent dismisses the selected location (e.g. the report modal is
-  // closed), cancel any pending reverse-geocode so a stale address callback
+  // When the parent explicitly dismisses an active selected location (e.g. the report modal is
+  // closed by the user), cancel any pending reverse-geocode so a stale address callback
   // doesn't re-open the modal with an outdated selection.
+  const prevSelectedLocationRef = useRef<any>(selectedLocation);
   useEffect(() => {
-    if (selectedLocation === null) {
+    const prev = prevSelectedLocationRef.current;
+    prevSelectedLocationRef.current = selectedLocation;
+    if (prev !== null && selectedLocation === null) {
       clearPendingGeocoding();
     }
   }, [selectedLocation, clearPendingGeocoding]);
@@ -662,6 +685,7 @@ export function PublicMap({
       void (async () => {
         await setupOverlayLayers(map, maplibregl, {
           showFloodHazard: showFloodHazardRef.current,
+          showSimulatedFlood: showSimulatedFloodRef.current,
           showRainfall: showRainfallRef.current,
           showHimawariIR: himawari.visibleRef.current,
           showTyphoonTrack: typhoon.visibleRef.current,
@@ -751,6 +775,7 @@ export function PublicMap({
 
     void setupOverlayLayers(map, maplibregl, {
       showFloodHazard: showFloodHazardRef.current,
+      showSimulatedFlood: showSimulatedFloodRef.current,
       showRainfall: showRainfallRef.current,
       showHimawariIR: himawari.visibleRef.current,
       showTyphoonTrack: typhoon.visibleRef.current,
@@ -972,6 +997,7 @@ export function PublicMap({
     try {
       const layers: Array<[string, boolean]> = [
         ['flood-hazard-fill', showFloodHazard],
+        ['simulation-flood-grid', showSimulatedFlood],
         ['landslide-fill', showLandslide],
         ['rainfall-grid', showRainfall],
         ['himawari-ir-layer', himawari.showHimawariIR],
@@ -1000,6 +1026,7 @@ export function PublicMap({
     }
   }, [
     showFloodHazard,
+    showSimulatedFlood,
     showRainfall,
     himawari.showHimawariIR,
     showLandslide,
@@ -1058,6 +1085,14 @@ export function PublicMap({
         onToggleLayers={setLayersOpen}
         showFloodHazard={showFloodHazard}
         onShowFloodHazardChange={handleShowFloodHazardChange}
+        showSimulatedFlood={showSimulatedFlood}
+        onShowSimulatedFloodChange={handleShowSimulatedFloodChange}
+        isLoadingSimulatedFlood={simulatedFlood.isLoading}
+        simulatedFloodHorizon={simulatedFlood.horizon}
+        onSimulatedFloodHorizonChange={simulatedFlood.setHorizon}
+        simulatedFloodTelemetry={simulatedFlood.telemetry}
+        simulatedFloodOpacity={simulatedFlood.opacity}
+        onSimulatedFloodOpacityChange={simulatedFlood.setOpacity}
         showRainfall={showRainfall}
         onShowRainfallChange={handleShowRainfallChange}
         isLoadingRainfall={rainfall.isLoading}

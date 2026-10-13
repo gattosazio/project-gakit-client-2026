@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState, type MutableRefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { toast } from 'react-toastify';
 import { reverseGeocode } from '@/lib/map/geoUtils';
 
@@ -18,6 +18,11 @@ export function useMapGeolocation({
   const [isShareLocating, setIsShareLocating] = useState(false);
   const geocodeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const onLocationSelectRef = useRef(onLocationSelect);
+
+  useEffect(() => {
+    onLocationSelectRef.current = onLocationSelect;
+  }, [onLocationSelect]);
 
   const reverseGeocodeWithAbort = useCallback(
     async (lat: number, lng: number) => {
@@ -28,12 +33,12 @@ export function useMapGeolocation({
       try {
         const address = await reverseGeocode(lat, lng, controller.signal);
         if (controller.signal.aborted) return;
-        onLocationSelect({ lat, lng, address });
+        onLocationSelectRef.current({ lat, lng, address });
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
       }
     },
-    [onLocationSelect]
+    []
   );
 
   // Re-centers the camera on a selected point so the marker stays visible above
@@ -51,8 +56,8 @@ export function useMapGeolocation({
 
   const handleLocationSelect = useCallback(
     (lat: number, lng: number) => {
-      // Immediately update with coordinates.
-      onLocationSelect({
+      // Immediately update with coordinates for instant pin placement.
+      onLocationSelectRef.current({
         lat,
         lng,
         address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
@@ -62,14 +67,15 @@ export function useMapGeolocation({
 
       if (!enableAddressLookup) return;
 
-      // Debounce reverse-geocoding so rapid clicks only send one request to OSM Nominatim
+      // Local spatial reverse-geocoding (0ms lookup against memory GeoJSON/Overture).
+      // Micro-debounce of 25ms to coalesce rapid taps or trackpad settling.
       if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
       geocodeTimerRef.current = setTimeout(() => {
         geocodeTimerRef.current = null;
         void reverseGeocodeWithAbort(lat, lng);
-      }, 500);
+      }, 25);
     },
-    [onLocationSelect, reverseGeocodeWithAbort, enableAddressLookup, panToSelectedLocation]
+    [panToSelectedLocation, enableAddressLookup, reverseGeocodeWithAbort]
   );
 
   const handleShareLocation = useCallback((): Promise<boolean> => {

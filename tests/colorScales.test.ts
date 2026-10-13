@@ -4,6 +4,9 @@ import {
   buildRainfallPaintExpression,
   FLOOD_HAZARD_COLORS,
   FLOOD_HAZARD_LEGEND,
+  SIMULATION_DEPTH_COLORS,
+  SIMULATION_DEPTH_LEGEND,
+  SIMULATION_DEPTH_GRADIENT_CSS,
   LANDSLIDE_COLORS,
   LANDSLIDE_LEGEND,
   STORM_SURGE_COLORS,
@@ -30,6 +33,17 @@ describe('flood hazard scales', () => {
     for (const entry of FLOOD_HAZARD_LEGEND) {
       expect(FLOOD_HAZARD_COLORS[entry.key]).toBe(entry.color);
     }
+  });
+});
+
+describe('simulation depth scales', () => {
+  it('exposes the three depth tiers for live surrogate simulation', () => {
+    expect(Object.keys(SIMULATION_DEPTH_COLORS).sort()).toEqual(['deep', 'moderate', 'shallow']);
+    for (const entry of SIMULATION_DEPTH_LEGEND) {
+      expect(SIMULATION_DEPTH_COLORS[entry.key]).toBe(entry.color);
+    }
+    expect(SIMULATION_DEPTH_GRADIENT_CSS).toContain(SIMULATION_DEPTH_COLORS.shallow);
+    expect(SIMULATION_DEPTH_GRADIENT_CSS).toContain(SIMULATION_DEPTH_COLORS.deep);
   });
 });
 

@@ -21,6 +21,8 @@ export interface Report {
   /** Public URL of citizen-submitted evidence photo, when one was attached. */
   photoUrl?: string | null;
   status: ReportStatus;
+  validationScore?: number | null;
+  validationFlags?: string[] | null;
   observedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -35,7 +37,10 @@ export interface MapReportProperties {
   /** Public URL of citizen-submitted evidence photo, when one was attached. */
   photoUrl?: string | null;
   status: ReportStatus;
+  validationScore?: number | null;
+  validationFlags?: string[] | null;
   observedAt: string;
+
   createdAt: string;
   updatedAt: string;
 }

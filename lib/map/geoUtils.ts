@@ -44,7 +44,17 @@ export interface BarangayEntry {
 export interface GeoJsonCollection {
   type: 'FeatureCollection';
   features: GeoJsonPolygonFeature[];
-}let cachedPlaces: RawPlaceRecord[] | null = null;
+}
+
+/**
+ * Detects whether an address string is missing or is merely a raw "lat, lng" coordinate pair.
+ */
+export function isRawCoordinateString(address: string | null | undefined): boolean {
+  if (!address || !address.trim()) return true;
+  return /^-?\d{1,3}(?:\.\d+)?\s*,\s*-?\d{1,3}(?:\.\d+)?$/.test(address.trim());
+}
+
+let cachedPlaces: RawPlaceRecord[] | null = null;
 let placesFetchPromise: Promise<RawPlaceRecord[]> | null = null;
 
 let cachedBarangays: GeoJsonCollection | null = null;
@@ -96,6 +106,15 @@ export async function getIliganBarangays(): Promise<GeoJsonCollection | null> {
     });
 
   return barangaysFetchPromise;
+}
+
+/**
+ * Pre-warms the local Iligan barangay boundary GeoJSON and Overture places database
+ * in background memory so subsequent reverse geocoding and location searches resolve instantly (0ms).
+ */
+export function preloadGeoData(): void {
+  void getIliganBarangays();
+  void getIliganPlaces();
 }
 
 /** Ray casting point-in-polygon check */
@@ -165,8 +184,9 @@ export async function isWithinIligan(lat: number, lng: number): Promise<boolean 
 /**
  * High-precision offline reverse-geocoding for Iligan City:
  * 1. Checks exact Barangay boundary polygon (0ms).
- * 2. Finds nearest named landmark or street within ~75m.
- * 3. Fallback to raw coordinate string if outside bounds.
+ * 2. Fallbacks to nearest barangay centroid if near boundary/coastline (<5km).
+ * 3. Finds nearest named landmark or street within 100m.
+ * 4. Fallback to Iligan City bounds format if within city footprint.
  */
 export async function reverseGeocode(
   lat: number,
@@ -188,16 +208,36 @@ export async function reverseGeocode(
       barangayName = findBarangayName(lng, lat, barangaysGeoJson);
     }
 
+    const latRad = (lat * Math.PI) / 180;
+    const cosLat = Math.cos(latRad);
+
+    // If point-in-polygon check misses (e.g. coastal buffer, boundary sliver, river),
+    // find closest barangay centroid from places database if within 5km.
+    if (!barangayName && places && places.length > 0) {
+      let nearestBrgyDist = 999999;
+      let nearestBrgyName: string | null = null;
+      for (const p of places) {
+        if (p.c !== 'Barangay') continue;
+        const dLat = (p.lat - lat) * 111320;
+        const dLng = (p.lng - lng) * 111320 * cosLat;
+        const dist = Math.hypot(dLat, dLng);
+        if (dist < nearestBrgyDist) {
+          nearestBrgyDist = dist;
+          nearestBrgyName = p.n.replace(/^Barangay\s+/i, '');
+        }
+      }
+      if (nearestBrgyDist <= 5000 && nearestBrgyName) {
+        barangayName = nearestBrgyName;
+      }
+    }
+
     const barangayLabel = barangayName ? `Barangay ${barangayName}` : 'Iligan City';
 
-    // Find nearest POI, landmark, or street within 75 meters
+    // Find nearest POI, landmark, or street within 100 meters
     let bestDist = 999999;
     let bestPlace: RawPlaceRecord | null = null;
 
     if (places && places.length > 0) {
-      const latRad = (lat * Math.PI) / 180;
-      const cosLat = Math.cos(latRad);
-
       for (const p of places) {
         // Skip generic barangay centroid points for nearest POI lookup
         if (p.c === 'Barangay') continue;
@@ -215,7 +255,7 @@ export async function reverseGeocode(
 
     let addressResult: string;
 
-    if (bestPlace && bestDist <= 75) {
+    if (bestPlace && bestDist <= 100) {
       if (bestPlace.c === 'Street') {
         addressResult = `${bestPlace.n}, ${barangayLabel}, Iligan City`;
       } else {
@@ -223,6 +263,13 @@ export async function reverseGeocode(
       }
     } else if (barangayName) {
       addressResult = `${barangayLabel}, Iligan City`;
+    } else if (
+      lng >= ILIGAN_BOUNDS[0][0] &&
+      lat >= ILIGAN_BOUNDS[0][1] &&
+      lng <= ILIGAN_BOUNDS[1][0] &&
+      lat <= ILIGAN_BOUNDS[1][1]
+    ) {
+      addressResult = `Iligan City (${lat.toFixed(4)}, ${lng.toFixed(4)})`;
     } else {
       addressResult = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     }

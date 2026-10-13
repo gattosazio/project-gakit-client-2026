@@ -10,6 +10,7 @@ import {
   ChevronDown,
   Copy,
   MapPin,
+  ShieldCheck,
   X,
   XCircle,
 } from 'lucide-react';
@@ -20,6 +21,8 @@ import {
   STATUS_META,
   formatDateTime,
   formatReportDepth,
+  formatValidationFlag,
+  getValidationScoreMeta,
 } from '@/lib/reports/reportFormatting';
 import type { Report, ReportStatus } from '@/types/report';
 
@@ -166,6 +169,8 @@ export function ReportDetail({
           reportId={report.id}
           onOpen={() => setPhotoOpen(true)}
         />
+
+        <ValidationSection report={report} />
 
         <FieldGroup title="Flood report">
           <DetailItem label="Depth" value={formatReportDepth(report.depth, report.depthCm)} />
@@ -492,3 +497,83 @@ function DetailItem({ label, value, loading = false }: { label: string; value: s
     </div>
   );
 }
+
+function ValidationSection({ report }: { report: Report }) {
+  if (
+    report.validationScore == null &&
+    (!report.validationFlags || report.validationFlags.length === 0)
+  ) {
+    return null;
+  }
+
+  const meta = getValidationScoreMeta(report.validationScore);
+
+  return (
+    <div className="rounded-xl border border-canvas-grey bg-canvas-light/50 p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-4 w-4 text-gakit-maroon" />
+          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-700">
+            Validation Engine
+          </h4>
+        </div>
+        {report.validationScore != null && (
+          <span
+            className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-bold ${meta.badgeClass}`}
+          >
+            Score: {report.validationScore} / 100 ({meta.tier})
+          </span>
+        )}
+      </div>
+
+      {report.validationScore != null && (
+        <div className="mt-3">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+            <div
+              className={`h-full transition-all duration-500 ${
+                report.validationScore >= 70
+                  ? 'bg-emerald-500'
+                  : report.validationScore >= 30
+                  ? 'bg-amber-500'
+                  : 'bg-rose-500'
+              }`}
+              style={{ width: `${Math.min(100, Math.max(0, report.validationScore))}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {report.validationFlags && report.validationFlags.length > 0 && (
+        <div className="mt-3.5 space-y-2">
+          <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            Triggered Rules & Signals
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {report.validationFlags.map((flag) => {
+              const info = formatValidationFlag(flag);
+              const tagClasses =
+                info.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                  : info.type === 'warning'
+                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                  : info.type === 'danger'
+                  ? 'bg-rose-50 text-rose-800 border-rose-200'
+                  : 'bg-sky-50 text-sky-800 border-sky-200';
+
+              return (
+                <span
+                  key={flag}
+                  title={info.description}
+                  className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${tagClasses}`}
+                >
+                  <span className="font-semibold">{info.label}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
