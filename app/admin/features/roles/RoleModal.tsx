@@ -6,7 +6,6 @@ import { Spinner } from '@/components/ui/Spinner';
 import { Dialog } from '@/components/ui/Dialog';
 import { Switch } from '@/components/ui/Switch';
 import { createRole, updateRole } from '../../actions/admin';
-import { roleGrantsPortalAccess } from '@/lib/auth/roles';
 import type { RoleView } from '@/types/admin';
 
 const MIN_ROLE_NAME_LENGTH = 2;
@@ -41,6 +40,7 @@ export function RoleModal({
     ? 'Use lowercase letters, digits, and underscores only.'
     : null;
   const canSubmit = trimmedName.length > 0 && !nameError && !submitting;
+  const membersBlockDeactivation = Boolean(role && role.memberCount > 0);
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -94,15 +94,12 @@ export function RoleModal({
           </button>
         </div>
 
-        {(!isEditing || (role && !roleGrantsPortalAccess(role.name))) && (
-          <div className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            Roles are organizational labels. Only the built-in{' '}
-            <span className="font-semibold">admin</span> and{' '}
-            <span className="font-semibold">staff</span> roles grant access to
-            the admin and monitoring portals, so users assigned this role will
-            not be able to sign in to protected areas.
-          </div>
-        )}
+        <div className="mt-4 rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-800">
+          Custom roles have the same access as staff, so users assigned this
+          role can sign in to the monitoring and reports portals. Only the
+          built-in <span className="font-semibold">admin</span> role unlocks the
+          Administration portal.
+        </div>
 
         {serverError && (
           <div className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -145,8 +142,15 @@ export function RoleModal({
             <Switch
               checked={isActive}
               onChange={setIsActive}
+              disabled={membersBlockDeactivation}
               label="Active role"
-              description="Inactive roles can't be assigned to new users."
+              description={
+                membersBlockDeactivation
+                  ? `Reassign the ${role?.memberCount} member${
+                      role?.memberCount === 1 ? '' : 's'
+                    } before deactivating this role.`
+                  : "Inactive roles can't be assigned to new users."
+              }
             />
           )}
         </div>

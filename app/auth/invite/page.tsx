@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AlertTriangle, ArrowLeft, CheckCircle2, LockKeyhole } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { createClient } from '@/lib/supabase/client';
+import { friendlyAuthError, friendlyInviteError } from '@/lib/auth/authErrors';
 
 /**
  * Accepts a GoTrue invitation link (email → `{app}/auth/invite#...type=invite`).
@@ -22,6 +23,11 @@ export default function InvitePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  // React StrictMode runs effects twice in development. The invite token is
+  // single-use, so a second `verifyOtp` call would fail and wrongly report the
+  // link as invalid. Cache the in-flight promise so both effect runs share one
+  // redemption.
+  const redeemRef = useRef<Promise<{ error: { message?: string } | null }> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -41,14 +47,17 @@ export default function InvitePage() {
       const search = new URLSearchParams(window.location.search);
       const tokenHash = search.get('token_hash');
       if (tokenHash) {
-        const { error } = await supabase.auth.verifyOtp({
-          type: search.get('type') ?? 'invite',
-          token_hash: tokenHash,
-        });
+        if (!redeemRef.current) {
+          redeemRef.current = supabase.auth.verifyOtp({
+            type: search.get('type') ?? 'invite',
+            token_hash: tokenHash,
+          });
+        }
+        const { error } = await redeemRef.current;
         if (cancelled) return;
         if (error) {
           setStatus('error');
-          setErrorMessage(invalid);
+          setErrorMessage(friendlyInviteError(error));
           return;
         }
         const url = new URL(window.location.href);
@@ -77,7 +86,11 @@ export default function InvitePage() {
       setErrorMessage(after.get('error_code') === 'otp_expired' ? expiring : invalid);
     };
 
-    void resolveInvite();
+    void resolveInvite().catch((err: unknown) => {
+      if (cancelled) return;
+      setStatus('error');
+      setErrorMessage(friendlyAuthError(err instanceof Error ? err : null));
+    });
 
     return () => {
       cancelled = true;
@@ -100,7 +113,7 @@ export default function InvitePage() {
     const supabase = createClient();
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
-      setLocalError(error.message);
+      setLocalError(friendlyAuthError(error));
       setIsSubmitting(false);
       return;
     }
@@ -153,6 +166,12 @@ export default function InvitePage() {
                 This invite link can&apos;t be used
               </h1>
               <p className="mt-2 text-sm text-slate-600">{errorMessage}</p>
+              <Link
+                href="/login"
+                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-maroon-800"
+              >
+                Go to sign in
+              </Link>
             </div>
           ) : (
             <>

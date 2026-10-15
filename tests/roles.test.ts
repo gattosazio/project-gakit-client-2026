@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   canAccessPath,
+  getDisplayName,
   getStaffRole,
   homePathForRole,
   roleGrantsPortalAccess,
@@ -20,13 +21,14 @@ function mockClient(result: { data: unknown; error: unknown }) {
 }
 
 describe('roleGrantsPortalAccess', () => {
-  it('grants access only to the built-in admin and staff roles', () => {
+  it('grants access to any assigned catalog role', () => {
     expect(roleGrantsPortalAccess('admin')).toBe(true);
     expect(roleGrantsPortalAccess('staff')).toBe(true);
-    expect(roleGrantsPortalAccess('sentinel')).toBe(false);
-    expect(roleGrantsPortalAccess('citizen')).toBe(false);
-    expect(roleGrantsPortalAccess('dispatcher')).toBe(false);
+    // Custom roles are staff-equivalent until granular permissions exist.
+    expect(roleGrantsPortalAccess('sentinel')).toBe(true);
+    expect(roleGrantsPortalAccess('dispatcher')).toBe(true);
     expect(roleGrantsPortalAccess('')).toBe(false);
+    expect(roleGrantsPortalAccess('   ')).toBe(false);
   });
 });
 
@@ -66,7 +68,7 @@ describe('canAccessPath', () => {
 });
 
 describe('getStaffRole', () => {
-  it('returns the role when it is a recognised built-in role', async () => {
+  it('returns the built-in role when it is recognised', async () => {
     const admin = mockClient({ data: [{ role: 'admin' }], error: null });
     await expect(getStaffRole(admin.client, 'user-1')).resolves.toBe('admin');
 
@@ -74,17 +76,41 @@ describe('getStaffRole', () => {
     await expect(getStaffRole(staff.client, 'user-1')).resolves.toBe('staff');
   });
 
-  it('fails closed to null for label-only or missing roles', async () => {
+  it('maps any custom catalog role to staff-level access', async () => {
     const custom = mockClient({ data: [{ role: 'dispatcher' }], error: null });
-    await expect(getStaffRole(custom.client, 'user-1')).resolves.toBeNull();
+    await expect(getStaffRole(custom.client, 'user-1')).resolves.toBe('staff');
+  });
 
+  it('fails closed to null for missing or blank roles', async () => {
     const empty = mockClient({ data: [], error: null });
     await expect(getStaffRole(empty.client, 'user-1')).resolves.toBeNull();
+
+    const blank = mockClient({ data: [{ role: '   ' }], error: null });
+    await expect(getStaffRole(blank.client, 'user-1')).resolves.toBeNull();
   });
 
   it('fails closed to null on a query error', async () => {
     const failure = mockClient({ data: null, error: { message: 'boom' } });
     await expect(getStaffRole(failure.client, 'user-1')).resolves.toBeNull();
+  });
+});
+
+describe('getDisplayName', () => {
+  it('prefers full_name then name from metadata', () => {
+    expect(getDisplayName({ full_name: '  Jane Cruz ' }, null)).toBe('Jane Cruz');
+    expect(getDisplayName({ name: 'Jane Cruz' }, null)).toBe('Jane Cruz');
+    expect(getDisplayName({ full_name: '', name: 'Fallback' }, null)).toBe('Fallback');
+  });
+
+  it('falls back to email when no name is present', () => {
+    expect(getDisplayName(null, 'jane@example.gov')).toBe('jane@example.gov');
+    expect(getDisplayName({}, 'jane@example.gov')).toBe('jane@example.gov');
+    expect(getDisplayName({ full_name: '   ' }, 'jane@example.gov')).toBe('jane@example.gov');
+  });
+
+  it('returns null when neither name nor email exist', () => {
+    expect(getDisplayName(null, null)).toBeNull();
+    expect(getDisplayName(undefined, undefined)).toBeNull();
   });
 });
 

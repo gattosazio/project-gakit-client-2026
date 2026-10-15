@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { AlertTriangle, ChevronLeft, BookOpen, Info, MapPinned, UserRound, Waves } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
+import { getDisplayName, getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
 import { alertDescription, alertTitle } from '@/lib/weather/weatherCodes';
 import { isPagasaAlert, pagasaSubtitle, shortTitle } from '@/lib/weather/pagasa';
@@ -58,6 +58,7 @@ export function PublicHeader({
   const { navigate, loadingOverlay } = useRouteLoader();
   const [role, setRole] = useState<StaffRole | null>(initialAuth?.role ?? null);
   const [isChecking, setIsChecking] = useState(initialAuth === undefined);
+  const [name, setName] = useState<string | null>(initialAuth?.name ?? null);
   const [email, setEmail] = useState<string | null>(initialAuth?.email ?? null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
@@ -164,7 +165,10 @@ export function PublicHeader({
       supabase.auth.getUser().then(({ data }) => {
         if (cancelled) return;
         if (data.user) {
-          if (!cancelled) setEmail(data.user.email ?? null);
+          if (!cancelled) {
+            setEmail(data.user.email ?? null);
+            setName(getDisplayName(data.user.user_metadata, data.user.email ?? null));
+          }
           void resolveRole(data.user.id);
         } else {
           setRole(null);
@@ -187,11 +191,15 @@ export function PublicHeader({
       }
       if (cancelled) return;
       if (session?.user) {
-        if (!cancelled) setEmail(session.user.email ?? null);
+        if (!cancelled) {
+          setEmail(session.user.email ?? null);
+          setName(getDisplayName(session.user.user_metadata, session.user.email ?? null));
+        }
         void resolveRole(session.user.id);
       } else {
         setRole(null);
         setEmail(null);
+        setName(null);
         setIsChecking(false);
       }
     });
@@ -372,6 +380,7 @@ export function PublicHeader({
               variant="header"
             />
             <UserNavMenu
+              name={name}
               email={email}
               isOpen={isMenuOpen}
               onToggle={() => {
@@ -418,8 +427,9 @@ export function PublicHeader({
             containerRef={mobileInfoRef}
           />
           {!isChecking && (
-            email ? (
+            email || name ? (
               <UserNavMenu
+                name={name}
                 email={email}
                 isOpen={isMenuOpen}
                 variant="header"

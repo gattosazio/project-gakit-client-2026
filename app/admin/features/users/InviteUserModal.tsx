@@ -5,7 +5,6 @@ import { Check, Copy, Mail, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Dialog } from '@/components/ui/Dialog';
 import { inviteUser } from '../../actions/admin';
-import { roleGrantsPortalAccess } from '@/lib/auth/roles';
 import type { InviteResult, RoleView } from '@/types/admin';
 
 export function InviteUserModal({
@@ -17,6 +16,7 @@ export function InviteUserModal({
   onClose: () => void;
   onInvited: () => void;
 }) {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -25,7 +25,8 @@ export function InviteUserModal({
   const [copied, setCopied] = useState(false);
   const titleId = useId();
 
-  const canSubmit = email.trim() !== '' && role !== '' && !submitting;
+  const canSubmit =
+    name.trim() !== '' && email.trim() !== '' && role !== '' && !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -33,7 +34,11 @@ export function InviteUserModal({
     setServerError(null);
     setCopied(false);
     try {
-      const invite = await inviteUser({ email: email.trim(), role });
+      const invite = await inviteUser({
+        email: email.trim(),
+        name: name.trim(),
+        role,
+      });
       setResult(invite);
     } catch (err: unknown) {
       setServerError(
@@ -79,7 +84,7 @@ export function InviteUserModal({
               </h2>
               <p className="text-sm text-slate-500">
                 {result
-                  ? `An invitation was created for ${result.email ?? 'the user'}.`
+                  ? `An invitation was created for ${result.name?.trim() || result.email || 'the user'}.`
                   : 'An invitation email will be sent to the address below.'}
               </p>
             </div>
@@ -140,16 +145,6 @@ export function InviteUserModal({
               </div>
             )}
 
-            {!roleGrantsPortalAccess(role) && (
-              <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                This user was invited with the label-only role{' '}
-                <span className="font-semibold">{role}</span>, which grants no
-                portal access. Reassign them to <span className="font-semibold">admin</span> or{' '}
-                <span className="font-semibold">staff</span> from User Management
-                to grant access.
-              </div>
-            )}
-
             <div className="flex justify-end">
               <button
                 type="button"
@@ -170,13 +165,25 @@ export function InviteUserModal({
 
             <div className="mt-5 space-y-4">
               <label className="block">
+                <span className="text-sm font-semibold text-slate-700">Name</span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="e.g. Juan Dela Cruz"
+                  maxLength={120}
+                  autoFocus
+                  className="mt-1.5 w-full rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-gakit-maroon/40 focus:bg-white focus:ring-2 focus:ring-gakit-maroon/10"
+                />
+              </label>
+
+              <label className="block">
                 <span className="text-sm font-semibold text-slate-700">Email</span>
                 <input
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="name@organization.gov.ph"
-                  autoFocus
                   className="mt-1.5 w-full rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-gakit-maroon/40 focus:bg-white focus:ring-2 focus:ring-gakit-maroon/10"
                 />
               </label>
@@ -189,23 +196,22 @@ export function InviteUserModal({
                   className="mt-1.5 w-full rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors focus:border-gakit-maroon/40 focus:bg-white focus:ring-2 focus:ring-gakit-maroon/10"
                 >
                   <option value="">Select a role…</option>
-                  {roles.map((item) => (
-                    <option key={item.id} value={item.name}>
-                      {item.name}
-                    </option>
-                  ))}
+                  {roles
+                    .filter((item) => item.isActive)
+                    .map((item) => (
+                      <option key={item.id} value={item.name}>
+                        {item.name}
+                      </option>
+                    ))}
                 </select>
               </label>
 
-              {role !== '' && !roleGrantsPortalAccess(role) && (
-                <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                  <span className="font-semibold">{role}</span> is a
-                  label-only role. The invited user will not be able to sign in
-                  to the admin or monitoring portals. Choose{' '}
-                  <span className="font-semibold">admin</span> or{' '}
-                  <span className="font-semibold">staff</span> to grant access.
-                </div>
-              )}
+              <p className="text-xs text-slate-500">
+                The user&apos;s name is shown in User Management. Custom roles
+                have the same access as staff; only the built-in{' '}
+                <span className="font-semibold">admin</span> role unlocks the
+                Administration portal.
+              </p>
             </div>
 
             <div className="mt-6 flex justify-end gap-2">

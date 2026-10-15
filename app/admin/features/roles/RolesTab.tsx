@@ -111,6 +111,15 @@ export function RolesTab({ active = true }: { active?: boolean }) {
                   {pageRoles.map((role) => {
                     const isBuiltin = BUILTIN_ROLES.has(role.name);
                     const isToggling = toggling === role.id;
+                    const hasMembers = role.memberCount > 0;
+                    const deactivateBlocked = isBuiltin || hasMembers;
+                    const blockedReason = isBuiltin
+                      ? 'Built-in roles cannot be deactivated.'
+                      : hasMembers
+                      ? `Reassign the ${role.memberCount} member${
+                          role.memberCount === 1 ? '' : 's'
+                        } before deactivating this role.`
+                      : null;
                     return (
                       <tr key={role.id} className="hover:bg-canvas-light/70">
                         <td className="px-5 py-4">
@@ -163,15 +172,17 @@ export function RolesTab({ active = true }: { active?: boolean }) {
                             <button
                               type="button"
                               onClick={() => void handleToggleActive(role)}
-                              disabled={isBuiltin || isToggling}
+                              disabled={
+                                isToggling || (role.isActive && deactivateBlocked)
+                              }
                               aria-label={
-                                isBuiltin
-                                  ? `Built-in role ${role.name} cannot be deactivated`
+                                role.isActive && deactivateBlocked
+                                  ? `Role ${role.name} cannot be deactivated`
                                   : `${role.isActive ? 'Deactivate' : 'Activate'} role ${role.name}`
                               }
                               title={
-                                isBuiltin
-                                  ? 'Built-in roles cannot be deactivated.'
+                                role.isActive && deactivateBlocked
+                                  ? blockedReason ?? undefined
                                   : role.isActive
                                   ? 'Deactivate role'
                                   : 'Activate role'
@@ -211,6 +222,15 @@ export function RolesTab({ active = true }: { active?: boolean }) {
             <div className="divide-y divide-canvas-grey lg:hidden">
               {pageRoles.map((role) => {
                 const isBuiltin = BUILTIN_ROLES.has(role.name);
+                const hasMembers = role.memberCount > 0;
+                const deactivateBlocked = isBuiltin || hasMembers;
+                const blockedReason = isBuiltin
+                  ? 'Built-in roles cannot be deactivated.'
+                  : hasMembers
+                  ? `Reassign the ${role.memberCount} member${
+                      role.memberCount === 1 ? '' : 's'
+                    } before deactivating this role.`
+                  : null;
                 return (
                   <div key={role.id} className="space-y-2 p-4">
                     <div className="flex items-start justify-between gap-3">
@@ -252,11 +272,19 @@ export function RolesTab({ active = true }: { active?: boolean }) {
                       <button
                         type="button"
                         onClick={() => void handleToggleActive(role)}
-                        disabled={isBuiltin || toggling === role.id}
+                        disabled={
+                          toggling === role.id ||
+                          (role.isActive && deactivateBlocked)
+                        }
                         aria-label={
-                          isBuiltin
-                            ? `Built-in role ${role.name} cannot be deactivated`
+                          role.isActive && deactivateBlocked
+                            ? `Role ${role.name} cannot be deactivated`
                             : `${role.isActive ? 'Deactivate' : 'Activate'} role ${role.name}`
+                        }
+                        title={
+                          role.isActive && deactivateBlocked
+                            ? blockedReason ?? undefined
+                            : undefined
                         }
                         className="inline-flex items-center gap-1.5 rounded-lg border border-canvas-grey px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-40"
                       >

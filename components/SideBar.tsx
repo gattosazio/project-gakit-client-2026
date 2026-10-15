@@ -9,7 +9,7 @@ import { LogOut, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Dialog } from '@/components/ui/Dialog';
 import { createClient } from '@/lib/supabase/client';
-import { getStaffRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
+import { getDisplayName, getStaffRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { PortalNavItem } from '@/types/portal';
 import { useRouteLoader } from './RouteLoader';
 import { BentoMenu } from './BentoMenu';
@@ -137,6 +137,7 @@ export function SideBar<T extends string>({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [name, setName] = useState<string | null>(initialAuth?.name ?? null);
   const [email, setEmail] = useState<string | null>(initialAuth?.email ?? null);
   const [role, setRole] = useState<StaffRole | null>(initialAuth?.role ?? null);
   const { loadingOverlay } = useRouteLoader();
@@ -148,6 +149,7 @@ export function SideBar<T extends string>({
     supabase.auth.getUser().then(({ data }) => {
       if (cancelled || !data.user) return;
       setEmail(data.user.email ?? null);
+      setName(getDisplayName(data.user.user_metadata, data.user.email ?? null));
       getStaffRole(supabase, data.user.id).then((staffRole) => {
         if (!cancelled) setRole(staffRole);
       });
@@ -264,7 +266,7 @@ export function SideBar<T extends string>({
           <UserRound className="h-5 w-5 shrink-0 text-gakit-maroon" />
           <div className={isCollapsed ? 'hidden' : 'min-w-0'}>
             <div className="truncate text-xs font-semibold text-slate-900">
-              {email || '—'}
+              {name || email || '—'}
             </div>
             <div className="text-[11px] capitalize text-slate-500">
               {role || 'Loading role...'}
