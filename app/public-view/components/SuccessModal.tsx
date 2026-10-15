@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
 import { CheckCircle2, X } from 'lucide-react';
 import { REPORT_STATUS_LABELS } from '@/constants/publicMap';
 import type { DepthCategory, ReportStatus } from '@/types/report';
+import { Dialog } from '@/components/ui/Dialog';
 
 export interface SubmittedReport {
   id: string;
@@ -30,29 +30,16 @@ export function SuccessModal({
   onViewMap: () => void;
   onSubmitAnother?: () => void;
 }) {
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [isOpen, onClose]);
-
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[1400] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Modal Dialog */}
-      <div className="relative z-10 bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 text-center border border-slate-200/90 ring-1 ring-slate-900/5 animate-[scaleIn_150ms_ease-out]">
+    <Dialog
+      isOpen={isOpen}
+      onClose={onClose}
+      ariaLabel="Report submitted"
+      maxWidthClass="max-w-sm"
+      panelClassName="relative p-6 text-center"
+    >
         <button
           onClick={onClose}
           aria-label="Close success dialog"
@@ -116,7 +103,6 @@ export function SuccessModal({
             View on Map
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

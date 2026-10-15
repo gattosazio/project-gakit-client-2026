@@ -23,7 +23,6 @@ export function RolesTab({ active = true }: { active?: boolean }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRole, setEditingRole] = useState<RoleView | null>(null);
   const [toggling, setToggling] = useState<string | null>(null);
-  const [toggleError, setToggleError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!active) return;
@@ -31,7 +30,6 @@ export function RolesTab({ active = true }: { active?: boolean }) {
       .then((result) => {
         setRoles(result);
         setError(null);
-        setToggleError(null);
       })
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : 'Failed to load roles');
@@ -41,12 +39,14 @@ export function RolesTab({ active = true }: { active?: boolean }) {
   }, [active, refreshKey]);
 
   const totalPages = Math.max(1, Math.ceil(roles.length / ROLES_PER_PAGE));
-  const startIndex = (currentPage - 1) * ROLES_PER_PAGE;
+  // Clamp the page when the role count shrinks (e.g. after the list reloads) so
+  // the table never renders an out-of-range page.
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * ROLES_PER_PAGE;
   const pageRoles = roles.slice(startIndex, startIndex + ROLES_PER_PAGE);
 
   const handleToggleActive = async (role: RoleView) => {
     setToggling(role.id);
-    setToggleError(null);
     try {
       await updateRole(role.id, { is_active: !role.isActive });
       toast.success(
@@ -57,7 +57,6 @@ export function RolesTab({ active = true }: { active?: boolean }) {
     } catch (err: unknown) {
       const message =
         err instanceof Error ? err.message : 'Failed to update the role.';
-      setToggleError(message);
       toast.error(message, { position: 'top-right', autoClose: 4000 });
     } finally {
       setToggling(null);
@@ -93,16 +92,19 @@ export function RolesTab({ active = true }: { active?: boolean }) {
             {error}
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
+          <div
+            aria-busy={loading}
+            className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm"
+          >
             <div className="hidden overflow-x-auto lg:block">
               <table className="w-full text-sm">
                 <thead className="bg-canvas-light text-slate-500">
                   <tr>
-                    <th className="px-5 py-3 text-left font-semibold">Role</th>
-                    <th className="px-5 py-3 text-left font-semibold">Members</th>
-                    <th className="px-5 py-3 text-left font-semibold">Status</th>
-                    <th className="px-5 py-3 text-left font-semibold">Created</th>
-                    <th className="px-5 py-3 text-left font-semibold">Actions</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">Role</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">Members</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">Status</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">Created</th>
+                    <th scope="col" className="px-5 py-3 text-left font-semibold">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-canvas-grey">
@@ -162,6 +164,11 @@ export function RolesTab({ active = true }: { active?: boolean }) {
                               type="button"
                               onClick={() => void handleToggleActive(role)}
                               disabled={isBuiltin || isToggling}
+                              aria-label={
+                                isBuiltin
+                                  ? `Built-in role ${role.name} cannot be deactivated`
+                                  : `${role.isActive ? 'Deactivate' : 'Activate'} role ${role.name}`
+                              }
                               title={
                                 isBuiltin
                                   ? 'Built-in roles cannot be deactivated.'
@@ -191,7 +198,9 @@ export function RolesTab({ active = true }: { active?: boolean }) {
                         colSpan={5}
                         className="px-5 py-10 text-center text-sm text-slate-500"
                       >
-                        No roles have been defined yet.
+                        {roles.length === 0
+                          ? 'No roles have been defined yet.'
+                          : 'No roles on this page.'}
                       </td>
                     </tr>
                   )}
@@ -244,6 +253,11 @@ export function RolesTab({ active = true }: { active?: boolean }) {
                         type="button"
                         onClick={() => void handleToggleActive(role)}
                         disabled={isBuiltin || toggling === role.id}
+                        aria-label={
+                          isBuiltin
+                            ? `Built-in role ${role.name} cannot be deactivated`
+                            : `${role.isActive ? 'Deactivate' : 'Activate'} role ${role.name}`
+                        }
                         className="inline-flex items-center gap-1.5 rounded-lg border border-canvas-grey px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {role.isActive ? 'Deactivate' : 'Activate'}
@@ -254,13 +268,15 @@ export function RolesTab({ active = true }: { active?: boolean }) {
               })}
               {pageRoles.length === 0 && !loading && (
                 <div className="px-5 py-10 text-center text-sm text-slate-500">
-                  No roles have been defined yet.
+                  {roles.length === 0
+                    ? 'No roles have been defined yet.'
+                    : 'No roles on this page.'}
                 </div>
               )}
             </div>
 
             <AdminPagination
-              currentPage={currentPage}
+              currentPage={safePage}
               totalPages={totalPages}
               totalItems={roles.length}
               pageSize={ROLES_PER_PAGE}

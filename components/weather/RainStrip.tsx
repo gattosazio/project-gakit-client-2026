@@ -27,6 +27,20 @@ export function RainStrip({ hours, probabilities }: RainStripProps) {
 
   const hasProbabilities = Array.isArray(probabilities) && probabilities.length === 24;
   const hasHours = Array.isArray(hours) && hours.length > 0;
+  const seriesLength = hasProbabilities ? probabilities.length : (hours?.length ?? 24);
+
+  // Hooks must run before any early return.
+  const updateHoverFromClientX = useCallback(
+    (clientX: number) => {
+      if (!trackRef.current) return;
+      const rect = trackRef.current.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const x = Math.max(0, Math.min(clientX - rect.left, rect.width - 1));
+      const index = Math.floor((x / rect.width) * seriesLength);
+      setHovered(Math.max(0, Math.min(index, seriesLength - 1)));
+    },
+    [seriesLength]
+  );
 
   if (!hasProbabilities && !hasHours) return null;
 
@@ -38,8 +52,6 @@ export function RainStrip({ hours, probabilities }: RainStripProps) {
     const max = Math.max(...hours);
     if (max <= 0) return null;
   }
-
-  const seriesLength = hasProbabilities ? probabilities.length : (hours?.length ?? 24);
 
   // Keep the floating label inside the strip's horizontal bounds.
   const rawLeft = hovered !== null ? ((hovered + 0.5) / seriesLength) * 100 : 50;
@@ -55,18 +67,6 @@ export function RainStrip({ hours, probabilities }: RainStripProps) {
     const mm = hours?.[hovered] ?? 0;
     return `${timeLabel} · ${mm.toFixed(1)}mm`;
   };
-
-  const updateHoverFromClientX = useCallback(
-    (clientX: number) => {
-      if (!trackRef.current) return;
-      const rect = trackRef.current.getBoundingClientRect();
-      if (rect.width <= 0) return;
-      const x = Math.max(0, Math.min(clientX - rect.left, rect.width - 1));
-      const index = Math.floor((x / rect.width) * seriesLength);
-      setHovered(Math.max(0, Math.min(index, seriesLength - 1)));
-    },
-    [seriesLength]
-  );
 
   const hoursList = Array.from({ length: seriesLength }, (_, i) => i);
   const maxMm = hasHours ? Math.max(...hours) : 0;

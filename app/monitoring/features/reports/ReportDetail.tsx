@@ -14,6 +14,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { useModalA11y } from '@/hooks/useModalA11y';
 import {
   DEPTH_LABELS,
   REFERENCE_LABELS,
@@ -51,7 +52,7 @@ export function ReportDetail({
   const [copiedId, setCopiedId] = useState(false);
   const [copiedCoord, setCopiedCoord] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
-  const panelRef = useRef<HTMLDivElement | null>(null);
+  const panelRef = useModalA11y<HTMLDivElement>({ enabled: modal });
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -78,18 +79,9 @@ export function ReportDetail({
     };
   }, [modal, requestClose, photoOpen]);
 
-  // Focus the dialog on open and restore on close; lock body scroll while open.
-  useEffect(() => {
-    if (!modal) return;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    panelRef.current?.focus();
-    const originalOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      previouslyFocused?.focus?.();
-    };
-  }, [modal]);
+  // Focus, focus trap, scroll lock and focus restoration are handled by
+  // `useModalA11y` (modal mode only); Escape stays below so it can dismiss the
+  // inner photo lightbox before the drawer itself.
 
   const copyText = async (text: string, target: 'id' | 'coord') => {
     try {

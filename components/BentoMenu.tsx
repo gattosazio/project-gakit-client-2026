@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { LayoutGrid, MapPin, Waves, Activity, BookOpen } from 'lucide-react';
+import { LayoutGrid, MapPin, Waves, Activity, BookOpen, ShieldCheck } from 'lucide-react';
 import type { BentoTile } from '@/lib/navigation/bentoMenu';
 import { useRouteLoader } from './RouteLoader';
 
@@ -16,6 +16,8 @@ function getTileIcon(id: string) {
       return <Waves className="h-5 w-5 text-sky-600" />;
     case 'monitoring-portal':
       return <Activity className="h-5 w-5 text-emerald-700" />;
+    case 'administration':
+      return <ShieldCheck className="h-5 w-5 text-gakit-maroon" />;
     case 'about':
       return <BookOpen className="h-5 w-5 text-indigo-700" />;
     default:

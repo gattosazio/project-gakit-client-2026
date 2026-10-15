@@ -18,6 +18,7 @@ import {
   updateUserStatus,
 } from '../../actions/admin';
 import { InviteUserModal } from './InviteUserModal';
+import { roleGrantsPortalAccess } from '@/lib/auth/roles';
 import type { AdminUser, RoleView, UserStatus } from '@/types/admin';
 import { formatDateTime } from '@/lib/reports/reportFormatting';
 
@@ -106,10 +107,17 @@ export function UsersTab({ active = true }: { active?: boolean }) {
     setSavingRoleFor(user.id);
     try {
       await updateUserRole(user.id, role);
-      toast.success(`Role changed to "${role}".`, {
-        position: 'top-right',
-        autoClose: 3000,
-      });
+      if (roleGrantsPortalAccess(role)) {
+        toast.success(`Role changed to "${role}".`, {
+          position: 'top-right',
+          autoClose: 3000,
+        });
+      } else {
+        toast.warn(
+          `"${role}" is a label-only role, so this user can no longer sign in to the admin or monitoring portals.`,
+          { position: 'top-right', autoClose: 6000 }
+        );
+      }
       setRefreshKey((key) => key + 1);
     } catch (err: unknown) {
       toast.error(
@@ -173,6 +181,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                   setCurrentPage(1);
                 }}
                 placeholder="Search email"
+                aria-label="Search users by email"
                 className="w-full bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
               />
             </label>
@@ -182,6 +191,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                 setRoleFilter(event.target.value);
                 setCurrentPage(1);
               }}
+              aria-label="Filter by role"
               className="rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 text-sm text-slate-700 outline-none focus:border-gakit-maroon/40 focus:bg-white"
             >
               <option value="all">All roles</option>
@@ -197,6 +207,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                 setStatusFilter(event.target.value as 'all' | UserStatus);
                 setCurrentPage(1);
               }}
+              aria-label="Filter by status"
               className="rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 text-sm text-slate-700 outline-none focus:border-gakit-maroon/40 focus:bg-white"
             >
               <option value="all">All statuses</option>
@@ -223,7 +234,10 @@ export function UsersTab({ active = true }: { active?: boolean }) {
           </div>
         }
       >
-        <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
+        <div
+          aria-busy={loading}
+          className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm"
+        >
           {error ? (
             <div className="p-6 text-sm text-red-700">{error}</div>
           ) : (
@@ -232,12 +246,12 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                 <table className="w-full text-sm">
                   <thead className="bg-canvas-light text-slate-500">
                     <tr>
-                      <th className="px-5 py-3 text-left font-semibold">User</th>
-                      <th className="px-5 py-3 text-left font-semibold">Role</th>
-                      <th className="px-5 py-3 text-left font-semibold">Status</th>
-                      <th className="px-5 py-3 text-left font-semibold">Last sign-in</th>
-                      <th className="px-5 py-3 text-left font-semibold">Created</th>
-                      <th className="px-5 py-3 text-left font-semibold">Actions</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">User</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">Role</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">Status</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">Last sign-in</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">Created</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-canvas-grey">
@@ -262,6 +276,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                               onChange={(event) =>
                                 void handleRoleChange(user, event.target.value)
                               }
+                              aria-label={`Role for ${user.email ?? shortenId(user.id)}`}
                               className="rounded-lg border border-canvas-grey bg-canvas-light px-2.5 py-1.5 text-sm font-medium text-slate-700 outline-none focus:border-gakit-maroon/40 focus:bg-white disabled:opacity-50"
                             >
                               {roles.length === 0 && (
@@ -279,6 +294,11 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                                 </option>
                               ))}
                             </select>
+                            {user.role && !roleGrantsPortalAccess(user.role) && (
+                              <span className="mt-1 block w-fit rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                Label only &middot; no portal access
+                              </span>
+                            )}
                           </td>
                           <td className="px-5 py-4">
                             <span
@@ -384,6 +404,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                           onChange={(event) =>
                             void handleRoleChange(user, event.target.value)
                           }
+                          aria-label={`Role for ${user.email ?? shortenId(user.id)}`}
                           className="rounded-lg border border-canvas-grey bg-canvas-light px-2.5 py-1.5 text-sm font-medium text-slate-700 outline-none disabled:opacity-50"
                         >
                           {roles.length === 0 && (
@@ -401,6 +422,11 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                             </option>
                           ))}
                         </select>
+                        {user.role && !roleGrantsPortalAccess(user.role) && (
+                          <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                            Label only &middot; no portal access
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={() =>

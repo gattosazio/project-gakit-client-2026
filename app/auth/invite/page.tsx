@@ -29,18 +29,45 @@ export default function InvitePage() {
     const invalid =
       'This invite link is invalid or was already used. Ask the GAKIT administrator to send a new one.';
 
+    const supabase = createClient();
     const hashParams = () =>
       new URLSearchParams((window.location.hash || '').replace(/^#/, ''));
 
-    const supabase = createClient();
-    void supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return;
+    const resolveInvite = async () => {
+      // Preferred path: token-hash link (?token_hash=...&type=invite). The
+      // browser client uses the PKCE flow, which rejects Supabase's implicit
+      // action_link (#access_token=...); the backend sends this form instead
+      // so the client can redeem the token via verifyOtp.
+      const search = new URLSearchParams(window.location.search);
+      const tokenHash = search.get('token_hash');
+      if (tokenHash) {
+        const { error } = await supabase.auth.verifyOtp({
+          type: search.get('type') ?? 'invite',
+          token_hash: tokenHash,
+        });
+        if (cancelled) return;
+        if (error) {
+          setStatus('error');
+          setErrorMessage(invalid);
+          return;
+        }
+        const url = new URL(window.location.href);
+        url.searchParams.delete('token_hash');
+        url.searchParams.delete('type');
+        window.history.replaceState(window.history.state, '', url.toString());
+        setStatus('ready');
+        return;
+      }
+
+      // Fallback: legacy implicit link handled from the URL hash.
       const params = hashParams();
       if (params.get('error_code') === 'otp_expired' || params.get('error')) {
         setStatus('error');
         setErrorMessage(params.get('error_code') === 'otp_expired' ? expiring : invalid);
         return;
       }
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
       if (data.session) {
         setStatus('ready');
         return;
@@ -48,7 +75,9 @@ export default function InvitePage() {
       const after = hashParams();
       setStatus('error');
       setErrorMessage(after.get('error_code') === 'otp_expired' ? expiring : invalid);
-    });
+    };
+
+    void resolveInvite();
 
     return () => {
       cancelled = true;

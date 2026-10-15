@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Check, Copy, Mail, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { Dialog } from '@/components/ui/Dialog';
 import { inviteUser } from '../../actions/admin';
+import { roleGrantsPortalAccess } from '@/lib/auth/roles';
 import type { InviteResult, RoleView } from '@/types/admin';
 
 export function InviteUserModal({
@@ -21,6 +23,7 @@ export function InviteUserModal({
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<InviteResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const titleId = useId();
 
   const canSubmit = email.trim() !== '' && role !== '' && !submitting;
 
@@ -40,6 +43,14 @@ export function InviteUserModal({
     }
   };
 
+  // Before a successful invite, dismissing must not trigger a refetch (Cancel
+  // and the close button share behaviour). After success, dismissing refreshes
+  // the list so the new member appears, matching the "Done" button.
+  const dismiss = () => {
+    if (result) onInvited();
+    else onClose();
+  };
+
   const copyInviteLink = async () => {
     if (!result?.inviteLink) return;
     try {
@@ -52,17 +63,7 @@ export function InviteUserModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Invite a user"
-    >
-      <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-200"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Dialog isOpen onClose={dismiss} ariaLabelledBy={titleId} maxWidthClass="max-w-md">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-maroon-50">
@@ -73,7 +74,7 @@ export function InviteUserModal({
               )}
             </div>
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 id={titleId} className="text-base font-semibold text-slate-900">
                 {result ? 'Invitation sent' : 'Invite a user'}
               </h2>
               <p className="text-sm text-slate-500">
@@ -85,7 +86,7 @@ export function InviteUserModal({
           </div>
           <button
             type="button"
-            onClick={onInvited}
+            onClick={dismiss}
             aria-label="Close"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-canvas-light hover:text-slate-600"
           >
@@ -111,6 +112,7 @@ export function InviteUserModal({
                   <input
                     readOnly
                     value={result.inviteLink}
+                    aria-label="One-time invitation link"
                     onFocus={(event) => event.currentTarget.select()}
                     className="w-full rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 text-xs text-slate-600 outline-none"
                   />
@@ -135,6 +137,16 @@ export function InviteUserModal({
               <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
                 The account was created. Have the user reset their password to
                 begin.
+              </div>
+            )}
+
+            {!roleGrantsPortalAccess(role) && (
+              <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                This user was invited with the label-only role{' '}
+                <span className="font-semibold">{role}</span>, which grants no
+                portal access. Reassign them to <span className="font-semibold">admin</span> or{' '}
+                <span className="font-semibold">staff</span> from User Management
+                to grant access.
               </div>
             )}
 
@@ -184,6 +196,16 @@ export function InviteUserModal({
                   ))}
                 </select>
               </label>
+
+              {role !== '' && !roleGrantsPortalAccess(role) && (
+                <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <span className="font-semibold">{role}</span> is a
+                  label-only role. The invited user will not be able to sign in
+                  to the admin or monitoring portals. Choose{' '}
+                  <span className="font-semibold">admin</span> or{' '}
+                  <span className="font-semibold">staff</span> to grant access.
+                </div>
+              )}
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
@@ -207,7 +229,6 @@ export function InviteUserModal({
             </div>
           </>
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }

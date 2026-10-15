@@ -1,20 +1,11 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { createPortal } from 'react-dom';
+import { useId, useState } from 'react';
 import { CloudRain, AlertTriangle, Flame, Thermometer, X, Droplet } from 'lucide-react';
 import type { WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
 import { alertTitle, digestPeriod, formatDayForecast, getWeatherCondition } from '@/lib/weather/weatherCodes';
 import { hazardSummary, isPagasaAlert, otherProvinceCount, parseLocalTowns, shortTitle } from '@/lib/weather/pagasa';
 import { WeatherAttribution } from './weather/WeatherAttribution';
 import { RainStrip } from './weather/RainStrip';
-
-const emptySubscribe = () => () => {};
-function useMounted(): boolean {
-  return useSyncExternalStore(
-    emptySubscribe,
-    () => true,
-    () => false
-  );
-}
+import { Dialog } from '@/components/ui/Dialog';
 
 const SEVERITY_CONFIG: Record<
   AlertSeverity,
@@ -96,8 +87,8 @@ interface WeatherAlertModalProps {
 }
 
 export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAlertModalProps) {
-  const mounted = useMounted();
   const activeAlert = alert;
+  const titleId = useId();
 
   const days = activeAlert.data?.days ?? [];
   const [selectedDate, setSelectedDate] = useState<string>(() => highlightDate || (days[0]?.date ?? ''));
@@ -107,16 +98,6 @@ export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAler
     setExpandedFor(activeAlert.id);
     setTownsExpanded(false);
   }
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [onClose]);
 
   const config = SEVERITY_CONFIG[activeAlert.severity];
   const Icon = ALERT_ICONS[activeAlert.alertType] ?? CloudRain;
@@ -129,20 +110,19 @@ export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAler
   const showFull = pagasa && fullText.trim().length > (summary ?? '').length + 40;
   const visibleTowns = townsExpanded ? towns : towns.slice(0, 7);
 
-  if (!mounted || typeof document === 'undefined') {
-    return null;
-  }
-
   const activeDay = days.find((d) => d.date === selectedDate) ?? days[0];
   const activeCondition = activeDay ? getWeatherCondition(activeDay.conditionCode) : null;
   const ActiveIcon = activeCondition ? activeCondition.icon : CloudRain;
   const activeDetail = activeDay ? formatDayForecast(activeDay) : '';
 
-  return createPortal(
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-2xl">
+  return (
+    <Dialog
+      isOpen
+      onClose={onClose}
+      ariaLabelledBy={titleId}
+      maxWidthClass="max-w-lg"
+      panelClassName="relative flex max-h-[88vh] flex-col overflow-hidden border border-canvas-grey"
+    >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-canvas-grey p-4 md:px-5 md:py-4">
           <div className="flex items-center gap-3">
@@ -175,7 +155,9 @@ export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAler
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto p-4 md:p-5 space-y-3">
           <div>
-            <h3 className="text-base font-bold text-slate-900">{heading}</h3>
+            <h3 id={titleId} className="text-base font-bold text-slate-900">
+              {heading}
+            </h3>
             <p className="text-[10px] text-slate-400">
               {activeAlert.alertType === 'daily_digest' && digestPeriod(activeAlert)
                 ? digestPeriod(activeAlert)
@@ -374,8 +356,6 @@ export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAler
             Close
           </button>
         </div>
-      </div>
-    </div>,
-    document.body
+    </Dialog>
   );
 }
