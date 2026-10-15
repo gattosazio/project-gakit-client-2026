@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { createServerClient } from '@supabase/ssr';
-import { getStaffRole, type AuthSnapshot } from '@/lib/auth/roles';
+import { getDisplayName, getStaffRole, type AuthSnapshot } from '@/lib/auth/roles';
 
 /**
  * Resolves the caller's auth state for server components. Anonymous visitors
@@ -23,11 +23,12 @@ export async function getServerAuthSnapshot(): Promise<AuthSnapshot> {
   );
 
   const { data: sessionData } = await supabase.auth.getSession();
-  if (!sessionData.session?.user) return { email: null, role: null };
+  if (!sessionData.session?.user) return { name: null, email: null, role: null };
 
   const { data } = await supabase.auth.getUser();
-  if (!data.user) return { email: null, role: null };
+  if (!data.user) return { name: null, email: null, role: null };
 
   const role = await getStaffRole(supabase, data.user.id);
-  return { email: data.user.email ?? null, role };
+  const email = data.user.email ?? null;
+  return { name: getDisplayName(data.user.user_metadata, email), email, role };
 }

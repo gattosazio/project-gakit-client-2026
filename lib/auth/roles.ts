@@ -11,6 +11,7 @@ export type StaffRole = 'admin' | 'staff';
  * network waterfalls.
  */
 export interface AuthSnapshot {
+  name: string | null;
   email: string | null;
   role: StaffRole | null;
 }
@@ -28,16 +29,37 @@ export async function getStaffRole(
   if (error || !data || data.length === 0) return null;
 
   const role: unknown = data[0]?.role;
-  return role === ROLE_ADMIN || role === ROLE_STAFF ? role : null;
+  if (typeof role !== 'string' || role.trim() === '') return null;
+  // Only the built-in `admin` role unlocks the Administration portal; every
+  // other catalog role is staff-equivalent (custom roles share the staff
+  // permission set until a granular permission system exists).
+  return role === ROLE_ADMIN ? ROLE_ADMIN : ROLE_STAFF;
 }
 
 /**
- * Whether a named role grants access to any protected portal route. Only the
- * built-in `admin` and `staff` roles do; every other catalog role is an
- * organizational label that confers no access (see `canAccessPath`).
+ * Whether a named role grants access to any protected portal route. Every
+ * catalog role does: custom roles are staff-equivalent, so any non-empty role
+ * name confers staff-level access (see `canAccessPath`).
  */
 export function roleGrantsPortalAccess(roleName: string): boolean {
-  return roleName === ROLE_ADMIN || roleName === ROLE_STAFF;
+  return roleName.trim() !== '';
+}
+
+/**
+ * Extracts a display name from a Supabase Auth user's metadata. Falls back to
+ * `email` so existing users without a name still have something to show.
+ */
+export function getDisplayName(
+  metadata: Record<string, unknown> | null | undefined,
+  email: string | null | undefined
+): string | null {
+  if (metadata) {
+    for (const key of ['full_name', 'name']) {
+      const value = metadata[key];
+      if (typeof value === 'string' && value.trim() !== '') return value.trim();
+    }
+  }
+  return email ?? null;
 }
 
 export function homePathForRole(role: StaffRole | null): string | null {

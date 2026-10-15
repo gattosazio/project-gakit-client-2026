@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Eye, EyeOff, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getStaffRole, homePathForRole } from '@/lib/auth/roles';
+import { friendlyAuthError } from '@/lib/auth/authErrors';
 
 export function LoginPage() {
   const router = useRouter();
@@ -27,7 +28,7 @@ export function LoginPage() {
 
     if (error) {
       setIsSubmitting(false);
-      setError(error.message);
+      setError(friendlyAuthError(error));
       return;
     }
 
@@ -56,7 +57,7 @@ export function LoginPage() {
     });
 
     if (error) {
-      setError(error.message);
+      setError(friendlyAuthError(error));
     }
   };
 
