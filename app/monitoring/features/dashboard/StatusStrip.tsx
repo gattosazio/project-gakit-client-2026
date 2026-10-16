@@ -7,7 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Cloud,
-  FlaskConical,
 } from 'lucide-react';
 import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import { AmbientWeatherIcon } from '@/components/weather/AmbientWeatherIcon';
@@ -20,6 +19,10 @@ import type { CurrentWeather, WeatherAlert } from '@/types/weather';
 interface StatusStripProps {
   current: CurrentWeather | null;
   alerts: WeatherAlert[] | null;
+  alertsCheckedAt?: string | null;
+  alertsError?: boolean;
+  currentError?: boolean;
+  asOf?: string;
 }
 
 const SEVERITY_CHIP: Record<string, string> = {
@@ -40,145 +43,6 @@ const SEVERITY_LABEL: Record<string, string> = {
   info: 'Advisory',
 };
 
-type WeatherPresetKey =
-  | 'live'
-  | 'clear_day'
-  | 'clear_night'
-  | 'mainly_clear_day'
-  | 'mainly_clear_night'
-  | 'overcast_day'
-  | 'overcast_night'
-  | 'rain'
-  | 'thunder';
-
-const PRESET_WEATHER: Record<
-  Exclude<WeatherPresetKey, 'live'>,
-  { conditionCode: number; temperature: number; precipitation: number; observedAt: string; label: string }
-> = {
-  clear_day: {
-    conditionCode: 0,
-    temperature: 31,
-    precipitation: 0.0,
-    observedAt: '2026-10-02T13:00:00+08:00',
-    label: '☀️ Clear (Day)',
-  },
-  clear_night: {
-    conditionCode: 0,
-    temperature: 25,
-    precipitation: 0.0,
-    observedAt: '2026-10-02T21:00:00+08:00',
-    label: '🌙 Clear (Night)',
-  },
-  mainly_clear_day: {
-    conditionCode: 1,
-    temperature: 29,
-    precipitation: 0.0,
-    observedAt: '2026-10-02T14:00:00+08:00',
-    label: '⛅ Mainly Clear (Day)',
-  },
-  mainly_clear_night: {
-    conditionCode: 1,
-    temperature: 24,
-    precipitation: 0.0,
-    observedAt: '2026-10-02T22:00:00+08:00',
-    label: '☁️🌙 Mainly Clear (Night)',
-  },
-  overcast_day: {
-    conditionCode: 3,
-    temperature: 26,
-    precipitation: 0.0,
-    observedAt: '2026-10-02T11:00:00+08:00',
-    label: '☁️ Overcast (Day)',
-  },
-  overcast_night: {
-    conditionCode: 3,
-    temperature: 24,
-    precipitation: 0.0,
-    observedAt: '2026-10-02T20:00:00+08:00',
-    label: '☁️🌙 Overcast (Night)',
-  },
-  rain: {
-    conditionCode: 63,
-    temperature: 25,
-    precipitation: 12.8,
-    observedAt: '2026-10-02T15:00:00+08:00',
-    label: '🌧️ Moderate Rain',
-  },
-  thunder: {
-    conditionCode: 95,
-    temperature: 23,
-    precipitation: 32.4,
-    observedAt: '2026-10-02T16:00:00+08:00',
-    label: '⛈️ Thunderstorm',
-  },
-};
-
-type AlertPresetKey = 'live' | 'all_clear' | 'single_warning' | 'multiple_alerts';
-
-const SAMPLE_ALERTS: Record<Exclude<AlertPresetKey, 'live'>, WeatherAlert[]> = {
-  all_clear: [],
-  single_warning: [
-    {
-      id: 'mock-thunderstorm-1',
-      alertType: 'thunderstorm',
-      severity: 'warning',
-      createdAt: '2026-10-02T14:30:00+08:00',
-      validFrom: '2026-10-02T14:30:00+08:00',
-      validTo: '2026-10-02T18:30:00+08:00',
-      data: {
-        title: 'Thunderstorm Advisory No. 2',
-        description: 'Moderate to heavy rainshowers with lightning and strong winds over Iligan City and nearby municipalities.',
-        issuedAt: '2026-10-02T14:30:00+08:00',
-        source: 'DOST-PAGASA MINPRSD',
-      },
-    },
-  ],
-  multiple_alerts: [
-    {
-      id: 'mock-critical-1',
-      alertType: 'heavy_rain',
-      severity: 'critical',
-      createdAt: '2026-10-02T15:00:00+08:00',
-      validFrom: '2026-10-02T15:00:00+08:00',
-      validTo: '2026-10-02T21:00:00+08:00',
-      data: {
-        title: 'Red Rainfall Warning No. 5',
-        description: 'Torrential rains observed over Lanao del Norte. Serious flooding expected in low-lying areas and landslides along mountain slopes.',
-        issuedAt: '2026-10-02T15:00:00+08:00',
-        source: 'DOST-PAGASA MINPRSD',
-      },
-    },
-    {
-      id: 'mock-warning-2',
-      alertType: 'thunderstorm',
-      severity: 'warning',
-      createdAt: '2026-10-02T14:30:00+08:00',
-      validFrom: '2026-10-02T14:30:00+08:00',
-      validTo: '2026-10-02T18:30:00+08:00',
-      data: {
-        title: 'Thunderstorm Advisory No. 3',
-        description: 'Thunderstorm affecting Iligan City within the next 1-2 hours.',
-        issuedAt: '2026-10-02T14:30:00+08:00',
-        source: 'DOST-PAGASA MINPRSD',
-      },
-    },
-    {
-      id: 'mock-info-3',
-      alertType: 'extreme_heat',
-      severity: 'info',
-      createdAt: '2026-10-02T11:00:00+08:00',
-      validFrom: '2026-10-02T11:00:00+08:00',
-      validTo: '2026-10-02T17:00:00+08:00',
-      data: {
-        title: 'Heat Index Advisory',
-        description: 'Heat index reaching 41°C caution level.',
-        issuedAt: '2026-10-02T11:00:00+08:00',
-        source: 'DOST-PAGASA MINPRSD',
-      },
-    },
-  ],
-};
-
 function manilaTimestamp(date: Date): string {
   const parts = new Intl.DateTimeFormat('en-PH', {
     timeZone: 'Asia/Manila',
@@ -196,41 +60,26 @@ function manilaTimestamp(date: Date): string {
 
 function shortTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], {
+    timeZone: 'Asia/Manila',
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
   });
 }
 
-export function StatusStrip({ current, alerts }: StatusStripProps) {
-  const [showTester, setShowTester] = useState(false);
-  const [weatherPreset, setWeatherPreset] = useState<WeatherPresetKey>('live');
-  const [alertPreset, setAlertPreset] = useState<AlertPresetKey>('live');
+export function StatusStrip({ current, alerts, alertsCheckedAt, alertsError = false, currentError = false, asOf }: StatusStripProps) {
   const [alertPage, setAlertPage] = useState(0);
 
-  const effectiveCurrent = useMemo<CurrentWeather | null>(() => {
-    if (weatherPreset === 'live') return current;
-    const preset = PRESET_WEATHER[weatherPreset];
-    return {
-      temperature: preset.temperature,
-      precipitation: preset.precipitation,
-      conditionCode: preset.conditionCode,
-      observedAt: preset.observedAt,
-    };
-  }, [current, weatherPreset]);
-
-  const effectiveAlerts = useMemo<WeatherAlert[] | null>(() => {
-    if (alertPreset === 'live') return alerts;
-    return SAMPLE_ALERTS[alertPreset];
-  }, [alerts, alertPreset]);
-
   const activeAlerts = useMemo(
-    () => (effectiveAlerts ?? []).filter((alert) => alert.alertType !== 'daily_digest'),
-    [effectiveAlerts]
+    () => (alerts ?? []).filter((alert) => alert.alertType !== 'daily_digest' && (
+      !asOf || (Date.parse(alert.validFrom) <= Date.parse(asOf) && Date.parse(alert.validTo) > Date.parse(asOf))
+    )),
+    [alerts, asOf]
   );
+  const advisoryUnknown = alerts === null || alertsError;
   const digest = useMemo(
-    () => (effectiveAlerts ?? []).find((alert) => alert.alertType === 'daily_digest') ?? null,
-    [effectiveAlerts]
+    () => (alerts ?? []).find((alert) => alert.alertType === 'daily_digest') ?? null,
+    [alerts]
   );
   const [modalAlert, setModalAlert] = useState<WeatherAlert | null>(null);
 
@@ -249,13 +98,13 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
     currentAlertPage * ADVISORIES_PER_PAGE + ADVISORIES_PER_PAGE
   );
 
-  const condition = effectiveCurrent
-    ? getWeatherCondition(effectiveCurrent.conditionCode, isDaytimeInManila(effectiveCurrent.observedAt))
+  const condition = current
+    ? getWeatherCondition(current.conditionCode, isDaytimeInManila(current.observedAt))
     : null;
 
-  const isNight = effectiveCurrent ? !isDaytimeInManila(effectiveCurrent.observedAt) : false;
-  const isThunder = effectiveCurrent
-    ? effectiveCurrent.conditionCode >= 95 && effectiveCurrent.conditionCode <= 99
+  const isNight = current ? !isDaytimeInManila(current.observedAt) : false;
+  const isThunder = current
+    ? current.conditionCode >= 95 && current.conditionCode <= 99
     : false;
   const isDarkAtmosphere = isNight || isThunder;
 
@@ -264,14 +113,14 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
       <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,23,42,0.04)]">
         <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 min-w-0">
           {/* Left Segment: Environmental Telemetry (Iligan City) */}
-          {effectiveCurrent && condition ? (
+          {current && condition ? (
             <button
               type="button"
               onClick={() => {
                 if (digest) setModalAlert(digest);
               }}
               disabled={!digest}
-              title={digest ? 'Open weather forecast for Iligan City' : 'Conditions as observed by Open-Meteo'}
+              title={digest ? 'Open weather forecast for Iligan City' : 'Current conditions from Open-Meteo'}
               aria-haspopup="dialog"
               className={`group relative overflow-hidden flex flex-col justify-between p-3.5 sm:px-4 sm:py-3 text-left transition-colors min-w-0 ${
                 isDarkAtmosphere
@@ -281,15 +130,15 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
             >
               {/* Cinematic Animated Weather Canvas Backdrop */}
               <WeatherCanvasBackdrop
-                conditionCode={effectiveCurrent.conditionCode}
-                observedAt={effectiveCurrent.observedAt}
+                conditionCode={current.conditionCode}
+                observedAt={current.observedAt}
               />
 
               <div className="relative z-10 flex items-center justify-between gap-2 min-w-0 mb-1.5 w-full">
                 <span className={`text-[10px] font-bold uppercase tracking-wider truncate ${
                   isDarkAtmosphere ? 'text-slate-400' : 'text-slate-600'
                 }`}>
-                  Iligan City · {manilaTimestamp(new Date(effectiveCurrent.observedAt ?? new Date()))} PST
+                  Iligan City · {manilaTimestamp(new Date(current.observedAt))} PHT{currentError ? ' · Update delayed' : ''}
                 </span>
                 {digest && (
                   <span className={`inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold transition-colors ${
@@ -306,15 +155,15 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
 
               <div className="relative z-10 flex items-center gap-2.5 sm:gap-3 min-w-0 w-full">
                 <AmbientWeatherIcon
-                  conditionCode={effectiveCurrent.conditionCode}
-                  observedAt={effectiveCurrent.observedAt}
+                  conditionCode={current.conditionCode}
+                  observedAt={current.observedAt}
                   isDark={isDarkAtmosphere}
                 />
                 <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 min-w-0 flex-1">
                   <span className={`text-xl sm:text-2xl font-extrabold tracking-tight tabular-nums ${
                     isDarkAtmosphere ? 'text-white' : 'text-slate-900'
                   }`}>
-                    {Math.round(effectiveCurrent.temperature)}°C
+                    {Math.round(current.temperature)}°C
                   </span>
                   <span className={`text-xs sm:text-sm font-semibold truncate ${
                     isDarkAtmosphere ? 'text-slate-200' : 'text-slate-800'
@@ -327,7 +176,7 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
                     <span className={isDarkAtmosphere ? 'text-slate-600' : 'text-slate-400'}>·</span>
                     <span>Rain: <strong className={`font-semibold tabular-nums ${
                       isDarkAtmosphere ? 'text-slate-200' : 'text-slate-900'
-                    }`}>{effectiveCurrent.precipitation.toFixed(1)} mm/h</strong></span>
+                    }`}>{current.precipitation.toFixed(1)} mm/h</strong></span>
                   </span>
                 </div>
               </div>
@@ -335,7 +184,7 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
           ) : (
             <div className="flex flex-col justify-between p-3.5 sm:px-4 sm:py-3 min-w-0 text-slate-400">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
-                Iligan City · {manilaTimestamp(new Date())} PST
+                Iligan City · Open-Meteo
               </span>
               <div className="flex items-center gap-2.5 py-1">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-400">
@@ -354,24 +203,13 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
               </span>
               <div className="flex items-center gap-2 shrink-0">
                 <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-                  DOST-PAGASA · Lanao del Norte
+                  DOST-PAGASA{alertsCheckedAt && <> · checked {shortTime(alertsCheckedAt)}</>}
                 </span>
-                <button
-                  type="button"
-                  onClick={() => setShowTester((prev) => !prev)}
-                  title="Toggle Weather & Alerts Interactive Preview Toolbar"
-                  className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold transition-all ${
-                    showTester || weatherPreset !== 'live' || alertPreset !== 'live'
-                      ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                  }`}
-                >
-                  <FlaskConical className="h-3 w-3" />
-                  <span>Preview</span>
-                </button>
+
               </div>
             </div>
 
+            {alertsError && pageAlerts.length > 0 && <p role="status" className="mb-2 text-[11px] text-amber-700">Advisory refresh unavailable · showing the last retrieved bulletins.</p>}
             {pageAlerts.length > 0 ? (
               <div className="flex flex-col justify-between flex-1 min-w-0 gap-1.5">
                 <div className="flex flex-col gap-1.5 min-w-0 w-full">
@@ -445,20 +283,20 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
               </div>
             ) : (
               <div className="flex items-center gap-2.5 min-w-0 w-full py-2">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200/60">
+                <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${advisoryUnknown ? 'border-slate-200 bg-slate-50 text-slate-400' : 'border-emerald-200/60 bg-emerald-50 text-emerald-600'}`}>
                   <CheckCircle2 className="h-4.5 w-4.5" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">
-                      All Clear · Normal Conditions
+                      {advisoryUnknown ? (alertsError ? 'Advisory data unavailable' : 'Checking official advisories') : 'No active official advisories'}
                     </span>
-                    <span className="inline-flex items-center rounded-full bg-emerald-100/80 px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider text-emerald-800 shrink-0">
-                      Nominal
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider shrink-0 ${advisoryUnknown ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100/80 text-emerald-800'}`}>
+                      {advisoryUnknown ? 'Unknown' : 'No advisories'}
                     </span>
                   </div>
                   <p className="text-[11px] sm:text-xs text-slate-500 truncate mt-0.5">
-                    No active severe weather warnings or thunderstorm advisories
+                    {advisoryUnknown ? 'Waiting for a successful advisory update.' : 'No current weather bulletins returned for this area.'}
                   </p>
                 </div>
               </div>
@@ -474,110 +312,7 @@ export function StatusStrip({ current, alerts }: StatusStripProps) {
         )}
       </section>
 
-      {/* Interactive Testing Toolbar */}
-      {showTester && (
-        <div className="flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50/70 p-3 text-xs shadow-xs animate-in fade-in duration-200">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/60 pb-2">
-            <span className="font-extrabold uppercase tracking-wider text-[11px] text-amber-900 flex items-center gap-1.5">
-              <FlaskConical className="h-3.5 w-3.5 text-amber-700" />
-              <span>Interactive Weather & Alert Previewer (Test Mode)</span>
-            </span>
-            {(weatherPreset !== 'live' || alertPreset !== 'live') && (
-              <button
-                type="button"
-                onClick={() => {
-                  setWeatherPreset('live');
-                  setAlertPreset('live');
-                }}
-                className="rounded-lg bg-amber-200/70 px-2 py-0.5 text-[11px] font-bold text-amber-900 hover:bg-amber-300/80 transition-colors"
-              >
-                Reset All to Live
-              </button>
-            )}
-          </div>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-bold text-slate-600 text-[11px] mr-1">
-              Weather Condition:
-            </span>
-            <button
-              type="button"
-              onClick={() => setWeatherPreset('live')}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                weatherPreset === 'live'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              📡 Live
-            </button>
-            {Object.entries(PRESET_WEATHER).map(([key, preset]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setWeatherPreset(key as WeatherPresetKey)}
-                className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                  weatherPreset === key
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <span className="font-bold text-slate-600 text-[11px] mr-1">
-              Advisories State:
-            </span>
-            <button
-              type="button"
-              onClick={() => setAlertPreset('live')}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                alertPreset === 'live'
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              📡 Live Alerts
-            </button>
-            <button
-              type="button"
-              onClick={() => setAlertPreset('all_clear')}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                alertPreset === 'all_clear'
-                  ? 'bg-emerald-700 text-white shadow-xs'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              🟢 0 Alerts (All Clear)
-            </button>
-            <button
-              type="button"
-              onClick={() => setAlertPreset('single_warning')}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                alertPreset === 'single_warning'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              🟡 1 Warning
-            </button>
-            <button
-              type="button"
-              onClick={() => setAlertPreset('multiple_alerts')}
-              className={`rounded-lg px-2.5 py-1 text-xs font-semibold transition-all ${
-                alertPreset === 'multiple_alerts'
-                  ? 'bg-red-700 text-white shadow-xs'
-                  : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              🔴 3 Bulletins (Paginated 2/page)
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   scenarioDisplayStore,
   setScenarioRenderMode,
-  setScenarioEnableTerrain,
   setScenarioEnableBuildings,
 } from '@/lib/map/scenarioDisplayStore';
 
@@ -18,7 +17,8 @@ describe('scenarioDisplayStore', () => {
   it('provides default initial values', () => {
     const snapshot = scenarioDisplayStore.getSnapshot();
     expect(snapshot.renderMode).toBe('linear');
-    expect(snapshot.enableTerrain).toBe(true);
+    expect(snapshot.mode).toBe('3d');
+    expect(snapshot.basemap).toBe('light');
     expect(snapshot.enableBuildings).toBe(true);
   });
 
@@ -26,34 +26,33 @@ describe('scenarioDisplayStore', () => {
     const listener = vi.fn();
     const unsubscribe = scenarioDisplayStore.subscribe(listener);
 
-    setScenarioRenderMode('nearest');
-    expect(scenarioDisplayStore.getSnapshot().renderMode).toBe('nearest');
+    setScenarioRenderMode('linear');
+    expect(scenarioDisplayStore.getSnapshot().renderMode).toBe('linear');
     expect(listener).toHaveBeenCalledTimes(1);
 
     // No-op if same value
-    setScenarioRenderMode('nearest');
+    setScenarioRenderMode('linear');
     expect(listener).toHaveBeenCalledTimes(1);
 
-    setScenarioRenderMode('linear');
-    expect(scenarioDisplayStore.getSnapshot().renderMode).toBe('linear');
+    setScenarioRenderMode('nearest');
+    expect(scenarioDisplayStore.getSnapshot().renderMode).toBe('nearest');
     expect(listener).toHaveBeenCalledTimes(2);
 
     unsubscribe();
-    setScenarioRenderMode('nearest');
+    setScenarioRenderMode('linear');
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
-  it('toggles enableTerrain and notifies subscribers', () => {
+  it('changes 2D/3D view and notifies subscribers', () => {
     const listener = vi.fn();
     const unsubscribe = scenarioDisplayStore.subscribe(listener);
 
-    setScenarioEnableTerrain(false);
-    expect(scenarioDisplayStore.getSnapshot().enableTerrain).toBe(false);
+    scenarioDisplayStore.setMode('2d');
+    expect(scenarioDisplayStore.getSnapshot().mode).toBe('2d');
     expect(listener).toHaveBeenCalledTimes(1);
 
-    // Toggle via function updater
-    setScenarioEnableTerrain((prev) => !prev);
-    expect(scenarioDisplayStore.getSnapshot().enableTerrain).toBe(true);
+    scenarioDisplayStore.setMode('3d');
+    expect(scenarioDisplayStore.getSnapshot().mode).toBe('3d');
     expect(listener).toHaveBeenCalledTimes(2);
 
     unsubscribe();
@@ -75,15 +74,17 @@ describe('scenarioDisplayStore', () => {
   });
 
   it('resets to defaults cleanly', () => {
-    setScenarioRenderMode('nearest');
-    setScenarioEnableTerrain(false);
+    setScenarioRenderMode('linear');
+    scenarioDisplayStore.setMode('2d');
+    scenarioDisplayStore.setBasemap('satellite');
     setScenarioEnableBuildings(false);
 
     scenarioDisplayStore.reset();
 
     const snapshot = scenarioDisplayStore.getSnapshot();
     expect(snapshot.renderMode).toBe('linear');
-    expect(snapshot.enableTerrain).toBe(true);
+    expect(snapshot.mode).toBe('3d');
+    expect(snapshot.basemap).toBe('light');
     expect(snapshot.enableBuildings).toBe(true);
   });
 });

@@ -13,6 +13,11 @@ import {
 import type { ScenarioFrame } from '@/types/scenario';
 
 interface TimelinePlayerProps {
+  className?: string;
+  resetLabel?: string;
+  resetText?: string;
+  status?: string;
+  showPeakJump?: boolean;
   frames: ScenarioFrame[];
   currentIndex: number;
   onIndexChange: (index: number) => void;
@@ -30,6 +35,11 @@ interface TimelinePlayerProps {
 }
 
 export function TimelinePlayer({
+  className,
+  resetLabel = 'Reset to Hour 0',
+  resetText,
+  status,
+  showPeakJump = true,
   frames,
   currentIndex,
   onIndexChange,
@@ -61,11 +71,11 @@ export function TimelinePlayer({
   };
 
   return (
-    <div className="hud-card absolute bottom-3 sm:bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-10 w-[calc(100%-1.25rem)] sm:w-[95%] max-w-3xl p-2.5 sm:p-4 text-slate-800 pointer-events-auto">
+    <div className={`hud-card ${className ?? 'absolute bottom-3 sm:bottom-4 md:bottom-6 left-1/2 -translate-x-1/2 z-10 w-[calc(100%-1.25rem)] sm:w-[95%] max-w-3xl'} p-2.5 sm:p-4 text-slate-800 pointer-events-auto`}>
       {/* Top bar with time and status */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2 sm:mb-3">
+      <div className="flex flex-col sm:flex-row sm:flex-nowrap sm:items-center sm:justify-between gap-2 mb-2 sm:mb-3">
         {/* Left: Time and status info */}
-        <div className="flex items-center justify-between sm:justify-start gap-2 min-w-0">
+        <div className="flex min-w-0 items-center justify-between gap-2 sm:flex-1 sm:justify-start">
           <div className="flex items-center gap-1.5 min-w-0">
             <span
               className={`flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0 rounded-full ${
@@ -74,16 +84,16 @@ export function TimelinePlayer({
                   : 'bg-sky-500'
               }`}
             />
-            <span className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 truncate whitespace-nowrap">
+            <span title={currentFrame?.display_time} className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 truncate whitespace-nowrap">
               {currentFrame?.display_time || `Hour ${currentIndex}`}
             </span>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="rounded-full bg-slate-100 text-slate-600 font-mono text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 border border-slate-200/80 whitespace-nowrap">
-              {isLive ? currentFrame?.is_forecast ? `Forecast +${currentFrame.forecast_horizon_hours}h` : 'Rainfall history' : `Hour ${currentIndex} / ${maxIndex}`}
+              {isLive ? currentFrame?.is_forecast ? `Forecast +${currentFrame.forecast_horizon_hours}h` : currentFrame?.live?.kind === 'latest' ? 'Current estimate' : 'Rainfall history' : `Hour ${currentIndex} / ${maxIndex}`}
             </span>
-            {peakIndex >= 0 && (frames[peakIndex].inundated_km2 ?? 0) > 0 && (
+            {showPeakJump && peakIndex >= 0 && (frames[peakIndex].inundated_km2 ?? 0) > 0 && (
               <button
                 type="button"
                 onClick={() => onIndexChange(peakIndex)}
@@ -122,14 +132,16 @@ export function TimelinePlayer({
         </div>
 
         {/* Right: Playback Controls */}
-        <div className="flex items-center justify-center sm:justify-end gap-1.5">
+        <div className="flex shrink-0 flex-nowrap items-center justify-center gap-1 sm:justify-end sm:gap-1.5">
           <button
             type="button"
             onClick={onReset}
-            title="Reset to Hour 0"
-            className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition active:scale-95"
+            title={resetLabel}
+            aria-label={resetLabel}
+            className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-lg p-1.5 text-[10px] font-semibold text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition active:scale-95"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-4 w-4 shrink-0" />
+            {resetText && <span className="max-w-14 truncate sm:max-w-28">{resetText}</span>}
           </button>
 
           <button
@@ -195,6 +207,7 @@ export function TimelinePlayer({
           <span>+6h</span><span>+12h</span><span>+18h</span><span>+24h</span>
         </>}
       </div>
+      {status && <p role="status" className="mt-2 text-[10px] leading-4 text-slate-500">{status}</p>}
     </div>
   );
 }

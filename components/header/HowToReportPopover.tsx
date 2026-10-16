@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import {
+  ArrowUpRight,
   HelpCircle,
   MapPin,
   Megaphone,
   Waves,
   X,
 } from 'lucide-react';
-import type { RefObject } from 'react';
+import { useId, type RefObject } from 'react';
 
 interface HowToReportPopoverProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export function HowToReportPopover({
   containerRef,
   onNavigateAbout,
 }: HowToReportPopoverProps) {
+  const panelId = useId();
   const handleAboutClick = (e: React.MouseEvent) => {
     onToggle();
     if (typeof window !== 'undefined' && window.location.pathname === '/') {
@@ -40,14 +42,16 @@ export function HowToReportPopover({
       <button
         type="button"
         onClick={onToggle}
-        className={`flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 ${
+        className={`flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-colors duration-150 hover:bg-slate-100 hover:text-gakit-maroon md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px] ${
           isOpen ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80 font-bold' : ''
         }`}
         aria-expanded={isOpen}
+        aria-controls={panelId}
         aria-label="Platform Guide"
         title="Platform Guide"
       >
-        <HelpCircle className={`h-4 w-4 md:h-5 md:w-5 ${isOpen ? 'text-gakit-maroon' : 'text-slate-600'}`} />
+        <HelpCircle className={`h-4 w-4 ${isOpen ? 'text-gakit-maroon' : 'text-slate-600'}`} />
+        <span>Guide</span>
       </button>
 
       {isOpen && (
@@ -59,93 +63,31 @@ export function HowToReportPopover({
             aria-hidden="true"
           />
 
-          {/* Centered on mobile via fixed inset-x-4 + mx-auto, anchored on desktop */}
-          <div className="fixed inset-x-4 top-16 z-[1300] mx-auto max-w-[350px] overflow-hidden md:absolute md:inset-x-auto md:right-0 md:top-12 md:w-[350px] animate-in fade-in zoom-in-95 duration-150">
-            <div className="overflow-hidden rounded-2xl border border-white/80 bg-white/95 p-4 shadow-[0_16px_40px_rgba(15,23,42,0.14),inset_0_1px_0_0_rgba(255,255,255,0.9)] backdrop-blur-xl ring-1 ring-slate-200/80">
-              {/* Header */}
-              <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-50 text-gakit-maroon ring-1 ring-rose-200/60">
-                    <HelpCircle className="h-3.5 w-3.5 stroke-[2.5]" />
-                  </div>
-                  <h3 className="font-heading text-xs font-bold text-slate-900">
-                    Platform Guide
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={onToggle}
-                  className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                  aria-label="Close guide"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
+          <div id={panelId} role="region" aria-label="Platform Guide"
+            className="hud-card fixed inset-x-4 top-16 z-[1300] mx-auto max-h-[calc(100dvh-5rem)] max-w-80 overflow-y-auto overscroll-contain md:absolute md:inset-x-auto md:right-0 md:top-12 md:w-80 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150">
+            <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-3.5 py-3">
+              <div>
+                <h3 className="text-xs font-bold text-slate-900">Platform Guide</h3>
+                <p className="mt-0.5 text-[10px] text-slate-500">Find a location. Explore conditions. Share a report.</p>
               </div>
-
-              {/* Quick Feature Guides */}
-              <div className="space-y-2">
-                {/* Assess Risk */}
-                <div className="flex items-start gap-2.5 rounded-xl bg-slate-50/80 p-2.5 ring-1 ring-slate-200/50 transition-colors hover:bg-slate-100/60">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-100/80 text-gakit-maroon">
-                    <MapPin className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-heading text-[11px] font-bold text-slate-900 leading-snug">
-                      Assess Geohazard Risk
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-slate-600">
-                      Tap any point on the map or search an address to view site-level flood, landslide &amp; storm surge exposure.
-                    </p>
-                  </div>
+              <button type="button" onClick={onToggle} aria-label="Close guide"
+                className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-gakit-maroon"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="divide-y divide-slate-100 px-3.5">
+              {[
+                { icon: MapPin, title: 'Check a location', description: 'Search an address or tap the map to see flood, landslide, and storm surge exposure.' },
+                { icon: Waves, title: 'Explore flood estimates', description: 'Enable Flood Simulation in Layers, then use the floating player to explore past and forecast estimates.' },
+                { icon: Megaphone, title: 'Report flooding', description: 'Choose Report Flooding, pin the location, and enter the water depth. Reports are assessed before appearing publicly.' },
+              ].map(({ icon: Icon, title, description }, index) => <div key={title} className="flex items-start gap-2.5 py-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-500"><Icon className="h-3.5 w-3.5" aria-hidden="true" /></span>
+                <div className="min-w-0">
+                  <h4 className="text-[11px] font-semibold text-slate-800"><span className="mr-1.5 text-[9px] tabular-nums text-slate-400">0{index + 1}</span>{title}</h4>
+                  <p className="mt-1 text-[11px] leading-4 text-slate-500">{description}</p>
                 </div>
-
-                {/* Flood Scenarios */}
-                <div className="flex items-start gap-2.5 rounded-xl bg-slate-50/80 p-2.5 ring-1 ring-slate-200/50 transition-colors hover:bg-slate-100/60">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-100/80 text-sky-700">
-                    <Waves className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-heading text-[11px] font-bold text-slate-900 leading-snug">
-                      Simulate Flood Scenarios
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-slate-600">
-                      Replay 24-hr historical typhoons, PAGASA alert thresholds, and UP NOAH benchmark flood simulations.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Community Report */}
-                <div className="flex items-start gap-2.5 rounded-xl bg-slate-50/80 p-2.5 ring-1 ring-slate-200/50 transition-colors hover:bg-slate-100/60">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-100/80 text-amber-800">
-                    <Megaphone className="h-3.5 w-3.5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="font-heading text-[11px] font-bold text-slate-900 leading-snug">
-                      Report Flood Hazards
-                    </div>
-                    <p className="text-[11px] leading-relaxed text-slate-600">
-                      Pin flooded streets and select height references (Ankle to Submerged) to alert responders and the community.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Footer Links */}
-              <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5 text-[11px]">
-                <Link
-                  href="/#about"
-                  onClick={handleAboutClick}
-                  className="font-semibold text-gakit-maroon hover:text-maroon-800 hover:underline transition-colors"
-                >
-                  About Project GAKIT &rarr;
-                </Link>
-                <a
-                  href="mailto:support@gakit.ph"
-                  className="text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  support@gakit.ph
-                </a>
-              </div>
+              </div>)}
+            </div>
+            <div className="space-y-2 border-t border-slate-100 bg-slate-50/60 px-3.5 py-3">
+              <Link href="/#about" onClick={handleAboutClick} className="flex items-center justify-between text-[10px] font-medium text-slate-500 transition-colors hover:text-gakit-maroon focus-visible:outline-gakit-maroon">About Project GAKIT<ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
             </div>
           </div>
         </>

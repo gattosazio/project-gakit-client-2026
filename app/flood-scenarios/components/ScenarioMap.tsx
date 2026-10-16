@@ -5,7 +5,7 @@ import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { LiveRasterController } from '@/lib/map/liveRasterController';
 import {
-  OPENFREEMAP_STYLE,
+  BASEMAP_STYLES,
   SURROGATE_SIMULATION_PLACEHOLDER_DATA_URL,
   AWS_TERRAIN_TILES,
   AWS_TERRAIN_TILE_SIZE,
@@ -32,6 +32,7 @@ import type { ScenarioFrame } from '@/types/scenario';
 let pmtilesProtocolRegistered = false;
 
 interface ScenarioMapProps {
+  scenarioId: string;
   currentFrame?: ScenarioFrame;
   onRasterStateChange?: (state: string | null) => void;
   bounds?: [[number, number], [number, number], [number, number], [number, number]];
@@ -51,27 +52,30 @@ const buildFloodLayer = (renderMode: 'nearest' | 'linear') => ({
   },
 });
 
-export function ScenarioMap({ currentFrame, bounds, onRasterStateChange }: ScenarioMapProps) {
+export function ScenarioMap({ scenarioId, currentFrame, bounds, onRasterStateChange }: ScenarioMapProps) {
   const rasterController = useRef(new LiveRasterController());
+  const displayedScenario = useRef<string | null>(null);
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
   const [mapLoaded, setMapLoaded] = useState(false);
-  const { renderMode, enableTerrain, enableBuildings } = useScenarioDisplay();
+  const { basemap, mode, renderMode, enableBuildings } = useScenarioDisplay();
+  const appliedBasemap = useRef(basemap);
+  const modeRef = useRef(mode);
+  useEffect(() => { modeRef.current = mode; }, [mode]);
 
   const renderModeRef = useRef(renderMode);
   useEffect(() => {
     renderModeRef.current = renderMode;
   }, [renderMode]);
 
-  const enableTerrainRef = useRef(enableTerrain);
+  const enableBuildingsRef = useRef(enableBuildings);
   useEffect(() => {
-    enableTerrainRef.current = enableTerrain;
-  }, [enableTerrain]);
+    enableBuildingsRef.current = enableBuildings;
+  }, [enableBuildings]);
 
-  // Extrusions only when the terrain is actually tilted and the toggle is on;
-  // otherwise the flat footprints stand in, matching the public map's 2D view.
-  const buildingMode: '2d' | '3d' = enableTerrain && enableBuildings ? '3d' : '2d';
+  // The view mode selects flat footprints or extrusions; visibility is separate.
+  const buildingMode = mode;
   // The mount effect below is deliberately dep-free, so it can't read `buildingMode`
   // from a dep array; the ref is seeded once and the swap effect keeps it current.
   const buildingModeRef = useRef(buildingMode);
@@ -102,15 +106,15 @@ export function ScenarioMap({ currentFrame, bounds, onRasterStateChange }: Scena
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: OPENFREEMAP_STYLE,
+      style: BASEMAP_STYLES[appliedBasemap.current],
       center: [ILIGAN_CENTER.lng, ILIGAN_CENTER.lat],
       zoom: 13.8,
-      pitch: 35,
+      pitch: modeRef.current === '3d' ? 35 : 0,
       bearing: -10,
       renderWorldCopies: false,
     });
 
-    map.on('load', () => {
+    map.on('style.load', () => {
       mapRef.current = map;
       setMapLoaded(true);
 
@@ -146,7 +150,7 @@ export function ScenarioMap({ currentFrame, bounds, onRasterStateChange }: Scena
       );
 
       // Set initial 3D terrain elevation
-      if (enableTerrainRef.current) {
+      if (modeRef.current === '3d') {
         map.setTerrain({ source: 'terrain-source', exaggeration: TERRAIN_EXAGGERATION });
       }
       map.setLight(FLAT_EXTRUSION_LIGHT);
@@ -169,6 +173,9 @@ export function ScenarioMap({ currentFrame, bounds, onRasterStateChange }: Scena
         'iligan-buildings-source',
         buildingModeRef.current
       );
+      for (const id of [BUILDING_FOOTPRINT_LAYER_ID, BUILDING_EXTRUSION_LAYER_ID]) {
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', enableBuildingsRef.current ? 'visible' : 'none');
+      }
       if (buildingModeRef.current === '3d') {
         map.setLight(FLAT_EXTRUSION_LIGHT);
       }
@@ -181,10 +188,21 @@ export function ScenarioMap({ currentFrame, bounds, onRasterStateChange }: Scena
     };
   }, []);
 
+  // Recreate project layers and the selected frame after replacing the style.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded || appliedBasemap.current === basemap) return;
+    rasterController.current.cancel();
+    setMapLoaded(false);
+    appliedBasemap.current = basemap;
+    map.setTerrain(null);
+    map.setStyle(BASEMAP_STYLES[basemap], { diff: false });
+  }, [basemap, mapLoaded]);
+
   const imageUrl = currentFrame?.raster_uri;
   const coordinateKey = JSON.stringify(bounds ?? []);
 
-  // Hide old output until the selected immutable image has finished loading.
+  // Keep the last frame visible while decoding the next hour of the same scenario.
   useLayoutEffect(() => {
     const map = mapRef.current;
     const controller = rasterController.current;
@@ -200,13 +218,16 @@ export function ScenarioMap({ currentFrame, bounds, onRasterStateChange }: Scena
     if (!map.getSource('simulation-flood-source')) {
       map.addSource('simulation-flood-source', { type: 'image', url: SURROGATE_SIMULATION_PLACEHOLDER_DATA_URL, coordinates });
       const anchor = [BUILDING_FOOTPRINT_LAYER_ID, BUILDING_EXTRUSION_LAYER_ID].find(id => map.getLayer(id));
-      map.addLayer(buildFloodLayer(renderMode), anchor ?? getFirstBasemapSymbolLayerId(map));
+      map.addLayer(buildFloodLayer(renderModeRef.current), anchor ?? getFirstBasemapSymbolLayerId(map));
     }
     onRasterStateChange?.('Loading flood image');
     controller.show(map, 'simulation-flood-source', 'simulation-flood-layer', url, coordinates,
-      error => onRasterStateChange?.(error?.message ?? null));
+      error => {
+        if (!error) displayedScenario.current = scenarioId;
+        onRasterStateChange?.(error?.message ?? null);
+      }, displayedScenario.current === scenarioId, renderMode === 'linear');
     return () => controller.cancel();
-  }, [imageUrl, coordinateKey, mapLoaded, renderMode, onRasterStateChange]);
+  }, [imageUrl, coordinateKey, mapLoaded, onRasterStateChange, scenarioId, renderMode]);
 
   // Update resampling filter dynamically when renderMode changes
   useEffect(() => {
@@ -220,33 +241,33 @@ export function ScenarioMap({ currentFrame, bounds, onRasterStateChange }: Scena
     const map = mapRef.current;
     if (!map || !mapLoaded || !map.getSource('terrain-source')) return;
 
-    if (enableTerrain) {
+    map.easeTo({ pitch: mode === '3d' ? 35 : 0, duration: 600 });
+    if (mode === '3d') {
       map.setTerrain({ source: 'terrain-source', exaggeration: TERRAIN_EXAGGERATION });
-      map.easeTo({ pitch: 35, duration: 600 });
       if (map.getLayer('terrain-hillshade-layer')) {
         map.setLayoutProperty('terrain-hillshade-layer', 'visibility', 'visible');
       }
     } else {
       map.setTerrain(null);
-      map.easeTo({ pitch: 0, duration: 600 });
       if (map.getLayer('terrain-hillshade-layer')) {
         map.setLayoutProperty('terrain-hillshade-layer', 'visibility', 'none');
       }
     }
-  }, [enableTerrain, mapLoaded]);
+  }, [mode, mapLoaded]);
 
-  // "3D Buildings" drives the extrusions only: switching it off (or flattening
-  // the terrain) swaps in the footprint fill, so the flood extent always keeps
-  // its street-level context.
+  // Turning buildings off hides both flat footprints and extrusions.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded || !map.getSource('iligan-buildings-source')) return;
 
     syncBuildingLayers(map, 'iligan-buildings-source', buildingMode);
+    for (const id of [BUILDING_FOOTPRINT_LAYER_ID, BUILDING_EXTRUSION_LAYER_ID]) {
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', enableBuildings ? 'visible' : 'none');
+    }
     if (buildingMode === '3d') {
       map.setLight(FLAT_EXTRUSION_LIGHT);
     }
-  }, [buildingMode, mapLoaded]);
+  }, [buildingMode, enableBuildings, mapLoaded]);
 
   return (
     <div className="relative w-full h-full min-h-[500px] overflow-hidden rounded-2xl border border-slate-200 shadow-sm bg-slate-100">

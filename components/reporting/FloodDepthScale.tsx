@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   MAX_DEPTH_CM,
   SCENE_CM,
@@ -29,11 +29,13 @@ export function FloodDepthScale({
   preview,
   onSelect,
   onPreview,
+  disabled = false,
 }: {
   value: number | null;
   preview: number | null;
   onSelect: (cm: number) => void;
   onPreview: (cm: number | null) => void;
+  disabled?: boolean;
 }) {
   const shownCm = preview ?? value;
   const overflowing = value != null && value > MAX_DEPTH_CM;
@@ -47,6 +49,9 @@ export function FloodDepthScale({
   const draggingRef = useRef(false);
   const lastEmittedCmRef = useRef<number | null>(null);
   const rafIdRef = useRef<number | null>(null);
+  const trackRectRef = useRef<DOMRect | null>(null);
+  const latestYRef = useRef(0);
+  useEffect(() => () => { if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current); }, []);
   const [pressed, setPressed] = useState(false);
 
   const applyThumb = (cm: number) => {
@@ -54,7 +59,7 @@ export function FloodDepthScale({
   };
 
   const cmFromPointer = (element: HTMLElement, clientY: number) => {
-    const rect = element.getBoundingClientRect();
+    const rect = trackRectRef.current ?? element.getBoundingClientRect();
     const raw = ((rect.bottom - clientY) / rect.height) * MAX_DEPTH_CM;
     return clampCm(Math.ceil(raw / STRIP_CM) * STRIP_CM);
   };
@@ -96,7 +101,8 @@ export function FloodDepthScale({
 
           <div
             role="slider"
-            tabIndex={0}
+            tabIndex={disabled ? -1 : 0}
+            aria-disabled={disabled}
             aria-label="Flood depth in centimeters"
             aria-valuemin={STRIP_CM}
             aria-valuemax={MAX_DEPTH_CM}
@@ -104,6 +110,8 @@ export function FloodDepthScale({
             aria-orientation="vertical"
             className="absolute -inset-x-2 inset-y-0 cursor-pointer touch-none outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
             onPointerDown={(event) => {
+              if (disabled) return;
+              trackRectRef.current = event.currentTarget.getBoundingClientRect();
               event.currentTarget.setPointerCapture(event.pointerId);
               draggingRef.current = true;
               setPressed(true);
@@ -111,24 +119,26 @@ export function FloodDepthScale({
               lastEmittedCmRef.current = next;
               applyThumb(next);
               onPreview(next);
-              onSelect(next);
             }}
             onPointerMove={(event) => {
-              if (!draggingRef.current && !(event.buttons & 1)) return;
+              if (!draggingRef.current || disabled) return;
               const target = event.currentTarget;
-              const clientY = event.clientY;
+              latestYRef.current = event.clientY;
               if (rafIdRef.current !== null) return;
               rafIdRef.current = requestAnimationFrame(() => {
                 rafIdRef.current = null;
-                const next = cmFromPointer(target, clientY);
+                const next = cmFromPointer(target, latestYRef.current);
                 if (next === lastEmittedCmRef.current) return;
                 lastEmittedCmRef.current = next;
                 applyThumb(next);
                 onPreview(next);
-                onSelect(next);
               });
             }}
             onPointerUp={(event) => {
+              if (!draggingRef.current) return;
+              const committed = cmFromPointer(event.currentTarget, event.clientY);
+              draggingRef.current = false;
+              onSelect(committed);
               if (event.currentTarget.hasPointerCapture(event.pointerId)) {
                 event.currentTarget.releasePointerCapture(event.pointerId);
               }
@@ -139,6 +149,7 @@ export function FloodDepthScale({
               draggingRef.current = false;
               lastEmittedCmRef.current = null;
               setPressed(false);
+              trackRectRef.current = null;
               onPreview(null);
             }}
             onPointerCancel={() => {
@@ -149,12 +160,26 @@ export function FloodDepthScale({
               draggingRef.current = false;
               lastEmittedCmRef.current = null;
               setPressed(false);
+              trackRectRef.current = null;
+              applyThumb(value ?? STRIP_CM);
+              onPreview(null);
+            }}
+            onLostPointerCapture={() => {
+              if (!draggingRef.current) return;
+              if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
+              rafIdRef.current = null;
+              draggingRef.current = false;
+              trackRectRef.current = null;
+              setPressed(false);
+              applyThumb(value ?? STRIP_CM);
+              onPreview(null);
             }}
             onPointerLeave={() => {
               if (draggingRef.current) return;
               onPreview(null);
             }}
             onKeyDown={(event) => {
+              if (disabled) return;
               const base = shownCm ?? STRIP_CM;
               if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
                 event.preventDefault();
@@ -179,11 +204,11 @@ export function FloodDepthScale({
             style={{ bottom: thumbBottom }}
           >
             <div
-              className={`flex h-full w-full items-center justify-center rounded-full bg-white ring-1 ring-slate-300 transition-all duration-150 ease-out ${
-                pressed ? 'scale-95 shadow-sm' : 'scale-100 shadow-md'
+              className={`flex h-full w-full items-center justify-center rounded-lg border border-white bg-white ring-1 ring-slate-300 transition-shadow duration-150 ease-out motion-reduce:transition-none ${
+                pressed ? 'shadow-[0_0_0_3px_rgba(123,17,19,0.1)]' : 'shadow-md'
               }`}
             >
-              <div className="h-1 w-3 rounded-full bg-slate-300" />
+              <div className="flex gap-0.5"><span className="h-2 w-0.5 rounded-full bg-slate-400" /><span className="h-2 w-0.5 rounded-full bg-slate-400" /></div>
             </div>
 
             {preview != null && (

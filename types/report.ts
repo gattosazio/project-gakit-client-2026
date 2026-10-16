@@ -20,6 +20,7 @@ export interface ValidationSummary {
 
 export interface Report {
   id: string;
+  reporterType?: 'public' | 'staff';
   location: {
     latitude: number;
     longitude: number;
@@ -128,6 +129,8 @@ export interface CreateReportInput {
 /** Columns the reports table can be sorted by (all match server sort_by values). */
 export type ReportSortColumn =
   | 'createdAt'
+  | 'reporterType'
+  | 'evidenceScore'
   | 'observedAt'
   | 'updatedAt'
   | 'depth'

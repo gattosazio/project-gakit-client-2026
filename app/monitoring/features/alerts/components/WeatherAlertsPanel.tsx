@@ -41,7 +41,7 @@ const SEVERITY_OPTIONS: FilterDropdownOption<Severity | 'all'>[] = [
 ];
 
 const DATE_OPTIONS: FilterDropdownOption<DateRange>[] = [
-  { value: '24h', label: 'Last 24 hours', icon: <Clock className="h-4 w-4 shrink-0" /> },
+  { value: '48h', label: 'Last 48 hours', icon: <Clock className="h-4 w-4 shrink-0" /> },
   { value: '7d', label: 'Last 7 days', icon: <Clock className="h-4 w-4 shrink-0" /> },
   { value: 'all', label: 'All time', icon: <Clock className="h-4 w-4 shrink-0" /> },
 ];
@@ -106,7 +106,7 @@ export function WeatherAlertsPanel({
 }) {
   const [typeFilter, setTypeFilter] = useState<WeatherAlertTypeFilter>('all');
   const [severityFilter, setSeverityFilter] = useState<Severity | 'all'>('all');
-  const [dateFilter, setDateFilter] = useState<DateRange>('24h');
+  const [dateFilter, setDateFilter] = useState<DateRange>('48h');
   const [sortValue, setSortValue] = useState<WeatherSortValue>('sentAt:desc');
   const sort = useMemo(() => parseSort(sortValue), [sortValue]);
 
@@ -143,7 +143,7 @@ export function WeatherAlertsPanel({
           title={view === 'archived' ? 'Nothing archived yet' : 'No matching weather alerts'}
           description={
             view === 'archived'
-              ? 'Dismissed weather alerts and ones read for over a week appear here.'
+              ? 'Archived weather alerts and ones read for over a week appear here.'
               : 'Try another advisory type, severity, or date filter.'
           }
         />
@@ -156,7 +156,7 @@ export function WeatherAlertsPanel({
             value={typeFilter}
             onSelect={setTypeFilter}
           />
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="flex flex-wrap gap-1.5">
             <FilterDropdown
               value={severityFilter}
               onSelect={setSeverityFilter}

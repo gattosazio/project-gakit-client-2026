@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
+  ChevronRight,
   CloudRain,
   AlertTriangle,
   Flame,
@@ -21,7 +22,7 @@ import {
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
 import { alertDescription, alertTitle } from '@/lib/weather/weatherCodes';
 import { isPagasaAlert, pagasaSubtitle, shortTitle } from '@/lib/weather/pagasa';
-import { formatDateTime } from '@/lib/reports/reportFormatting';
+import { formatDateTime, formatReportDepth } from '@/lib/reports/reportFormatting';
 import type { Report } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
 import { MobileSignOutButton } from './SideBar';
@@ -41,6 +42,7 @@ interface HeaderNotification {
   id: string;
   title: string;
   detail: string;
+  context?: string;
   createdAt: string;
   icon: typeof Bell;
   iconClass: string;
@@ -74,6 +76,7 @@ function mapWeatherToHeader(alert: WeatherAlert): HeaderNotification {
     id: `weather-${alert.id}`,
     title: isPagasaAlert(alert) ? shortTitle(alert) || alertTitle(alert) : alertTitle(alert),
     detail: isPagasaAlert(alert) ? pagasaSubtitle(alert) : alertDescription(alert),
+    context: [alert.severity, alert.data?.source || 'Weather advisory'].join(' · '),
     createdAt: alert.createdAt,
     icon: WEATHER_ICONS[alert.alertType] ?? CloudRain,
     iconClass: severityClass,
@@ -93,6 +96,7 @@ function createNotifications(reports: Report[]): HeaderNotification[] {
         id: `flagged-${report.id}`,
         title: 'Report flagged for review',
         detail,
+        context: formatReportDepth(report.depth, report.depthCm),
         createdAt: report.updatedAt,
         icon: ShieldAlert,
         iconClass: 'bg-orange-50 text-orange-700',
@@ -107,6 +111,7 @@ function createNotifications(reports: Report[]): HeaderNotification[] {
         id: `review-${report.id}`,
         title: 'Critical report requires staff review',
         detail,
+        context: formatReportDepth(report.depth, report.depthCm),
         createdAt: report.createdAt,
         icon: AlertTriangle,
         iconClass: 'bg-red-50 text-red-700',
@@ -118,6 +123,7 @@ function createNotifications(reports: Report[]): HeaderNotification[] {
         id: `review-${report.id}`,
         title: 'High flood depth requires review',
         detail,
+        context: formatReportDepth(report.depth, report.depthCm),
         createdAt: report.createdAt,
         icon: AlertTriangle,
         iconClass: 'bg-amber-50 text-amber-700',
@@ -265,7 +271,7 @@ export function AdminHeader({
     return () => window.removeEventListener('mousedown', close);
   }, [isOpen]);
 
-  // Keep `now` current so the "last 24 hours" cutoff in recentNotifications
+  // Keep `now` current so the "last 48 hours" cutoff in recentNotifications
   // stays accurate without calling an impure function during render.
   useEffect(() => {
     let cancelled = false;
@@ -280,10 +286,10 @@ export function AdminHeader({
   }, []);
 
   const recentNotifications = useMemo(() => {
-    // Only show notifications from the last 24 hours, excluding dismissed ones.
+    // Only show notifications from the last 48 hours, excluding dismissed ones.
     // `now` is refreshed on mount and every minute so the cutoff stays current
     // without calling an impure function during render.
-    const cutoff = now - 24 * 60 * 60 * 1000;
+    const cutoff = now - 48 * 60 * 60 * 1000;
     return [...notifications]
       .filter(
         (notification) =>
@@ -326,38 +332,28 @@ export function AdminHeader({
           setIsOpen(false);
           onNotificationClick?.(notification.id);
         }}
-        className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-canvas-light"
+        className="group flex w-full items-start gap-2 px-3 py-2.5 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gakit-maroon"
       >
-        <span className={`rounded-lg p-2 ${notification.iconClass}`}>
-          <NotificationIcon className="h-4 w-4" />
+        <span className={`mt-0.5 shrink-0 rounded-lg p-1.5 ${notification.iconClass}`}>
+          <NotificationIcon className="h-3.5 w-3.5" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="flex items-center gap-2">
-            <span
-              className={`text-sm font-semibold line-clamp-1 ${
-                isRead ? 'text-slate-500' : 'text-slate-800'
-              }`}
-            >
-              {notification.title}
-            </span>
-            {notification.badge && (
-              <span
-                className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${notification.badge.className}`}
-              >
-                {notification.badge.label}
-              </span>
-            )}
+          <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide">
+            <span className="truncate text-slate-500">{notification.badge?.label || 'Flood report'}</span>
+            {!isRead && <span className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-hazard-critical" aria-label="Unread" />}
           </span>
-          <span className="mt-0.5 block text-xs text-slate-500 line-clamp-2 leading-relaxed">
+          <span className="mt-0.5 block text-xs font-semibold leading-4 text-slate-900 line-clamp-2">
+            {notification.title}
+          </span>
+          <span className="mt-0.5 block text-[11px] leading-4 text-slate-600 line-clamp-2">
             {notification.detail}
           </span>
-          <span className="mt-1 block text-xs text-slate-400">
-            {formatDateTime(notification.createdAt)}
+          <span className="mt-1 flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] text-slate-400">
+            {notification.context && <span className="min-w-0 truncate capitalize">{notification.context}</span>}
+            <time dateTime={notification.createdAt} className="shrink-0">{formatDateTime(notification.createdAt)}</time>
           </span>
         </span>
-        {!isRead && (
-          <span className="mt-1.5 h-2 w-2 rounded-full bg-hazard-critical" />
-        )}
+        <ChevronRight className="mt-5 h-3.5 w-3.5 shrink-0 text-slate-300 group-hover:text-gakit-maroon" />
       </button>
     );
   };
@@ -434,26 +430,26 @@ export function AdminHeader({
           </button>
 
           {isOpen && (
-            <div className="fixed inset-x-4 top-16 z-[1300] w-auto overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-3 md:w-[22rem]">
-              <div className="flex items-center justify-between border-b border-canvas-grey px-4 py-3">
-                <div>
-                  <p className="font-semibold text-slate-900">Notifications</p>
-                  <p className="text-xs text-slate-500">Last 24 hours</p>
+            <div className="fixed inset-x-4 top-16 z-[1300] w-auto overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-3 md:w-80">
+              <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-bold text-slate-900">Alerts</p>
+                  <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-500">Last 48 hours</span>
                 </div>
                 {unreadCount > 0 && (
                   <button
                     type="button"
                     onClick={markAllAsRead}
-                    className="text-xs font-semibold text-gakit-maroon hover:underline"
+                    className="text-[10px] font-semibold text-gakit-maroon hover:underline"
                   >
                     Mark all read
                   </button>
                 )}
               </div>
-              <div className="max-h-80 overflow-y-auto">
+              <div className="max-h-[min(24rem,55dvh)] overflow-y-auto overscroll-contain">
                 {recentNotifications.length === 0 ? (
-                  <p className="px-4 py-8 text-center text-sm text-slate-400">
-                    No notifications in the last 24 hours
+                  <p className="px-3 py-5 text-center text-xs text-slate-500">
+                    No notifications in the last 48 hours
                   </p>
                 ) : (
                   <>
@@ -462,7 +458,7 @@ export function AdminHeader({
                         type="button"
                         onClick={() => setTab('unread')}
                         aria-pressed={tab === 'unread'}
-                        className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors ${
+                        className={`flex-1 px-3 py-1.5 text-[11px] font-semibold transition-colors ${
                           tab === 'unread'
                             ? 'border-b-2 border-gakit-maroon text-gakit-maroon'
                             : 'text-slate-500 hover:text-slate-700'
@@ -474,7 +470,7 @@ export function AdminHeader({
                         type="button"
                         onClick={() => setTab('read')}
                         aria-pressed={tab === 'read'}
-                        className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors ${
+                        className={`flex-1 px-3 py-1.5 text-[11px] font-semibold transition-colors ${
                           tab === 'read'
                             ? 'border-b-2 border-gakit-maroon text-gakit-maroon'
                             : 'text-slate-500 hover:text-slate-700'
@@ -485,7 +481,7 @@ export function AdminHeader({
                     </div>
                     {tab === 'unread' ? (
                       unreadNotifications.length === 0 ? (
-                        <p className="px-4 py-8 text-center text-sm text-slate-400">
+                        <p className="px-3 py-5 text-center text-xs text-slate-500">
                           No unread notifications
                         </p>
                       ) : (
@@ -494,7 +490,7 @@ export function AdminHeader({
                         </div>
                       )
                     ) : readNotifications.length === 0 ? (
-                      <p className="px-4 py-8 text-center text-sm text-slate-400">
+                      <p className="px-3 py-5 text-center text-xs text-slate-500">
                         No read notifications
                       </p>
                     ) : (

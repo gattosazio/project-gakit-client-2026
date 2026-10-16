@@ -267,7 +267,7 @@ export function PublicHeader({
 
   return (
     <>
-    <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-5xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
+    <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-6xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
       <div className="flex h-12 md:h-14 items-center justify-between px-3.5 md:px-5">
         {/* Left: Brand Logo & Title */}
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
@@ -277,9 +277,10 @@ export function PublicHeader({
               onClick={() => router.push('/')}
               aria-label="Back to Hazard Map"
               title="Back to Hazard Map"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition-all hover:bg-slate-200 hover:text-gakit-maroon active:scale-95 shrink-0 ring-1 ring-slate-200/80 shadow-xs"
+              className="flex h-10 min-w-10 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-gakit-maroon md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px]"
             >
               <ChevronLeft className="h-4 w-4 stroke-[2.5]" />
+              <span>Back</span>
             </button>
           )}
 
@@ -398,7 +399,7 @@ export function PublicHeader({
         </div>
 
         {/* Mobile top-right cluster */}
-        <div className="flex items-center gap-0.5 sm:gap-1 md:hidden">
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1 md:hidden">
           {extraAction}
           {/* Show bento menu in top header only when bottom nav is absent (e.g. on /flood-scenarios) */}
           {showBentoMenu && !showBottomNav && (
@@ -448,11 +449,12 @@ export function PublicHeader({
               <button
                 type="button"
                 onClick={handleAccountClick}
-                className="flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95"
+                className="flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-gakit-maroon md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px]"
                 title="Login"
                 aria-label="Login"
               >
-                <UserRound className="h-4 w-4 md:h-5 md:w-5" />
+                <UserRound className="h-4 w-4" />
+                <span>Login</span>
               </button>
             )
           )}
@@ -501,7 +503,7 @@ export function PublicHeader({
               <span className="-mt-7 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_8px_20px_-4px_rgba(15,23,42,0.28)] ring-1 ring-slate-200/70">
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white">
                   <Image
-                    src="/images/report-logo.svg"
+                    src="/assets/report-logo.svg"
                     alt="Report flooding"
                     width={32}
                     height={32}

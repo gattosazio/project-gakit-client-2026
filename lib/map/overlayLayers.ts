@@ -1,3 +1,6 @@
+import { applyOverlaySmoothing } from './overlaySmoothing';
+import { registerHazardSmoothingProtocol } from './hazardSmoothingProtocol';
+export { applyOverlaySmoothing } from './overlaySmoothing';
 import { toast } from 'react-toastify';
 import {
   AWS_TERRAIN_ENCODING,
@@ -56,6 +59,7 @@ const registerPmtilesProtocol = async (maplibregl: any) => {
   const pmtiles = await import('pmtiles');
   const protocol = new pmtiles.Protocol();
   maplibregl.addProtocol('pmtiles', protocol.tile);
+  registerHazardSmoothingProtocol(maplibregl, protocol);
   pmtilesProtocolRegistered = true;
 };
 
@@ -85,6 +89,7 @@ export interface OverlayLayerState {
   showTyphoonTrack?: boolean;
   showBarangayBoundaries?: boolean;
   showBuildings?: boolean;
+  smoothPolygons?: boolean;
   visibleRiskLevels: Record<string, boolean>;
   showLandslide: boolean;
   visibleLandslideLevels: Record<string, boolean>;
@@ -99,17 +104,16 @@ export interface OverlayLayerState {
 // (e.g. street names, road labels, place names), ignoring custom overlay layers.
 export { getFirstBasemapSymbolLayerId };
 
-// Toggles visibility for building footprint layer (2D footprints in 2D Base mode, 3D extrusion in 3D Base mode, hidden on Satellite).
+// Building visibility is independent of the basemap; mode selects the geometry.
 export const applyBuildingsVisibility = (
   map: any,
   mode: MapMode,
-  basemap?: BasemapId
+  showBuildings = true
 ) => {
   try {
     if (map?.isStyleLoaded && !map.isStyleLoaded()) return;
-    const isSatellite = basemap === 'satellite';
-    const shouldShow3D = mode === '3d' && !isSatellite;
-    const shouldShow2D = mode === '2d' && !isSatellite;
+    const shouldShow3D = showBuildings && mode === '3d';
+    const shouldShow2D = showBuildings && mode === '2d';
     const firstSymbolLayer = getFirstBasemapSymbolLayerId(map);
 
     if (map?.getLayer && map.getLayer(BUILDING_EXTRUSION_LAYER_ID)) {
@@ -716,8 +720,8 @@ export const setupOverlayLayers = async (
       type: 'geojson',
       data: { type: 'FeatureCollection', features: [] },
       cluster: true,
-      clusterMaxZoom: 14,
-      clusterRadius: 15,
+      clusterMaxZoom: 12,
+      clusterRadius: 10,
       clusterProperties: {
         verified: ['+', ['case', ['==', ['get', 'status'], 'VERIFIED'], 1, 0]],
         unverified: ['+', ['case', ['==', ['get', 'status'], 'UNVERIFIED'], 1, 0]],
@@ -779,9 +783,9 @@ export const setupOverlayLayers = async (
         ],
         'circle-radius': [
           'interpolate', ['linear'], ['get', 'point_count'],
-          2, 11, 5, 12.5, 10, 14, 25, 16, 50, 17,
+          2, 8, 5, 9, 10, 10, 25, 11, 50, 12,
         ],
-        'circle-stroke-width': 2.5,
+        'circle-stroke-width': 1.5,
         'circle-stroke-color': '#ffffff',
         'circle-stroke-opacity': 0.9,
       },
@@ -794,7 +798,7 @@ export const setupOverlayLayers = async (
       filter: ['has', 'point_count'],
       layout: {
         'text-field': '{point_count_abbreviated}',
-        'text-size': 13,
+        'text-size': 10,
         'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
       },
       paint: { 'text-color': '#ffffff' },
@@ -1024,9 +1028,8 @@ export const setupOverlayLayers = async (
     });
   }
 
-  const isSatellite = state.basemap === 'satellite';
-  const shouldShowBuildings3D = state.mapMode === '3d' && !isSatellite;
-  const shouldShowBuildings2D = state.mapMode === '2d' && !isSatellite;
+  const shouldShowBuildings3D = state.showBuildings !== false && state.mapMode === '3d';
+  const shouldShowBuildings2D = state.showBuildings !== false && state.mapMode === '2d';
   const firstSymbolLayer = getFirstBasemapSymbolLayerId(map);
 
   // 2D building footprints for 2D view on Base (Positron) map, inserted beneath basemap text labels
@@ -1054,7 +1057,7 @@ export const setupOverlayLayers = async (
   }
 
   // Keep visibility in sync when basemap/mode changes
-  applyBuildingsVisibility(map, state.mapMode, state.basemap);
+  applyBuildingsVisibility(map, state.mapMode, state.showBuildings);
 
 // Guarantee layer stacking order:
   // Base -> Buildings (under labels) -> Basemap Labels -> Himawari Satellite -> Flood Hazard -> Rainfall Grid -> Barangay -> PAR -> Typhoon Cone -> Typhoon Track -> Typhoon Points -> Report Pins
@@ -1142,4 +1145,5 @@ export const setupOverlayLayers = async (
   } else {
     startClusterPulse(map);
   }
+  applyOverlaySmoothing(map, state.smoothPolygons !== false);
 };

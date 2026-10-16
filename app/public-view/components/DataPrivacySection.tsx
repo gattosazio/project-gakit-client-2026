@@ -1,3 +1,4 @@
+import Image from 'next/image';
 import { AlertTriangle, Database, ExternalLink, ShieldCheck } from 'lucide-react';
 
 export function DataPrivacySection() {
@@ -106,6 +107,7 @@ export function DataPrivacySection() {
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3">
           <div className="border-b border-slate-100 p-6 sm:border-r lg:p-7">
+            <Image src="/images/pagasa-logo.png" alt="DOST-PAGASA logo" width={96} height={64} className="mb-3 h-10 w-20 object-contain object-left" />
             <div className="flex items-center justify-between gap-2">
               <a href="https://www.panahon.gov.ph" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
                 DOST-PAGASA (PANaHON)
@@ -113,19 +115,21 @@ export function DataPrivacySection() {
               </a>
               <span className="shrink-0 rounded-full bg-rose-50 px-2 py-0.5 font-heading text-[10px] font-bold tracking-wide text-gakit-maroon ring-1 ring-rose-200/60">Public Domain</span>
             </div>
-            <p className="mt-2 text-[13px] leading-6 text-slate-600">Official cyclone bulletins, severe weather advisories, and rainfall warnings (RA 8293 §176).</p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-600">Official cyclone bulletins, rainfall warnings, and regional weather advisories used to display current weather hazards and their affected areas.</p>
           </div>
           <div className="border-b border-slate-100 p-6 lg:border-r lg:p-7">
+            <Image src="/images/open-meteo-logo.png" alt="Open-Meteo logo" width={96} height={64} className="mb-3 h-10 w-20 object-contain object-left" />
             <div className="flex items-center justify-between gap-2">
-              <a href="https://open-meteo.com/en/docs/ecmwf-api" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
-                ECMWF (IFS HRES 9km)
+              <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
+                Open-Meteo
                 <ExternalLink className="h-3 w-3 text-slate-400 group-hover/link:text-gakit-maroon" />
               </a>
               <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 font-heading text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">Weather</span>
             </div>
-            <p className="mt-2 text-[13px] leading-6 text-slate-600">9 km global NWP with hourly precipitation, wind and temperature via Open-Meteo.</p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-600">Current conditions and forecasts for temperature, wind, and rainfall, with forecast rainfall filling gaps when JAXA nowcast intervals are unavailable.</p>
           </div>
           <div className="border-b border-slate-100 p-6 sm:border-r lg:border-r-0 lg:p-7">
+            <Image src="/images/noah_logo.png" alt="Project NOAH logo" width={96} height={64} className="mb-3 h-10 w-20 object-contain object-left" />
             <div className="flex items-center justify-between gap-2">
               <a href="https://noah.upd.edu.ph" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
                 Project NOAH (UP RI)
@@ -133,9 +137,10 @@ export function DataPrivacySection() {
               </a>
               <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 font-heading text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">Geohazards</span>
             </div>
-            <p className="mt-2 text-[13px] leading-6 text-slate-600">Flood hazard, landslide susceptibility, and storm surge inundation hazard maps (SSA #1–#4) for Iligan City and Lanao del Norte.</p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-600">Flood hazard, landslide susceptibility, and storm surge maps used to assess location exposure across Iligan City and the surrounding areas.</p>
           </div>
           <div className="border-b border-slate-100 p-6 sm:border-b-0 sm:border-r lg:border-b-0 lg:border-r lg:p-7">
+            <Image src="/images/japan_meteorological_agency_logo.jpg" alt="Japan Meteorological Agency logo" width={96} height={64} className="mb-3 h-10 w-20 object-contain object-left" />
             <div className="flex items-center justify-between gap-2">
               <a href="https://www.jma.go.jp/jma/indexe.html" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
                 JMA Himawari-9
@@ -143,9 +148,10 @@ export function DataPrivacySection() {
               </a>
               <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 font-heading text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">Satellite</span>
             </div>
-            <p className="mt-2 text-[13px] leading-6 text-slate-600">10-minute infrared / Band-13 geostationary cloud radiance and storm monitoring.</p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-600">Infrared satellite imagery at 10-minute intervals, used to monitor cloud cover, storm systems, and developing weather conditions across the Philippines.</p>
           </div>
           <div className="border-b border-slate-100 p-6 sm:border-b-0 lg:border-b-0 lg:border-r lg:p-7">
+            <Image src="/images/jaxa-logo.png" alt="JAXA logo" width={96} height={64} className="mb-3 h-10 w-20 object-contain object-left" />
             <div className="flex items-center justify-between gap-2">
               <a href="https://sharaku.eorc.jaxa.jp/GSMaP/" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
                 JAXA GSMaP
@@ -153,9 +159,10 @@ export function DataPrivacySection() {
               </a>
               <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 font-heading text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">Precipitation</span>
             </div>
-            <p className="mt-2 text-[13px] leading-6 text-slate-600">Global Satellite Mapping of Precipitation with hourly spaceborne rainfall estimates.</p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-600">Hourly satellite rainfall observations and short-range rainfall nowcasts used to calculate rainfall accumulation and generate live flood inundation estimates.</p>
           </div>
           <div className="p-6 lg:p-7">
+            <Image src="/images/DREAM-Logo.png" alt="UP DREAM logo" width={96} height={64} className="mb-3 h-10 w-20 object-contain object-left" />
             <div className="flex items-center justify-between gap-2">
               <a href="https://dream.upd.edu.ph" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
                 UP DREAM LiDAR
@@ -163,7 +170,7 @@ export function DataPrivacySection() {
               </a>
               <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 font-heading text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">Elevation</span>
             </div>
-            <p className="mt-2 text-[13px] leading-6 text-slate-600">10m high-resolution airborne LiDAR Digital Terrain Model used for precise hydrodynamic floodplain modeling.</p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-600">High-resolution 10m LiDAR terrain data used to represent ground elevation, drainage patterns, and floodplain features in the platform’s flood simulation model.</p>
           </div>
         </div>
       </div>

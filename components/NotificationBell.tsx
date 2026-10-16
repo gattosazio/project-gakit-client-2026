@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bell, CloudRain, X } from 'lucide-react';
+import { Bell, ChevronRight, CloudRain, MapPin, X } from 'lucide-react';
 import type { WeatherAlert, AlertSeverity, AlertType, WeatherAlertData } from '@/types/weather';
 import { ALERT_ICONS, ALERT_TYPE_LABELS } from '@/lib/weather/alertLabels';
 
@@ -92,7 +92,7 @@ export function NotificationBell({
 
   const buttonClassName =
     variant === 'header'
-      ? `relative flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 ${
+      ? `relative flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px] ${
           open
             ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80 font-bold'
             : ''
@@ -106,7 +106,7 @@ export function NotificationBell({
         : 'relative flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl active:scale-95 md:backdrop-blur';
 
   const iconClassName =
-    variant === 'mobile-nav' ? 'h-5 w-5' : 'h-4 w-4 md:h-5 md:w-5';
+    variant === 'mobile-nav' ? 'h-5 w-5' : 'h-4 w-4';
 
   return (
     <div className={`relative ${className}`}>
@@ -122,6 +122,7 @@ export function NotificationBell({
         aria-label="Notifications"
       >
         <Bell className={`${iconClassName} ${open ? 'text-gakit-maroon' : variant === 'header' ? 'text-slate-600' : 'text-slate-500'}`} />
+        {variant === 'header' && <span>Alerts</span>}
         {count > 0 && (
           <span
             className={`absolute flex h-3.5 min-w-[14px] md:h-4 md:min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 md:px-1 text-[9px] md:text-[10px] font-bold text-white shadow-sm ${
@@ -152,12 +153,12 @@ export function NotificationBell({
           }`}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
-            <div>
-              <p className="text-sm font-semibold text-slate-900">Notifications</p>
-              <p className="text-xs text-slate-500">
-                {total > 0 ? `${total} active alert${total !== 1 ? 's' : ''}` : 'No alerts'}
-              </p>
+          <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-bold text-slate-900">Alerts</p>
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+                {total} active
+              </span>
             </div>
             <button
               onClick={() => setOpen(false)}
@@ -175,7 +176,7 @@ export function NotificationBell({
                 type="button"
                 onClick={() => setTab('unread')}
                 aria-pressed={tab === 'unread'}
-                className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-[11px] font-semibold transition-colors ${
                   tab === 'unread'
                     ? 'border-b-2 border-gakit-maroon text-gakit-maroon'
                     : 'text-slate-500 hover:text-slate-700'
@@ -187,7 +188,7 @@ export function NotificationBell({
                 type="button"
                 onClick={() => setTab('read')}
                 aria-pressed={tab === 'read'}
-                className={`flex-1 px-4 py-2.5 text-xs font-semibold transition-colors ${
+                className={`flex-1 px-3 py-1.5 text-[11px] font-semibold transition-colors ${
                   tab === 'read'
                     ? 'border-b-2 border-gakit-maroon text-gakit-maroon'
                     : 'text-slate-500 hover:text-slate-700'
@@ -200,19 +201,25 @@ export function NotificationBell({
 
           {/* List */}
           {total === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-400">
+            <div className="px-3 py-5 text-center text-xs text-slate-500">
               No notifications
             </div>
           ) : activeList.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-slate-400">
+            <div className="px-3 py-5 text-center text-xs text-slate-500">
               {tab === 'unread' ? 'No unread notifications' : 'No read notifications'}
             </div>
           ) : (
-            <div className="max-h-80 divide-y divide-slate-100 overflow-y-auto">
+            <div className="max-h-[min(24rem,55dvh)] divide-y divide-slate-100 overflow-y-auto overscroll-contain">
               {activeList.map((item) => {
                 const config = SEVERITY_CONFIG[item.severity];
                 const Icon = item.alertType ? (ALERT_ICONS[item.alertType] ?? CloudRain) : Bell;
                 const typeLabel = item.alertType ? ALERT_TYPE_LABELS[item.alertType] : '';
+                const issued = new Date(item.sentAt);
+                const timestamp = Number.isNaN(issued.getTime()) ? '' : issued.toLocaleString('en-PH', {
+                  timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+                });
+                const areas = item.data?.affectedAreas?.filter(Boolean) ?? [];
+                const summary = item.subtitle?.trim() || item.data?.description?.trim();
                 return (
                   <button
                     key={item.id}
@@ -232,30 +239,35 @@ export function NotificationBell({
                       }
                       setOpen(false);
                     }}
-                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-slate-50"
+                    className="group flex w-full items-start gap-2 px-3 py-2.5 text-left transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gakit-maroon"
                   >
-                    <span className={`rounded-lg p-2 ${config.bg}`}>
-                      <Icon className={`h-4 w-4 ${config.icon}`} />
+                    <span className={`mt-0.5 shrink-0 rounded-lg p-1.5 ${config.bg}`}>
+                      <Icon className={`h-3.5 w-3.5 ${config.icon}`} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-slate-800 line-clamp-1">
-                          {item.title}
+                      <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide">
+                        <span className={config.text}>{item.severity}</span>
+                        {typeLabel && <span className="truncate text-slate-500">· {typeLabel}</span>}
+                        {!item.read && <span className={`ml-auto h-1.5 w-1.5 shrink-0 rounded-full ${config.dot}`} aria-label="Unread" />}
+                      </span>
+                      <span className="mt-0.5 block text-xs font-semibold leading-4 text-slate-900 line-clamp-2">
+                        {item.title}
+                      </span>
+                      {summary && summary !== item.title && (
+                        <span className="mt-0.5 block text-[11px] leading-4 text-slate-600 line-clamp-2">{summary}</span>
+                      )}
+                      {areas.length > 0 && (
+                        <span className="mt-1 flex items-center gap-1 text-[10px] text-slate-500">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{areas.join(', ')}</span>
                         </span>
-                        {typeLabel && (
-                          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${config.bg} ${config.text}`}>
-                            {typeLabel}
-                          </span>
-                        )}
-                      </span>
-                      <span className="mt-0.5 block text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                        {item.subtitle}
-                      </span>
-                      <span className="mt-1 block text-xs text-slate-400">
-                        {new Date(item.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      )}
+                      <span className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                        <span className="truncate">{item.data?.source || 'Weather advisory'}</span>
+                        <time dateTime={Number.isNaN(issued.getTime()) ? undefined : item.sentAt} className="shrink-0">{timestamp}</time>
                       </span>
                     </span>
-                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${config.dot}`} />
+                    <ChevronRight className="mt-5 h-3.5 w-3.5 shrink-0 text-slate-300 transition-colors group-hover:text-gakit-maroon" />
                   </button>
                 );
               })}

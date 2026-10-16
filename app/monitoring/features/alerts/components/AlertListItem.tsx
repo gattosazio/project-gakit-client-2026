@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { CheckCircle2, Eye, RotateCcw, XCircle } from 'lucide-react';
+import { Archive, CheckCircle2, RotateCcw } from 'lucide-react';
 import { DEPTH_LABELS, formatDateTime } from '@/lib/reports/reportFormatting';
 import type { Notification } from '@/lib/notifications';
 import type { AlertsView } from '@/lib/notifications/filters';
@@ -68,7 +68,7 @@ export const AlertListItem = memo(function AlertListItem({
           handleView();
         }
       }}
-      className={`flex cursor-pointer gap-3 p-4 active:bg-canvas-light ${
+      className={`flex cursor-pointer gap-2 px-3 py-2.5 active:bg-canvas-light ${
         highlighted ? 'bg-maroon-100/80' : 'hover:bg-canvas-light/60'
       } transition-colors duration-200`}
     >
@@ -84,16 +84,18 @@ export const AlertListItem = memo(function AlertListItem({
           )}
         </div>
         <p
-          className={`mt-2.5 font-semibold ${isRead ? 'text-slate-500' : 'text-slate-900'}`}
+          className={`mt-1 text-[13px] font-semibold leading-5 ${isRead ? 'text-slate-500' : 'text-slate-900'}`}
         >
           {notification.title}
         </p>
-        <p className="mt-1 truncate text-sm text-slate-600">{notification.location}</p>
-        <p className="mt-1.5 text-xs text-slate-400">{metaLine}</p>
+        <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[11px] leading-4">
+          <p className="min-w-0 truncate text-slate-600" title={notification.location}>{notification.location}</p>
+          <p className="text-slate-400">{metaLine}</p>
+        </div>
       </div>
 
       <div
-        className="flex shrink-0 flex-col items-start gap-1"
+        className="flex shrink-0 items-start gap-1"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={(e) => e.stopPropagation()}
       >
@@ -102,41 +104,32 @@ export const AlertListItem = memo(function AlertListItem({
             type="button"
             aria-label={`Restore ${notification.title} to active`}
             onClick={() => onRestore(notification.id)}
-            className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
+            className="inline-flex rounded-md border border-canvas-grey p-1.5 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
             title="Restore to active"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-3.5 w-3.5" />
           </button>
         ) : (
           <>
-            <button
-              type="button"
-              aria-label={`View ${notification.title}`}
-              onClick={handleView}
-              className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
-              title="View"
-            >
-              <Eye className="h-4 w-4" />
-            </button>
             {!isRead && (
               <button
                 type="button"
                 aria-label={`Mark ${notification.title} as read`}
                 onClick={() => onMarkRead(notification.id)}
-                className="inline-flex rounded-lg border border-canvas-grey p-2 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
+                className="inline-flex rounded-md border border-canvas-grey p-1.5 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
                 title="Mark as read"
               >
-                <CheckCircle2 className="h-4 w-4" />
+                <CheckCircle2 className="h-3.5 w-3.5" />
               </button>
             )}
             <button
               type="button"
-              aria-label={`Dismiss ${notification.title}`}
+              aria-label={`Archive ${notification.title}`}
               onClick={() => onDismiss(notification.id)}
-              className="inline-flex rounded-lg border border-canvas-grey p-2 text-red-600 hover:border-red-200 hover:bg-red-50"
-              title="Dismiss"
+              className="inline-flex rounded-md border border-canvas-grey p-1.5 text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
+              title="Archive"
             >
-              <XCircle className="h-4 w-4" />
+              <Archive className="h-3.5 w-3.5" />
             </button>
           </>
         )}

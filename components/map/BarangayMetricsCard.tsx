@@ -8,7 +8,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { HelpCircle, MapPinned, X } from 'lucide-react';
+import { MapPinned, X } from 'lucide-react';
 import type { HoveredBarangay } from '@/hooks/useMapPopups';
 import { nearestPointOnRings, outerRings } from '@/lib/map/mapGeometry';
 import {
@@ -17,19 +17,8 @@ import {
   type BarangayStats,
 } from '@/lib/map/barangayStats';
 import { DEPTH_BAR_COLOR, DEPTH_LABELS } from '@/lib/reports/reportFormatting';
-import type { FloodDepthCode } from '@/types/report';
-
-const DEPTH_ORDER: readonly FloodDepthCode[] = [
-  'ankle',
-  'knee',
-  'waist',
-  'shoulder',
-  'head',
-  'overhead',
-];
-
 // Banner hues track report validation state, not water level, so they never
-// collide with the DEPTH_BAR_COLOR chips rendered directly below them.
+// collide with the reported water-depth accent.
 const BANNER_STYLE: Record<BarangayBannerKind, { badge: string; label: string }> = {
   none: { badge: 'bg-slate-100 text-slate-600 ring-slate-200', label: 'text-slate-600' },
   pending: { badge: 'bg-slate-50 text-slate-700 ring-slate-200', label: 'text-slate-700' },
@@ -46,20 +35,10 @@ interface BarangayMetricsCardProps {
   mapRef: MutableRefObject<any>;
   containerRef: MutableRefObject<HTMLDivElement | null>;
   onClose: () => void;
+  alignToTop?: boolean;
 }
 
-/**
- * Floating annotation shown while a barangay polygon is hovered.
- *
- * Decision-first summary: a status banner (no flooding / pending review /
- * flooding / head-deep or worse), the worst recorded depth, recency via
- * timeAgo, a depth-distribution chip row in the shared depth color scale, and
- * an honest footnote that counts reflect the map's current window/status
- * filters. Numbers come from the same aggregation that tints the choropleth.
- *
- * Mobile collapses to a tiny corner pill that expands on tap. A dashed cyan
- * leader line tracks the nearest polygon edge live.
- */
+/** Compact summary of reports within the active map filters. */
 export function BarangayMetricsCard({
   barangay,
   stats,
@@ -69,6 +48,7 @@ export function BarangayMetricsCard({
   mapRef,
   containerRef,
   onClose,
+  alignToTop = false,
 }: BarangayMetricsCardProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const mobileItemRef = useRef<HTMLElement | null>(null);
@@ -160,105 +140,36 @@ export function BarangayMetricsCard({
   );
 
   const bannerStyle = BANNER_STYLE[banner];
-  const [showLegend, setShowLegend] = useState(false);
-  const depthCounts = stats?.depthCounts ?? {};
-  const shownDepths = DEPTH_ORDER.filter((code) => (depthCounts[code] ?? 0) > 0);
-
   const body = (
     <>
-      <div className="mt-1.5">
-        <div
-          className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ring-1 ${bannerStyle.badge}`}
-        >
-          {BARANGAY_BANNER_COPY[banner]}
+      <div className={`mt-1 rounded-md px-2 py-1 text-[10px] font-semibold ${bannerStyle.badge}`}>
+        {BARANGAY_BANNER_COPY[banner]}
+      </div>
+
+      <dl className="mt-2 grid grid-cols-[0.7fr_1.3fr] gap-2 rounded-lg bg-slate-50 px-2 py-1.5">
+        <div>
+          <dt className="text-[9px] font-medium text-slate-500">Reports</dt>
+          <dd className="mt-0.5 text-base font-bold leading-5 tabular-nums text-slate-900">{stats?.total ?? 0}</dd>
         </div>
-      </div>
+        <div className="border-l border-slate-200 pl-2">
+          <dt className="text-[9px] font-medium text-slate-500">Deepest reported</dt>
+          <dd className="mt-0.5 text-[11px] font-bold leading-5" style={{ color: stats?.worstDepth ? DEPTH_BAR_COLOR[stats.worstDepth] : undefined }}>
+            {stats?.worstDepth ? DEPTH_LABELS[stats.worstDepth] : '—'}
+          </dd>
+        </div>
+      </dl>
 
-      <div className="mt-2 divide-y divide-slate-200/70 overflow-hidden rounded-xl border border-slate-200/70 bg-slate-50/80">
-        <SummaryRow
-          label="Reports"
-          value={String(stats?.total ?? 0)}
-          hint="filed here by residents"
-        />
-        <SummaryRow
-          label="Worst flood"
-          value={stats?.worstDepth ? DEPTH_LABELS[stats.worstDepth] : '—'}
-          hint="deepest recorded"
-          accent={
-            stats?.worstDepth
-              ? { color: DEPTH_BAR_COLOR[stats.worstDepth] }
-              : undefined
-          }
-        />
-        <SummaryRow
-          label="Newest"
-          value={ageLabel ?? '—'}
-          hint="most recent report"
-        />
-      </div>
-
-      {shownDepths.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1" aria-label="Reports by water depth">
-          {shownDepths.map((code) => (
-            <span
-              key={code}
-              className="rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white"
-              style={{ backgroundColor: DEPTH_BAR_COLOR[code] }}
-              title={`${depthCounts[code]} report(s) at ${DEPTH_LABELS[code]}`}
-            >
-              {depthCounts[code]} {DEPTH_LABELS[code].split(' ')[0].toLowerCase()}
-            </span>
-          ))}
+      {Boolean(stats?.total) && (
+        <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-slate-600">
+          {Boolean(stats?.verified) && <span>{stats?.verified} verified</span>}
+          {Boolean(stats?.unverified) && <span>{stats?.unverified} pending</span>}
+          {Boolean(stats?.flagged) && <span>{stats?.flagged} flagged</span>}
         </div>
       )}
-
-      <div className="mt-2 flex items-center gap-2 text-[9px] text-slate-400">
-        <span className="flex-1">
-          {stats?.verified ?? 0} verified · {stats?.unverified ?? 0} pending
-        </span>
-        <button
-          type="button"
-          onClick={() => setShowLegend((open) => !open)}
-          aria-expanded={showLegend}
-          className="flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 font-semibold text-slate-500 underline underline-offset-2 transition-colors hover:text-gakit-maroon"
-        >
-          <HelpCircle className="h-3 w-3" />
-          Meaning
-        </button>
+      <div className="mt-1.5 border-t border-slate-100 pt-1.5 text-[9px] leading-4 text-slate-500">
+        {ageLabel && <p>Latest report {ageLabel}</p>}
+        <p>Visible reports · {windowLabel}</p>
       </div>
-
-      {showLegend && (
-        <dl className="mt-1.5 space-y-1 rounded-lg border border-slate-200/70 bg-white/70 px-2 py-1.5 text-[9px] leading-tight text-slate-500">
-          <div className="flex gap-1.5">
-            <dt className="shrink-0 font-bold text-slate-600">Reports</dt>
-            <dd>how many residents filed a report in this barangay</dd>
-          </div>
-          <div className="flex gap-1.5">
-            <dt className="shrink-0 font-bold text-slate-600">Worst flood</dt>
-            <dd>the deepest water level recorded here so far</dd>
-          </div>
-          <div className="flex gap-1.5">
-            <dt className="shrink-0 font-bold text-slate-600">Newest</dt>
-            <dd>how long ago the most recent report came in</dd>
-          </div>
-          <div className="flex gap-1.5">
-            <dt className="shrink-0 font-bold text-slate-600">Colour chips</dt>
-            <dd>how many reports fall at each water depth — colour shows depth, not whether the report was checked</dd>
-          </div>
-          <div className="flex gap-1.5">
-            <dt className="shrink-0 font-bold text-slate-600">Verified</dt>
-            <dd>staff have confirmed the report is accurate</dd>
-          </div>
-          <div className="flex gap-1.5">
-            <dt className="shrink-0 font-bold text-slate-600">Pending</dt>
-            <dd>submitted but not yet reviewed by staff</dd>
-          </div>
-          <div className="border-t border-slate-200/70 pt-1">
-            Counts only include reports within the {windowLabel} and the status
-            filters currently switched on in the map.
-          </div>
-        </dl>
-      )}
     </>
   );
 
@@ -304,7 +215,7 @@ export function BarangayMetricsCard({
           ref={(el) => {
             mobileItemRef.current = el;
           }}
-          className="hud-card absolute top-2 right-2 z-[910] w-44 overflow-hidden md:hidden"
+          className="hud-card absolute top-2 right-2 z-[910] w-52 overflow-hidden md:hidden"
           role="status"
           aria-live="polite"
         >
@@ -317,48 +228,15 @@ export function BarangayMetricsCard({
 
       <div
         ref={cardRef}
-        className="hud-card absolute top-16 right-2 w-56 overflow-hidden sm:top-20 sm:right-3 md:right-6 max-md:hidden"
+        className={`hud-card absolute right-2 w-56 overflow-hidden sm:right-3 md:right-6 max-md:hidden ${alignToTop ? 'top-4' : 'top-16 sm:top-20'}`}
         role="status"
         aria-live="polite"
       >
         <div className="flex items-center justify-between gap-3 px-2.5 pt-1.5 pb-0.5 text-[11px] font-bold text-slate-900">
           {header}
         </div>
-        <div className="px-3 pb-3 pt-1">{body}</div>
+        <div className="px-2.5 pb-2.5 pt-0.5">{body}</div>
       </div>
     </>
-  );
-}
-
-function SummaryRow({
-  label,
-  value,
-  hint,
-  accent,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  accent?: { color: string };
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2 px-3 py-1">
-      <span className="min-w-0">
-        <span className="block text-[9px] font-medium uppercase tracking-wide text-slate-400">
-          {label}
-        </span>
-        {hint && (
-          <span className="block truncate text-[9px] leading-tight text-slate-400">
-            {hint}
-          </span>
-        )}
-      </span>
-      <span
-        className={`text-xs font-bold tabular-nums leading-tight ${accent ? '' : 'text-slate-900'}`}
-        style={accent}
-      >
-        {value}
-      </span>
-    </div>
   );
 }

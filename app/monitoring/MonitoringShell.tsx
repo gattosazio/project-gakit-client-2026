@@ -8,7 +8,7 @@ import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import type { WeatherAlert } from '@/types/weather';
 import type { ReportStatus } from '@/types/report';
-import { DashboardOverview } from './features/dashboard/DashboardOverview';
+import { DashboardOverview, type DashboardReviewOptions } from './features/dashboard/DashboardOverview';
 import { monitoringFeatureMap, monitoringFeatures, type MonitoringFeatureId } from './features/monitoringFeatureConfig';
 import { TabLoading } from '@/components/ui/TabLoading';
 import type { AuthSnapshot } from '@/lib/auth/roles';
@@ -120,7 +120,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     });
   };
 
-  const handleReviewReports = (options?: { status?: ReportStatus; reportId?: string }) => {
+  const handleReviewReports = (options?: DashboardReviewOptions) => {
     setActiveTab('reports');
     setHighlightedReportId(options?.reportId ?? null);
     setHighlightedNotificationId(null);
@@ -128,7 +128,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
       params.delete('notification');
       if (options?.status) params.set('status', options.status);
       else params.delete('status');
-      params.set('time', '24h');
+      params.set('time', options?.time ?? '24h');
     });
   };
 
@@ -169,7 +169,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           showTopo
           onNotificationClick={handleOpenNotification}
         />
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20 md:px-7 md:py-6 lg:px-8 lg:pb-8 space-y-6">
+        <main className={`flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20 md:px-7 lg:px-8 space-y-6 ${activeTab === 'dashboard' ? 'md:py-4 lg:pb-4' : 'md:py-6 lg:pb-8'}`}>
           <div className={activeTab === 'dashboard' ? 'min-w-0 space-y-4' : 'hidden'}>
             <DashboardOverview active={activeTab === 'dashboard'} onReviewReports={handleReviewReports} />
           </div>

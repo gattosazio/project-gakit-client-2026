@@ -161,14 +161,14 @@ export function AlertsPanel({
   );
 
   const groupButtonClass =
-    'flex w-full items-center gap-2 bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700';
+    'flex w-full items-center gap-1.5 bg-canvas-light px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700';
 
   return (
     <section
       aria-label={title}
       className="min-w-0 self-start overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm"
     >
-      <header className="space-y-3 border-b border-canvas-grey p-4">
+      <header className="space-y-2 border-b border-canvas-grey p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="flex items-center gap-2 font-bold text-slate-900">
@@ -177,7 +177,7 @@ export function AlertsPanel({
               </span>
               <span className="truncate">{title}</span>
             </h3>
-            <p className="mt-1 text-sm text-slate-500" aria-live="polite">
+            <p className="mt-0.5 text-xs text-slate-500" aria-live="polite">
               {loading
                 ? 'Loading…'
                 : error
@@ -227,7 +227,7 @@ export function AlertsPanel({
                   (pagedUnread.length > 0 ? (
                     pagedUnread.map((n) => renderRow(n, false))
                   ) : (
-                    <p className="px-4 py-4 text-sm text-slate-400">
+                    <p className="px-3 py-2 text-xs text-slate-400">
                       No unread notifications.
                     </p>
                   ))}

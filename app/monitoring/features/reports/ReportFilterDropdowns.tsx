@@ -28,6 +28,7 @@ export function StatusFilterDropdown({
 
   return (
     <FilterDropdown
+      size="sm"
       value={value}
       onSelect={onChange}
       options={options}
@@ -57,6 +58,7 @@ export function DepthsFilterDropdown({
 
   return (
     <FilterDropdown
+      size="sm"
       value={value}
       onSelect={onChange}
       options={options}
@@ -81,6 +83,7 @@ export function TimeFilterDropdown({
 
   return (
     <FilterDropdown
+      size="sm"
       value={value}
       onSelect={onChange}
       options={options}

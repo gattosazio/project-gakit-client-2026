@@ -100,6 +100,16 @@ describe('filterByDateRange', () => {
     expect(filterByDateRange(items, '24h', NOW).map((n) => n.id)).toEqual(['fresh']);
   });
 
+  it('includes 25-hour-old alerts and the exact 48-hour boundary, excluding older alerts', () => {
+    const cutoff = NOW.getTime() - 48 * 60 * 60 * 1000;
+    const input = [
+      ...items,
+      makeNotification({ id: 'boundary', sentAt: new Date(cutoff).toISOString() }),
+      makeNotification({ id: 'older', sentAt: new Date(cutoff - 1).toISOString() }),
+    ];
+    expect(filterByDateRange(input, '48h', NOW).map((n) => n.id)).toEqual(['fresh', 'stale', 'boundary']);
+  });
+
   it('keeps both items for 7d', () => {
     expect(filterByDateRange(items, '7d', NOW).map((n) => n.id)).toEqual(['fresh', 'stale']);
   });

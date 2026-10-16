@@ -1,14 +1,17 @@
 import { useSyncExternalStore } from 'react';
+import type { BasemapId } from '@/constants/publicMap';
 
 export interface ScenarioDisplaySettings {
+  basemap: BasemapId;
+  mode: '2d' | '3d';
   renderMode: 'nearest' | 'linear';
-  enableTerrain: boolean;
   enableBuildings: boolean;
 }
 
 const DEFAULT_SETTINGS: ScenarioDisplaySettings = {
+  basemap: 'light',
+  mode: '3d',
   renderMode: 'linear',
-  enableTerrain: true,
   enableBuildings: true,
 };
 
@@ -43,10 +46,14 @@ export const scenarioDisplayStore = {
     currentSettings = { ...currentSettings, renderMode: mode };
     notify();
   },
-  setEnableTerrain(updater: boolean | ((prev: boolean) => boolean)): void {
-    const next = typeof updater === 'function' ? updater(currentSettings.enableTerrain) : updater;
-    if (currentSettings.enableTerrain === next) return;
-    currentSettings = { ...currentSettings, enableTerrain: next };
+  setBasemap(basemap: BasemapId): void {
+    if (currentSettings.basemap === basemap) return;
+    currentSettings = { ...currentSettings, basemap };
+    notify();
+  },
+  setMode(mode: '2d' | '3d'): void {
+    if (currentSettings.mode === mode) return;
+    currentSettings = { ...currentSettings, mode };
     notify();
   },
   setEnableBuildings(updater: boolean | ((prev: boolean) => boolean)): void {
@@ -70,5 +77,4 @@ export function useScenarioDisplay(): ScenarioDisplaySettings {
 }
 
 export const setScenarioRenderMode = scenarioDisplayStore.setRenderMode;
-export const setScenarioEnableTerrain = scenarioDisplayStore.setEnableTerrain;
 export const setScenarioEnableBuildings = scenarioDisplayStore.setEnableBuildings;
