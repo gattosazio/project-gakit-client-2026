@@ -50,8 +50,8 @@ export interface StatusMeta {
 /**
  * Validation state of a report. Deliberately kept off the DEPTH_BAR_COLOR
  * traffic-light ramp so a status badge and a water-level reading are never
- * mistaken for one another; PENDING and REJECTED are separated by treatment
- * (light outlined vs dark filled) rather than hue.
+ * mistaken for one another; PENDING and REJECTED share the slate family and
+ * separate by intensity — readable outline vs grayed out — rather than hue.
  */
 export const STATUS_META: Record<ReportStatus, StatusMeta> = {
   UNVERIFIED: {
@@ -71,8 +71,8 @@ export const STATUS_META: Record<ReportStatus, StatusMeta> = {
   },
   REJECTED: {
     label: 'Rejected',
-    badgeClass: 'bg-slate-800 text-white border-slate-700',
-    color: '#334155',
+    badgeClass: 'bg-slate-100 text-slate-500 border-slate-200',
+    color: '#94A3B8',
   },
 };
 
