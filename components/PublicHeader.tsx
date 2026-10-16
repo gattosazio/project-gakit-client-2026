@@ -476,38 +476,7 @@ export function PublicHeader({
             <span className="text-[10px] font-semibold">Map</span>
           </button>
 
-          {/* 2. Alerts */}
-          <NotificationBell
-            notifications={weatherNotifications}
-            onSelectAlert={setSelectedAlert}
-            onMarkRead={markAlertRead}
-            variant="mobile-nav"
-            className="flex w-full flex-col items-center justify-center"
-          />
-
-          {/* 3. Report flooding — raised centre FAB overlapping the pill's top edge */}
-          {onStartReport ? (
-            <button
-              type="button"
-              onClick={onStartReport}
-              aria-label="Report flooding"
-              title="Report flooding"
-              className="flex w-full flex-col items-center justify-center gap-1 active:scale-95"
-            >
-              <span className="-mt-7 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_8px_20px_-4px_rgba(15,23,42,0.28)] ring-1 ring-slate-200/70">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gakit-maroon text-white">
-                  <Waves className="h-6 w-6" />
-                </span>
-              </span>
-              <span className="text-[10px] font-bold leading-none text-gakit-maroon">
-                Report
-              </span>
-            </button>
-          ) : (
-            <div />
-          )}
-
-          {/* 4. About */}
+          {/* 2. About */}
           <button
             onClick={() => scrollToSection('about')}
             className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1 transition-all duration-150 active:scale-95 ${
@@ -519,6 +488,43 @@ export function PublicHeader({
             <Info className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
             <span className="text-[10px] font-semibold">About</span>
           </button>
+
+          {/* 3. Report flooding — raised centre FAB overlapping the pill's top edge */}
+          {onStartReport ? (
+            <button
+              type="button"
+              onClick={onStartReport}
+              aria-label="Report flooding"
+              title="Report flooding"
+              className="flex w-full flex-col items-center justify-center gap-1 active:scale-95"
+            >
+              <span className="-mt-7 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_8px_20px_-4px_rgba(15,23,42,0.28)] ring-1 ring-slate-200/70">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white">
+                  <Image
+                    src="/images/report-logo.svg"
+                    alt="Report flooding"
+                    width={32}
+                    height={32}
+                    className="h-8 w-8 object-contain"
+                  />
+                </span>
+              </span>
+              <span className="text-[10px] font-bold leading-none text-gakit-maroon">
+                Report
+              </span>
+            </button>
+          ) : (
+            <div />
+          )}
+
+          {/* 4. Alerts */}
+          <NotificationBell
+            notifications={weatherNotifications}
+            onSelectAlert={setSelectedAlert}
+            onMarkRead={markAlertRead}
+            variant="mobile-nav"
+            className="flex w-full flex-col items-center justify-center"
+          />
 
           {/* 5. Apps (Rightmost) */}
           {showBentoMenu ? (

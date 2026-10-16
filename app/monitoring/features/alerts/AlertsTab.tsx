@@ -1,62 +1,39 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import {
-  AlertTriangle,
-  BellRing,
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  Clock,
-  CloudRain,
-  Eye,
-  Filter,
-  ShieldAlert,
-  XCircle,
-} from 'lucide-react';
-import { FilterDropdown, type FilterDropdownOption } from '@/components/ui/FilterDropdown';
-import { DEPTH_LABELS, formatDateTime } from '@/lib/reports/reportFormatting';
+import { Archive, CheckCircle2, Inbox } from 'lucide-react';
 import {
   dismissNotifications,
   fetchNotificationReceipts,
   markNotificationsRead,
+  restoreNotifications,
   subscribeToReceiptChanges,
 } from '@/lib/notifications/receipts';
-import { fetchAlertHistory } from '@/lib/weather/weather';
+import {
+  ACTIVE_REPORT_PAGES,
+  ACTIVE_WEATHER_PAGES,
+  ARCHIVED_REPORT_PAGES,
+  ARCHIVED_WEATHER_PAGES,
+  fetchReportPages,
+  fetchWeatherPages,
+} from '@/lib/notifications/feed';
 import type { Report } from '@/types/report';
 import type { WeatherAlert as WeatherAlertType } from '@/types/weather';
 import {
-  createNotifications,
-  mapWeatherAlertToNotification,
-  type Notification,
-  type NotificationType,
-  type Severity,
-} from '@/lib/notifications';
-import { useSortableTable, type SortState } from '@/hooks/useSortableTable';
-import { SortableHeader } from '@/components/ui/SortableHeader';
-import { ReportsPagination } from '../reports/ReportsPagination';
-import { listReports } from '../reports/actions/reports';
+  partitionArchived,
+  reportNotifications,
+  weatherNotifications,
+  type AlertsView,
+} from '@/lib/notifications/filters';
 
-import {
-  NotificationTypeBadge,
-  SeverityBadge,
-  TYPE_META,
-  SEVERITY_CLASS,
-} from './components/AlertBadges';
-import { NotificationRow } from './components/NotificationRow';
-import { NotificationCard } from './components/NotificationCard';
+import { ReportAlertsPanel } from './components/ReportAlertsPanel';
+import { WeatherAlertsPanel } from './components/WeatherAlertsPanel';
 import { DismissAlertModal } from './components/DismissAlertModal';
-import { EmptyNotifications } from './components/EmptyNotifications';
 
-type SortColumn = 'type' | 'location' | 'severity' | 'depth' | 'sentAt';
-
-const NOTIFICATIONS_PER_PAGE = 25;
-
-const DATE_FILTER_OPTIONS: FilterDropdownOption<'24h' | '7d' | 'all'>[] = [
-  { value: '24h', label: 'Last 24 hours', icon: <Clock className="h-4 w-4 shrink-0" /> },
-  { value: '7d', label: 'Last 7 days', icon: <Clock className="h-4 w-4 shrink-0" /> },
-  { value: 'all', label: 'All time', icon: <Clock className="h-4 w-4 shrink-0" /> },
+const VIEW_OPTIONS: { value: AlertsView; label: string; icon: typeof Inbox }[] = [
+  { value: 'active', label: 'Active', icon: Inbox },
+  { value: 'archived', label: 'Archived', icon: Archive },
 ];
 
 export function AlertsTab({
@@ -76,25 +53,22 @@ export function AlertsTab({
   const [reports, setReports] = useState<Report[]>([]);
   const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlertType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+  const [weatherError, setWeatherError] = useState<string | null>(null);
   const [readIds, setReadIds] = useState<string[]>([]);
   const [dismissedIds, setDismissedIds] = useState<string[]>([]);
-  const [filter, setFilter] = useState<'all' | NotificationType>('all');
-  const [dateFilter, setDateFilter] = useState<'24h' | '7d' | 'all'>('24h');
   const [dismissConfirmId, setDismissConfirmId] = useState<string | null>(null);
-  const [readCollapsed, setReadCollapsed] = useState(false);
-  const [unreadCollapsed, setUnreadCollapsed] = useState(false);
-  const { sort, toggleSort } = useSortableTable<SortColumn>({
-    column: 'sentAt',
-    direction: 'desc',
-  });
+  const [view, setView] = useState<AlertsView>(() =>
+    searchParams.get('view') === 'archived' ? 'archived' : 'active'
+  );
 
   // Sync the highlight with the notification URL param or prop.
   useEffect(() => {
     setActiveHighlightedId(notificationParam);
   }, [notificationParam]);
 
-  // Click-away listener: dismisses the maroon highlight when clicking outside the highlighted row/card
+  // Click-away listener: dismisses the maroon highlight when clicking outside
+  // the highlighted row/card.
   useEffect(() => {
     if (!activeHighlightedId) return;
 
@@ -109,33 +83,70 @@ export function AlertsTab({
     return () => window.removeEventListener('mousedown', handleClickAway);
   }, [activeHighlightedId]);
 
+  // Keep ?view= in the address bar so a refresh or Back returns to the same
+  // segment, without a server round-trip. Matches MonitoringShell's popstate
+  // convention: replaceState doesn't notify React, so re-read on Back/Forward.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (view === 'archived') params.set('view', 'archived');
+    else params.delete('view');
+    const query = params.toString();
+    window.history.replaceState(null, '', query ? `/monitoring?${query}` : '/monitoring');
+  }, [view]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const current = new URLSearchParams(window.location.search).get('view');
+      const next: AlertsView = current === 'archived' ? 'archived' : 'active';
+      setView((previous) => (previous === next ? previous : next));
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Source fetch. Each source fails independently so a reports outage still
+  // leaves the weather panel usable (and vice versa).
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
+
+    const reportPages = view === 'archived' ? ARCHIVED_REPORT_PAGES : ACTIVE_REPORT_PAGES;
+    const weatherPages = view === 'archived' ? ARCHIVED_WEATHER_PAGES : ACTIVE_WEATHER_PAGES;
+
     void (async () => {
-      try {
-        const [reportsResult, weatherResult] = await Promise.all([
-          listReports({ limit: 100 }),
-          fetchAlertHistory(0, 50).catch(() => ({ items: [], total: 0, offset: 0, limit: 50 })),
-        ]);
-        if (!cancelled) {
-          setReports(reportsResult.items);
-          setWeatherAlerts(weatherResult.items);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : 'Unable to load notifications.'
-          );
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+      const [reportsResult, weatherResult] = await Promise.allSettled([
+        fetchReportPages(reportPages),
+        fetchWeatherPages(weatherPages),
+      ]);
+      if (cancelled) return;
+
+      if (reportsResult.status === 'fulfilled') {
+        setReports(reportsResult.value);
+        setReportsError(null);
+      } else {
+        setReportsError(
+          reportsResult.reason instanceof Error
+            ? reportsResult.reason.message
+            : 'Unable to load report alerts.'
+        );
       }
+
+      if (weatherResult.status === 'fulfilled') {
+        setWeatherAlerts(weatherResult.value);
+        setWeatherError(null);
+      } else {
+        setWeatherAlerts([]);
+        setWeatherError('Unable to load weather alerts.');
+      }
+
+      setLoading(false);
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [active]);
+  }, [active, view]);
 
   useEffect(() => {
     if (!active) return;
@@ -151,12 +162,19 @@ export function AlertsTab({
     };
   }, [active]);
 
-  // Keep inbox in sync with changes made on other surfaces (header bell)
+  // Keep inbox in sync with changes made on other surfaces (header bell).
   useEffect(
     () =>
       subscribeToReceiptChanges((kind, ids) => {
-        if (kind === 'read') setReadIds((cur) => [...new Set([...cur, ...ids])]);
-        else setDismissedIds((cur) => [...new Set([...cur, ...ids])]);
+        if (kind === 'read') {
+          setReadIds((cur) => [...new Set([...cur, ...ids])]);
+        } else if (kind === 'dismissed') {
+          setDismissedIds((cur) => [...new Set([...cur, ...ids])]);
+        } else {
+          // restored: leave both sets so the item reappears as unread/active.
+          setReadIds((cur) => cur.filter((id) => !ids.includes(id)));
+          setDismissedIds((cur) => cur.filter((id) => !ids.includes(id)));
+        }
       }),
     []
   );
@@ -166,116 +184,56 @@ export function AlertsTab({
     void markNotificationsRead([id]);
   }, []);
 
+  const markManyAsRead = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    setReadIds((current) => [...new Set([...current, ...ids])]);
+    void markNotificationsRead(ids);
+  }, []);
+
   const dismiss = useCallback((id: string) => {
     setDismissedIds((current) => (current.includes(id) ? current : [...current, id]));
     void dismissNotifications([id]);
   }, []);
 
-  const notifications = useMemo(
-    () => [
-      ...createNotifications(reports),
-      ...weatherAlerts
-        .filter((alert) => alert.alertType !== 'daily_digest')
-        .map(mapWeatherAlertToNotification),
-    ],
-    [reports, weatherAlerts]
+  const restore = useCallback((id: string) => {
+    setDismissedIds((current) => current.filter((existing) => existing !== id));
+    setReadIds((current) => current.filter((existing) => existing !== id));
+    void restoreNotifications([id]);
+  }, []);
+
+  // Source lists, kept separate so each panel owns its own feed.
+  const reportSource = useMemo(() => reportNotifications(reports), [reports]);
+  const weatherSource = useMemo(() => weatherNotifications(weatherAlerts), [weatherAlerts]);
+
+  // Every notification the modal can target, archived or not.
+  const allNotifications = useMemo(
+    () => [...reportSource, ...weatherSource],
+    [reportSource, weatherSource]
   );
 
-  const visibleNotifications = useMemo(() => {
-    const notDismissed = notifications.filter(
-      (notification) => !dismissedIds.includes(notification.id)
-    );
-    const typeFiltered =
-      filter === 'all'
-        ? notDismissed
-        : notDismissed.filter((notification) => notification.type === filter);
-
-    const now = new Date();
-    const cutoff = now.getTime() - 24 * 60 * 60 * 1000;
-    const dateFiltered = typeFiltered.filter((notification) => {
-      if (dateFilter === 'all') return true;
-      if (dateFilter === '24h') return new Date(notification.sentAt).getTime() >= cutoff;
-      return new Date(notification.sentAt).getTime() >= now.getTime() - 7 * 24 * 60 * 60 * 1000;
-    });
-
-    return [...dateFiltered].sort((a, b) => {
-      const value = (notification: Notification) => {
-        if (sort.column === 'depth') {
-          return notification.depth ? DEPTH_LABELS[notification.depth] : '';
-        }
-
-        if (sort.column === 'sentAt') {
-          return new Date(notification.sentAt).getTime();
-        }
-
-        return notification[sort.column];
-      };
-      const left = value(a);
-      const right = value(b);
-      const compared =
-        typeof left === 'number' && typeof right === 'number'
-          ? left - right
-          : String(left).localeCompare(String(right));
-
-      return sort.direction === 'asc' ? compared : -compared;
-    });
-  }, [dateFilter, dismissedIds, filter, notifications, sort]);
-
-  const unreadNotifications = useMemo(
-    () =>
-      visibleNotifications.filter(
-        (notification) => !readIds.includes(notification.id)
-      ),
-    [visibleNotifications, readIds]
+  // Archive partition drives which segment each panel feeds. Read receipts
+  // don't change often enough to justify memoising on a clock.
+  const { active: activeReports, archived: archivedReports } = useMemo(
+    () => partitionArchived(reportSource, { dismissedIds, readIds }),
+    [dismissedIds, readIds, reportSource]
   );
-  const readNotifications = useMemo(
-    () =>
-      visibleNotifications.filter((notification) =>
-        readIds.includes(notification.id)
-      ),
-    [visibleNotifications, readIds]
+  const { active: activeWeather, archived: archivedWeather } = useMemo(
+    () => partitionArchived(weatherSource, { dismissedIds, readIds }),
+    [dismissedIds, readIds, weatherSource]
   );
 
-  const [page, setPage] = useState(1);
-  useEffect(() => {
-    let cancelled = false;
-    void Promise.resolve().then(() => {
-      if (cancelled) return;
-      setPage(1);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [filter, dateFilter, sort]);
+  const visibleReports = view === 'archived' ? archivedReports : activeReports;
+  const visibleWeather = view === 'archived' ? archivedWeather : activeWeather;
 
-  const orderedNotifications = useMemo(
-    () => [...unreadNotifications, ...readNotifications],
-    [unreadNotifications, readNotifications]
-  );
-  const totalPages = Math.max(
-    1,
-    Math.ceil(orderedNotifications.length / NOTIFICATIONS_PER_PAGE)
-  );
-  const safePage = Math.min(page, totalPages);
-  const pagedNotifications = useMemo(
-    () =>
-      orderedNotifications.slice(
-        (safePage - 1) * NOTIFICATIONS_PER_PAGE,
-        safePage * NOTIFICATIONS_PER_PAGE
-      ),
-    [orderedNotifications, safePage]
-  );
-  const pagedUnreadNotifications = useMemo(
-    () => pagedNotifications.filter((notification) => !readIds.includes(notification.id)),
-    [pagedNotifications, readIds]
-  );
-  const pagedReadNotifications = useMemo(
-    () => pagedNotifications.filter((notification) => readIds.includes(notification.id)),
-    [pagedNotifications, readIds]
-  );
+  const unreadIds = useMemo(() => {
+    const readSet = new Set(readIds);
+    return [...activeReports, ...activeWeather]
+      .filter((n) => !readSet.has(n.id))
+      .map((n) => n.id);
+  }, [activeReports, activeWeather, readIds]);
 
   const dismissTarget = dismissConfirmId
-    ? notifications.find((n) => n.id === dismissConfirmId) ?? null
+    ? allNotifications.find((n) => n.id === dismissConfirmId) ?? null
     : null;
 
   useEffect(() => {
@@ -287,246 +245,95 @@ export function AlertsTab({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [dismissConfirmId]);
 
-  const markAllAsRead = useCallback(() => {
-    const ids = unreadNotifications.map((n) => n.id);
-    if (ids.length === 0) return;
-    setReadIds((cur) => [...new Set([...cur, ...ids])]);
-    void markNotificationsRead(ids);
-    setReadCollapsed(false);
-  }, [unreadNotifications]);
+  const unreadCount = unreadIds.length;
+  const totalCount = activeReports.length + activeWeather.length;
+
+  const sharedPanelProps = {
+    view,
+    loading,
+    highlightedId: activeHighlightedId,
+    readIds,
+    onMarkRead: markAsRead,
+    onDismiss: dismiss,
+    onRestore: restore,
+    onDismissRequest: setDismissConfirmId,
+    onOpenReports,
+    onMarkAllRead: markManyAsRead,
+  };
 
   return (
     <section className="space-y-5">
-      <div className="rounded-2xl border border-canvas-grey bg-white shadow-sm">
-        <div className="space-y-4 border-b border-canvas-grey p-4">
+      <div className="rounded-2xl border border-canvas-grey bg-white p-4 shadow-sm">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-bold text-slate-900">Notification inbox</h3>
-            <p className="mt-1 text-sm text-slate-500">
-              {loading ? 'Loading notifications...' : `${notifications.length} notifications`}
+            <p className="mt-1 text-sm text-slate-500" aria-live="polite">
+              {loading
+                ? 'Loading notifications...'
+                : view === 'archived'
+                  ? `${visibleReports.length + visibleWeather.length} archived`
+                  : `${totalCount} notifications${
+                      unreadCount > 0 ? ` · ${unreadCount} unread` : ''
+                    }`}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-7">
-            {([
-              ['all', 'All', Filter],
-              ['new-report', 'New reports', BellRing],
-              ['needs-review', 'Needs review', ShieldAlert],
-              ['flagged', 'Flagged', AlertTriangle],
-              ['weather', 'Weather', CloudRain],
-              ['rejected', 'Rejected', CheckCircle2],
-            ] as const).map(([value, label, Icon]) => (
+
+          <div className="flex shrink-0 items-center gap-2">
+            {view === 'active' && !loading && unreadCount > 0 && (
               <button
-                key={value}
                 type="button"
-                onClick={() => setFilter(value as 'all' | NotificationType)}
-                className={`inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-semibold ${
-                  filter === value
-                    ? 'bg-gakit-maroon text-white'
-                    : 'bg-canvas-light text-slate-600 hover:bg-slate-100'
-                }`}
+                onClick={() => markManyAsRead(unreadIds)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-canvas-grey bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
-                {label}
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                Mark all as read
               </button>
-            ))}
-            <FilterDropdown
-              value={dateFilter}
-              onSelect={(v) => setDateFilter(v)}
-              options={DATE_FILTER_OPTIONS}
-              triggerIcon={<Clock className="h-4 w-4" />}
-              triggerLabel={DATE_FILTER_OPTIONS.find((o) => o.value === dateFilter)?.label ?? 'All time'}
-            />
+            )}
+
+            <div
+              role="tablist"
+              aria-label="Inbox view"
+              className="inline-flex rounded-lg border border-canvas-grey bg-canvas-light p-1"
+            >
+              {VIEW_OPTIONS.map(({ value, label, icon: Icon }) => {
+                const isSelected = view === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    onClick={() => setView(value)}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold transition-colors ${
+                      isSelected
+                        ? 'bg-white text-gakit-maroon shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-
-        {unreadNotifications.length > 0 && !loading && !error && (
-          <div className="flex justify-end border-b border-canvas-grey px-6 py-3">
-            <button
-              type="button"
-              onClick={markAllAsRead}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-canvas-grey bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-gakit-maroon hover:text-gakit-maroon"
-            >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Mark all as read
-            </button>
-          </div>
-        )}
-
-        {error ? (
-          <div className="p-5 text-sm text-red-700">{error}</div>
-        ) : visibleNotifications.length === 0 && !loading ? (
-          <EmptyNotifications />
-        ) : (
-          <>
-            <div className="hidden md:block">
-              <table className="w-full min-w-[760px] text-sm">
-                <thead className="bg-canvas-light text-left text-slate-500">
-                  <tr>
-                    <SortableHeader label="Type" column="type" sort={sort} onSort={toggleSort} />
-                    <SortableHeader label="Location" column="location" sort={sort} onSort={toggleSort} />
-                    <SortableHeader label="Severity" column="severity" sort={sort} onSort={toggleSort} />
-                    <SortableHeader label="Depth" column="depth" sort={sort} onSort={toggleSort} />
-                    <SortableHeader label="Sent" column="sentAt" sort={sort} onSort={toggleSort} />
-                    <th className="px-5 py-3 font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-canvas-grey">
-                  <tr>
-                    <td colSpan={6} className="bg-canvas-light px-0 py-0">
-                      <button
-                        type="button"
-                        onClick={() => setUnreadCollapsed((collapsed) => !collapsed)}
-                        aria-expanded={!unreadCollapsed}
-                        className="flex w-full items-center gap-2 px-6 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700"
-                      >
-                        {unreadCollapsed ? (
-                          <ChevronRight className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                        Unread
-                      </button>
-                    </td>
-                  </tr>
-                  {!unreadCollapsed &&
-                    (pagedUnreadNotifications.length > 0 ? (
-                      pagedUnreadNotifications.map((notification) => (
-                        <NotificationRow
-                          key={notification.id}
-                          notification={notification}
-                          onOpenReports={onOpenReports}
-                          onSelectWeatherAlert={onSelectWeatherAlert}
-                          onMarkRead={markAsRead}
-                          onDismiss={setDismissConfirmId}
-                          isRead={false}
-                          highlighted={activeHighlightedId === notification.id}
-                        />
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} className="px-6 py-4 text-sm text-slate-400">
-                          No unread notifications.
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-                {pagedReadNotifications.length > 0 && (
-                  <tbody className={`divide-y divide-canvas-grey ${pagedUnreadNotifications.length > 0 ? 'border-t-2 border-canvas-grey' : ''}`}>
-                    <tr>
-                      <td colSpan={6} className="bg-canvas-light px-0 py-0">
-                        <button
-                          type="button"
-                          onClick={() => setReadCollapsed((collapsed) => !collapsed)}
-                          aria-expanded={!readCollapsed}
-                          className="flex w-full items-center gap-2 px-6 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700"
-                        >
-                          {readCollapsed ? (
-                            <ChevronRight className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                          Read ({pagedReadNotifications.length})
-                        </button>
-                      </td>
-                    </tr>
-                    {!readCollapsed &&
-                      pagedReadNotifications.map((notification) => (
-                        <NotificationRow
-                          key={notification.id}
-                          notification={notification}
-                          onOpenReports={onOpenReports}
-                          onSelectWeatherAlert={onSelectWeatherAlert}
-                          onMarkRead={markAsRead}
-                          onDismiss={setDismissConfirmId}
-                          isRead={true}
-                          highlighted={activeHighlightedId === notification.id}
-                        />
-                      ))}
-                  </tbody>
-                )}
-              </table>
-            </div>
-            <div className="md:hidden">
-              <section className="border-b border-canvas-grey">
-                <button
-                  type="button"
-                  onClick={() => setUnreadCollapsed((collapsed) => !collapsed)}
-                  aria-expanded={!unreadCollapsed}
-                  className="flex w-full items-center gap-2 bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700"
-                >
-                  {unreadCollapsed ? (
-                    <ChevronRight className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
-                  Unread
-                </button>
-                {!unreadCollapsed &&
-                  (pagedUnreadNotifications.length > 0 ? (
-                    <div className="divide-y divide-canvas-grey">
-                      {pagedUnreadNotifications.map((notification) => (
-                        <NotificationCard
-                          key={notification.id}
-                          notification={notification}
-                          onOpenReports={onOpenReports}
-                          onSelectWeatherAlert={onSelectWeatherAlert}
-                          onMarkRead={markAsRead}
-                          onDismiss={setDismissConfirmId}
-                          isRead={false}
-                          highlighted={activeHighlightedId === notification.id}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="px-4 py-4 text-sm text-slate-400">No unread notifications.</p>
-                  ))}
-              </section>
-              {pagedReadNotifications.length > 0 && (
-                <section className={pagedUnreadNotifications.length > 0 ? 'border-t border-canvas-grey' : ''}>
-                  <button
-                    type="button"
-                    onClick={() => setReadCollapsed((collapsed) => !collapsed)}
-                    aria-expanded={!readCollapsed}
-                    className="flex w-full items-center gap-2 bg-canvas-light px-4 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-500 hover:text-slate-700"
-                  >
-                    {readCollapsed ? (
-                      <ChevronRight className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                    Read ({pagedReadNotifications.length})
-                  </button>
-                  {!readCollapsed && (
-                    <div className="divide-y divide-canvas-grey">
-                      {pagedReadNotifications.map((notification) => (
-                        <NotificationCard
-                          key={notification.id}
-                          notification={notification}
-                          onOpenReports={onOpenReports}
-                          onSelectWeatherAlert={onSelectWeatherAlert}
-                          onMarkRead={markAsRead}
-                          onDismiss={setDismissConfirmId}
-                          isRead={true}
-                          highlighted={activeHighlightedId === notification.id}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </section>
-              )}
-            </div>
-            {totalPages > 1 && (
-              <ReportsPagination
-                currentPage={safePage}
-                totalPages={totalPages}
-                totalItems={orderedNotifications.length}
-                pageSize={NOTIFICATIONS_PER_PAGE}
-                onPageChange={setPage}
-                itemLabel="notifications"
-              />
-            )}
-          </>
-        )}
       </div>
+
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+        <WeatherAlertsPanel
+          notifications={visibleWeather}
+          error={weatherError}
+          onSelectWeatherAlert={onSelectWeatherAlert}
+          {...sharedPanelProps}
+        />
+        <ReportAlertsPanel
+          notifications={visibleReports}
+          error={reportsError}
+          {...sharedPanelProps}
+        />
+      </div>
+
       <DismissAlertModal
         notification={dismissConfirmId ? dismissTarget : null}
         onClose={() => setDismissConfirmId(null)}

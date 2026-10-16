@@ -2,6 +2,7 @@ import { cachedGet, invalidateApiCache } from '@/lib/backend/apiCache';
 import { RateLimitedError } from '@/lib/backend/apiErrors';
 import { markBackendOnline, markBackendWarming } from '@/lib/backend/backendStatus';
 import { authHeaders } from '@/lib/supabase/client';
+import { reporterHeaders } from '@/lib/reports/reporterIdentity';
 import { ILIGAN_BOUNDS } from '@/lib/map/geoUtils';
 import type {
   CreateReportInput,
@@ -65,6 +66,7 @@ async function request<T>(
         ...options,
         headers: {
           ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+          ...(typeof window !== 'undefined' ? reporterHeaders() : {}),
           ...(await authHeaders()),
           ...(options?.headers ?? {}),
         },

@@ -10,6 +10,7 @@ import {
   STATUS_META,
   formatDateTime,
   formatReportDepth,
+  getReportScoreDisplay,
   timeAgo,
 } from '@/lib/reports/reportFormatting';
 import type { PublicMapHandle } from '@/components/PublicMap';
@@ -413,6 +414,7 @@ export function ReportsTab({
                 <>
                   <div className="divide-y divide-canvas-grey">
                     {reports.map((report) => {
+                      const scoreDisplay = getReportScoreDisplay(report);
                       const isHighlighted = activeHighlightedId === report.id;
                       const needsReview =
                         report.status === 'UNVERIFIED' &&
@@ -469,6 +471,20 @@ export function ReportsTab({
                                   title="Photo attached"
                                 >
                                   · <Camera className="h-3.5 w-3.5" aria-hidden="true" /> Photo
+                                </span>
+                              )}
+                              {scoreDisplay.score != null && (
+                                <span
+                                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold border ${
+                                    scoreDisplay.score >= 70
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                      : scoreDisplay.score >= 30
+                                      ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                      : 'bg-rose-50 text-rose-700 border-rose-200'
+                                  }`}
+                                  title={scoreDisplay.title}
+                                >
+                                  {scoreDisplay.label}: {scoreDisplay.score}
                                 </span>
                               )}
                             </div>

@@ -141,3 +141,20 @@ export const REPORT_STATUS_LEGEND: Array<{
   { status: 'ANOMALY', label: 'Flagged' },
   { status: 'REJECTED', label: 'Rejected' },
 ];
+
+// Real-time ONNX flood surrogate raster coordinates and 1x1 placeholder
+export const SURROGATE_SIMULATION_COORDINATES: [
+  [number, number],
+  [number, number],
+  [number, number],
+  [number, number],
+] = [
+  [124.15, 8.35],
+  [124.50, 8.35],
+  [124.50, 8.10],
+  [124.15, 8.10],
+];
+
+export const SURROGATE_SIMULATION_PLACEHOLDER_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+

@@ -1,16 +1,19 @@
 'use client';
 
+import { formatFloodMetric } from '@/lib/map/liveFloodState';
 import React, { useState } from 'react';
 import { CloudRain, Droplets, Waves, ChevronDown, ChevronUp, Layers } from 'lucide-react';
-import type { ScenarioFrame } from '@/types/scenario';
+import type { ScenarioFrame, ScenarioPresetType } from '@/types/scenario';
 
 interface TelemetryHUDProps {
   currentFrame?: ScenarioFrame;
-  totalRainfallMm: number;
-  presetType?: 'historical' | 'design_storm' | 'pagasa_alert';
+  totalRainfallMm: number | null;
+  status?: string;
+  rasterState?: string | null;
+  presetType?: ScenarioPresetType;
 }
 
-export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'historical' }: TelemetryHUDProps) {
+export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'historical', status, rasterState }: TelemetryHUDProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   if (!currentFrame) return null;
 
@@ -18,13 +21,14 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
 
   return (
     <div className="hud-card w-full p-2.5 sm:p-3 shadow-lg text-slate-800 pointer-events-auto">
+      {(status || rasterState) && <div role="status" className="mb-2 text-xs text-slate-600">{currentFrame.live && currentFrame.live.availability !== 'ready' ? status : rasterState ?? status}</div>}
       {/* Mobile Quick Strip (compact 1-row telemetry) */}
       <div className="flex md:hidden items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
           <div className="flex items-center gap-1 text-indigo-700">
             <CloudRain className="h-3.5 w-3.5" />
             <span>
-              {currentFrame.hourly_rain_mm.toFixed(1)}{' '}
+              {formatFloodMetric(currentFrame.hourly_rain_mm, 1)}{' '}
               <span className="font-normal text-[11px] text-slate-500">mm/h</span>
             </span>
           </div>
@@ -32,7 +36,7 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
           <div className="flex items-center gap-1 text-gakit-maroon">
             <Waves className="h-3.5 w-3.5" />
             <span>
-              {currentFrame.inundated_km2.toFixed(2)}{' '}
+              {formatFloodMetric(rasterState ? null : currentFrame.inundated_km2, 2)}{' '}
               <span className="font-normal text-[11px] text-slate-500">km²</span>
             </span>
           </div>
@@ -62,11 +66,11 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
               <span>Inundated Area</span>
             </div>
             <span className="text-[10px] text-slate-400 font-medium">
-              {isStatic ? 'Benchmark Footprint' : 'Active Footprint'}
+              {isStatic ? 'Benchmark Footprint' : 'Estimated footprint'}
             </span>
           </div>
           <div className="text-2xl font-bold tracking-tight text-slate-900">
-            {currentFrame.inundated_km2.toFixed(2)}{' '}
+            {formatFloodMetric(rasterState ? null : currentFrame.inundated_km2, 2)}{' '}
             <span className="text-xs font-normal text-slate-500">km²</span>
           </div>
         </div>
@@ -80,7 +84,7 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
               <span>{isStatic ? 'Peak Intensity' : 'Hourly Precip'}</span>
             </div>
             <div className="text-lg font-bold text-slate-900">
-              {currentFrame.hourly_rain_mm.toFixed(1)}{' '}
+              {formatFloodMetric(currentFrame.hourly_rain_mm, 1)}{' '}
               <span className="text-xs font-normal text-slate-500">mm/h</span>
             </div>
           </div>
@@ -89,14 +93,14 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
           <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 mb-1">
               <Droplets className="h-3.5 w-3.5" />
-              <span>{isStatic ? 'Total Rain' : 'Accumulated'}</span>
+              <span>{presetType === 'live' ? 'Rainfall over 24h' : isStatic ? 'Total Rain' : 'Accumulated'}</span>
             </div>
             <div className="text-lg font-bold text-slate-900">
-              {currentFrame.cum_rain_mm.toFixed(1)}{' '}
-              {!isStatic && (
+              {formatFloodMetric(currentFrame.cum_rain_mm, 1)}{' '}
+              {!isStatic && presetType !== 'live' && (
                 <span className="text-xs font-normal text-slate-500">/ {totalRainfallMm} mm</span>
               )}
-              {isStatic && (
+              {(isStatic || presetType === 'live') && (
                 <span className="text-xs font-normal text-slate-500">mm</span>
               )}
             </div>

@@ -206,7 +206,12 @@ export function AdminHeader({
     () =>
       subscribeToReceiptChanges((kind, ids) => {
         if (kind === 'read') setReadIds((cur) => [...new Set([...cur, ...ids])]);
-        else setDismissedIds((cur) => [...new Set([...cur, ...ids])]);
+        else if (kind === 'dismissed') setDismissedIds((cur) => [...new Set([...cur, ...ids])]);
+        else {
+          // restored: drop from both so the item reappears as unread/active
+          setReadIds((cur) => cur.filter((id) => !ids.includes(id)));
+          setDismissedIds((cur) => cur.filter((id) => !ids.includes(id)));
+        }
       }),
     []
   );

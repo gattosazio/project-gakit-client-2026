@@ -1,5 +1,11 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { isWithinIligan, reverseGeocode, searchLocations } from '@/lib/map/geoUtils';
+import {
+  isWithinIligan,
+  isRawCoordinateString,
+  preloadGeoData,
+  reverseGeocode,
+  searchLocations,
+} from '@/lib/map/geoUtils';
 import fs from 'fs';
 import path from 'path';
 
@@ -27,6 +33,14 @@ global.fetch = vi.fn().mockImplementation((url: string) => {
 });
 
 describe('Local Point-in-Polygon & Overture Geocoding', () => {
+  it('reverse geocodes coordinates (8.2340, 124.2511) to Barangay Palao and DPWH landmark', async () => {
+    // Exact user-reported coordinate
+    const addr = await reverseGeocode(8.2340, 124.2511);
+    expect(addr).toContain('Palao');
+    expect(addr).toContain('Iligan City');
+    expect(addr).toContain('Department of Public Works and Highways');
+  });
+
   it('reverse geocodes coordinates to the exact official Barangay', async () => {
     // Coordinate inside Tubod
     const tubodAddr = await reverseGeocode(8.2155, 124.2415);
@@ -39,6 +53,23 @@ describe('Local Point-in-Polygon & Overture Geocoding', () => {
     const hinaplanonAddr = await reverseGeocode(8.251, 124.256);
     expect(hinaplanonAddr).toContain('Hinaplanon');
     expect(hinaplanonAddr).toContain('Iligan City');
+  });
+
+  it('correctly identifies raw coordinate strings versus human addresses', () => {
+    expect(isRawCoordinateString('8.2340, 124.2511')).toBe(true);
+    expect(isRawCoordinateString('8.234, 124.251')).toBe(true);
+    expect(isRawCoordinateString('  8.2340 , 124.2511  ')).toBe(true);
+    expect(isRawCoordinateString('')).toBe(true);
+    expect(isRawCoordinateString(null)).toBe(true);
+    expect(isRawCoordinateString(undefined)).toBe(true);
+
+    expect(isRawCoordinateString('Barangay Palao, Iligan City')).toBe(false);
+    expect(isRawCoordinateString('Near DPWH, Barangay Palao, Iligan City')).toBe(false);
+    expect(isRawCoordinateString('Poblacion, Iligan City')).toBe(false);
+  });
+
+  it('preloadGeoData preloads datasets without throwing', () => {
+    expect(() => preloadGeoData()).not.toThrow();
   });
 
   it('forward search matches real Overture named streets with Category badge', async () => {

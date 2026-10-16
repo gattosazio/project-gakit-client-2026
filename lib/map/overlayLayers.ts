@@ -16,6 +16,8 @@ import {
   REPORT_MARKER_COLORS,
   REPORT_MARKER_IMAGE_IDS,
   REPORT_STATUS_LEGEND,
+  SURROGATE_SIMULATION_COORDINATES,
+  SURROGATE_SIMULATION_PLACEHOLDER_DATA_URL,
 } from '@/constants/publicMap';
 import {
   buildRainfallHeatmapWeight,
@@ -77,6 +79,7 @@ export const landslideFilter = (visible: Record<string, boolean>) => {
 
 export interface OverlayLayerState {
   showFloodHazard: boolean;
+  showSimulatedFlood?: boolean;
   showRainfall: boolean;
   showHimawariIR: boolean;
   showTyphoonTrack?: boolean;
@@ -341,6 +344,26 @@ export const setupOverlayLayers = async (
         source: 'rainfall',
         paint: {
           'raster-opacity': 0.8,
+          'raster-resampling': 'linear',
+          'raster-fade-duration': 150,
+        },
+      });
+    }
+
+    // --- AI Surrogate Live / Nowcast Flood Simulation raster ---
+    if (!map.getSource('simulation-flood')) {
+      map.addSource('simulation-flood', {
+        type: 'image',
+        url: SURROGATE_SIMULATION_PLACEHOLDER_DATA_URL,
+        coordinates: SURROGATE_SIMULATION_COORDINATES,
+      });
+
+      map.addLayer({
+        id: 'simulation-flood-grid',
+        type: 'raster',
+        source: 'simulation-flood',
+        paint: {
+          'raster-opacity': 0.85,
           'raster-resampling': 'linear',
           'raster-fade-duration': 150,
         },
@@ -666,6 +689,7 @@ export const setupOverlayLayers = async (
     ['typhoon-track-point-dot', typhoonVis],
     ['typhoon-track-point-label', typhoonVis],
     ['flood-hazard-fill', state.showFloodHazard],
+    ['simulation-flood-grid', state.showSimulatedFlood ?? false],
     ['landslide-fill', state.showLandslide],
     ...stormSurgeEntries,
     ['rainfall-grid', state.showRainfall],
@@ -1042,6 +1066,7 @@ export const setupOverlayLayers = async (
     'storm-surge-ssa2-fill',
     'storm-surge-ssa3-fill',
     'storm-surge-ssa4-fill',
+    'simulation-flood-grid',
     'rainfall-grid',
     'barangay-fill',
     'barangay-outline-casing',

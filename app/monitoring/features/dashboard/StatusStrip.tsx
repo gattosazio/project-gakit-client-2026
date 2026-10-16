@@ -13,6 +13,7 @@ import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import { AmbientWeatherIcon } from '@/components/weather/AmbientWeatherIcon';
 import { WeatherCanvasBackdrop } from '@/components/weather/WeatherCanvasBackdrop';
 import { alertTitle, getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
+import { ALERT_TYPE_LABELS } from '@/lib/weather/alertLabels';
 import { isPagasaAlert, shortTitle } from '@/lib/weather/pagasa';
 import type { CurrentWeather, WeatherAlert } from '@/types/weather';
 
@@ -20,13 +21,6 @@ interface StatusStripProps {
   current: CurrentWeather | null;
   alerts: WeatherAlert[] | null;
 }
-
-const ALERT_TYPE_LABELS: Record<string, string> = {
-  thunderstorm: 'Thunderstorm',
-  heavy_rain: 'Heavy Rain',
-  extreme_heat: 'Heat Advisory',
-  daily_digest: 'Daily Forecast',
-};
 
 const SEVERITY_CHIP: Record<string, string> = {
   critical: 'bg-red-50 text-red-900 border-red-200 hover:bg-red-100/70',

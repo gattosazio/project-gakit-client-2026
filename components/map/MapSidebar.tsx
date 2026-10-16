@@ -1,13 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import {
   ChevronLeft,
   ChevronRight,
   CloudSun,
   Layers,
   ListFilter,
-  Waves,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { WeatherChip } from '@/components/map/WeatherChip';
@@ -17,6 +17,8 @@ import { getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCod
 import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
 import type { ReportStatus } from '@/types/report';
 import type { ActiveStormSummary, HistoricalStormSummary } from '@/types/typhoon';
+import type { SimulatedFloodHorizon, SimulatedFloodTelemetry } from '@/lib/map/surrogate';
+import type { ScenarioFrame } from '@/types/scenario';
 
 export interface MapSidebarProps {
   isCollapsed: boolean;
@@ -39,6 +41,18 @@ export interface MapSidebarProps {
   onToggleLayers: (open: boolean) => void;
   showFloodHazard: boolean;
   onShowFloodHazardChange: (checked: boolean) => void;
+  showSimulatedFlood?: boolean;
+  onShowSimulatedFloodChange?: (checked: boolean) => void;
+  isLoadingSimulatedFlood?: boolean;
+  simulatedFloodHorizon?: SimulatedFloodHorizon | null;
+  onSimulatedFloodHorizonChange?: (horizon: SimulatedFloodHorizon) => void;
+  simulatedFloodTelemetry?: SimulatedFloodTelemetry | null;
+  simulatedFloodStatus?: string;
+  simulatedFloodOpacity?: number;
+  onSimulatedFloodOpacityChange?: (value: number) => void;
+  simulatedFloodReplayFrames?: ScenarioFrame[];
+  simulatedFloodReplayIndex?: number | null;
+  onSimulatedFloodReplayChange?: (index: number | null) => void;
   showRainfall: boolean;
   onShowRainfallChange: (checked: boolean) => void;
   isLoadingRainfall?: boolean;
@@ -100,6 +114,18 @@ export function MapSidebar({
   onToggleLayers,
   showFloodHazard,
   onShowFloodHazardChange,
+  showSimulatedFlood = false,
+  onShowSimulatedFloodChange,
+  isLoadingSimulatedFlood = false,
+  simulatedFloodHorizon = 0,
+  onSimulatedFloodHorizonChange,
+  simulatedFloodTelemetry,
+  simulatedFloodStatus,
+  simulatedFloodOpacity = 0.85,
+  onSimulatedFloodOpacityChange,
+  simulatedFloodReplayFrames,
+  simulatedFloodReplayIndex,
+  onSimulatedFloodReplayChange,
   showRainfall,
   onShowRainfallChange,
   isLoadingRainfall = false,
@@ -185,6 +211,7 @@ export function MapSidebar({
 
   const activeLayersCount = [
     showFloodHazard,
+    showSimulatedFlood,
     showRainfall,
     showHimawariIR,
     showTyphoonTrack,
@@ -378,14 +405,17 @@ export function MapSidebar({
             <button
               type="button"
               onClick={onStartReport}
-              className="hidden md:flex h-10 md:h-11 items-center rounded-2xl bg-gakit-maroon text-white shadow-md hover:bg-maroon-900 hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer shrink-0"
+              className="hidden md:flex h-10 md:h-11 items-center hud-pill hover:bg-white hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer text-slate-700 hover:text-gakit-maroon shrink-0"
               title="Report flooding"
               aria-label="Report flooding"
             >
               <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
-                <Waves
-                  className="h-5 w-5 shrink-0 transition-transform group-hover:scale-110"
-                  aria-hidden="true"
+                <Image
+                  src="/images/report-logo.svg"
+                  alt="Report flooding"
+                  width={20}
+                  height={20}
+                  className="h-5 w-5 shrink-0 object-contain transition-transform group-hover:scale-110"
                 />
               </div>
               <span className={railLabelClass()}>Report Flooding</span>
@@ -432,6 +462,18 @@ export function MapSidebar({
                 activeLayersCount={activeLayersCount}
                 showFloodHazard={showFloodHazard}
                 onShowFloodHazardChange={onShowFloodHazardChange}
+                showSimulatedFlood={showSimulatedFlood}
+                onShowSimulatedFloodChange={onShowSimulatedFloodChange}
+                isLoadingSimulatedFlood={isLoadingSimulatedFlood}
+                simulatedFloodHorizon={simulatedFloodHorizon}
+                onSimulatedFloodHorizonChange={onSimulatedFloodHorizonChange}
+                simulatedFloodTelemetry={simulatedFloodTelemetry}
+                simulatedFloodStatus={simulatedFloodStatus}
+                simulatedFloodOpacity={simulatedFloodOpacity}
+                onSimulatedFloodOpacityChange={onSimulatedFloodOpacityChange}
+                simulatedFloodReplayFrames={simulatedFloodReplayFrames}
+                simulatedFloodReplayIndex={simulatedFloodReplayIndex}
+                onSimulatedFloodReplayChange={onSimulatedFloodReplayChange}
                 showRainfall={showRainfall}
                 onShowRainfallChange={onShowRainfallChange}
                 isLoadingRainfall={isLoadingRainfall}
@@ -494,9 +536,10 @@ export function MapSidebar({
                 aria-label="Report flooding"
                 title="Report flooding"
               >
-                <Waves
-                  className="h-5 w-5 shrink-0 text-gakit-maroon transition-transform group-hover:scale-110"
-                  aria-hidden="true"
+                <span
+                  role="img"
+                  aria-label="Report flooding"
+                  className="h-5 w-5 shrink-0 bg-gakit-maroon transition-transform group-hover:scale-110 [mask-image:url(/images/report-logo.svg)] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url(/images/report-logo.svg)] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"
                 />
                 <span className="text-sm font-bold text-gakit-maroon group-hover:text-maroon-900 transition-colors">
                   Report Flooding

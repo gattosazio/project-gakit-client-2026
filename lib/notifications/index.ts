@@ -43,11 +43,21 @@ export function createNotifications(
   return reports.flatMap<Notification>((report) => {
     const location = report.location.address || 'Unknown location';
 
+    const historical = report.validationSummary?.missing.includes('HISTORICAL_OBSERVATION_REVIEW')
+      || report.validationFlags?.includes('HISTORICAL_OBSERVATION_REVIEW');
+    if (historical && (report.status === 'UNVERIFIED' || report.status === 'ANOMALY')) {
+      return [{
+        id: `review-${report.id}`, type: 'needs-review', severity: 'low',
+        title: 'Historical observation requires review', location,
+        depth: report.depth.code, sentAt: report.createdAt, reportId: report.id,
+      }];
+    }
+
     if (report.status === 'ANOMALY') {
       return [{
         id: `flagged-${report.id}`,
         type: 'flagged',
-        severity: 'high',
+        severity: report.depth.code === 'head' || report.depth.code === 'overhead' ? 'critical' : 'high',
         title: 'Report flagged for review',
         location,
         depth: report.depth.code,

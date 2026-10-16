@@ -5,6 +5,7 @@ import { MapPin, X } from 'lucide-react';
 import { SiteConditionsCard } from '@/components/reporting/SiteConditionsCard';
 import { useModalA11y } from '@/hooks/useModalA11y';
 import type { LocationRiskInfo } from '@/components/PublicMap';
+import { isRawCoordinateString, reverseGeocode } from '@/lib/map/geoUtils';
 
 interface HazardAssessmentModalProps {
   isOpen: boolean;
@@ -35,6 +36,26 @@ export function HazardAssessmentModal({
   const panelRef = useModalA11y<HTMLDivElement>({ enabled: isOpen });
   const [isCheckingLocation, setIsCheckingLocation] = useState(false);
   const [locationRisk, setLocationRisk] = useState<LocationRiskInfo | null>(null);
+  const [displayAddress, setDisplayAddress] = useState(selectedLocation?.address || '');
+
+  useEffect(() => {
+    if (!selectedLocation) {
+      setDisplayAddress('');
+      return;
+    }
+    setDisplayAddress(selectedLocation.address);
+    if (isRawCoordinateString(selectedLocation.address)) {
+      let cancelled = false;
+      void reverseGeocode(selectedLocation.lat, selectedLocation.lng).then((resolved) => {
+        if (!cancelled && resolved && !isRawCoordinateString(resolved)) {
+          setDisplayAddress(resolved);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [selectedLocation]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -117,7 +138,7 @@ export function HazardAssessmentModal({
               Selected Location
             </div>
             <div className="text-sm font-semibold text-slate-900">
-              {selectedLocation?.address || 'No location selected'}
+              {displayAddress || selectedLocation?.address || 'No location selected'}
             </div>
             {selectedLocation && (
               <div className="text-xs text-slate-600 mt-2">

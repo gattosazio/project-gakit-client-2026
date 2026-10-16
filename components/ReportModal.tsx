@@ -20,6 +20,7 @@ import { FilterDropdown } from '@/components/ui/FilterDropdown';
 import { PhotoCapture } from '@/components/reporting/PhotoCapture';
 import type { PreparedPhoto } from '@/lib/reports/photoUpload';
 import type { FloodDepth, FloodDepthCategory } from '@/app/public-view/actions/publicView';
+import { isRawCoordinateString, reverseGeocode } from '@/lib/map/geoUtils';
 
 const REFERENCE_ICONS: Record<FloodReference, typeof Car> = {
   adult: UserRound,
@@ -77,6 +78,26 @@ export function ReportModal({
   const [depthCategories, setDepthCategories] = useState<FloodDepthCategory[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
+  const [displayAddress, setDisplayAddress] = useState(selectedLocation?.address || '');
+
+  useEffect(() => {
+    if (!selectedLocation) {
+      setDisplayAddress('');
+      return;
+    }
+    setDisplayAddress(selectedLocation.address);
+    if (isRawCoordinateString(selectedLocation.address)) {
+      let cancelled = false;
+      void reverseGeocode(selectedLocation.lat, selectedLocation.lng).then((resolved) => {
+        if (!cancelled && resolved && !isRawCoordinateString(resolved)) {
+          setDisplayAddress(resolved);
+        }
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+  }, [selectedLocation]);
 
   const resetForm = () => {
     setSelectedCm(null);
@@ -247,7 +268,7 @@ export function ReportModal({
                 Flooded Location
               </div>
               <div className="text-xs font-semibold text-slate-900 truncate">
-                {selectedLocation.address}
+                {displayAddress || selectedLocation.address}
               </div>
               <div className="text-[11px] text-slate-500 mt-1">
                 {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}

@@ -21,8 +21,11 @@ import {
   STATUS_META,
   formatDateTime,
   formatReportDepth,
+  formatValidationFlag,
+  getReportScoreDisplay,
 } from '@/lib/reports/reportFormatting';
 import type { Report, ReportStatus } from '@/types/report';
+import { requestReportReassessment } from './actions/reports';
 
 const ReportMiniMap = dynamic(() =>
   import('./ReportMiniMap').then((mod) => ({ default: mod.ReportMiniMap })),
@@ -158,6 +161,9 @@ export function ReportDetail({
           reportId={report.id}
           onOpen={() => setPhotoOpen(true)}
         />
+
+        <ValidationSection report={report} />
+        <ReassessmentAction key={report.id} reportId={report.id} />
 
         <FieldGroup title="Flood report">
           <DetailItem label="Depth" value={formatReportDepth(report.depth, report.depthCm)} />
@@ -358,9 +364,11 @@ function StatusActionMenu({
   const [menuPos, setMenuPos] = useState({ bottom: 0, left: 0, width: 0 });
   const [pending, setPending] = useState<ReportStatus | null>(null);
   const [reason, setReason] = useState('');
+  const pendingNeedsReason = pending === 'REJECTED' || pending === 'UNVERIFIED';
   const reasonRef = useRef<HTMLTextAreaElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const options: Array<{ status: ReportStatus; label: string; className: string; icon: typeof CheckCircle2; needsReason: boolean }> = [
+    { status: 'UNVERIFIED', label: 'Return to Pending', className: 'text-slate-600', icon: AlertTriangle, needsReason: true },
     { status: 'VERIFIED', label: 'Verify', className: 'text-hazard-safe', icon: CheckCircle2, needsReason: false },
     { status: 'ANOMALY', label: 'Mark Anomaly', className: 'text-hazard-critical', icon: AlertTriangle, needsReason: false },
     { status: 'REJECTED', label: 'Reject', className: 'text-slate-600', icon: XCircle, needsReason: true },
@@ -409,16 +417,16 @@ function StatusActionMenu({
         <div className="rounded-lg border border-canvas-grey bg-canvas-light p-4" role="group" aria-label="Reason for status change">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-sm font-semibold text-slate-800">
-              {pending === 'REJECTED' ? 'Reason for rejection' : 'Add a note (optional)'}
+              {pending === 'REJECTED' ? 'Reason for rejection' : 'Reason for returning to review'}
             </span>
-            {pending === 'REJECTED' && <span className="text-xs font-semibold text-hazard-critical">Required</span>}
+            {pendingNeedsReason && <span className="text-xs font-semibold text-hazard-critical">Required</span>}
           </div>
           <textarea
             ref={reasonRef}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             rows={3}
-            placeholder={pending === 'REJECTED' ? 'Explain why this report is being rejected…' : 'Optional note for reviewers…'}
+            placeholder={pending === 'REJECTED' ? 'Explain why this report is being rejected…' : 'Explain why this report needs another review…'}
             aria-label="Reason"
             className="w-full resize-y rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-gakit-maroon"
           />
@@ -434,7 +442,7 @@ function StatusActionMenu({
             <button
               type="button"
               onClick={confirmPending}
-              disabled={isUpdating || (pending === 'REJECTED' && !reason.trim())}
+              disabled={isUpdating || (pendingNeedsReason && !reason.trim())}
               className="inline-flex items-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isUpdating ? <Spinner size="sm" iconClassName="bg-white" /> : null}
@@ -449,7 +457,7 @@ function StatusActionMenu({
           <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-[1300]" onClick={() => setOpen(false)} />
           <div role="menu" style={{ position: 'fixed', bottom: menuPos.bottom, left: menuPos.left, width: menuPos.width }} className="z-[1400] overflow-hidden rounded-lg border border-canvas-grey bg-white shadow-lg">
             {options.map((option, index) => {
-              const isCurrent = report.status === option.status;
+              const isCurrent = report.status === option.status && (report.decisionSource === 'manual' || option.status === 'UNVERIFIED');
               const Icon = option.icon;
               return (
                 <button
@@ -481,6 +489,73 @@ function DetailItem({ label, value, loading = false }: { label: string; value: s
         {loading && <Spinner size="xs" />}
         <span className="break-words">{value}</span>
       </div>
+    </div>
+  );
+}
+
+function ReassessmentAction({ reportId }: { reportId: string }) {
+  const [state, setState] = useState<'idle' | 'loading' | 'queued' | 'error'>('idle');
+  const request = async () => {
+    setState('loading');
+    try {
+      await requestReportReassessment(reportId);
+      setState('queued');
+    } catch {
+      setState('error');
+    }
+  };
+  return (
+    <div className="text-sm">
+      <button type="button" onClick={request} disabled={state === 'loading' || state === 'queued'}
+        className="rounded-lg border border-canvas-grey px-3 py-2 font-semibold text-slate-700 disabled:opacity-60">
+        {state === 'loading' ? 'Queuing assessment…' : state === 'queued' ? 'Assessment queued' : 'Request reassessment'}
+      </button>
+      <p role="status" className="mt-1 text-xs text-slate-500">
+        {state === 'queued' ? 'The updated assessment will be available after processing.' : state === 'error' ? 'Could not queue an assessment. Please try again.' : 'Checks the report against the available evidence again.'}
+      </p>
+    </div>
+  );
+}
+
+function ValidationSection({ report }: { report: Report }) {
+  const scoreDisplay = getReportScoreDisplay(report);
+  if (report.validationSummary) {
+    const summary = report.validationSummary;
+    return (
+      <div className="space-y-3 rounded-xl border border-canvas-grey bg-canvas-light/50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h4 className="text-xs font-bold uppercase tracking-wide text-slate-700">Evidence assessment</h4>
+          <span className="text-xs text-slate-600" title={scoreDisplay.title}>{scoreDisplay.label}: {scoreDisplay.score}</span>
+        </div>
+        <p className="text-sm text-slate-700">{summary.explanation}</p>
+        <p className="text-xs text-slate-500">
+          {report.decisionSource === 'manual' ? 'Status set by a moderator.' : report.decisionSource === 'automated' ? 'Status set by automated assessment.' : 'Awaiting reassessment of the saved status.'}
+          {' '}Assessed {formatDateTime(summary.assessedAt)}.
+        </p>
+        {report.decisionSource === 'manual' && summary.recommendedStatus !== report.status && (
+          <p className="text-xs text-slate-600">Assessment recommendation: {STATUS_META[summary.recommendedStatus].label}. The moderator’s decision remains in effect.</p>
+        )}
+        {([
+          ['Supporting evidence', summary.support],
+          ['Evidence conflicts', summary.conflicts],
+          ['Missing or stale evidence', summary.missing],
+        ] as const).map(([label, flags]) => (
+          <div key={label}>
+            <h5 className="text-xs font-semibold text-slate-600">{label}</h5>
+            <p className="mt-1 text-sm text-slate-700">
+              {flags.length ? flags.map(flag => formatValidationFlag(flag).label).join(' · ') : 'None recorded'}
+            </p>
+          </div>
+        ))}
+        <p className="text-xs text-slate-500">The evidence score is a rule-based indicator. Urgency is assessed separately from verification.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-2 rounded-xl border border-canvas-grey bg-canvas-light/50 p-4">
+      <h4 className="text-xs font-bold uppercase tracking-wide text-slate-700">Evidence assessment</h4>
+      <p className="text-sm text-slate-600">Awaiting evidence assessment. Request reassessment to check the saved report.</p>
+      <p className="text-xs text-slate-500">Request reassessment to evaluate the available evidence.</p>
     </div>
   );
 }

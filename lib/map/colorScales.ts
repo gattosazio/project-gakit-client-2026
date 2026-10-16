@@ -14,6 +14,21 @@ export const FLOOD_HAZARD_LEGEND: Array<{ key: string; label: string; color: str
 // Horizontal gradient strip (low → high) used in the layer legend.
 export const FLOOD_HAZARD_GRADIENT_CSS = `linear-gradient(to right, ${FLOOD_HAZARD_COLORS.low} 0%, ${FLOOD_HAZARD_COLORS.medium} 50%, ${FLOOD_HAZARD_COLORS.high} 100%)`;
 
+// AI Surrogate Live / Nowcast flood depth colors and legend
+export const SIMULATION_DEPTH_COLORS: Record<string, string> = {
+  shallow: '#06B6D4', // 0.20 – 0.50 m
+  moderate: '#3B82F6', // 0.50 – 1.50 m
+  deep: '#1E3A8A', // > 1.50 m
+};
+
+export const SIMULATION_DEPTH_LEGEND: Array<{ key: string; label: string; color: string }> = [
+  { key: 'shallow', label: '0.2–0.5 m', color: SIMULATION_DEPTH_COLORS.shallow },
+  { key: 'moderate', label: '0.5–1.5 m', color: SIMULATION_DEPTH_COLORS.moderate },
+  { key: 'deep', label: '>1.5 m', color: SIMULATION_DEPTH_COLORS.deep },
+];
+
+export const SIMULATION_DEPTH_GRADIENT_CSS = `linear-gradient(to right, ${SIMULATION_DEPTH_COLORS.shallow} 0%, ${SIMULATION_DEPTH_COLORS.moderate} 50%, ${SIMULATION_DEPTH_COLORS.deep} 100%)`;
+
 // Landslide susceptibility bands (LH field, integer 1..3)
 export const LANDSLIDE_COLORS: Record<string, string> = {
   high: '#7C2D12',

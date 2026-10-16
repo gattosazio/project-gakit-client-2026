@@ -6,6 +6,11 @@ const config = [
   },
   ...coreWebVitals,
   {
+    // Scope these overrides to the same globs eslint-config-next registers its
+    // plugins for. Without `files`, they also apply to files the base config
+    // never covers (e.g. `.cjs`), where no `react-hooks` plugin exists, and
+    // ESLint aborts with "could not find plugin react-hooks".
+    files: ['**/*.{js,jsx,mjs,ts,tsx,mts,cts}'],
     // React Hooks v6 rules newly enabled by eslint-config-next 16. They flag
     // common (and usually safe) patterns in this codebase; downgraded to warn
     // so `npm run lint` stays green post-upgrade. Revisit and fix properly as a
