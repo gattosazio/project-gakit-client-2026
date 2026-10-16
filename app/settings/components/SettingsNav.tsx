@@ -9,11 +9,6 @@ const NAV_ITEMS = [
 ] as const;
 
 export function SettingsNav({ active }: { active: SectionId }) {
-  function setHash(id: SectionId) {
-    if (window.location.hash !== `#${id}`) {
-      window.location.hash = `#${id}`;
-    }
-  }
 
   return (
     <nav
@@ -29,10 +24,6 @@ export function SettingsNav({ active }: { active: SectionId }) {
               <a
                 href={`#${item.id}`}
                 aria-current={isActive ? 'page' : undefined}
-                onClick={(event) => {
-                  event.preventDefault();
-                  setHash(item.id);
-                }}
                 className={`block rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
                   isActive
                     ? 'bg-maroon-50 text-gakit-maroon'
