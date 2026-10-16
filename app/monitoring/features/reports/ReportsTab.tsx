@@ -360,7 +360,7 @@ export function ReportsTab({
                   <div className="flex items-center gap-3">
                     {!loading && (
                       <span className="text-xs text-slate-500">
-                        {total} {total === 1 ? 'report' : 'reports'}
+                        {/* {total} {total === 1 ? 'report' : 'reports'} */}
                         {total > REPORTS_PER_PAGE ? ` · page ${currentPage} of ${totalPages}` : ''}
                       </span>
                     )}
