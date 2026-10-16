@@ -8,13 +8,15 @@ import { liveStatus, scenarioFrame, selectedLiveFrame, selectionForFrame } from 
 import { LiveRasterController } from '@/lib/map/liveRasterController';
 import type { LiveSelection, LiveTimeline } from '@/types/liveFlood';
 
-export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: boolean) {
+export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: boolean, smooth = false) {
   const [timeline, setTimeline] = useState<LiveTimeline | null>(null);
   const [selection, setSelection] = useState<LiveSelection>({ kind: 'latest' });
   const [isLoading, setIsLoading] = useState(false);
+  const [hasRenderedImage, setHasRenderedImage] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [imageResult, setImageResult] = useState<{ key: string; error?: string } | null>(null);
   const [opacity, setOpacityState] = useState(0.85);
+  const opacityRef = useRef(0.85);
   const [refresh, setRefresh] = useState(0);
   const raster = useRef(new LiveRasterController());
   const imageRetries = useRef(new Set<string>());
@@ -23,10 +25,12 @@ export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: b
   useEffect(() => {
     if (!enabled) return;
     let stopped = false;
+    let firstRequest = true;
     let timer: ReturnType<typeof setTimeout>;
     let controller: AbortController | undefined;
     let request = 0;
     const load = async () => {
+      if (firstRequest) { setHasRenderedImage(false); firstRequest = false; }
       controller?.abort();
       controller = new AbortController();
       const generation = ++request;
@@ -97,14 +101,26 @@ export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: b
             imageRetries.current.add(snapshotId);
             refreshRef.current();
           }
-        } else setImageResult({ key: imageKey });
-      });
+        } else {
+          if (map.getLayer('simulation-flood-grid')) map.setPaintProperty('simulation-flood-grid', 'raster-opacity', opacityRef.current);
+          setImageResult({ key: imageKey });
+          setHasRenderedImage(true);
+        }
+      }, false, smooth);
     };
     show();
     return () => { clearTimeout(retry); controller.cancel(); };
-  }, [enabled, mapRef, imageKey, rasterUrl, coordinateKey, expiresAt, snapshotId]);
+  }, [enabled, mapRef, imageKey, rasterUrl, coordinateKey, expiresAt, snapshotId, smooth]);
 
   const status = failure ?? imageFailure ?? liveStatus(timeline, frame);
+  const isPreparing = enabled && (
+    failure === 'Preparing live estimates' ||
+    (!failure && !imageFailure && (
+      (!timeline && isLoading) ||
+      (timeline?.build_state === 'building' && !rasterUrl) ||
+      (Boolean(rasterUrl) && !imageReady)
+    ))
+  );
   const telemetry: SimulatedFloodTelemetry | null = frame ? {
     horizonHours: frame.horizon_hours,
     inundatedKm2: imageReady ? frame.inundated_km2 : null,
@@ -122,12 +138,13 @@ export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: b
     setSelection(horizon === 0 ? { kind: 'latest' } : { kind: 'forecast', horizon });
   }, []);
   const setOpacity = useCallback((value: number) => {
+    opacityRef.current = value;
     setOpacityState(value);
     if (mapRef.current?.getLayer('simulation-flood-grid')) mapRef.current.setPaintProperty('simulation-flood-grid', 'raster-opacity', value);
   }, [mapRef]);
   const displayHorizon = selection.kind === 'latest' ? 0 : frame?.kind === 'forecast' && [1, 3, 6].includes(frame.horizon_hours)
     ? frame.horizon_hours as SimulatedFloodHorizon : null;
   return { horizon: displayHorizon ?? 0, displayHorizon, selectHorizon, telemetry, status,
-    isLoading, opacity, setOpacity, loadSimulation: () => setRefresh(value => value + 1),
+    isLoading, isPreparing, hasRenderedImage, opacity, setOpacity, loadSimulation: () => setRefresh(value => value + 1),
     replayFrames, replayIndex, selectReplayFrame };
 }

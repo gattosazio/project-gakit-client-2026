@@ -6,7 +6,6 @@ import {
   scenarioDisplayStore,
   serializeScenarioDisplay,
   setScenarioRenderMode,
-  setScenarioEnableTerrain,
   setScenarioEnableBuildings,
 } from '@/lib/map/scenarioDisplayStore';
 
@@ -37,7 +36,8 @@ describe('scenarioDisplayStore', () => {
   it('provides default initial values', () => {
     const snapshot = scenarioDisplayStore.getSnapshot();
     expect(snapshot.renderMode).toBe('linear');
-    expect(snapshot.enableTerrain).toBe(true);
+    expect(snapshot.mode).toBe('2d');
+    expect(snapshot.basemap).toBe('light');
     expect(snapshot.enableBuildings).toBe(true);
   });
 
@@ -58,21 +58,20 @@ describe('scenarioDisplayStore', () => {
     expect(listener).toHaveBeenCalledTimes(2);
 
     unsubscribe();
-    setScenarioRenderMode('nearest');
+    setScenarioRenderMode('linear');
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
-  it('toggles enableTerrain and notifies subscribers', () => {
+  it('changes 2D/3D view and notifies subscribers', () => {
     const listener = vi.fn();
     const unsubscribe = scenarioDisplayStore.subscribe(listener);
 
-    setScenarioEnableTerrain(false);
-    expect(scenarioDisplayStore.getSnapshot().enableTerrain).toBe(false);
+    scenarioDisplayStore.setMode('3d');
+    expect(scenarioDisplayStore.getSnapshot().mode).toBe('3d');
     expect(listener).toHaveBeenCalledTimes(1);
 
-    // Toggle via function updater
-    setScenarioEnableTerrain((prev) => !prev);
-    expect(scenarioDisplayStore.getSnapshot().enableTerrain).toBe(true);
+    scenarioDisplayStore.setMode('2d');
+    expect(scenarioDisplayStore.getSnapshot().mode).toBe('2d');
     expect(listener).toHaveBeenCalledTimes(2);
 
     unsubscribe();
@@ -93,16 +92,52 @@ describe('scenarioDisplayStore', () => {
     unsubscribe();
   });
 
+  it('disables buildings by default when switching to satellite and restores them on return', () => {
+    scenarioDisplayStore.setBasemap('satellite');
+    expect(scenarioDisplayStore.getSnapshot().enableBuildings).toBe(false);
+
+    scenarioDisplayStore.setBasemap('light');
+    expect(scenarioDisplayStore.getSnapshot().enableBuildings).toBe(true);
+  });
+
+  it('restores the base buildings preference even when it was off before satellite', () => {
+    setScenarioEnableBuildings(false);
+
+    scenarioDisplayStore.setBasemap('satellite');
+    expect(scenarioDisplayStore.getSnapshot().enableBuildings).toBe(false);
+
+    scenarioDisplayStore.setBasemap('light');
+    expect(scenarioDisplayStore.getSnapshot().enableBuildings).toBe(false);
+  });
+
+  it('lets an explicit buildings choice on satellite win when switching back to base', () => {
+    scenarioDisplayStore.setBasemap('satellite');
+    setScenarioEnableBuildings(true);
+
+    scenarioDisplayStore.setBasemap('light');
+    expect(scenarioDisplayStore.getSnapshot().enableBuildings).toBe(true);
+
+    // Turning them back off on satellite keeps them off on base too.
+    scenarioDisplayStore.setBasemap('satellite');
+    setScenarioEnableBuildings(true);
+    setScenarioEnableBuildings(false);
+
+    scenarioDisplayStore.setBasemap('light');
+    expect(scenarioDisplayStore.getSnapshot().enableBuildings).toBe(false);
+  });
+
   it('resets to defaults cleanly', () => {
-    setScenarioRenderMode('nearest');
-    setScenarioEnableTerrain(false);
+    setScenarioRenderMode('linear');
+    scenarioDisplayStore.setMode('3d');
+    scenarioDisplayStore.setBasemap('satellite');
     setScenarioEnableBuildings(false);
 
     scenarioDisplayStore.reset();
 
     const snapshot = scenarioDisplayStore.getSnapshot();
     expect(snapshot.renderMode).toBe('linear');
-    expect(snapshot.enableTerrain).toBe(true);
+    expect(snapshot.mode).toBe('2d');
+    expect(snapshot.basemap).toBe('light');
     expect(snapshot.enableBuildings).toBe(true);
   });
 });
@@ -120,7 +155,7 @@ describe('parseScenarioDisplay', () => {
       parseScenarioDisplay(
         JSON.stringify({ renderMode: 'nearest', enableTerrain: false, junk: 1 })
       )
-    ).toEqual({ renderMode: 'nearest', enableTerrain: false });
+    ).toEqual({ renderMode: 'nearest', mode: '2d' });
   });
 
   it('drops invalid enum and type values', () => {
@@ -136,7 +171,8 @@ describe('serializeScenarioDisplay', () => {
   it('round-trips through parse', () => {
     const settings = {
       renderMode: 'nearest' as const,
-      enableTerrain: false,
+      mode: '2d' as const,
+      basemap: 'light' as const,
       enableBuildings: true,
     };
     expect(parseScenarioDisplay(serializeScenarioDisplay(settings))).toEqual(settings);
@@ -177,7 +213,7 @@ describe('scenarioDisplayStore persistence', () => {
     expect(snapshot.renderMode).toBe('nearest');
     expect(snapshot.enableBuildings).toBe(false);
     // A field absent from storage keeps its default.
-    expect(snapshot.enableTerrain).toBe(true);
+    expect(snapshot.mode).toBe('2d');
   });
 
   it('writes changes back to storage', () => {

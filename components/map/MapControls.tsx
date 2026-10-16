@@ -1,12 +1,15 @@
 'use client';
 
 import { formatFloodMetric } from '@/lib/map/liveFloodState';
+import { DEPTH_RANK } from '@/lib/map/barangayStats';
+import { formatReportDepth, timeAgo } from '@/lib/reports/reportFormatting';
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ChevronUp, History, Info, Layers, ListFilter, RotateCwFadingClock, Search, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import {
+  BASEMAP_LABELS,
   REPORT_MARKER_COLORS,
   REPORT_STATUS_LEGEND,
 } from '@/constants/publicMap';
@@ -25,12 +28,11 @@ import {
   rainfallBandValues,
 } from '@/lib/map/colorScales';
 import {
-  SIMULATED_FLOOD_HORIZONS,
   type SimulatedFloodHorizon,
   type SimulatedFloodTelemetry,
 } from '@/lib/map/surrogate';
 import type { MapMode } from '@/lib/map/overlayLayers';
-import type { ReportStatus } from '@/types/report';
+import type { MapReportFeature, ReportStatus } from '@/types/report';
 import type { ScenarioFrame } from '@/types/scenario';
 import { PillSlider } from '@/components/ui/PillSlider';
 import type { BasemapId } from '@/constants/publicMap';
@@ -48,19 +50,6 @@ const formatRainfallTime = (isoUtc: string) => {
   const date = new Date(`${isoUtc}Z`);
   if (Number.isNaN(date.getTime())) return 'as of unknown time';
   return `as of ${date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-};
-
-const formatSimulationClock = (isoTimestamp: string) => {
-  const raw = isoTimestamp.includes('T') ? isoTimestamp : isoTimestamp.replace(' ', 'T');
-  const hasTimezone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw);
-  const date = new Date(hasTimezone ? raw : `${raw}Z`);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
-
-const formatSimulationTime = (isoTimestamp: string) => {
-  const clock = formatSimulationClock(isoTimestamp);
-  return clock ? `as of ${clock}` : 'as of unknown time';
 };
 
 const formatTyphoonTime = (isoString?: string | null) => {
@@ -107,8 +96,10 @@ function PillToggle({
   loading = false,
   indicatorDot,
   count,
+  beta = false,
 }: {
   label: string;
+  beta?: boolean;
   color?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
@@ -149,6 +140,7 @@ function PillToggle({
             />
           )}
           <span className="truncate leading-none">{label}</span>
+          {beta && <sup className="relative -top-1 shrink-0 select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase leading-none tracking-wider text-amber-800 shadow-xs ring-1 ring-inset ring-amber-200/70">Beta</sup>}
           {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
           {loading && (
             <Spinner size="xs" iconClassName="bg-slate-400" />
@@ -300,20 +292,20 @@ export function MapViewToggle({
 
   return (
     <div className={`${className} flex items-center gap-2 p-1.5 hud-pill select-none`}>
-      {/* Basemap Switch: Base vs Satellite */}
+      {/* Basemap Switch: Light vs Satellite */}
       <div className="flex items-center gap-0.5">
         <button
           type="button"
           onClick={() => onBasemapChange('light')}
           aria-pressed={basemap === 'light'}
-          title="Base map (Positron)"
+          title="Light street map (Positron)"
           className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-colors duration-150 ${
             basemap === 'light'
               ? 'bg-gakit-maroon text-white shadow-xs'
               : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
           }`}
         >
-          Base
+          {BASEMAP_LABELS.light}
         </button>
         <button
           type="button"
@@ -326,7 +318,7 @@ export function MapViewToggle({
               : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
           }`}
         >
-          Satellite
+          {BASEMAP_LABELS.satellite}
         </button>
       </div>
 
@@ -388,6 +380,8 @@ interface ReportControlsProps {
   isSidebarItem?: boolean;
   totalReports?: number;
   statusCounts?: Record<ReportStatus, number>;
+  reportFeatures?: MapReportFeature[];
+  onOpenReport?: (report: MapReportFeature) => void;
 }
 
 export function ReportControls({
@@ -401,10 +395,25 @@ export function ReportControls({
   isSidebarItem = false,
   totalReports,
   statusCounts,
+  reportFeatures,
+  onOpenReport,
 }: ReportControlsProps) {
   const legend =
     reportStatusToggleStatuses ??
     REPORT_STATUS_LEGEND.map(({ status }) => status);
+
+  const publicSummary = legend.length === 1 && legend[0] === 'VERIFIED' && reportFeatures !== undefined;
+  const verified = reportFeatures?.filter(feature => feature.properties.status === 'VERIFIED') ?? [];
+  const latest = verified.reduce<MapReportFeature | null>((best, feature) =>
+    !best || Date.parse(feature.properties.createdAt) > Date.parse(best.properties.createdAt) ? feature : best, null);
+  const deepest = verified.reduce<MapReportFeature | null>((best, feature) => {
+    const depth = feature.properties;
+    const previous = best?.properties;
+    const centimeters = depth.depthCm ?? depth.depth.approximateCm;
+    const previousCm = previous ? previous.depthCm ?? previous.depth.approximateCm : -1;
+    return !best || centimeters > previousCm || (centimeters === previousCm && DEPTH_RANK[depth.depth.code] > DEPTH_RANK[best.properties.depth.code]) ? feature : best;
+  }, null);
+  const summaryCount = publicSummary ? verified.length : totalReports;
 
   return (
     <Card
@@ -416,13 +425,33 @@ export function ReportControls({
       badge={
         isLoading ? (
           <Spinner size="xs" iconClassName="bg-slate-400" />
-        ) : typeof totalReports === 'number' && totalReports > 0 ? (
+        ) : typeof summaryCount === 'number' ? (
           <span className="rounded-full bg-gakit-maroon/10 px-1.5 py-0.5 text-[10px] font-bold text-gakit-maroon tabular-nums">
-            {totalReports}
+            {summaryCount}
           </span>
         ) : undefined
       }
     >
+      {publicSummary ? <div className="space-y-2.5">
+        <p className="text-[10px] font-medium text-slate-500">Verified reports · {reportWindowHours == null ? 'All time' : `Last ${reportWindowHours} hours`}</p>
+        {isLoading && !verified.length ? <p role="status" className="text-xs text-slate-400">Loading reports…</p> : verified.length === 0 ? (
+          <p className="rounded-lg bg-slate-50 px-2.5 py-3 text-xs leading-5 text-slate-500">No verified reports in this area {reportWindowHours == null ? '' : `in the last ${reportWindowHours} hours`}.</p>
+        ) : <>
+          <div className="grid grid-cols-[0.7fr_1.3fr] divide-x divide-slate-200 rounded-lg border border-slate-200 bg-slate-50 py-2">
+            <div className="px-2.5"><p className="text-[9px] text-slate-400">Verified reports</p><p className="mt-0.5 text-lg font-bold leading-5 tabular-nums text-slate-900">{verified.length}</p></div>
+            <div className="px-2.5"><p className="text-[9px] text-slate-400">Deepest reported</p><p className="mt-1 text-[11px] font-semibold text-slate-800">{deepest ? formatReportDepth(deepest.properties.depth, deepest.properties.depthCm) : '—'}</p></div>
+          </div>
+          {latest && <button type="button" onClick={() => onOpenReport?.(latest)} disabled={!onOpenReport}
+            className="block w-full rounded-lg border border-slate-200 bg-white p-2.5 text-left hover:border-maroon-200 hover:bg-maroon-50/40 focus-visible:outline-gakit-maroon">
+            <span className="flex items-center justify-between gap-2 text-[9px] text-slate-400"><span className="font-semibold uppercase tracking-wide">Latest report</span><span>{timeAgo(latest.properties.createdAt)}</span></span>
+            <span className="mt-1 block text-xs font-semibold leading-4 text-slate-700 line-clamp-2">{latest.properties.address || 'Location not named'}</span>
+            <span className="mt-1 block text-[10px] font-semibold text-gakit-maroon">View report on map →</span>
+          </button>}
+        </>}
+        <div className="border-t border-slate-100 pt-2">
+          <PillToggle label="Show report pins" checked={visibleReportStatuses.VERIFIED} onChange={checked => onReportStatusChange('VERIFIED', checked)} />
+        </div>
+      </div> : <>
       <div className="text-[10px] text-slate-400 font-medium mb-2 leading-snug">
         {formatReportWindowSubtitle(reportWindowHours, totalReports)}
       </div>
@@ -440,6 +469,7 @@ export function ReportControls({
           />
         ))}
       </div>
+      </>}
     </Card>
   );
 }
@@ -644,6 +674,11 @@ function StormTrackSelector({
         {isLoadingHistory && <Spinner size="xs" />}
       </div>
 
+      {historicalStorms.length === 0 && (
+        <p className="text-[10px] text-slate-500" role="status">
+          {isLoadingHistory ? 'Loading archived storms…' : 'No archived storms available. The archive refreshes automatically.'}
+        </p>
+      )}
       {/* Trigger Button: floating dropdown trigger with neutral styling */}
       <button
         ref={buttonRef}
@@ -898,7 +933,7 @@ export function DataLayerControls({
     >
       <div className="space-y-1.5">
         <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-          Hazards
+          Hazard maps
           <CoverageChip label="Lanao del Norte" detail="Covers Lanao del Norte only" />
         </div>
 
@@ -912,17 +947,14 @@ export function DataLayerControls({
           }}
         />
         {showFloodHazard && (
-          <div className="pl-7 pt-1 pb-1 space-y-1">
-            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-              Hazard level
-            </div>
-            <div className="flex items-center gap-1.5">
+          <div className="pl-10 pt-0.5 pb-1 space-y-1">
+            <div className="flex w-full items-center gap-1.5">
               <div
-                className="h-2.5 w-44 rounded-full"
+                className="h-1.5 w-full rounded-full"
                 style={{ background: FLOOD_HAZARD_GRADIENT_CSS }}
               />
             </div>
-            <div className="flex w-44 justify-between text-[9px] text-slate-500">
+            <div className="flex w-full justify-between text-[9px] text-slate-500">
               <span>Low</span>
               <span>Medium</span>
               <span>High</span>
@@ -940,17 +972,14 @@ export function DataLayerControls({
           }}
         />
         {showLandslide && (
-          <div className="pl-7 pt-1 pb-1 space-y-1">
-            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-              Hazard level
-            </div>
-            <div className="flex items-center gap-1.5">
+          <div className="pl-10 pt-0.5 pb-1 space-y-1">
+            <div className="flex w-full items-center gap-1.5">
               <div
-                className="h-2.5 w-44 rounded-full"
+                className="h-1.5 w-full rounded-full"
                 style={{ background: LANDSLIDE_GRADIENT_CSS }}
               />
             </div>
-            <div className="flex w-44 justify-between text-[9px] text-slate-500">
+            <div className="flex w-full justify-between text-[9px] text-slate-500">
               <span>Low</span>
               <span>Medium</span>
               <span>High</span>
@@ -971,10 +1000,7 @@ export function DataLayerControls({
           }}
         />
         {showStormSurge && (
-          <div className="pl-7 pt-1 pb-1 space-y-1">
-            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-              Hazard level
-            </div>
+          <div className="pl-10 pt-0.5 pb-1 space-y-1">
             {STORM_SURGE_LEGEND.map(({ key, label, color }) => (
               <PillToggle
                 key={key}
@@ -985,11 +1011,11 @@ export function DataLayerControls({
               />
             ))}
             <div className="flex items-center gap-1.5 pt-1.5">
-              <div className="h-2.5 w-44 rounded-full" style={{
+              <div className="h-1.5 w-full rounded-full" style={{
                 background: STORM_SURGE_GRADIENT_CSS,
               }} />
             </div>
-            <div className="flex w-44 justify-between text-[9px] text-slate-500">
+            <div className="flex w-full justify-between text-[9px] text-slate-500">
               <span>Low</span>
               <span>Medium</span>
               <span>High</span>
@@ -998,12 +1024,13 @@ export function DataLayerControls({
         )}
 
         <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-          AI Simulation
+          Flood simulation
           <CoverageChip label="Iligan City" detail="Estimated inundation based on rainfall" />
         </div>
 
         <PillToggle
           label="Flood Simulation"
+          beta
           checked={showSimulatedFlood}
           onChange={(checked) => onShowSimulatedFloodChange?.(checked)}
           loading={showSimulatedFlood && isLoadingSimulatedFlood}
@@ -1013,147 +1040,18 @@ export function DataLayerControls({
           }}
         />
         {showSimulatedFlood && (
-          <div className="pl-7 pt-1 pb-1 space-y-1.5">
-            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1 flex items-center justify-between gap-2">
-              <span>Forecast horizon</span>
-              <span className="normal-case tracking-normal font-medium flex items-center gap-1.5">
-                {simulatedFloodTelemetry?.timestamp && (
-                  <span className="text-slate-500">
-                    {(simulatedFloodHorizon ?? 0) > 0 && simulatedFloodTelemetry.forecastValidTime
-                      ? formatSimulationClock(simulatedFloodTelemetry.forecastValidTime)
-                      : formatSimulationTime(simulatedFloodTelemetry.timestamp)}
-                  </span>
-                )}
-                {simulatedFloodTelemetry?.forecastSource && (
-                  <span
-                    className="rounded border border-slate-200 bg-slate-100 px-1 py-px text-[9px] font-bold uppercase tracking-wide text-slate-500"
-                    title={
-                      simulatedFloodTelemetry.forecastSource === 'gsmap_rnc'
-                        ? 'JAXA GSMaP_RNC nowcast layers'
-                        : 'Forecast rainfall source'
-                    }
-                  >
-                    {simulatedFloodTelemetry.forecastSource === 'gsmap_rnc' ? 'RNC' : 'NWP / mixed'}
-                  </span>
-                )}
-              </span>
+          <div className="ml-2 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 space-y-2.5">
+            <p className="text-[10px] leading-4 text-slate-500">Use the floating timeline to explore past and forecast estimates.</p>
+            <div className="grid grid-cols-2 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white py-2 text-center">
+              {[
+                ['Inundated', `${formatFloodMetric(simulatedFloodTelemetry?.inundatedKm2, 2)} km²`],
+                ['Max depth', `${formatFloodMetric(simulatedFloodTelemetry?.maxDepthM, 2)} m`],
+              ].map(([label, value]) => <div key={label}><p className="text-[9px] text-slate-400">{label}</p><p className="mt-0.5 text-[11px] font-bold tabular-nums text-slate-700">{value}</p></div>)}
             </div>
-            <div role="status" className="text-[10px] text-slate-600">{simulatedFloodStatus ?? simulatedFloodTelemetry?.status ?? 'Live estimates unavailable'}</div>
-            <div
-              className="grid grid-cols-4 gap-1"
-              role="group"
-              aria-label="Simulation forecast horizon"
-            >
-              {SIMULATED_FLOOD_HORIZONS.map((h) => (
-                <button
-                  key={h}
-                  type="button"
-                  onClick={() => onSimulatedFloodHorizonChange?.(h)}
-                  aria-pressed={simulatedFloodHorizon === h}
-                  className={`rounded-lg py-1 text-xs font-bold transition-colors duration-150 ${
-                    simulatedFloodHorizon === h
-                      ? 'bg-gakit-maroon text-white shadow-[0_2px_4px_rgba(123,17,19,0.35)] ring-1 ring-gakit-maroon'
-                      : 'bg-white text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-slate-900'
-                  }`}
-                >
-                  {h === 0 ? 'Latest' : `+${h}h`}
-                </button>
-              ))}
-            </div>
-
-            {(() => {
-              const frames = simulatedFloodReplayFrames ?? [];
-              if (frames.length < 2) return null;
-              const nowIndex = frames.reduce((acc, f, i) => (!f.is_forecast ? i : acc), 0);
-              // Clamp: an hourly refresh can shrink the frame list under the
-              // user's previous scrub position.
-              const activeIndex = Math.min(
-                simulatedFloodReplayIndex ?? nowIndex,
-                frames.length - 1
-              );
-              const selected = frames[activeIndex];
-              return (
-                <div className="pt-1.5">
-                  <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">
-                    <span>Rolling 24h replay</span>
-                    <button
-                      type="button"
-                      onClick={() => onSimulatedFloodReplayChange?.(null)}
-                      className={`normal-case tracking-normal font-bold rounded border px-1.5 py-px transition-colors ${
-                        simulatedFloodReplayIndex == null
-                          ? 'border-gakit-maroon bg-gakit-maroon text-white'
-                          : 'border-slate-200 bg-slate-100 text-slate-500 hover:text-slate-800'
-                      }`}
-                      title="Return to the current live extent"
-                    >
-                      Now
-                    </button>
-                  </div>
-                  <input
-                    type="range"
-                    min={0}
-                    max={frames.length - 1}
-                    step={1}
-                    value={activeIndex}
-                    onChange={(e) => onSimulatedFloodReplayChange?.(Number(e.target.value))}
-                    className="w-full accent-gakit-maroon"
-                    aria-label="Rolling 24-hour replay hour"
-                  />
-                  <div className="flex items-center justify-between text-[9px] text-slate-500 mt-0.5 gap-2">
-                    <span className="truncate">{selected?.display_time ?? '—'}</span>
-                    <span className="flex items-center gap-1 shrink-0">
-                      {typeof selected?.inundated_km2 === 'number' && (
-                        <span className="font-semibold text-slate-600">
-                          {selected.inundated_km2.toFixed(2)} km²
-                        </span>
-                      )}
-                      {selected?.is_forecast && (
-                        <span className="rounded border border-amber-200 bg-amber-50 px-1 font-bold uppercase text-amber-700">
-                          {selected.forecast_horizon_hours
-                            ? `+${selected.forecast_horizon_hours}h`
-                            : 'Nowcast'}
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                </div>
-              );
-            })()}
-
-            {simulatedFloodTelemetry && (
-              <div className="pt-0.5">
-                <div className="grid grid-cols-3 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
-                  <span>Inundated</span>
-                  <span className="text-center">Max depth</span>
-                  <span className="text-right">Rain / 24h</span>
-                </div>
-                <div className="grid grid-cols-3 text-xs font-bold text-slate-700">
-                  <span>{formatFloodMetric(simulatedFloodTelemetry.inundatedKm2, 2)} km²</span>
-                  <span className="text-center">
-                    {formatFloodMetric(simulatedFloodTelemetry.maxDepthM, 2)} m
-                  </span>
-                  <span className="text-right">
-                    {typeof simulatedFloodTelemetry.effectiveRainfallMm === 'number'
-                      ? `${simulatedFloodTelemetry.effectiveRainfallMm.toFixed(1)} mm`
-                      : '—'}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div className="pt-1 w-full">
-              <div className="flex items-center gap-1.5 w-full">
-                <div
-                  className="h-2.5 flex-1 rounded-full"
-                  style={{ background: SIMULATION_DEPTH_GRADIENT_CSS }}
-                />
-                <span className="text-[10px] font-semibold text-slate-500 shrink-0">m</span>
-              </div>
-              <div className="flex w-full justify-between text-[9px] text-slate-500 mt-1">
-                <span>0.2 m</span>
-                <span>0.5–1.5 m</span>
-                <span>&gt;1.5 m</span>
-              </div>
+            <div className="space-y-1 border-t border-slate-200 pt-2">
+              <div className="h-2 rounded-full" style={{ background: SIMULATION_DEPTH_GRADIENT_CSS }} />
+              <div className="flex justify-between text-[9px] text-slate-400"><span>0.2 m</span><span>0.5–1.5 m</span><span>&gt;1.5 m</span></div>
+              <p className="text-[9px] leading-4 text-slate-400">Rainfall-based estimates, not confirmed flooding. Forecast availability varies.</p>
             </div>
           </div>
         )}
@@ -1164,7 +1062,7 @@ export function DataLayerControls({
         </div>
 
         <PillToggle
-          label="Rainfall Accumulation"
+          label="Rainfall"
           checked={showRainfall}
           onChange={onShowRainfallChange}
           loading={showRainfall && isLoadingRainfall}
@@ -1174,7 +1072,7 @@ export function DataLayerControls({
           }}
         />
         {showRainfall && (
-          <div className="pl-7 pt-1 pb-1 space-y-1.5">
+          <div className="pl-10 pt-0.5 pb-1 space-y-1.5">
             <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1 flex items-center justify-between gap-2">
               <span>Accumulation window</span>
               {rainfallObservedAt && (
@@ -1240,7 +1138,7 @@ export function DataLayerControls({
         )}
 
         <PillToggle
-          label="Himawari IR Satellite"
+          label="Satellite imagery"
           checked={showHimawariIR}
           onChange={onShowHimawariIRChange}
           loading={showHimawariIR && isLoadingHimawari}
@@ -1250,7 +1148,7 @@ export function DataLayerControls({
           }}
         />
         {showHimawariIR && (
-          <div className="pl-7 pt-1 pb-1 space-y-1.5">
+          <div className="pl-10 pt-0.5 pb-1 space-y-1.5">
             <div className="text-[10px] leading-snug text-slate-400">
               Last hour · 10-min satellite frames
             </div>
@@ -1276,7 +1174,7 @@ export function DataLayerControls({
 
 
         <PillToggle
-          label="Typhoon Tracker"
+          label="Typhoon tracks"
           checked={showTyphoonTrack}
           onChange={(checked) => onShowTyphoonTrackChange?.(checked)}
           loading={showTyphoonTrack && isLoadingTyphoon}
@@ -1286,7 +1184,7 @@ export function DataLayerControls({
           }}
         />
         {showTyphoonTrack && (
-          <div className="pl-7 pt-1 pb-1 space-y-1.5">
+          <div className="pl-10 pt-0.5 pb-1 space-y-1.5">
             <div className="text-[10px] leading-snug text-slate-400">
               {selectedHistoricalStorm ? (
                 <span>Viewing archived cyclone track</span>
@@ -1301,11 +1199,11 @@ export function DataLayerControls({
               )}
             </div>
 
-            {historicalStorms && historicalStorms.length > 0 && (
+            {(
               <StormTrackSelector
                 hasActiveTyphoon={hasActiveTyphoon}
                 activeTyphoonName={activeTyphoonName}
-                historicalStorms={historicalStorms}
+                historicalStorms={historicalStorms ?? []}
                 selectedHistoricalStorm={selectedHistoricalStorm}
                 onSelectHistoricalStorm={onSelectHistoricalStorm}
                 isLoadingHistory={isLoadingHistory}
@@ -1388,7 +1286,8 @@ export function DataLayerControls({
             </div>
 
             <PillToggle
-              label="Barangay Boundaries"
+              label="Barangay boundaries"
+
               checked={showBarangayBoundaries}
               onChange={(checked) => onShowBarangayBoundariesChange?.(checked)}
               credit={{

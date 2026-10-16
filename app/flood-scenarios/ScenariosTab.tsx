@@ -31,6 +31,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
   const [includeForecast, setIncludeForecast] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [rasterState, setRasterState] = useState<string | null>(null);
+  const [readyScenario, setReadyScenario] = useState<string | null>(null);
   const frameRef = useRef<ScenarioFrame | undefined>(undefined);
   const followLatest = useRef(true);
 
@@ -149,7 +150,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
 
   // Interval loop for playback (for dynamic historical, live, and design-storm scenarios)
   useEffect(() => {
-    if (!isPlaying || !active || visibleFrames.length === 0) return;
+    if (!isPlaying || !active || visibleFrames.length === 0 || rasterState === 'Loading map' || rasterState === 'Loading flood image') return;
 
     const intervalMs = Math.round(800 / playbackSpeed);
     const timer = setInterval(() => {
@@ -157,7 +158,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
     }, intervalMs);
 
     return () => clearInterval(timer);
-  }, [isPlaying, active, visibleFrames, playbackSpeed]);
+  }, [isPlaying, active, visibleFrames, playbackSpeed, rasterState]);
 
   const handleTogglePlay = () => { followLatest.current = false; setIsPlaying(p => !p); };
   const handleToggleSpeed = () => setPlaybackSpeed((s) => (s === 1 ? 2 : 1));
@@ -183,13 +184,20 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
   const currentFrame = visibleFrames[safeIndex];
   useEffect(() => { frameRef.current = currentFrame; }, [currentFrame]);
   const status = loadError ?? (activePreset.type === 'live' ? liveStatus(scenarioData?.live ?? null, currentFrame?.live) : null);
+  const frameUrl = currentFrame?.raster_uri;
+  const handleRasterStateChange = React.useCallback((state: string | null) => {
+    setRasterState(state);
+    if (state === null && frameUrl) setReadyScenario(activePreset.id);
+  }, [activePreset.id, frameUrl]);
+  const frameLoading = rasterState === 'Loading map' || rasterState === 'Loading flood image';
+  const initialLoading = readyScenario !== activePreset.id && (isLoading || loadError === 'Preparing live estimates' || frameLoading || (scenarioData?.live?.build_state === 'building' && !frameUrl));
 
 
   return (
     <div className="relative h-[100dvh] w-full flex flex-col overflow-hidden">
       {/* Loading Overlay */}
-      {isLoading && (
-        <LoadingOverlay message={`Loading ${activePreset.name}...`} />
+      {initialLoading && (
+        <LoadingOverlay message={loadError === 'Preparing live estimates' ? 'Preparing live flood estimates…' : rasterState === 'Loading flood image' ? 'Loading flood simulation map…' : `Loading ${activePreset.name}…`} className="pointer-events-none" />
       )}
 
       {/* Educational Disclaimer Modal for first-time visitors */}
@@ -198,21 +206,22 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
       {/* Main Map Canvas */}
       <div className="relative flex-1 w-full h-full">
         {hasEverBeenActive ? (
-          <ScenarioMap currentFrame={currentFrame} bounds={scenarioData?.bounds} onRasterStateChange={setRasterState} />
+          <ScenarioMap scenarioId={activePreset.id} currentFrame={currentFrame} bounds={scenarioData?.bounds} onRasterStateChange={handleRasterStateChange} />
         ) : null}
+        {!initialLoading && frameLoading && <div role="status" className="pointer-events-none absolute bottom-32 left-1/2 z-20 -translate-x-1/2 rounded-full border border-slate-200 bg-white/95 px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm">Loading next frame…</div>}
 
         {/* Top Controls Overlay: flex-col stack on mobile, left/right on desktop.
             Desktop cards align with the floating pill header top edge. */}
-        <div className="absolute top-[4.5rem] left-3 right-3 md:top-4 md:left-4 md:right-4 z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-2.5 pointer-events-none">
-          <div className="pointer-events-auto w-full md:w-96">
+        <div className="absolute top-[4.5rem] left-3 right-3 md:top-20 md:left-4 md:right-4 z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-2.5 pointer-events-none">
+          <div className="pointer-events-auto w-full md:w-80">
             <ScenarioSelector
               activePreset={activePreset}
-              onSelectPreset={preset => { setActivePreset(preset); setScenarioData(null); setLoadError(null); setRasterState(null); setCurrentIndex(0); }}
+              onSelectPreset={preset => { setReadyScenario(null); setActivePreset(preset); setScenarioData(null); setLoadError(null); setRasterState(null); setCurrentIndex(0); }}
               isLoading={isLoading}
             />
           </div>
 
-          <div className="pointer-events-auto w-full md:w-96">
+          <div className="pointer-events-auto w-full md:w-80">
             {status && !currentFrame && <div role="status" className="rounded-lg bg-white p-3 text-sm text-slate-600">{status}</div>}
             <TelemetryHUD
               currentFrame={currentFrame}

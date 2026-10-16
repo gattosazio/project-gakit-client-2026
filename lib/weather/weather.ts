@@ -1,10 +1,19 @@
 import { cachedGet } from '@/lib/backend/apiCache';
-import type { CurrentWeather, WeatherAlert, WeatherAlertHistoryResponse } from '@/types/weather';
+import type { CurrentWeather, PointWeatherOutlook, WeatherAlert, WeatherAlertHistoryResponse } from '@/types/weather';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? '';
 
 const WEATHER_TTL_MS = 5 * 60 * 1000; // 5 minutes for active alerts
 const WEATHER_HISTORY_TTL_MS = 60 * 60 * 1000; // 1 hour for history
+
+export function outlookLocationKey(location?: { lat: number; lng: number } | null): string {
+  return location ? `latitude=${location.lat.toFixed(2)}&longitude=${location.lng.toFixed(2)}` : 'city';
+}
+
+export function fetchPointOutlook(key: string, signal?: AbortSignal): Promise<PointWeatherOutlook> {
+  return cachedGet(`weather:outlook:${key}`, WEATHER_TTL_MS,
+    () => request<PointWeatherOutlook>(`/api/v1/weather/outlook${key === 'city' ? '' : `?${key}`}`, signal));
+}
 
 async function request<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {

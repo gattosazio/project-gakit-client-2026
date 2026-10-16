@@ -28,6 +28,7 @@ export function StatusFilterDropdown({
 
   return (
     <FilterDropdown
+      size="sm"
       value={value}
       onSelect={onChange}
       options={options}
@@ -57,6 +58,7 @@ export function DepthsFilterDropdown({
 
   return (
     <FilterDropdown
+      size="sm"
       value={value}
       onSelect={onChange}
       options={options}
@@ -81,11 +83,12 @@ export function TimeFilterDropdown({
 
   return (
     <FilterDropdown
+      size="sm"
       value={value}
       onSelect={onChange}
       options={options}
       triggerIcon={<Clock className="w-4 h-4" />}
-      triggerLabel={value === 'all' ? 'All time' : value}
+      triggerLabel={timeRangeOptions.find((option) => option.value === value)?.label ?? value}
     />
   );
 }

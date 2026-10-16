@@ -15,7 +15,7 @@ import { DataLayerControls, ReportControls } from '@/components/map/MapControls'
 import { useActiveAlerts, useCurrentWeather } from '@/lib/weather/weatherStore';
 import { getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
 import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
-import type { ReportStatus } from '@/types/report';
+import type { MapReportFeature, ReportStatus } from '@/types/report';
 import type { ActiveStormSummary, HistoricalStormSummary } from '@/types/typhoon';
 import type { SimulatedFloodHorizon, SimulatedFloodTelemetry } from '@/lib/map/surrogate';
 import type { ScenarioFrame } from '@/types/scenario';
@@ -32,6 +32,7 @@ export interface MapSidebarProps {
   onStartReport?: () => void;
 
   // Weather Outlook
+  weatherLocation?: { lat: number; lng: number } | null;
   weatherOpen: boolean;
   onToggleWeather: (open: boolean) => void;
   weatherExpandedByDefault?: boolean;
@@ -97,6 +98,8 @@ export interface MapSidebarProps {
   visibleReportsCount?: number;
   totalReportsCount?: number;
   statusCounts?: Record<ReportStatus, number>;
+  reportFeatures?: MapReportFeature[];
+  onOpenReport?: (report: MapReportFeature) => void;
 }
 
 export function MapSidebar({
@@ -110,6 +113,7 @@ export function MapSidebar({
   weatherOpen,
   onToggleWeather,
   weatherExpandedByDefault,
+  weatherLocation,
   layersOpen,
   onToggleLayers,
   showFloodHazard,
@@ -168,6 +172,8 @@ export function MapSidebar({
   visibleReportsCount,
   totalReportsCount,
   statusCounts,
+  reportFeatures,
+  onOpenReport,
 }: MapSidebarProps) {
   const weatherCardRef = useRef<HTMLDivElement>(null);
   const layersCardRef = useRef<HTMLDivElement>(null);
@@ -310,7 +316,7 @@ export function MapSidebar({
   const isEmbedded = !fullScreen;
 
   const positionClass = isEmbedded
-    ? 'top-1/2 -translate-y-1/2 bottom-auto'
+    ? 'bottom-4 top-auto'
     : `${hasBottomNav ? 'bottom-24' : 'bottom-6'} top-auto md:top-1/2 md:-translate-y-1/2 md:bottom-auto`;
 
   const maxHeightClass = isEmbedded
@@ -411,7 +417,7 @@ export function MapSidebar({
             >
               <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
                 <Image
-                  src="/images/report-logo.svg"
+                  src="/assets/report-logo.svg"
                   alt="Report flooding"
                   width={20}
                   height={20}
@@ -424,16 +430,22 @@ export function MapSidebar({
         </div>
       ) : (
         /* ─── Expanded State: Unified Scrollable Card Sidebar ────────────── */
-        <div className={`relative pointer-events-auto flex flex-col min-h-0 max-h-full ${isEmbedded ? '' : maxHeightClass} w-[calc(100vw-4.5rem)] max-w-[264px] sm:w-[264px] transition-all duration-300 ease-in-out`}>
+        <div className={`relative pointer-events-auto flex flex-col min-h-0 max-h-full ${isEmbedded ? '' : maxHeightClass} w-[calc(100vw-4.5rem)] max-w-72 sm:w-72 transition-all duration-300 ease-in-out`}>
           {/* Docked Drawer Handle Tab */}
           <button
             type="button"
             onClick={handleCollapseSidebar}
-            className="absolute top-1/2 -translate-y-1/2 right-0 translate-x-full flex h-12 w-5.5 items-center justify-center rounded-r-xl bg-white/95 border-y border-r border-slate-200/90 shadow-md shadow-slate-900/10 backdrop-blur-md transition-all duration-150 hover:bg-slate-50 hover:w-6 active:scale-95 group cursor-pointer z-[1010]"
+            className="hud-pill group absolute -right-1 top-1/2 z-[1010] flex h-16 w-8 -translate-y-1/2 translate-x-full cursor-pointer flex-col items-center justify-center gap-2 !rounded-full text-slate-400 transition-[width,color,box-shadow] duration-200 ease-out hover:w-9 hover:text-slate-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 motion-reduce:transition-none"
             title="Minimize sidebar"
             aria-label="Minimize sidebar"
+            aria-expanded="true"
           >
-            <ChevronLeft className="h-4 w-4 stroke-[2.5] text-slate-400 group-hover:text-gakit-maroon transition-transform duration-150 group-hover:-translate-x-0.5" />
+            <span aria-hidden="true" className="flex gap-0.5 opacity-60 transition-opacity duration-200 group-hover:opacity-100 motion-reduce:transition-none">
+              <span className="h-3 w-0.5 rounded-full bg-current" />
+              <span className="h-3 w-0.5 rounded-full bg-current" />
+            </span>
+            <ChevronLeft className="h-4 w-4 stroke-2 transition-transform duration-200 group-hover:-translate-x-0.5 motion-reduce:transform-none motion-reduce:transition-none" aria-hidden="true" />
+            <span className="pointer-events-none absolute left-full ml-2 whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-medium text-white opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100 motion-reduce:transition-none">Collapse sidebar</span>
           </button>
 
           {/* Scrollable Cards Container */}
@@ -445,6 +457,7 @@ export function MapSidebar({
             {!hideWeather && (
               <div ref={weatherCardRef} className="w-full">
                 <WeatherChip
+                  location={weatherLocation}
                   open={weatherOpen}
                   onToggle={handleToggleWeather}
                   defaultExpanded={weatherExpandedByDefault}
@@ -520,8 +533,10 @@ export function MapSidebar({
                 reportStatusToggleStatuses={reportStatusToggleStatuses}
                 reportWindowHours={reportWindowHours}
                 isLoading={isLoadingReports}
-                totalReports={totalReportsCount ?? visibleReportsCount}
+                totalReports={visibleReportsCount ?? totalReportsCount}
                 statusCounts={statusCounts}
+                reportFeatures={reportFeatures}
+                onOpenReport={onOpenReport}
               />
             </div>
           </div>
@@ -539,7 +554,7 @@ export function MapSidebar({
                 <span
                   role="img"
                   aria-label="Report flooding"
-                  className="h-5 w-5 shrink-0 bg-gakit-maroon transition-transform group-hover:scale-110 [mask-image:url(/images/report-logo.svg)] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url(/images/report-logo.svg)] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"
+                  className="h-5 w-5 shrink-0 bg-gakit-maroon transition-transform group-hover:scale-110 [mask-image:url(/assets/report-logo.svg)] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url(/assets/report-logo.svg)] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"
                 />
                 <span className="text-sm font-bold text-gakit-maroon group-hover:text-maroon-900 transition-colors">
                   Report Flooding

@@ -57,7 +57,7 @@ export function NotificationTypeBadge({ type }: { type: NotificationType }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold ${meta.className}`}
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${meta.className}`}
     >
       <Icon className="h-3.5 w-3.5" />
       {meta.label}
@@ -68,7 +68,7 @@ export function NotificationTypeBadge({ type }: { type: NotificationType }) {
 export function SeverityBadge({ severity }: { severity: Severity }) {
   return (
     <span
-      className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${SEVERITY_CLASS[severity]}`}
+      className={`inline-flex rounded-full border px-1.5 py-0.5 text-[10px] font-semibold capitalize ${SEVERITY_CLASS[severity]}`}
     >
       {severity}
     </span>
@@ -102,7 +102,7 @@ export function AlertTypeBadge({ notification }: { notification: Notification })
     const Icon = meta.icon;
     return (
       <span
-        className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold ${meta.className}`}
+        className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[10px] font-semibold ${meta.className}`}
       >
         <Icon className="h-3.5 w-3.5" />
         {ALERT_TYPE_LABELS[alertType]}

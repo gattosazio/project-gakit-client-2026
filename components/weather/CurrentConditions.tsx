@@ -26,12 +26,12 @@ export function CurrentConditions({ current }: { current: CurrentWeather }) {
       </span>
       <span className="min-w-0 flex-1 leading-tight">
         <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-slate-900">Now</span>
+          <span className="text-xs font-bold text-slate-900">Model estimate</span>
           <span className="text-[10px] font-medium text-slate-400">· as of {observed}</span>
         </div>
         <span className="block truncate text-[11px] font-medium text-slate-500">
           {condition.label}
-          {current.precipitation >= 0.3 && ` · ${current.precipitation.toFixed(1)} mm`}
+          {current.precipitation != null && current.precipitation > 0 && ` · ${current.precipitation.toFixed(1)} mm`}
         </span>
       </span>
       <span className="shrink-0 text-right">

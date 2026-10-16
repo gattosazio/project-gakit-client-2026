@@ -22,7 +22,7 @@ export type AlertSection = 'weather' | 'report';
 export type AlertsView = 'active' | 'archived';
 
 /** Relative date ranges offered by the inbox filter bar. */
-export type DateRange = '24h' | '7d' | 'all';
+export type DateRange = '24h' | '48h' | '7d' | 'all';
 
 /** Columns the inbox can sort by; `depth` is only meaningful for reports. */
 export type SortColumn = 'type' | 'location' | 'severity' | 'depth' | 'sentAt';
@@ -90,7 +90,7 @@ export function filterByDateRange<T extends { sentAt: string }>(
 ): T[] {
   if (range === 'all') return items.slice();
 
-  const cutoff = now.getTime() - (range === '24h' ? DAY_MS : 7 * DAY_MS);
+  const cutoff = now.getTime() - (range === '24h' ? DAY_MS : range === '48h' ? 2 * DAY_MS : 7 * DAY_MS);
   return items.filter((item) => new Date(item.sentAt).getTime() >= cutoff);
 }
 

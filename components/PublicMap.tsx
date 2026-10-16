@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { Loader2, Locate } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { FloodSimulationTimeline } from '@/components/map/FloodSimulationTimeline';
 import { LoadingOverlay } from '@/components/ui/LoadingState';
 import { toast } from 'react-toastify';
 
@@ -43,12 +44,17 @@ import {
   applyBarangayBoundariesVisibility,
   applyBarangaySeverityData,
   applyBuildingsVisibility,
+  applyOverlaySmoothing,
   riskLevelFilter,
   landslideFilter,
   setupOverlayLayers,
   stopClusterPulse,
   type MapMode,
 } from '@/lib/map/overlayLayers';
+import {
+  resolveBuildingsAfterToggle,
+  resolveBuildingsForBasemapSwitch,
+} from '@/lib/map/buildingLayers';
 import {
   aggregateBarangayStats,
   barangayBanner,
@@ -68,7 +74,7 @@ import { createSelectedPinElement } from '@/lib/map/selectedPinElement';
 import { useMapGeolocation } from '@/hooks/useMapGeolocation';
 import { useMapPopups } from '@/hooks/useMapPopups';
 import { BarangayMetricsCard } from '@/components/map/BarangayMetricsCard';
-import { timeAgo } from '@/lib/reports/reportFormatting';
+import { formatReportDepth, STATUS_META, timeAgo } from '@/lib/reports/reportFormatting';
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useRainfallLayer } from '@/hooks/useRainfallLayer';
@@ -96,6 +102,11 @@ export interface MapReportToShow {
 }
 
 export interface PublicMapHandle {
+  setBasemap: (basemap: BasemapId) => void;
+  setMapMode: (mode: MapMode) => void;
+  setBuildingsVisible: (visible: boolean) => void;
+  setPolygonSmoothing: (smooth: boolean) => void;
+  setBarangayBoundariesVisible: (visible: boolean) => void;
   checkLocation: (location: {
     lat: number;
     lng: number;  }) => Promise<LocationRiskInfo>;
@@ -108,6 +119,8 @@ export interface PublicMapHandle {
 }
 
 interface PublicMapProps {
+  onDisplaySettingsChange?: (settings: { basemap: BasemapId; mode: MapMode; showBuildings: boolean; showBarangayBoundaries: boolean; smoothPolygons: boolean; ready: boolean }) => void;
+  hideDisplayControls?: boolean;
   onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
   selectedLocation: { lat: number; lng: number } | null;
   mapApiRef?: MutableRefObject<PublicMapHandle | null>;
@@ -138,6 +151,8 @@ interface PublicMapProps {
   /** Initial basemap shown on first load. Staff maps (e.g. report management)
    *  can default to satellite; the public map stays on the light 2D basemap. */
   defaultBasemap?: BasemapId;
+  /** Keep satellite imagery unobstructed on staff report maps. */
+  hideBuildingsOnSatellite?: boolean;
   /** Initial barangay boundary visibility. Staff maps can default them on;
    *  the public map keeps them hidden by default. */
   defaultShowBarangayBoundaries?: boolean;
@@ -214,9 +229,12 @@ export function PublicMap({
   fullScreen = false,
   hideBarangayBoundariesToggle = false,
   defaultBasemap = 'light',
+  hideBuildingsOnSatellite = false,
   defaultShowBarangayBoundaries = false,
   onStartReport,
   defaultSidebarCollapsed,
+  onDisplaySettingsChange,
+  hideDisplayControls = false,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -283,6 +301,16 @@ export function PublicMap({
   );
   const [mapMode, setMapMode] = useState<MapMode>('2d');
   const [basemap, setBasemap] = useState<BasemapId>(defaultBasemap);
+  const [smoothPolygons, setSmoothPolygons] = useState(true);
+  const smoothPolygonsRef = useRef(true);
+  // Buildings are on for the Light basemap but disabled by default on Satellite
+  // (footprints cover the aerial imagery). buildingsBasePreferenceRef remembers
+  // the Light choice so it is restored when switching back from Satellite, and
+  // tracks explicit choices made while on Satellite.
+  const defaultShowBuildings = defaultBasemap !== 'satellite';
+  const [showBuildings, setShowBuildings] = useState(defaultShowBuildings);
+  const showBuildingsRef = useRef(defaultShowBuildings);
+  const buildingsBasePreferenceRef = useRef(true);
   const layersReadyRef = useRef(false);
   const onReadyFiredRef = useRef(false);
 
@@ -325,7 +353,7 @@ export function PublicMap({
   }, []);
   const typhoon = useTyphoonLayer(mapRef, layersReadyRef, handleTyphoonPointClick);
   const typhoonPopupRef = useRef<any>(null);
-  const simulatedFlood = useSimulatedFloodLayer(mapRef, showSimulatedFlood);
+  const simulatedFlood = useSimulatedFloodLayer(mapRef, showSimulatedFlood, smoothPolygons);
 
   useEffect(() => {
     loadTyphoonRef.current = typhoon.loadData;
@@ -584,25 +612,6 @@ export function PublicMap({
     };
   }, [clearPendingGeocoding]);
 
-  useEffect(() => {
-    if (mapApiRef) {
-      mapApiRef.current = {
-        checkLocation,
-        focusLocation,
-        showReport,
-        getRainfallHours: () => rainfall.rainfallHours,
-        refreshReports: reportsLayer.invalidateAndReload,
-        shareMyLocation: handleShareLocation,
-        resize: () => {
-          mapRef.current?.resize();
-        },
-      };
-      return () => {
-        mapApiRef.current = null;
-      };
-    }
-  }, [mapApiRef, checkLocation, focusLocation, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload, handleShareLocation]);
-
   // Keep refs in sync so stable callbacks can read the latest data without
   // forcing the map-setup effect to re-run.
   useEffect(() => {
@@ -698,6 +707,8 @@ export function PublicMap({
           mapMode: mapModeRef.current,
           rainfallHours: hoursRef.current,
           basemap: basemapRef.current,
+          smoothPolygons: smoothPolygonsRef.current,
+          showBuildings: showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
         });
 
         layersReadyRef.current = true;
@@ -733,6 +744,7 @@ export function PublicMap({
       himawari.visibleRef,
       typhoon,
       hoursRef,
+      hideBuildingsOnSatellite,
     ]
   );
 
@@ -745,10 +757,24 @@ export function PublicMap({
   }, [onMapLoad]);
 
   const handleBasemapChange = useCallback((nextBasemap: BasemapId) => {
-    if (nextBasemap === basemapRef.current) return;
+    const previousBasemap = basemapRef.current;
+    if (nextBasemap === previousBasemap) return;
     layersReadyRef.current = false;
     setBasemap(nextBasemap);
     basemapRef.current = nextBasemap;
+
+    // Footprints cover the aerial imagery, so Satellite disables them by
+    // default; the Light preference is restored when switching back.
+    const nextBuildings = resolveBuildingsForBasemapSwitch(previousBasemap, nextBasemap, {
+      visible: showBuildingsRef.current,
+      basePreference: buildingsBasePreferenceRef.current,
+    });
+    buildingsBasePreferenceRef.current = nextBuildings.basePreference;
+    if (nextBuildings.visible !== showBuildingsRef.current) {
+      showBuildingsRef.current = nextBuildings.visible;
+      setShowBuildings(nextBuildings.visible);
+    }
+
     const map = mapRef.current;
     if (!map) return;
     try {
@@ -773,6 +799,9 @@ export function PublicMap({
     setMapMode(nextMode);
     mapModeRef.current = nextMode;
 
+    // Style restoration reads the updated mode when the new basemap is ready.
+    if (!layersReadyRef.current) return;
+
     void setupOverlayLayers(map, maplibregl, {
       showFloodHazard: showFloodHazardRef.current,
       showSimulatedFlood: showSimulatedFloodRef.current,
@@ -788,8 +817,56 @@ export function PublicMap({
       mapMode: nextMode,
       rainfallHours: hoursRef.current,
       basemap: basemapRef.current,
+      smoothPolygons: smoothPolygonsRef.current,
+      showBuildings: showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
     });
-  }, [himawari.visibleRef, typhoon, hoursRef]);
+  }, [himawari.visibleRef, typhoon, hoursRef, hideBuildingsOnSatellite]);
+
+  const handleSmoothingChange = useCallback((smooth: boolean) => {
+    smoothPolygonsRef.current = smooth;
+    setSmoothPolygons(smooth);
+    if (mapRef.current && layersReadyRef.current) applyOverlaySmoothing(mapRef.current, smooth);
+  }, []);
+
+  const handleBuildingsChange = useCallback((visible: boolean) => {
+    const nextBuildings = resolveBuildingsAfterToggle(
+      basemapRef.current,
+      { visible: showBuildingsRef.current, basePreference: buildingsBasePreferenceRef.current },
+      visible
+    );
+    buildingsBasePreferenceRef.current = nextBuildings.basePreference;
+    showBuildingsRef.current = visible;
+    setShowBuildings(visible);
+    if (mapRef.current) applyBuildingsVisibility(mapRef.current, mapModeRef.current, visible && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'));
+  }, [hideBuildingsOnSatellite]);
+
+  useEffect(() => {
+    if (mapApiRef) {
+      mapApiRef.current = {
+        setBasemap: handleBasemapChange,
+        setMapMode: handleModeChange,
+        setBuildingsVisible: handleBuildingsChange,
+        setPolygonSmoothing: handleSmoothingChange,
+        setBarangayBoundariesVisible: handleShowBarangayBoundariesChange,
+        checkLocation,
+        focusLocation,
+        showReport,
+        getRainfallHours: () => rainfall.rainfallHours,
+        refreshReports: reportsLayer.invalidateAndReload,
+        shareMyLocation: handleShareLocation,
+        resize: () => {
+          mapRef.current?.resize();
+        },
+      };
+      return () => {
+        mapApiRef.current = null;
+      };
+    }
+  }, [handleBasemapChange, handleModeChange, handleBuildingsChange, handleSmoothingChange, handleShowBarangayBoundariesChange, mapApiRef, checkLocation, focusLocation, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload, handleShareLocation]);
+
+  useEffect(() => {
+    onDisplaySettingsChange?.({ basemap, mode: mapMode, showBuildings, showBarangayBoundaries, smoothPolygons, ready: mapReady });
+  }, [basemap, mapMode, showBuildings, showBarangayBoundaries, smoothPolygons, mapReady, onDisplaySettingsChange]);
 
   useEffect(() => {
     if (mapRef.current) {
@@ -1012,7 +1089,8 @@ export function PublicMap({
         }
       });
 
-      applyBuildingsVisibility(map, mapMode, basemap);
+      applyOverlaySmoothing(map, smoothPolygons);
+      applyBuildingsVisibility(map, mapMode, showBuildings && !(hideBuildingsOnSatellite && basemap === 'satellite'));
 
       if (map.getLayer('flood-hazard-fill')) {
         map.setFilter('flood-hazard-fill', riskLevelFilter({ high: true, medium: true, low: true }));
@@ -1033,11 +1111,17 @@ export function PublicMap({
     stormSurgeAdvisory,
     mapMode,
     basemap,
+    showBuildings,
+    smoothPolygons,
+    hideBuildingsOnSatellite,
   ]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
       <div ref={mapContainer} className="w-full h-full touch-none select-none" />
+      {showSimulatedFlood && simulatedFlood.isPreparing && !simulatedFlood.hasRenderedImage && (
+        <LoadingOverlay message="Preparing flood simulation…" zIndex="z-[950]" className="pointer-events-none" />
+      )}
 
       {showBarangayBoundaries &&
         hoveredBarangay &&
@@ -1048,6 +1132,7 @@ export function PublicMap({
             banner={hoveredBanner}
             ageLabel={hoveredAgeLabel}
             windowLabel={barangayWindowLabel}
+            alignToTop={hideDisplayControls && !fullScreen}
             mapRef={mapRef}
             containerRef={mapContainer}
             onClose={() => {
@@ -1057,19 +1142,20 @@ export function PublicMap({
           />
         )}
 
-      <MapViewToggle
+      {!hideDisplayControls && <MapViewToggle
         className="absolute top-4 right-4 md:right-6 z-[1000] hidden md:flex"
         basemap={basemap}
         mode={mapMode}
         onBasemapChange={handleBasemapChange}
         onModeChange={handleModeChange}
-      />
+      />}
 
       {/* Full-viewport maps only: the embedded incident map is too short to fit
           a centred ruler clear of its bottom-right control cluster. */}
       {fullScreen && mapReady && <MapScaleRuler mapRef={mapRef} />}
 
       <MapSidebar
+        weatherLocation={selectedLocation}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={setIsSidebarCollapsed}
         controlsVisible={controlsVisible}
@@ -1140,6 +1226,15 @@ export function PublicMap({
         visibleReportsCount={reportsForStats.length}
         totalReportsCount={backendReports.length}
         statusCounts={statusCounts}
+        reportFeatures={backendReports}
+        onOpenReport={(feature) => {
+          setVisibleReportStatuses(previous => ({ ...previous, [feature.properties.status]: true }));
+          if (onReportClick) { onReportClick(feature.properties.id); return; }
+          showReport({ id: feature.properties.id, lat: feature.geometry.coordinates[1], lng: feature.geometry.coordinates[0],
+            address: feature.properties.address || 'Location not named',
+            depthLabel: formatReportDepth(feature.properties.depth, feature.properties.depthCm),
+            statusLabel: STATUS_META[feature.properties.status].label, createdAt: feature.properties.createdAt });
+        }}
       />
 
       <div
@@ -1261,6 +1356,11 @@ export function PublicMap({
           )}
         </div>
       )}
+
+      {showSimulatedFlood && <FloodSimulationTimeline
+        frames={simulatedFlood.replayFrames} selectedIndex={simulatedFlood.replayIndex}
+        onSelect={simulatedFlood.selectReplayFrame} status={simulatedFlood.status}
+        loading={simulatedFlood.isPreparing} hasBottomNav={hasBottomNav} fullScreen={fullScreen} />}
 
       {/* Himawari Satellite Loading Overlay */}
       {himawari.showHimawariIR && himawari.isLoading && !himawari.hasFrames && (

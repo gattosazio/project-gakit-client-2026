@@ -1,7 +1,8 @@
 'use client';
 
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, X } from 'lucide-react';
 import { REPORT_STATUS_LABELS } from '@/constants/publicMap';
+import { formatReportDepth } from '@/lib/reports/reportFormatting';
 import type { DepthCategory, ReportStatus } from '@/types/report';
 import { Dialog } from '@/components/ui/Dialog';
 
@@ -9,100 +10,78 @@ export interface SubmittedReport {
   id: string;
   location: { lat: number; lng: number; address: string };
   depth: DepthCategory;
+  depthCm?: number | null;
   reference?: { label: string; landmark: string };
   status: ReportStatus;
   submittedAt: string;
 }
 
-const formatApproximateDepth = (depth: DepthCategory) =>
-  depth.code === 'overhead' ? `~${depth.approximateCm} cm or deeper` : `~${depth.approximateCm} cm`;
+const ASSESSMENT: Record<ReportStatus, { message: string; className: string }> = {
+  UNVERIFIED: { message: 'Your report is awaiting validation against available evidence.', className: 'border-amber-200 bg-amber-50 text-amber-800' },
+  VERIFIED: { message: 'Your report has passed validation.', className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
+  ANOMALY: { message: 'Your report needs further review before it can be verified.', className: 'border-orange-200 bg-orange-50 text-orange-800' },
+  REJECTED: { message: 'Your report was not accepted by validation and will not appear on the public map.', className: 'border-slate-200 bg-slate-50 text-slate-700' },
+};
 
-export function SuccessModal({
-  isOpen,
-  report,
-  onClose,
-  onViewMap,
-  onSubmitAnother,
-}: {
+export function SuccessModal({ isOpen, report, onClose }: {
   isOpen: boolean;
   report: SubmittedReport | null;
   onClose: () => void;
-  onViewMap: () => void;
-  onSubmitAnother?: () => void;
 }) {
   if (!isOpen) return null;
+  const assessment = report ? ASSESSMENT[report.status] : null;
 
   return (
-    <Dialog
-      isOpen={isOpen}
-      onClose={onClose}
-      ariaLabel="Report submitted"
-      maxWidthClass="max-w-sm"
-      panelClassName="relative p-6 text-center"
-    >
-        <button
-          onClick={onClose}
-          aria-label="Close success dialog"
-          className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors active:scale-95"
-        >
-          <X className="w-4 h-4" />
-        </button>
-
-        <div className="mx-auto w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-          <CheckCircle2 className="w-7 h-7 text-green-600" />
+    <Dialog isOpen={isOpen} onClose={onClose} ariaLabelledBy="submission-receipt-title"
+      maxWidthClass="max-w-md" panelClassName="relative max-h-[calc(100dvh-2rem)] overflow-y-auto p-5 sm:p-6">
+      <button type="button" onClick={onClose} aria-label="Close submission confirmation"
+        className="absolute right-3 top-3 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700">
+        <X className="h-4 w-4" />
+      </button>
+      <div className="flex items-center gap-3 pr-7">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+          <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
+        </span>
+        <div>
+          <h2 id="submission-receipt-title" className="text-lg font-bold text-slate-900">Report submitted</h2>
+          <p className="mt-0.5 text-xs text-slate-500">Thank you for sharing conditions in your area.</p>
         </div>
-        <h2 className="text-xl font-bold text-slate-900 mt-4">Report submitted</h2>
-        <p className="text-sm text-slate-600 mt-2">
-          Thank you. Your report has been added as unverified and will be reviewed with other flood data.
-        </p>
+      </div>
 
-        {report && (
-          <div className="mt-5 text-left rounded-xl border border-slate-200/90 bg-slate-50/80 p-4 space-y-3">
+      {report && assessment && <>
+        <div className={`mt-5 rounded-xl border p-3 ${assessment.className}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-medium"><ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" />Status at submission</span>
+            <strong className="text-xs">{REPORT_STATUS_LABELS[report.status]}</strong>
+          </div>
+          <p className="mt-1.5 text-xs leading-5">{assessment.message}</p>
+        </div>
+        <dl className="mt-4 space-y-3 text-sm">
+          <div>
+            <dt className="text-[11px] font-medium text-slate-500">Location</dt>
+            <dd className="mt-0.5 break-words font-medium text-slate-800">{report.location.address}</dd>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <div className="text-xs font-semibold text-slate-500">Reference ID</div>
-              <div className="text-sm font-semibold text-slate-900 font-mono">{report.id}</div>
+              <dt className="text-[11px] font-medium text-slate-500">Flood depth</dt>
+              <dd className="mt-0.5 text-xs font-medium text-slate-800">{formatReportDepth(report.depth, report.depthCm)}</dd>
             </div>
             <div>
-              <div className="text-xs font-semibold text-slate-500">Location</div>
-              <div className="text-sm text-slate-900">{report.location.address}</div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs font-semibold text-slate-500">Flood depth</div>
-                <div className="text-sm text-slate-900">
-                  {report.depth.label} ({formatApproximateDepth(report.depth)})
-                </div>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-slate-500">Status</div>
-                <div className="text-sm font-semibold text-amber-600">
-                  {REPORT_STATUS_LABELS[report.status]}
-                </div>
-              </div>
-            </div>
-            {report.reference && (
-              <div>
-                <div className="text-xs font-semibold text-slate-500">Reference</div>
-                <div className="text-sm text-slate-900">
-                  {report.reference.label} · {report.reference.landmark}
-                </div>
-              </div>
-            )}
-            <div>
-              <div className="text-xs font-semibold text-slate-500">Submitted</div>
-              <div className="text-sm text-slate-900">{report.submittedAt}</div>
+              <dt className="text-[11px] font-medium text-slate-500">Submitted</dt>
+              <dd className="mt-0.5 text-xs text-slate-700">{report.submittedAt}</dd>
             </div>
           </div>
-        )}
-
-        <div className="mt-6">
-          <button
-            onClick={onViewMap}
-            className="w-full py-3 px-4 rounded-xl font-semibold bg-gakit-maroon hover:bg-maroon-800 active:scale-[0.98] text-white transition-all shadow-xs"
-          >
-            View on Map
-          </button>
-        </div>
+          <div className="border-t border-slate-100 pt-3">
+            <dt className="text-[11px] font-medium text-slate-500">Reference ID</dt>
+            <dd className="mt-1 select-all break-all font-mono text-[11px] text-slate-600">{report.id}</dd>
+          </div>
+        </dl>
+      </>}
+      <p className="mt-4 text-xs leading-5 text-slate-500">Reports are checked against available evidence before they are shown on the public map.</p>
+      <button type="button" onClick={onClose}
+        className="mt-5 inline-flex h-10 w-full items-center justify-center rounded-lg bg-gakit-maroon px-4 text-sm font-semibold text-white transition-colors hover:bg-maroon-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2">
+        Done
+      </button>
     </Dialog>
   );
 }

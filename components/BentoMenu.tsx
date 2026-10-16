@@ -178,10 +178,10 @@ export function BentoMenu({
                 href={tile.href}
                 onClick={(e) => handleTileClick(e, tile, isCurrent)}
                 title={tile.badge ? `${tile.label} (${tile.badge})` : tile.label}
-                className={`group flex w-full items-center justify-center rounded-xl py-2 text-sm font-semibold transition-all duration-150 ${
+                className={`group flex w-full items-center justify-center rounded-xl py-2 text-sm font-semibold transition-colors duration-150 ${
                   isCurrent
                     ? 'bg-slate-200 text-slate-900 cursor-default font-bold'
-                    : 'text-slate-600 hover:bg-white hover:text-gakit-maroon hover:shadow-xs'
+                    : 'text-slate-600 hover:bg-white hover:text-gakit-maroon'
                 }`}
               >
                 <div className="relative shrink-0">
@@ -191,7 +191,7 @@ export function BentoMenu({
                       alt=""
                       width={22}
                       height={22}
-                      className="h-5 w-5 object-contain transition-transform group-hover:scale-105"
+                      className="h-5 w-5 object-contain"
                     />
                   ) : (
                     getTileIcon(tile.id)
@@ -220,14 +220,14 @@ export function BentoMenu({
               href={tile.href}
               onClick={(e) => handleTileClick(e, tile, isCurrent)}
               title={tile.badge ? `${tile.label} (${tile.badge})` : tile.label}
-              className={`group relative flex flex-col items-center justify-center rounded-xl border py-2 px-1 text-center transition-all duration-150 ${
+              className={`group relative flex flex-col items-center justify-center rounded-xl border py-2 px-1 text-center transition-colors duration-150 ${
                 isCurrent
                   ? 'bg-slate-200 text-slate-900 border-slate-300/80 shadow-xs cursor-default font-bold'
-                  : 'bg-white/80 border-slate-200/80 text-slate-600 hover:bg-white hover:border-slate-300 hover:text-gakit-maroon hover:shadow-xs hover:-translate-y-0.5 active:scale-[0.98]'
+                  : 'bg-white/80 border-slate-200/80 text-slate-600 hover:bg-white hover:border-slate-300 hover:text-gakit-maroon'
               }`}
             >
               <div className="relative">
-                <div className="flex h-8 w-8 items-center justify-center transition-transform duration-150 group-hover:scale-105">
+                <div className="flex h-8 w-8 items-center justify-center">
                   {tile.iconSrc ? (
                     <Image
                       src={tile.iconSrc}
@@ -272,12 +272,12 @@ export function BentoMenu({
         onClick={() => setIsOpen((open) => !open)}
         className={
           isMobileNav
-            ? `relative flex w-full flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1 transition-all duration-150 active:scale-95 ${
+            ? `relative flex w-full flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1 transition-colors duration-150 ${
                 isOpen
                   ? 'bg-slate-200 text-slate-900 font-bold'
                   : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
               }`
-            : `flex h-8 w-8 md:h-9 md:w-9 items-center justify-center rounded-full text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 ${
+            : `flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-colors duration-150 hover:bg-slate-100 hover:text-gakit-maroon md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px] ${
                 isOpen
                   ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80'
                   : ''
@@ -292,12 +292,13 @@ export function BentoMenu({
                     ? 'text-gakit-maroon'
                     : 'text-slate-500'
                 }`
-              : `h-4 w-4 md:h-5 md:w-5 ${isOpen ? 'text-gakit-maroon' : ''}`
+              : `h-4 w-4 ${isOpen ? 'text-gakit-maroon' : ''}`
           }
         />
         {isMobileNav && (
           <span className="text-[10px] font-semibold">Apps</span>
         )}
+        {!isMobileNav && <span>Menu</span>}
       </button>
 
       {isOpen && (
@@ -325,14 +326,14 @@ export function BentoMenu({
                   href={tile.href}
                   onClick={(e) => handleTileClick(e, tile, isCurrent)}
                   title={tile.badge ? `${tile.label} (${tile.badge})` : tile.label}
-                  className={`group relative flex flex-col items-center justify-center gap-1 rounded-xl border py-2 px-1.5 text-center transition-all duration-150 ${
+                  className={`group relative flex flex-col items-center justify-center gap-1 rounded-xl border py-2 px-1.5 text-center transition-colors duration-150 ${
                     isCurrent
                       ? 'bg-slate-200 border-slate-300 text-slate-900 shadow-xs cursor-default font-bold'
-                      : 'bg-white/80 border-slate-200/80 text-slate-600 hover:bg-white hover:border-slate-300 hover:text-gakit-maroon hover:shadow-xs active:scale-[0.98]'
+                      : 'bg-white/80 border-slate-200/80 text-slate-600 hover:bg-white hover:border-slate-300 hover:text-gakit-maroon'
                   }`}
                 >
                   <div className="relative">
-                    <div className="flex h-9 w-9 items-center justify-center transition-transform duration-150 group-hover:scale-105">
+                    <div className="flex h-9 w-9 items-center justify-center">
                       {tile.iconSrc ? (
                         <Image
                           src={tile.iconSrc}

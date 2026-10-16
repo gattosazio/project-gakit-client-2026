@@ -8,6 +8,7 @@ import {
   BUILDING_FILL_OPACITY,
   BUILDING_FILL_OUTLINE_COLOR,
   BUILDINGS_MIN_ZOOM,
+  type BasemapId,
 } from '@/constants/publicMap';
 import { getFirstBasemapSymbolLayerId } from '@/lib/map/basemapLayers';
 
@@ -95,3 +96,48 @@ export const syncBuildingLayers = (
     addBuildingExtrusionLayer(map, sourceId, before);
   }
 };
+
+/**
+ * Buildings preference shared by every map surface: footprints are disabled by
+ * default on the Satellite basemap so they don't cover the aerial imagery,
+ * while the Light basemap keeps its own preference and restores it on return.
+ */
+export interface BuildingsPreferenceState {
+  visible: boolean;
+  /** Buildings choice to restore when switching back to the Light basemap. */
+  basePreference: boolean;
+}
+
+/**
+ * Resolves the buildings preference after a basemap switch. Switching to
+ * Satellite hides the buildings (remembering the current choice); switching
+ * back to Light restores the remembered choice. Other transitions are no-ops.
+ */
+export const resolveBuildingsForBasemapSwitch = (
+  previousBasemap: BasemapId,
+  nextBasemap: BasemapId,
+  state: BuildingsPreferenceState
+): BuildingsPreferenceState => {
+  if (previousBasemap === nextBasemap) return state;
+  if (nextBasemap === 'satellite') {
+    return { visible: false, basePreference: state.visible };
+  }
+  if (previousBasemap === 'satellite') {
+    return { visible: state.basePreference, basePreference: state.basePreference };
+  }
+  return state;
+};
+
+/**
+ * Resolves the buildings preference after an explicit toggle. A choice made on
+ * Satellite is the user's latest intent, so it also becomes the preference
+ * restored when switching back to Light.
+ */
+export const resolveBuildingsAfterToggle = (
+  basemap: BasemapId,
+  state: BuildingsPreferenceState,
+  visible: boolean
+): BuildingsPreferenceState => ({
+  visible,
+  basePreference: basemap === 'satellite' ? visible : state.basePreference,
+});

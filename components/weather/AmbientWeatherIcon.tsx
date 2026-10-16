@@ -2,8 +2,10 @@
 
 import { useMemo } from 'react';
 import { isDaytimeInManila } from '@/lib/weather/weatherCodes';
+import styles from './WeatherAnimation.module.css';
 
 interface AmbientWeatherIconProps {
+  paused?: boolean;
   conditionCode: number;
   observedAt?: string;
   isDark?: boolean;
@@ -19,6 +21,7 @@ export function AmbientWeatherIcon({
   observedAt,
   isDark,
   className = '',
+  paused = false,
 }: AmbientWeatherIconProps) {
   const isDaytime = useMemo(
     () => isDaytimeInManila(observedAt ?? new Date().toISOString()),
@@ -48,7 +51,7 @@ export function AmbientWeatherIcon({
   if (isThunder) {
     return (
       <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
+        className={`${paused ? styles.paused : ""} flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
           darkMode
             ? 'bg-slate-800/90 text-amber-400 border border-slate-700/80 shadow-amber-500/10'
             : 'bg-amber-50 text-amber-600 border border-amber-200/70'
@@ -81,7 +84,7 @@ export function AmbientWeatherIcon({
   if (isRain) {
     return (
       <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
+        className={`${paused ? styles.paused : ""} flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
           darkMode
             ? 'bg-slate-800/90 text-sky-300 border border-slate-700/80 shadow-sky-500/10'
             : 'bg-sky-50 text-sky-600 border border-sky-200/70'
@@ -103,15 +106,15 @@ export function AmbientWeatherIcon({
           />
           <path
             d="M8 15v5"
-            className="text-sky-400 animate-pulse [animation-duration:2.4s] motion-reduce:animate-none"
+            className={`${darkMode ? 'text-sky-400' : 'text-sky-700'} animate-pulse [animation-duration:2.4s] motion-reduce:animate-none`}
           />
           <path
             d="M12 17v5"
-            className="text-sky-300 animate-pulse [animation-duration:2.4s] [animation-delay:800ms] motion-reduce:animate-none"
+            className={`${darkMode ? 'text-sky-300' : 'text-sky-600'} animate-pulse [animation-duration:2.4s] [animation-delay:800ms] motion-reduce:animate-none`}
           />
           <path
             d="M16 15v5"
-            className="text-sky-400 animate-pulse [animation-duration:2.4s] [animation-delay:1600ms] motion-reduce:animate-none"
+            className={`${darkMode ? 'text-sky-400' : 'text-sky-700'} animate-pulse [animation-duration:2.4s] [animation-delay:1600ms] motion-reduce:animate-none`}
           />
         </svg>
       </div>
@@ -122,7 +125,7 @@ export function AmbientWeatherIcon({
   if (isOvercast) {
     return (
       <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
+        className={`${paused ? styles.paused : ""} flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
           darkMode
             ? 'bg-slate-800/90 text-slate-200 border border-slate-700/80 shadow-slate-500/10'
             : 'bg-slate-100 text-slate-700 border border-slate-200/80'
@@ -162,7 +165,7 @@ export function AmbientWeatherIcon({
     if (isDaytime) {
       return (
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
+          className={`${paused ? styles.paused : ""} flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
             darkMode
               ? 'bg-slate-800/90 text-amber-400 border border-slate-700/80 shadow-amber-500/10'
               : 'bg-amber-50/80 text-amber-600 border border-amber-200/70'
@@ -215,7 +218,7 @@ export function AmbientWeatherIcon({
 
     return (
       <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
+        className={`${paused ? styles.paused : ""} flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
           darkMode
             ? 'bg-slate-800/90 text-indigo-300 border border-slate-700/80 shadow-indigo-500/10'
             : 'bg-indigo-50/80 text-indigo-400 border border-indigo-200/70'
@@ -255,7 +258,7 @@ export function AmbientWeatherIcon({
     if (isDaytime) {
       return (
         <div
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
+          className={`${paused ? styles.paused : ""} flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
             darkMode
               ? 'bg-slate-800/90 text-amber-400 border border-slate-700/80 shadow-amber-500/10'
               : 'bg-amber-50 text-amber-500 border border-amber-200/70'
@@ -296,7 +299,7 @@ export function AmbientWeatherIcon({
 
     return (
       <div
-        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
+        className={`${paused ? styles.paused : ""} flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
           darkMode
             ? 'bg-slate-800/90 text-indigo-200 border border-slate-700/80 shadow-indigo-500/10'
             : 'bg-indigo-50 text-indigo-500 border border-indigo-200/70'
@@ -334,7 +337,7 @@ export function AmbientWeatherIcon({
   // ─── Fallback (Generic Cloud) ──────────────────────────────────────────────
   return (
     <div
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
+      className={`${paused ? styles.paused : ""} flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-2xs ${
         darkMode
           ? 'bg-slate-800/90 text-slate-200 border border-slate-700/80'
           : 'bg-slate-100 text-slate-600 border border-slate-200/80'

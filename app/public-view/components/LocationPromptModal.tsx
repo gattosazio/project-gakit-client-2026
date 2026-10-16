@@ -39,7 +39,7 @@ export function LocationPromptModal({
           <div className="flex items-center gap-2">
             {isReport && (
               <Image
-                src="/images/report-logo.svg"
+                src="/assets/report-logo.svg"
                 alt="Report flooded location"
                 width={32}
                 height={32}

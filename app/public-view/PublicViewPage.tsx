@@ -11,6 +11,7 @@ import { createReport, pingHealth, uploadReportPhoto } from './actions/publicVie
 import type { PreparedPhoto } from '@/lib/reports/photoUpload';
 import { isRawCoordinateString, isWithinIligan, preloadGeoData, reverseGeocode } from '@/lib/map/geoUtils';
 import type { PublicMapHandle } from '@/components/PublicMap';
+import { MapDisplayPopover, type MapDisplaySettings } from '@/components/header/MapDisplayPopover';
 import type { CreateReportInput, DepthCategory, FloodReference, Report, ReportStatus } from '@/types/report';
 import type { AuthSnapshot } from '@/lib/auth/roles';
 import { SectionJumpControls } from './components/SectionJumpControls';
@@ -44,8 +45,9 @@ const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ 
 const SECTION_ORDER = ['hazard-map', 'about'] as const;
 type SectionId = (typeof SECTION_ORDER)[number];
 
-const REPORT_STATUS_TOGGLE_STATUSES: ReportStatus[] = ['UNVERIFIED', 'VERIFIED'];
+const REPORT_STATUS_TOGGLE_STATUSES: ReportStatus[] = ['VERIFIED'];
 const DEFAULT_VISIBLE_REPORT_STATUSES: Partial<Record<ReportStatus, boolean>> = {
+  UNVERIFIED: false,
   ANOMALY: false,
   REJECTED: false,
 };
@@ -61,6 +63,7 @@ export function PublicViewPage({
   const [locationPromptMode, setLocationPromptMode] = useState<'assessment' | 'report'>('assessment');
   const [isManualLocationMode, setIsManualLocationMode] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [mapDisplay, setMapDisplay] = useState<MapDisplaySettings & { showBarangayBoundaries: boolean; ready: boolean }>({ basemap: 'light', mode: '2d', showBuildings: true, showBarangayBoundaries: false, ready: false });
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
@@ -536,6 +539,16 @@ export function PublicViewPage({
     []
   );
 
+  const handleReportLocationChange = useCallback(async (location: SelectedLocation) => {
+    const within = await isWithinIligan(location.lat, location.lng);
+    if (within === false) throw new Error('Choose a location within Iligan City.');
+    if (within == null) throw new Error('Could not verify the city boundary. Please try again.');
+    const address = await reverseGeocode(location.lat, location.lng);
+    setSelectedLocation({ ...location, address });
+    setWithinCity(true);
+    mapRef.current?.focusLocation(location);
+  }, []);
+
   const handleReportSubmit = async (data: {
     location: { lat: number; lng: number };
     depth: CreateReportInput['depth'];
@@ -589,6 +602,7 @@ export function PublicViewPage({
         address: report.location.address || fallbackAddress,
       },
       depth: report.depth,
+      depthCm: report.depthCm,
       reference: data.reference,
       status: report.status,
       submittedAt: new Date(report.createdAt).toLocaleString(),
@@ -600,6 +614,12 @@ export function PublicViewPage({
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-canvas-grey">
       <PublicHeader
+        extraAction={<MapDisplayPopover {...mapDisplay} disabled={!mapDisplay.ready}
+          onBasemapChange={value => mapRef.current?.setBasemap(value)}
+          onModeChange={value => mapRef.current?.setMapMode(value)}
+          onBarangayBoundariesChange={value => mapRef.current?.setBarangayBoundariesVisible(value)}
+          onSmoothingChange={value => mapRef.current?.setPolygonSmoothing(value)}
+          onBuildingsChange={value => mapRef.current?.setBuildingsVisible(value)} />}
         activeSection={activeSection}
         initialAuth={initialAuth}
         onNavigateSection={scrollToSection}
@@ -630,6 +650,8 @@ export function PublicViewPage({
                   </div>
                 )}
                 <PublicMap
+                  hideDisplayControls
+                  onDisplaySettingsChange={setMapDisplay}
                   mapApiRef={mapRef}
                   onReady={handleMapReady}
                   onRainfallHoursChange={setRainfallHours}
@@ -637,6 +659,7 @@ export function PublicViewPage({
                   onLocationSelect={handleLocationSelect}
                   selectedLocation={selectedLocation}
                   reportStatusToggleStatuses={REPORT_STATUS_TOGGLE_STATUSES}
+                  reportFilters={{ createdAfterHours: 48, status: 'VERIFIED' }}
                   defaultVisibleReportStatuses={DEFAULT_VISIBLE_REPORT_STATUSES}
                   searchOverlayActive={isManualLocationMode}
                   weatherExpandedByDefault
@@ -744,6 +767,7 @@ export function PublicViewPage({
         }}
         selectedLocation={selectedLocation}
         onSubmit={handleReportSubmit}
+        onLocationChange={handleReportLocationChange}
         onSuccess={() => {
           setIsReportModalOpen(false);
           setIsSuccessOpen(true);
@@ -755,10 +779,6 @@ export function PublicViewPage({
         isOpen={isSuccessOpen}
         report={lastSubmittedReport}
         onClose={() => setIsSuccessOpen(false)}
-        onViewMap={() => {
-          setIsSuccessOpen(false);
-          scrollToMap();
-        }}
       />
 
       <FirstVisitGuide isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />

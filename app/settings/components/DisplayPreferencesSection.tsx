@@ -52,8 +52,8 @@ export function DisplayPreferencesSection() {
       <Switch
         label="3D terrain"
         description="Show terrain elevation beneath the scenario layer."
-        checked={prefs.enableTerrain}
-        onChange={scenarioDisplayStore.setEnableTerrain}
+        checked={prefs.mode === '3d'}
+        onChange={(enabled) => scenarioDisplayStore.setMode(enabled ? '3d' : '2d')}
       />
       <Switch
         label="3D buildings"

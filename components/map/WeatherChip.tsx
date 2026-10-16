@@ -1,324 +1,151 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { ChevronDown, ChevronUp, Droplet } from 'lucide-react';
-import { useActiveAlerts, useCurrentWeather } from '@/lib/weather/weatherStore';
-import { formatDayForecast, getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
+import { useEffect, useId, useState } from 'react';
+import { ChevronDown, ChevronRight, ChevronUp, CloudSun, Droplet, Loader2 } from 'lucide-react';
+import { usePointOutlook } from '@/hooks/usePointOutlook';
+import { getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
+import { manilaDayKey, outlookDayLabel, outlookDays, weatherTime } from '@/lib/weather/outlook';
+import { hourlyRainSeries } from '@/lib/weather/hourlyOutlook';
 import { WeatherAttribution } from '../weather/WeatherAttribution';
-import { CurrentConditions } from '../weather/CurrentConditions';
 import { RainStrip } from '../weather/RainStrip';
 import { WeatherAlertModal } from '../WeatherAlertModal';
-import type { CurrentWeather, WeatherDayData } from '@/types/weather';
+import type { CurrentWeather, WeatherAlert, WeatherDayData } from '@/types/weather';
 
-function startOfDay(d: Date): number {
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-}
+const CURRENT_STALE_MS = 90 * 60 * 1000;
+const numberLabel = (value: number | null | undefined, suffix = '') => value != null && Number.isFinite(value) ? `${Math.round(value)}${suffix}` : '—';
 
-function friendlyDay(iso: string): string {
-  const target = new Date(iso);
-  const dayDiff = Math.round((startOfDay(target) - startOfDay(new Date())) / 86_400_000);
-
-  if (dayDiff === 0) return 'Today';
-  if (dayDiff === 1) return 'Tomorrow';
-
-  return target.toLocaleDateString('en-PH', {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-function friendlyShortDay(iso: string): string {
-  const target = new Date(iso);
-  const dayDiff = Math.round((startOfDay(target) - startOfDay(new Date())) / 86_400_000);
-
-  if (dayDiff === 0) return 'Today';
-  if (dayDiff === 1) return 'Tom';
-
-  return target.toLocaleDateString('en-PH', {
-    weekday: 'short',
-  });
-}
-
-interface WeatherForecastContentProps {
+function WeatherForecastContent({ current, days, now, loading, delayed, currentStale, forecastStale, onSelectDay, locationLabel }: {
+  locationLabel: string;
   current: CurrentWeather | null;
-  today: WeatherDayData;
-  upcomingDays: WeatherDayData[];
-  showAllDays: boolean;
-  onToggleShowAllDays: () => void;
+  days: WeatherDayData[];
+  now: number;
+  loading: boolean;
+  delayed: boolean;
+  currentStale: boolean;
+  forecastStale: boolean;
   onSelectDay: (date: string) => void;
-}
+}) {
+  const first = days[0];
+  const condition = current ? getWeatherCondition(current.conditionCode, isDaytimeInManila(current.observedAt))
+    : first ? getWeatherCondition(first.conditionCode) : null;
+  const Icon = condition?.icon ?? CloudSun;
+  const probabilities = first?.hourlyProbabilities;
+  const hasProbabilities = Boolean(first && hourlyRainSeries(first, 'chance'));
+  const hasRainHours = Boolean(first && hourlyRainSeries(first, 'amount'));
 
-function WeatherForecastContent({
-  current,
-  today,
-  upcomingDays,
-  showAllDays,
-  onToggleShowAllDays,
-  onSelectDay,
-}: WeatherForecastContentProps) {
-  const condition = getWeatherCondition(today.conditionCode);
-  const Icon = condition.icon;
-  const detail = formatDayForecast(today);
-
-  return (
-    <>
-      {/* Current Conditions ("Now") */}
-      {current && <CurrentConditions current={current} />}
-
-      {/* Today's Forecast with Hourly Rain Timeline */}
-      <button
-        type="button"
-        onClick={() => onSelectDay(today.date)}
-        title="Click to view detailed hourly rainfall breakdown for Today"
-        aria-label="Open detailed weather breakdown for Today"
-        className="group flex flex-col w-full p-2.5 text-left rounded-xl bg-slate-50/80 border border-slate-200/70 shadow-2xs hover:bg-slate-100/90 hover:border-slate-300/80 cursor-pointer transition-all"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white border border-slate-200/60 shadow-xs">
-              <Icon className="h-3.5 w-3.5 text-slate-700" />
-            </span>
-            <div>
-              <span className="block text-xs font-bold text-slate-900">Today</span>
-              <span className="block text-[10px] text-slate-500 font-medium leading-tight">{detail}</span>
-            </div>
-          </div>
-          <div className="text-right tabular-nums">
-            <span className="text-xs font-bold text-slate-900">{today.tempMax}°</span>
-            <span className="ml-1.5 text-[11px] font-medium text-slate-400">{today.tempMin}°</span>
-          </div>
-        </div>
-        <div className="mt-2 pt-1.5 border-t border-slate-200/60">
-          <RainStrip hours={today.hours} probabilities={today.hourlyProbabilities} />
-        </div>
-      </button>
-
-      {/* Expandable Upcoming Days */}
-      {showAllDays && (
-        <div className="pt-2 border-t border-slate-100">
-          <div className="grid grid-cols-4 gap-1.5">
-            {upcomingDays.map((day) => {
-              const dayCondition = getWeatherCondition(day.conditionCode);
-              const DayIcon = dayCondition.icon;
-              const shortName = friendlyShortDay(`${day.date}T00:00:00+08:00`);
-
-              return (
-                <button
-                  key={day.date}
-                  type="button"
-                  onClick={() => onSelectDay(day.date)}
-                  className="flex flex-col items-center p-1.5 rounded-lg bg-slate-50/80 border border-slate-200/60 hover:bg-slate-100/90 transition-all text-center"
-                >
-                  <span className="text-[10px] font-bold text-slate-600">{shortName}</span>
-                  <span className="my-1 flex h-6 w-6 items-center justify-center rounded-md bg-white border border-slate-200/50 shadow-2xs">
-                    <DayIcon className="h-3 w-3 text-slate-700" />
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-900 tabular-nums">
-                    {day.tempMax}°
-                  </span>
-                  <span className="flex items-center gap-0.5 text-[9px] font-semibold text-slate-400 tabular-nums">
-                    {day.rainChance > 0 && <Droplet className="h-2.5 w-2.5 text-sky-500 fill-sky-500/30 shrink-0" />}
-                    <span>{day.rainChance ?? 0}%</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {upcomingDays.length > 0 && (
-        <button
-          type="button"
-          onClick={onToggleShowAllDays}
-          className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold text-slate-700 rounded-xl bg-slate-50/80 border border-slate-200/70 hover:bg-slate-100/90 hover:text-slate-900 transition-all"
-        >
-          <span>{showAllDays ? 'Hide upcoming days' : '5-Day Forecast'}</span>
-          <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showAllDays ? 'rotate-180 text-slate-700' : 'text-slate-400'}`} />
-        </button>
-      )}
-
-      <div className="flex items-center justify-end border-t border-slate-100 pt-1.5">
-        <WeatherAttribution />
+  return <>
+    {condition ? <div className="flex items-center gap-3 px-0.5 pb-2">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100/80 text-slate-600"><Icon className="h-6 w-6" aria-hidden="true" /></span>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs font-semibold text-slate-800">{condition.label}</p>
+        <p className="mt-0.5 text-[10px] text-slate-500">{current ? `${currentStale ? 'Past model estimate' : 'Model estimate'} · ${weatherTime(current.observedAt)} PHT` : `${outlookDayLabel(first.date, now)} forecast · PHT`}</p>
       </div>
-    </>
-  );
+      <div className="shrink-0 text-right tabular-nums">
+        {current ? <p className="text-2xl font-semibold leading-none tracking-tight text-slate-900">{numberLabel(current.temperature, '°')}<span className="ml-0.5 align-top text-[10px] font-medium text-slate-400">C</span></p>
+          : <p className="text-lg font-semibold text-slate-900">{numberLabel(first.tempMax, '°')}<span className="ml-1 text-sm font-medium text-slate-400">{numberLabel(first.tempMin, '°')}</span></p>}
+      </div>
+    </div> : <p role="status" className="flex items-center gap-2 py-2 text-xs text-slate-500">{loading && <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />}{loading ? 'Loading weather…' : 'Weather is temporarily unavailable.'}</p>}
+
+    {first ? <>
+      <section className="rounded-xl border border-sky-100 bg-sky-50/60 px-3 py-2.5" aria-label={`${outlookDayLabel(first.date, now)} rain outlook`}>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="text-[10px] font-semibold text-sky-800">{outlookDayLabel(first.date, now)} · chance of rain</p>
+            <p className="mt-1 text-2xl font-semibold leading-none tracking-tight text-slate-900 tabular-nums">{numberLabel(first.rainChance, '%')}</p>
+          </div>
+          <div className="text-right">
+            <button type="button" onClick={() => onSelectDay(first.date)} className="inline-flex items-center gap-0.5 rounded-md py-0.5 pl-1 text-[10px] font-semibold text-sky-800 hover:text-sky-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-600" aria-label={`View ${outlookDayLabel(first.date, now)} weather details`}>Details<ChevronRight className="h-3 w-3" /></button>
+            <p className="mt-1 text-[10px] text-slate-500">{first.rainMm != null && Number.isFinite(first.rainMm) ? `${first.rainMm.toFixed(1)} mm forecast` : 'Rain amount unavailable'}</p>
+          </div>
+        </div>
+        {hasProbabilities || hasRainHours ? <div className="mt-2 border-t border-sky-100 pt-2">
+          <p className="text-[9px] font-medium text-sky-800/80">{hasProbabilities ? 'Rain chance · % · hour ending · PHT' : 'Rainfall · mm · hour ending · PHT'}</p>
+          <RainStrip hours={first.hours} probabilities={probabilities} />
+        </div> : <p className="mt-2 text-[10px] text-slate-500">Hourly breakdown unavailable</p>}
+      </section>
+
+      <section className="pt-2" aria-label="Five-day forecast">
+        <div className="mb-1.5 flex items-center justify-between text-[9px] font-medium text-slate-500"><span>{days.length}-day forecast</span><span>High / low · rain chance</span></div>
+        <div className="grid grid-cols-5 gap-0.5">
+          {days.map(day => {
+            const DayIcon = getWeatherCondition(day.conditionCode).icon;
+            const label = outlookDayLabel(day.date, now);
+            return <button key={day.date} type="button" onClick={() => onSelectDay(day.date)}
+              aria-label={`${label}, ${day.date}: ${getWeatherCondition(day.conditionCode).label}, high ${numberLabel(day.tempMax)} and low ${numberLabel(day.tempMin)} degrees Celsius, ${numberLabel(day.rainChance, '%')} chance of rain. View details.`}
+              className={`flex min-w-0 flex-col items-center gap-1 rounded-lg px-0.5 py-2 transition-colors hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-600 ${day.date === manilaDayKey(now) ? 'bg-slate-100/70' : ''}`}>
+              <span className="text-[10px] font-semibold text-slate-600">{label}</span>
+              <DayIcon className="my-0.5 h-4 w-4 text-slate-600" aria-hidden="true" />
+              <span className="whitespace-nowrap text-[10px] font-semibold tabular-nums text-slate-900">{numberLabel(day.tempMax, '°')}<span className="ml-0.5 font-medium text-slate-400">{numberLabel(day.tempMin, '°')}</span></span>
+              <span className="flex items-center gap-0.5 text-[9px] font-medium tabular-nums text-sky-700"><Droplet className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />{numberLabel(day.rainChance, '%')}</span>
+            </button>;
+          })}
+        </div>
+      </section>
+    </> : condition && <p role="status" className="py-2 text-xs text-slate-500">{loading ? 'Loading forecast…' : 'Forecast temporarily unavailable.'}</p>}
+
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-1 border-t border-slate-100 pt-1.5 text-[9px] text-slate-500">
+      <span role="status" className={delayed || currentStale || forecastStale ? 'text-amber-700' : ''}>{delayed ? 'Updates delayed' : currentStale || forecastStale ? 'Data may be out of date' : `${locationLabel} · PHT`}</span>
+      <WeatherAttribution />
+    </div>
+  </>;
 }
 
-/**
- * Floating weather-outlook control for the map. Collapsed by default;
- * `defaultExpanded` opens it on desktop viewports (>=768px) on mount. Hidden
- * entirely when no digest exists (e.g. backend unreachable). The collapsed
- * pill prefers live current conditions and silently falls back to today's rain
- * chance when they are unavailable.
- *
- * Inside MapSidebar, it renders as a collapsible accordion card. When standalone,
- * it toggles between an expanded card and a compact pill.
- */
-export function WeatherChip({
-  className = '',
-  defaultExpanded = false,
-  open: controlledOpen,
-  onToggle: setControlledOpen,
-  isSidebarItem = false,
-}: {
+/** Compact map weather card, with usable current-only and unavailable states. */
+export function WeatherChip({ className = '', defaultExpanded = false, open: controlledOpen, onToggle, isSidebarItem = false, location }: {
+  location?: { lat: number; lng: number } | null;
   className?: string;
   defaultExpanded?: boolean;
   open?: boolean;
   onToggle?: (open: boolean) => void;
   isSidebarItem?: boolean;
 }) {
-  const alerts = useActiveAlerts();
-  const current = useCurrentWeather();
-  const digest = alerts?.find((a) => a.alertType === 'daily_digest') ?? null;
-  const [showAllDays, setShowAllDays] = useState(false);
+  const feed = usePointOutlook(location);
+  const outlook = feed.data;
+  const current = outlook?.current ?? null;
+  const digest: WeatherAlert | null = outlook ? {
+    id: `outlook:${outlook.location.latitude}:${outlook.location.longitude}:${outlook.retrievedAt}`,
+    alertType: 'daily_digest', severity: 'info', validFrom: outlook.retrievedAt,
+    validTo: outlook.validTo, createdAt: outlook.retrievedAt,
+    data: { days: outlook.days, source: outlook.source, retrievedAt: outlook.retrievedAt, location: outlook.location },
+  } : null;
+  const [now, setNow] = useState(() => Date.now());
   const [selectedDayDate, setSelectedDayDate] = useState<string | null>(null);
-  const [internalOpen, setInternalOpen] = useState(
-    () =>
-      defaultExpanded &&
-      typeof window !== 'undefined' &&
-      window.matchMedia('(min-width: 768px)').matches
-  );
+  const [internalOpen, setInternalOpen] = useState(() => defaultExpanded && typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches);
+  const contentId = useId();
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (next: boolean) => onToggle ? onToggle(next) : setInternalOpen(next);
+  const days = outlookDays(digest?.data?.days ?? [], now);
+  const currentStale = Boolean(current && (!Number.isFinite(Date.parse(current.observedAt)) || now - Date.parse(current.observedAt) > CURRENT_STALE_MS));
+  const forecastStale = Boolean(digest && (!Number.isFinite(Date.parse(digest.validTo)) || Date.parse(digest.validTo) <= now));
+  const delayed = Boolean(feed.error);
+  const loading = feed.status === 'idle' || feed.status === 'loading';
+  const condition = current ? getWeatherCondition(current.conditionCode, isDaytimeInManila(current.observedAt))
+    : days[0] ? getWeatherCondition(days[0].conditionCode) : null;
+  const PillIcon = condition?.icon ?? CloudSun;
+  const numericLabel = current ? numberLabel(current.temperature, '°') : days[0] ? numberLabel(days[0].rainChance, '%') : loading ? 'Loading' : 'Unavailable';
+  const forecastContent = <WeatherForecastContent current={current} days={days} now={now} loading={loading} delayed={delayed}
+    currentStale={currentStale} forecastStale={forecastStale} onSelectDay={setSelectedDayDate} locationLabel={outlook?.location.label ?? (location ? 'Selected location' : 'Iligan City')} />;
 
-  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
-  const setOpen = useCallback(
-    (next: boolean | ((prev: boolean) => boolean)) => {
-      const resolved = typeof next === 'function' ? next(open) : next;
-      if (setControlledOpen) {
-        setControlledOpen(resolved);
-      } else {
-        setInternalOpen(resolved);
-      }
-      if (!resolved) {
-        setShowAllDays(false);
-      }
-    },
-    [open, setControlledOpen, setShowAllDays]
-  );
+  const header = <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls={contentId}
+    className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-bold text-slate-900 transition-colors hover:bg-slate-50/60">
+    <span className="flex min-w-0 items-center gap-2"><PillIcon className="h-4 w-4 shrink-0 text-gakit-maroon" aria-hidden="true" /><span className="truncate">Weather Outlook</span>
+      {!open && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-600">{numericLabel}</span>}</span>
+    {open ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
+  </button>;
 
-  const days = digest?.data?.days ?? null;
-
-  if (!digest || !days || days.length === 0) return null;
-
-  const todayCondition = getWeatherCondition(days[0].conditionCode);
-
-  // Collapsed pill: prefer live conditions when available.
-  const liveCondition = current
-    ? getWeatherCondition(current.conditionCode, isDaytimeInManila(current.observedAt))
-    : null;
-  const PillIcon = liveCondition ? liveCondition.icon : todayCondition.icon;
-  const hasLive = current !== null && liveCondition !== null;
-  const pillLabel = hasLive
-    ? `${liveCondition.label} · ${Math.round(current.temperature)}°`
-    : `${days[0].rainChance}%`;
-  const pillTooltip = hasLive
-    ? `${liveCondition.label}, ${Math.round(current.temperature)}° now · as of ${new Date(
-        current.observedAt
-      ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
-    : `Weather outlook — ${todayCondition.label}, ${days[0].rainChance}% chance of rain`;
-
-  const numericLabel = hasLive
-    ? `${Math.round(current.temperature)}°`
-    : `${days[0].rainChance}%`;
-
-  const today = days[0];
-  const upcomingDays = days.slice(1);
-
-  const forecastContent = (
-    <WeatherForecastContent
-      current={current}
-      today={today}
-      upcomingDays={upcomingDays}
-      showAllDays={open && showAllDays}
-      onToggleShowAllDays={() => setShowAllDays((prev) => !prev)}
-      onSelectDay={(date) => setSelectedDayDate(date)}
-    />
-  );
-
-  return (
-    <div className={className}>
-      {isSidebarItem ? (
-        <div className="w-full hud-card overflow-hidden transition-all duration-200">
-          <div
-            onClick={() => setOpen(!open)}
-            className="flex items-center justify-between gap-2.5 px-3 py-2 text-xs font-bold text-slate-900 cursor-pointer select-none hover:bg-slate-50/60 transition-colors"
-          >
-            <div className="flex min-w-0 items-center gap-2">
-              <PillIcon className="w-4 h-4 text-gakit-maroon shrink-0" />
-              <span className="truncate">Weather Outlook</span>
-              {!open && numericLabel && (
-                <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-700 tabular-nums">
-                  {numericLabel}
-                </span>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(!open);
-              }}
-              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
-              aria-label={open ? 'Collapse weather outlook' : 'Expand weather outlook'}
-            >
-              {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-          </div>
-
-          <div
-            aria-hidden={!open}
-            className={`grid transition-[grid-template-rows] duration-200 ease-out ${
-              open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
-            }`}
-          >
-            <div className="min-h-0 overflow-hidden">
-              <div className="px-2.5 pb-2.5 pt-1 space-y-1.5 border-t border-slate-100/80">
-                {forecastContent}
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : open ? (
-        <div className="w-72 hud-card">
-          <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-1 text-xs font-bold text-slate-900">
-            <div className="flex min-w-0 items-center gap-2">
-              <PillIcon className="w-3.5 h-3.5 text-gakit-maroon shrink-0" />
-              <span className="truncate">Weather Outlook</span>
-            </div>
-            <button
-              onClick={() => setOpen(false)}
-              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
-              aria-label="Collapse weather outlook"
-            >
-              <ChevronUp className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="max-h-[46vh] overflow-y-auto px-3 pb-3 pt-1 space-y-2">
-            {forecastContent}
-          </div>
-        </div>
-      ) : (
-        <button
-          onClick={() => setOpen(true)}
-          className="flex items-center gap-2 px-3 py-2.5 hud-pill hover:bg-white hover:shadow-lg transition-all duration-150"
-          title={pillTooltip}
-          aria-label="Show weather outlook"
-          aria-expanded={open}
-        >
-          <PillIcon className="h-5 w-5 text-gakit-maroon" />
-          <span className="hidden text-sm font-semibold text-slate-700 tabular-nums md:inline">{pillLabel}</span>
-          <span className="text-sm font-semibold text-slate-700 tabular-nums md:hidden">{numericLabel}</span>
-        </button>
-      )}
-
-      {selectedDayDate && (
-        <WeatherAlertModal
-          alert={digest}
-          highlightDate={selectedDayDate}
-          onClose={() => setSelectedDayDate(null)}
-        />
-      )}
-    </div>
-  );
+  return <div className={className}>
+    {isSidebarItem || open ? <div className={`${isSidebarItem ? 'w-full' : 'w-72 max-w-[calc(100vw-2rem)]'} hud-card overflow-hidden`}>
+      {header}
+      {open && <div id={contentId} className={`${isSidebarItem ? '' : 'max-h-[60dvh] overflow-y-auto'} border-t border-slate-100/80 px-3 pb-2.5 pt-3`}>{forecastContent}</div>}
+    </div> : <button type="button" onClick={() => setOpen(true)} aria-label="Show weather outlook" aria-expanded={false}
+      className="flex items-center gap-2 px-3 py-2.5 hud-pill transition-colors hover:bg-white"
+      title={condition ? `${condition.label} · ${numericLabel}${currentStale || forecastStale ? ' · Data may be out of date' : ''}` : 'Weather outlook'}>
+      <PillIcon className="h-5 w-5 text-gakit-maroon" aria-hidden="true" /><span className="text-xs font-semibold tabular-nums text-slate-700">{numericLabel}</span>
+    </button>}
+    {selectedDayDate && digest && <WeatherAlertModal alert={digest} highlightDate={selectedDayDate} onClose={() => setSelectedDayDate(null)} />}
+  </div>;
 }

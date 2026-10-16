@@ -2,6 +2,7 @@ import { cachedGet, invalidateApiCache } from '@/lib/backend/apiCache';
 import { RateLimitedError } from '@/lib/backend/apiErrors';
 import { authHeaders } from '@/lib/supabase/client';
 import { reporterHeaders } from '@/lib/reports/reporterIdentity';
+import type { DashboardSnapshot, ReportArchive } from '@/types/dashboard';
 import type {
   CreateReportInput,
   FloodDepthCode,
@@ -113,6 +114,14 @@ export async function getReport(
 export async function fetchReportStats(signal?: AbortSignal): Promise<ReportStats> {
   const url = '/api/v1/reports/stats';
   return cachedGet<ReportStats>(url, 30_000, () => request<ReportStats>(url, { signal }));
+}
+
+export async function fetchDashboardSnapshot(signal?: AbortSignal): Promise<DashboardSnapshot> {
+  return request<DashboardSnapshot>('/api/v1/reports/dashboard', { signal, cache: 'no-store' });
+}
+
+export async function fetchReportArchive(year: number, signal?: AbortSignal): Promise<ReportArchive> {
+  return request<ReportArchive>(`/api/v1/reports/archive?year=${year}`, { signal, cache: 'no-store' });
 }
 
 export async function updateReportStatus(

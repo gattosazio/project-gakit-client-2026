@@ -50,6 +50,8 @@ export function LoadingOverlay({
   return (
     <div
       className={`absolute inset-0 ${zIndex} flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm text-slate-800 ${className}`}
+      role="status"
+      aria-live="polite"
     >
       <Spinner className="h-8 w-8 text-gakit-maroon mb-2" />
       <span className="text-sm font-bold tracking-wide">{message}</span>

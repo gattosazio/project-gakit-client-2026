@@ -114,32 +114,30 @@ async function fetchServerTyphoonTrack(stormName?: string | null): Promise<Typho
 
 async function fetchHistoricalStorms(): Promise<any[]> {
   const endpoint = `${API_URL.replace(/\/+$/, '')}/api/v1/typhoon/history`;
-  try {
-    const res = await fetch(endpoint, {
-      headers: {
-        Accept: 'application/json',
-        'User-Agent': 'ProjectGakit-Client/1.0',
-      },
-      signal: AbortSignal.timeout(4000),
-      next: { revalidate: 600 },
-    });
-    if (res.ok) {
-      return await res.json();
-    }
-  } catch {
-    // Backend offline
-  }
-  return [];
+  const res = await fetch(endpoint, {
+    headers: { Accept: 'application/json', 'User-Agent': 'ProjectGakit-Client/1.0' },
+    signal: AbortSignal.timeout(12000),
+    cache: 'no-store',
+  });
+  if (!res.ok) throw new Error(`Storm archive returned ${res.status}`);
+  const history: unknown = await res.json();
+  if (!Array.isArray(history)) throw new Error('Invalid storm archive response');
+  return history;
 }
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     if (searchParams.get('history') === 'true') {
-      const history = await fetchHistoricalStorms();
-      return NextResponse.json(history, {
-        headers: CACHE_HEADERS,
-      });
+      try {
+        const history = await fetchHistoricalStorms();
+        return NextResponse.json(history, { headers: { 'Cache-Control': 'no-store' } });
+      } catch (error) {
+        console.error('Storm archive unavailable:', error);
+        return NextResponse.json({ error: 'Storm archive temporarily unavailable' }, {
+          status: 503, headers: { 'Cache-Control': 'no-store' },
+        });
+      }
     }
 
     const stormName = searchParams.get('stormName');

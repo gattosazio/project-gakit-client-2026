@@ -1,3 +1,5 @@
+import { getLocalRoads } from './roadGeocoding';
+
 const GEOCODE_CACHE_MAX = 64;
 const geocodeCache = new Map<string, string>();
 
@@ -109,12 +111,13 @@ export async function getIliganBarangays(): Promise<GeoJsonCollection | null> {
 }
 
 /**
- * Pre-warms the local Iligan barangay boundary GeoJSON and Overture places database
- * in background memory so subsequent reverse geocoding and location searches resolve instantly (0ms).
+ * Preloads barangay boundaries, Overture places, and indexed OSM road geometry
+ * so later location lookups can reuse the local data without another download.
  */
 export function preloadGeoData(): void {
   void getIliganBarangays();
   void getIliganPlaces();
+  void getLocalRoads();
 }
 
 /** Ray casting point-in-polygon check */
@@ -181,12 +184,24 @@ export async function isWithinIligan(lat: number, lng: number): Promise<boolean 
   return findBarangayEntry(lng, lat, geojson) != null;
 }
 
+/** Only recognizable standalone landmarks may supply an automatic address. */
+function isMajorAddressLandmark(place: RawPlaceRecord): boolean {
+  const name = place.n.trim();
+  // Exact names allow major buildings with noisy categories, without matching
+  // tenants such as "Shawarma Shack - Robinsons Place Iligan".
+  if (/^(department of public works and highways|robinsons place iligan|gaisano citi super mall|gaisano iligan main)$/i.test(name)) return true;
+  if (place.c === 'School') return /\b(school|university|college|campus)\b/i.test(name);
+  if (place.c === 'Hospital / Clinic') return /\b(hospital|medical cent(?:er|re))\b/i.test(name);
+  if (place.c === 'Government') return /\b(city hall|barangay hall|police station|fire station|fire sub-station|department of public works and highways)\b/i.test(name);
+  if (place.c === 'Landmark') return /\b(park|public market|city market|bus terminal|integrated terminal)\b/i.test(name);
+  return false;
+}
+
 /**
- * High-precision offline reverse-geocoding for Iligan City:
- * 1. Checks exact Barangay boundary polygon (0ms).
- * 2. Fallbacks to nearest barangay centroid if near boundary/coastline (<5km).
- * 3. Finds nearest named landmark or street within 100m.
- * 4. Fallback to Iligan City bounds format if within city footprint.
+ * Readable local address: nearby street, then a major landmark, then the
+ * containing barangay. Street matches use road lines within 60 m; landmarks
+ * use place points within 100 m. Distant or ambiguous roads are omitted,
+ * and barangays are assigned from their actual boundaries, never centroids.
  */
 export async function reverseGeocode(
   lat: number,
@@ -198,9 +213,10 @@ export async function reverseGeocode(
   if (cached !== undefined) return cached;
 
   try {
-    const [barangaysGeoJson, places] = await Promise.all([
+    const [barangaysGeoJson, places, roads] = await Promise.all([
       getIliganBarangays(),
       getIliganPlaces(),
+      getLocalRoads(),
     ]);
 
     let barangayName: string | null = null;
@@ -211,58 +227,29 @@ export async function reverseGeocode(
     const latRad = (lat * Math.PI) / 180;
     const cosLat = Math.cos(latRad);
 
-    // If point-in-polygon check misses (e.g. coastal buffer, boundary sliver, river),
-    // find closest barangay centroid from places database if within 5km.
-    if (!barangayName && places && places.length > 0) {
-      let nearestBrgyDist = 999999;
-      let nearestBrgyName: string | null = null;
-      for (const p of places) {
-        if (p.c !== 'Barangay') continue;
-        const dLat = (p.lat - lat) * 111320;
-        const dLng = (p.lng - lng) * 111320 * cosLat;
-        const dist = Math.hypot(dLat, dLng);
-        if (dist < nearestBrgyDist) {
-          nearestBrgyDist = dist;
-          nearestBrgyName = p.n.replace(/^Barangay\s+/i, '');
-        }
-      }
-      if (nearestBrgyDist <= 5000 && nearestBrgyName) {
-        barangayName = nearestBrgyName;
-      }
-    }
+    const barangayLabel = barangayName ? `Barangay ${barangayName}` : null;
+    const locality = barangayLabel ? `${barangayLabel}, Iligan City` : 'Iligan City';
 
-    const barangayLabel = barangayName ? `Barangay ${barangayName}` : 'Iligan City';
-
-    // Find nearest POI, landmark, or street within 100 meters
-    let bestDist = 999999;
-    let bestPlace: RawPlaceRecord | null = null;
-
-    if (places && places.length > 0) {
-      for (const p of places) {
-        // Skip generic barangay centroid points for nearest POI lookup
-        if (p.c === 'Barangay') continue;
-
-        const dLat = (p.lat - lat) * 111320;
-        const dLng = (p.lng - lng) * 111320 * cosLat;
-        const dist = Math.hypot(dLat, dLng);
-
-        if (dist < bestDist) {
-          bestDist = dist;
-          bestPlace = p;
-        }
+    const nearestStreet = roads?.nearby(lat, lng);
+    let nearestLandmark: RawPlaceRecord | null = null;
+    let landmarkDistance = 100;
+    for (const place of places) {
+      if (!isMajorAddressLandmark(place)) continue;
+      const distance = Math.hypot((place.lat - lat) * 111320, (place.lng - lng) * 111320 * cosLat);
+      if (distance <= landmarkDistance) {
+        nearestLandmark = place;
+        landmarkDistance = distance;
       }
     }
 
     let addressResult: string;
 
-    if (bestPlace && bestDist <= 100) {
-      if (bestPlace.c === 'Street') {
-        addressResult = `${bestPlace.n}, ${barangayLabel}, Iligan City`;
-      } else {
-        addressResult = `Near ${bestPlace.n}, ${barangayLabel}, Iligan City`;
-      }
+    if (barangayName && nearestStreet) {
+      addressResult = `${nearestStreet.distanceM > 25 ? 'Near ' : ''}${nearestStreet.name}, ${locality}`;
+    } else if (barangayName && nearestLandmark) {
+      addressResult = `Near ${nearestLandmark.n}, ${locality}`;
     } else if (barangayName) {
-      addressResult = `${barangayLabel}, Iligan City`;
+      addressResult = locality;
     } else if (
       lng >= ILIGAN_BOUNDS[0][0] &&
       lat >= ILIGAN_BOUNDS[0][1] &&
@@ -274,7 +261,8 @@ export async function reverseGeocode(
       addressResult = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     }
 
-    geocodeCache.set(cacheKey, addressResult);
+    // Do not cache degraded lookups after a failed dataset request.
+    if (barangaysGeoJson && roads) geocodeCache.set(cacheKey, addressResult);
     if (geocodeCache.size > GEOCODE_CACHE_MAX) {
       const oldest = geocodeCache.keys().next().value;
       if (oldest != null) geocodeCache.delete(oldest);
@@ -288,8 +276,7 @@ export async function reverseGeocode(
 }
 
 /**
- * Street-Level Location Search using 3,900+ Overture Maps Foundation
- * places, named streets, and barangays in Iligan City.
+ * Local search using OSM road geometry and Overture places and barangays.
  */
 export async function searchLocations(
   query: string,
@@ -301,13 +288,24 @@ export async function searchLocations(
   const clean = trimmedQuery.toLowerCase();
   const normQuery = clean.replace(/[^a-z0-9]/g, '');
 
-  const places = await getIliganPlaces();
+  const [places, roads, barangays] = await Promise.all([getIliganPlaces(), getLocalRoads(), getIliganBarangays()]);
+  // Replace legacy "Street" place points (including ferry-route centroids).
+  // Road search results use a vertex on the actual road, inside city limits.
+  const candidates = places.filter(place => place.c !== 'Street');
+  const seenNames = new Set<string>();
+  for (const road of roads?.roads ?? []) {
+    if (!road.n || seenNames.has(road.n)) continue;
+    const [roadLng, roadLat] = road.p[Math.floor(road.p.length / 2)];
+    if (!barangays || !findBarangayEntry(roadLng, roadLat, barangays)) continue;
+    seenNames.add(road.n);
+    candidates.push({ n: road.n, c: 'Street', lat: roadLat, lng: roadLng });
+  }
   const localResults: LocationSearchResult[] = [];
 
-  if (places && places.length > 0) {
+  if (candidates.length > 0) {
     const scored: Array<{ record: RawPlaceRecord; score: number }> = [];
 
-    for (const p of places) {
+    for (const p of candidates) {
       const nameLower = p.n.toLowerCase();
       const nameNorm = nameLower.replace(/[^a-z0-9]/g, '');
 

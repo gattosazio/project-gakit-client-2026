@@ -15,8 +15,10 @@ const barangaysPath = path.resolve(__dirname, '../public/data/iligan-barangays.g
 
 const placesData = JSON.parse(fs.readFileSync(placesPath, 'utf-8'));
 const barangaysData = JSON.parse(fs.readFileSync(barangaysPath, 'utf-8'));
+const roadsData = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../public/data/iligan-roads.json'), 'utf-8'));
 
 global.fetch = vi.fn().mockImplementation((url: string) => {
+  if (url === '/data/iligan-roads.json') return Promise.resolve({ ok: true, json: async () => roadsData });
   if (url === '/data/iligan-places.json') {
     return Promise.resolve({
       ok: true,

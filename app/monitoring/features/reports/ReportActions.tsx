@@ -6,13 +6,14 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronDown,
-  Info,
+  FileText,
   XCircle,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { STATUS_META } from '@/lib/reports/reportFormatting';
 import type { Report, ReportStatus } from '@/types/report';
 import { STATUS_ICONS } from './reportFilterOptions';
+import { ReportStatusReasonDialog } from './RejectionReason';
 
 function MapPinSearchIcon({ className }: { className?: string }) {
   return (
@@ -56,6 +57,7 @@ export function ReportActions({
     <div className="flex items-center gap-2">
       {showInspect && (
         <button
+          type="button"
           onClick={onInspect}
           aria-label="Inspect report on map"
           title="View on map"
@@ -65,12 +67,13 @@ export function ReportActions({
         </button>
       )}
       <button
+        type="button"
         onClick={onViewDetails}
-        aria-label="View report details"
-        title="View details"
-        className="inline-flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
+        aria-label={`View report ${report.id.slice(0, 8)} details`}
+        className="inline-flex h-8 w-28 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-gakit-maroon px-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-maroon-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
       >
-        <Info className="h-4 w-4" />
+        <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        View report
       </button>
     </div>
   );
@@ -87,9 +90,10 @@ export function StatusDropdown({
 }: {
   report: Report;
   isUpdating: boolean;
-  onUpdateStatus: (report: Report, toStatus: ReportStatus) => void;
+  onUpdateStatus: (report: Report, toStatus: ReportStatus, reason?: string) => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
+  const [reasonStatus, setReasonStatus] = useState<'REJECTED' | 'UNVERIFIED' | null>(null);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const status = STATUS_META[report.status];
@@ -100,6 +104,7 @@ export function StatusDropdown({
     className: string;
     icon: typeof CheckCircle2;
   }> = [
+    ...(report.status !== 'UNVERIFIED' ? [{ status: 'UNVERIFIED' as const, label: 'Reopen for review', className: 'text-slate-600', icon: AlertTriangle }] : []),
     { status: 'VERIFIED', label: 'Verify', className: 'text-hazard-safe', icon: CheckCircle2 },
     { status: 'ANOMALY', label: 'Flag for review', className: 'text-hazard-critical', icon: AlertTriangle },
     { status: 'REJECTED', label: 'Reject', className: 'text-slate-600', icon: XCircle },
@@ -132,16 +137,16 @@ export function StatusDropdown({
         title={`${status.label} · Update status`}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`inline-flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${status.badgeClass} hover:brightness-95 disabled:cursor-wait disabled:opacity-60`}
+        className={`inline-flex h-7 cursor-pointer items-center gap-1 whitespace-nowrap rounded-full border px-2 text-[11px] font-semibold ${status.badgeClass} hover:brightness-95 disabled:cursor-wait disabled:opacity-60`}
       >
         {isUpdating ? (
           <Spinner size="sm" />
         ) : (
           <>
-            <StatusIcon className="h-4 w-4" style={{ color: status.color }} />
+            <StatusIcon className="h-3.5 w-3.5" style={{ color: status.color }} />
             {status.label}
             <ChevronDown
-              className={`h-3.5 w-3.5 text-current opacity-60 transition-transform ${open ? 'rotate-180' : ''}`}
+              className={`h-3 w-3 text-current opacity-60 transition-transform ${open ? 'rotate-180' : ''}`}
             />
           </>
         )}
@@ -171,15 +176,15 @@ export function StatusDropdown({
                     role="menuitem"
                     disabled={isCurrent}
                     onClick={() => {
-                      if (option.status === 'REJECTED' && !window.confirm('Reject this report?')) return;
                       setOpen(false);
+                      if (option.status === 'REJECTED' || option.status === 'UNVERIFIED') { setReasonStatus(option.status); return; }
                       onUpdateStatus(report, option.status);
                     }}
-                    className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-semibold hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-50 ${index > 0 ? 'border-t border-canvas-grey' : ''} ${option.className}`}
+                    className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] font-semibold hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-50 ${index > 0 ? 'border-t border-canvas-grey' : ''} ${option.className}`}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
+                    <Icon className="h-3.5 w-3.5 shrink-0" />
                     <span className="flex-1 text-left">{option.label}</span>
-                    {isCurrent && <span className="text-xs font-medium text-slate-400">Current</span>}
+                    {isCurrent && <span className="text-[10px] font-medium text-slate-400">Current</span>}
                   </button>
                 );
               })}
@@ -187,6 +192,10 @@ export function StatusDropdown({
           </>,
           document.body
         )}
+      {reasonStatus && <ReportStatusReasonDialog reportId={report.id} isUpdating={isUpdating} action={reasonStatus === 'UNVERIFIED' ? 'reopen' : 'reject'}
+        onClose={() => setReasonStatus(null)} onConfirm={async (reason) => {
+          if (await onUpdateStatus(report, reasonStatus, reason)) setReasonStatus(null);
+        }} />}
     </div>
   );
 }

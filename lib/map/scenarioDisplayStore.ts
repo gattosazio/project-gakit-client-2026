@@ -1,20 +1,32 @@
 import { useSyncExternalStore } from 'react';
+import type { BasemapId } from '@/constants/publicMap';
+import {
+  resolveBuildingsAfterToggle,
+  resolveBuildingsForBasemapSwitch,
+} from '@/lib/map/buildingLayers';
 
 export interface ScenarioDisplaySettings {
+  basemap: BasemapId;
+  mode: '2d' | '3d';
   renderMode: 'nearest' | 'linear';
-  enableTerrain: boolean;
   enableBuildings: boolean;
 }
 
 export const SCENARIO_DISPLAY_STORAGE_KEY = 'gakit.scenario-display';
 
 export const DEFAULT_SCENARIO_DISPLAY: ScenarioDisplaySettings = {
+  basemap: 'light',
+  // Flood scenarios open flat (2D) so the inundation raster is easy to read;
+  // viewers can still switch to 3D terrain from the display popover.
+  mode: '2d',
   renderMode: 'linear',
-  enableTerrain: true,
   enableBuildings: true,
 };
 
 let currentSettings: ScenarioDisplaySettings = { ...DEFAULT_SCENARIO_DISPLAY };
+// Remembered Light-basemap buildings choice so the Satellite default (off)
+// doesn't clobber it; see resolveBuildingsForBasemapSwitch.
+let baseBuildingsPreference = DEFAULT_SCENARIO_DISPLAY.enableBuildings;
 const listeners = new Set<() => void>();
 
 function notify() {
@@ -33,7 +45,7 @@ function sameSettings(
 ): boolean {
   return (
     a.renderMode === b.renderMode &&
-    a.enableTerrain === b.enableTerrain &&
+    a.mode === b.mode && a.basemap === b.basemap &&
     a.enableBuildings === b.enableBuildings
   );
 }
@@ -61,9 +73,9 @@ export function parseScenarioDisplay(
   if (source.renderMode === 'nearest' || source.renderMode === 'linear') {
     result.renderMode = source.renderMode;
   }
-  if (typeof source.enableTerrain === 'boolean') {
-    result.enableTerrain = source.enableTerrain;
-  }
+  if (source.mode === '2d' || source.mode === '3d') result.mode = source.mode;
+  else if (typeof source.enableTerrain === 'boolean') result.mode = source.enableTerrain ? '3d' : '2d';
+  if (source.basemap === 'light' || source.basemap === 'satellite') result.basemap = source.basemap;
   if (typeof source.enableBuildings === 'boolean') {
     result.enableBuildings = source.enableBuildings;
   }
@@ -123,6 +135,7 @@ export const scenarioDisplayStore = {
     const next = { ...currentSettings, ...persisted };
     if (sameSettings(next, currentSettings)) return;
     currentSettings = next;
+    baseBuildingsPreference = next.enableBuildings;
     notify();
   },
   setRenderMode(mode: 'nearest' | 'linear'): void {
@@ -131,22 +144,41 @@ export const scenarioDisplayStore = {
     persist();
     notify();
   },
-  setEnableTerrain(updater: boolean | ((prev: boolean) => boolean)): void {
-    const next = typeof updater === 'function' ? updater(currentSettings.enableTerrain) : updater;
-    if (currentSettings.enableTerrain === next) return;
-    currentSettings = { ...currentSettings, enableTerrain: next };
+  setBasemap(basemap: BasemapId): void {
+    if (currentSettings.basemap === basemap) return;
+    // Footprints cover the aerial imagery, so Satellite disables them by
+    // default; the Light preference is remembered and restored on return.
+    const buildings = resolveBuildingsForBasemapSwitch(currentSettings.basemap, basemap, {
+      visible: currentSettings.enableBuildings,
+      basePreference: baseBuildingsPreference,
+    });
+    baseBuildingsPreference = buildings.basePreference;
+    currentSettings = { ...currentSettings, basemap, enableBuildings: buildings.visible };
+    persist();
+    notify();
+  },
+  setMode(mode: '2d' | '3d'): void {
+    if (currentSettings.mode === mode) return;
+    currentSettings = { ...currentSettings, mode };
     persist();
     notify();
   },
   setEnableBuildings(updater: boolean | ((prev: boolean) => boolean)): void {
     const next = typeof updater === 'function' ? updater(currentSettings.enableBuildings) : updater;
     if (currentSettings.enableBuildings === next) return;
-    currentSettings = { ...currentSettings, enableBuildings: next };
+    const buildings = resolveBuildingsAfterToggle(
+      currentSettings.basemap,
+      { visible: currentSettings.enableBuildings, basePreference: baseBuildingsPreference },
+      next
+    );
+    baseBuildingsPreference = buildings.basePreference;
+    currentSettings = { ...currentSettings, enableBuildings: buildings.visible };
     persist();
     notify();
   },
   reset(): void {
     currentSettings = { ...DEFAULT_SCENARIO_DISPLAY };
+    baseBuildingsPreference = DEFAULT_SCENARIO_DISPLAY.enableBuildings;
     persist();
     notify();
   },
@@ -161,5 +193,4 @@ export function useScenarioDisplay(): ScenarioDisplaySettings {
 }
 
 export const setScenarioRenderMode = scenarioDisplayStore.setRenderMode;
-export const setScenarioEnableTerrain = scenarioDisplayStore.setEnableTerrain;
 export const setScenarioEnableBuildings = scenarioDisplayStore.setEnableBuildings;
