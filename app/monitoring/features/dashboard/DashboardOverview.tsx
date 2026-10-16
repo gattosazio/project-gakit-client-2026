@@ -234,7 +234,7 @@ export function DashboardOverview({
       color: 'text-blue-600',
     },
     {
-      label: "Today's Intake",
+      label: "Today's Reports",
       value: stats?.reportsToday ?? 0,
       detail: 'Calendar-day total',
       icon: FileText,
@@ -259,7 +259,7 @@ export function DashboardOverview({
             <div>
               <h2 className="text-sm font-bold text-slate-900 sm:text-base">Workload Summary</h2>
               <p className="mt-0.5 text-xs text-slate-500">
-                24-hour intake and review summary.
+                24-hour report and review summary.
               </p>
             </div>
           </div>
