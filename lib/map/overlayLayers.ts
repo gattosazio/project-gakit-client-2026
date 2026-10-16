@@ -48,19 +48,19 @@ import {
   BUILDING_EXTRUSION_LAYER_ID,
   BUILDING_FOOTPRINT_LAYER_ID,
 } from '@/lib/map/buildingLayers';
+import { ensurePmtilesProtocol } from '@/lib/map/pmtilesProtocol';
 
 export type MapMode = '2d' | '3d';
-// The pmtiles protocol handler must only be registered once per page load;
-// switching styles re-runs style loading, so guard against double registration.
-let pmtilesProtocolRegistered = false;
+// ensurePmtilesProtocol registers the shared pmtiles:// handler exactly once
+// per page load; the smoothing protocol wraps that same handler and only
+// matters on this surface, so it gets its own one-time guard.
+let hazardSmoothingRegistered = false;
 
 const registerPmtilesProtocol = async (maplibregl: any) => {
-  if (pmtilesProtocolRegistered) return;
-  const pmtiles = await import('pmtiles');
-  const protocol = new pmtiles.Protocol();
-  maplibregl.addProtocol('pmtiles', protocol.tile);
+  const protocol = await ensurePmtilesProtocol(maplibregl);
+  if (hazardSmoothingRegistered) return;
   registerHazardSmoothingProtocol(maplibregl, protocol);
-  pmtilesProtocolRegistered = true;
+  hazardSmoothingRegistered = true;
 };
 
 export const riskLevelFilter = (visible: Record<string, boolean>) => [
@@ -1032,7 +1032,7 @@ export const setupOverlayLayers = async (
   const shouldShowBuildings2D = state.showBuildings !== false && state.mapMode === '2d';
   const firstSymbolLayer = getFirstBasemapSymbolLayerId(map);
 
-  // 2D building footprints for 2D view on Base (Positron) map, inserted beneath basemap text labels
+  // 2D building footprints for 2D view on Light (Positron) map, inserted beneath basemap text labels
   if (!map.getLayer(BUILDING_FOOTPRINT_LAYER_ID)) {
     addBuildingFootprintLayer(
       map,
@@ -1042,7 +1042,7 @@ export const setupOverlayLayers = async (
     );
   }
 
-  // 3D building extrusion for 3D/terrain view only on Base map (hidden on Satellite)
+  // 3D building extrusion for 3D/terrain view only on Light map (hidden on Satellite)
   if (!map.getLayer(BUILDING_EXTRUSION_LAYER_ID)) {
     addBuildingExtrusionLayer(
       map,
@@ -1060,7 +1060,7 @@ export const setupOverlayLayers = async (
   applyBuildingsVisibility(map, state.mapMode, state.showBuildings);
 
 // Guarantee layer stacking order:
-  // Base -> Buildings (under labels) -> Basemap Labels -> Himawari Satellite -> Flood Hazard -> Rainfall Grid -> Barangay -> PAR -> Typhoon Cone -> Typhoon Track -> Typhoon Points -> Report Pins
+  // Light -> Buildings (under labels) -> Basemap Labels -> Himawari Satellite -> Flood Hazard -> Rainfall Grid -> Barangay -> PAR -> Typhoon Cone -> Typhoon Track -> Typhoon Points -> Report Pins
   const orderedLayers = [
     'himawari-ir-layer',
     'flood-hazard-fill',
@@ -1109,7 +1109,7 @@ export const setupOverlayLayers = async (
     }
     map.setTerrain({ source: 'terrain', exaggeration: TERRAIN_EXAGGERATION });
 
-    // Subtle hillshade on Base (Positron) map to give depth and definition to white slopes.
+    // Subtle hillshade on Light (Positron) map to give depth and definition to white slopes.
     // Omitted on Satellite since aerial photos already provide natural lighting and contrast.
     const isSatellite = state.basemap === 'satellite';
     if (!isSatellite) {

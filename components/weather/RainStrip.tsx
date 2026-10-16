@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { hourlyRainSeries, rainIntervalLabel } from '@/lib/weather/hourlyOutlook';
 
 function formatHour(hour: number): string {
   const suffix = hour < 12 ? 'AM' : 'PM';
@@ -10,9 +11,9 @@ function formatHour(hour: number): string {
 
 interface RainStripProps {
   /** Hourly precipitation (mm). */
-  hours?: number[];
+  hours?: (number | null)[];
   /** Hourly precipitation probability (0-100%). */
-  probabilities?: number[];
+  probabilities?: (number | null)[];
 }
 
 /**
@@ -21,13 +22,15 @@ interface RainStripProps {
  * Features expanded full-height touch targets and pointer/scrubbing support
  * for mobile and desktop.
  */
-export function RainStrip({ hours, probabilities }: RainStripProps) {
+export function RainStrip({ hours: rawHours, probabilities: rawProbabilities }: RainStripProps) {
+  const hours = hourlyRainSeries({ hours: rawHours }, 'amount');
+  const probabilities = hourlyRainSeries({ hourlyProbabilities: rawProbabilities }, 'chance');
   const [hovered, setHovered] = useState<number | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
 
-  const hasProbabilities = Array.isArray(probabilities) && probabilities.length === 24;
-  const hasHours = Array.isArray(hours) && hours.length > 0;
-  const seriesLength = hasProbabilities ? probabilities.length : (hours?.length ?? 24);
+  const hasProbabilities = probabilities !== null;
+  const hasHours = hours !== null;
+  const seriesLength = 24;
 
   // Hooks must run before any early return.
   const updateHoverFromClientX = useCallback(
@@ -44,38 +47,30 @@ export function RainStrip({ hours, probabilities }: RainStripProps) {
 
   if (!hasProbabilities && !hasHours) return null;
 
-  if (hasProbabilities) {
-    const maxProb = Math.max(...probabilities);
-    const maxMm = hasHours ? Math.max(...hours) : 0;
-    if (maxProb <= 0 && maxMm <= 0) return null;
-  } else if (hasHours) {
-    const max = Math.max(...hours);
-    if (max <= 0) return null;
-  }
-
   // Keep the floating label inside the strip's horizontal bounds.
-  const rawLeft = hovered !== null ? ((hovered + 0.5) / seriesLength) * 100 : 50;
-  const labelLeft = Math.min(Math.max(rawLeft, 12), 88);
+  const labelLeft = 50;
 
   const renderHoverLabel = () => {
     if (hovered === null) return null;
-    const timeLabel = formatHour(hovered);
+    const timeLabel = rainIntervalLabel(hovered);
     if (hasProbabilities) {
-      const prob = probabilities[hovered] ?? 0;
+      const prob = probabilities[hovered];
+      if (prob == null) return `${timeLabel} · Unavailable`;
       return `${timeLabel} · ${prob}% chance`;
     }
-    const mm = hours?.[hovered] ?? 0;
+    const mm = hours?.[hovered];
+    if (mm == null) return `${timeLabel} · Unavailable`;
     return `${timeLabel} · ${mm.toFixed(1)}mm`;
   };
 
   const hoursList = Array.from({ length: seriesLength }, (_, i) => i);
-  const maxMm = hasHours ? Math.max(...hours) : 0;
+  const maxMm = hasHours ? Math.max(...hours.map(value => value ?? 0)) : 0;
 
   return (
-    <div className="relative pt-5" onMouseLeave={() => setHovered(null)}>
+    <div className="relative pt-4" onMouseLeave={() => setHovered(null)}>
       {hovered !== null && (
         <span
-          className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm"
+          className="pointer-events-none absolute top-0 z-10 max-w-full -translate-x-1/2 rounded-md bg-slate-800 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white shadow-sm"
           style={{ left: `${labelLeft}%` }}
         >
           {renderHoverLabel()}
@@ -86,7 +81,7 @@ export function RainStrip({ hours, probabilities }: RainStripProps) {
         ref={trackRef}
         className="flex h-6 items-end gap-[2px] cursor-pointer touch-none select-none py-0.5"
         role="img"
-        aria-label="Hourly rain probability distribution"
+        aria-label={hasProbabilities ? 'Rain probability for one-hour intervals ending at the labelled Philippine times' : 'Rainfall in millimetres for one-hour intervals ending at the labelled Philippine times'}
         onPointerDown={(e) => {
           try {
             e.currentTarget.setPointerCapture(e.pointerId);
@@ -105,6 +100,8 @@ export function RainStrip({ hours, probabilities }: RainStripProps) {
         }}
       >
         {hoursList.map((hour) => {
+          const value = hasProbabilities ? probabilities[hour] : hours?.[hour];
+          if (value == null) return <div key={hour} className="h-full flex-1" aria-hidden="true" />;
           const isHovered = hovered === hour;
           const dimmed = hovered !== null && !isHovered;
 

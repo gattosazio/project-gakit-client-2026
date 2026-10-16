@@ -88,7 +88,7 @@ export function TimeFilterDropdown({
       onSelect={onChange}
       options={options}
       triggerIcon={<Clock className="w-4 h-4" />}
-      triggerLabel={value === 'all' ? 'All time' : value}
+      triggerLabel={timeRangeOptions.find((option) => option.value === value)?.label ?? value}
     />
   );
 }

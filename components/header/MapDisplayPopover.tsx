@@ -2,9 +2,17 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { SlidersHorizontal, X } from 'lucide-react';
-import type { BasemapId } from '@/constants/publicMap';
+import { BASEMAP_LABELS, type BasemapId } from '@/constants/publicMap';
 
 export interface MapDisplaySettings { basemap: BasemapId; mode: '2d' | '3d'; showBuildings: boolean; smoothPolygons?: boolean }
+
+// Static thumbnails captured from the real basemaps (scripts/generate-basemap-previews.cjs)
+// around Iligan City. They are only fetched when this popover opens and cost
+// nothing on page load — no extra map instances or tile requests.
+const BASEMAP_PREVIEWS: Array<{ value: BasemapId; src: string }> = [
+  { value: 'light', src: '/images/basemap-previews/light.webp' },
+  { value: 'satellite', src: '/images/basemap-previews/satellite.webp' },
+];
 
 export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChange, onModeChange, onBuildingsChange, smoothPolygons = true, onSmoothingChange, showBarangayBoundaries = false, onBarangayBoundariesChange, disabled = false, className = '', placement = 'below', compact = false }: MapDisplaySettings & {
   onBasemapChange: (basemap: BasemapId) => void;
@@ -54,9 +62,17 @@ export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChang
             <legend className="sr-only">Map appearance</legend>
             <div>
               <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Basemap</p>
-              <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-0.5">
-                {(['light', 'satellite'] as const).map(value => <button key={value} type="button" aria-pressed={basemap === value} onClick={() => onBasemapChange(value)}
-                  className={`rounded-md px-2 py-1.5 text-xs font-semibold ${basemap === value ? 'bg-white text-gakit-maroon shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>{value === 'light' ? 'Base' : 'Satellite'}</button>)}
+              <div className="grid grid-cols-2 gap-2">
+                {BASEMAP_PREVIEWS.map(({ value, src }) => (
+                  <button key={value} type="button" aria-pressed={basemap === value} onClick={() => onBasemapChange(value)}
+                    className={`group overflow-hidden rounded-lg border text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-1 ${basemap === value ? 'border-gakit-maroon shadow-sm ring-1 ring-gakit-maroon' : 'border-slate-200 hover:border-slate-300'}`}>
+                    {/* Decorative: the label below already names the button. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element -- tiny static WebP served directly; no optimizer roundtrip needed */}
+                    <img src={src} alt="" width={256} height={160} loading="lazy" decoding="async"
+                      className="block aspect-[8/5] w-full object-cover" />
+                    <span className={`block px-2 py-1 text-center text-[11px] font-semibold ${basemap === value ? 'text-gakit-maroon' : 'text-slate-500 group-hover:text-slate-800'}`}>{BASEMAP_LABELS[value]}</span>
+                  </button>
+                ))}
               </div>
             </div>
             {[

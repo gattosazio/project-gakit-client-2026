@@ -52,6 +52,10 @@ import {
   type MapMode,
 } from '@/lib/map/overlayLayers';
 import {
+  resolveBuildingsAfterToggle,
+  resolveBuildingsForBasemapSwitch,
+} from '@/lib/map/buildingLayers';
+import {
   aggregateBarangayStats,
   barangayBanner,
   buildBarangaySeverityGeoJson,
@@ -299,8 +303,14 @@ export function PublicMap({
   const [basemap, setBasemap] = useState<BasemapId>(defaultBasemap);
   const [smoothPolygons, setSmoothPolygons] = useState(true);
   const smoothPolygonsRef = useRef(true);
-  const [showBuildings, setShowBuildings] = useState(true);
-  const showBuildingsRef = useRef(true);
+  // Buildings are on for the Light basemap but disabled by default on Satellite
+  // (footprints cover the aerial imagery). buildingsBasePreferenceRef remembers
+  // the Light choice so it is restored when switching back from Satellite, and
+  // tracks explicit choices made while on Satellite.
+  const defaultShowBuildings = defaultBasemap !== 'satellite';
+  const [showBuildings, setShowBuildings] = useState(defaultShowBuildings);
+  const showBuildingsRef = useRef(defaultShowBuildings);
+  const buildingsBasePreferenceRef = useRef(true);
   const layersReadyRef = useRef(false);
   const onReadyFiredRef = useRef(false);
 
@@ -747,10 +757,24 @@ export function PublicMap({
   }, [onMapLoad]);
 
   const handleBasemapChange = useCallback((nextBasemap: BasemapId) => {
-    if (nextBasemap === basemapRef.current) return;
+    const previousBasemap = basemapRef.current;
+    if (nextBasemap === previousBasemap) return;
     layersReadyRef.current = false;
     setBasemap(nextBasemap);
     basemapRef.current = nextBasemap;
+
+    // Footprints cover the aerial imagery, so Satellite disables them by
+    // default; the Light preference is restored when switching back.
+    const nextBuildings = resolveBuildingsForBasemapSwitch(previousBasemap, nextBasemap, {
+      visible: showBuildingsRef.current,
+      basePreference: buildingsBasePreferenceRef.current,
+    });
+    buildingsBasePreferenceRef.current = nextBuildings.basePreference;
+    if (nextBuildings.visible !== showBuildingsRef.current) {
+      showBuildingsRef.current = nextBuildings.visible;
+      setShowBuildings(nextBuildings.visible);
+    }
+
     const map = mapRef.current;
     if (!map) return;
     try {
@@ -805,6 +829,12 @@ export function PublicMap({
   }, []);
 
   const handleBuildingsChange = useCallback((visible: boolean) => {
+    const nextBuildings = resolveBuildingsAfterToggle(
+      basemapRef.current,
+      { visible: showBuildingsRef.current, basePreference: buildingsBasePreferenceRef.current },
+      visible
+    );
+    buildingsBasePreferenceRef.current = nextBuildings.basePreference;
     showBuildingsRef.current = visible;
     setShowBuildings(visible);
     if (mapRef.current) applyBuildingsVisibility(mapRef.current, mapModeRef.current, visible && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'));
@@ -1125,6 +1155,7 @@ export function PublicMap({
       {fullScreen && mapReady && <MapScaleRuler mapRef={mapRef} />}
 
       <MapSidebar
+        weatherLocation={selectedLocation}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={setIsSidebarCollapsed}
         controlsVisible={controlsVisible}

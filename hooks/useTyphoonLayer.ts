@@ -124,16 +124,23 @@ export function useTyphoonLayer(
     }
   }, [applyDataToMap]);
 
+  const historyInFlight = useRef(false);
+  const historyLoadedAt = useRef(0);
+
   const loadHistory = useCallback(async () => {
+    if (historyInFlight.current) return;
+    historyInFlight.current = true;
     try {
       setIsLoadingHistory(true);
       const storms = await fetchHistoricalStorms();
       setHistoricalStorms(storms);
+      historyLoadedAt.current = Date.now();
       return storms;
     } catch (err) {
       console.error('Failed to load historical storms', err);
       return [];
     } finally {
+      historyInFlight.current = false;
       setIsLoadingHistory(false);
     }
   }, []);
@@ -196,6 +203,11 @@ export function useTyphoonLayer(
     }
 
     void loadHistory();
+    const historyTimer = setInterval(() => {
+      if (document.visibilityState === 'visible' && Date.now() - historyLoadedAt.current >= TYPHOON_REFRESH_MS) {
+        void loadHistory();
+      }
+    }, 15000);
 
     if (!selectedHistoricalStormRef.current) {
       void loadData();
@@ -208,8 +220,9 @@ export function useTyphoonLayer(
     }, TYPHOON_REFRESH_MS);
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && !selectedHistoricalStormRef.current) {
-        void loadData();
+      if (document.visibilityState === 'visible') {
+        if (!selectedHistoricalStormRef.current) void loadData();
+        if (Date.now() - historyLoadedAt.current >= TYPHOON_REFRESH_MS) void loadHistory();
       }
     };
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -219,6 +232,7 @@ export function useTyphoonLayer(
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      clearInterval(historyTimer);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [showTyphoonTrack, loadData, loadHistory]);

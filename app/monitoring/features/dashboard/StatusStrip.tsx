@@ -130,6 +130,7 @@ export function StatusStrip({ current, alerts, alertsCheckedAt, alertsError = fa
             >
               {/* Cinematic Animated Weather Canvas Backdrop */}
               <WeatherCanvasBackdrop
+                paused={modalAlert !== null}
                 conditionCode={current.conditionCode}
                 observedAt={current.observedAt}
               />
@@ -138,7 +139,7 @@ export function StatusStrip({ current, alerts, alertsCheckedAt, alertsError = fa
                 <span className={`text-[10px] font-bold uppercase tracking-wider truncate ${
                   isDarkAtmosphere ? 'text-slate-400' : 'text-slate-600'
                 }`}>
-                  Iligan City · {manilaTimestamp(new Date(current.observedAt))} PHT{currentError ? ' · Update delayed' : ''}
+                  Iligan City · Model estimate · {manilaTimestamp(new Date(current.observedAt))} PHT{currentError ? ' · Update delayed' : ''}
                 </span>
                 {digest && (
                   <span className={`inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold transition-colors ${
@@ -155,6 +156,7 @@ export function StatusStrip({ current, alerts, alertsCheckedAt, alertsError = fa
 
               <div className="relative z-10 flex items-center gap-2.5 sm:gap-3 min-w-0 w-full">
                 <AmbientWeatherIcon
+                  paused={modalAlert !== null}
                   conditionCode={current.conditionCode}
                   observedAt={current.observedAt}
                   isDark={isDarkAtmosphere}
@@ -176,7 +178,7 @@ export function StatusStrip({ current, alerts, alertsCheckedAt, alertsError = fa
                     <span className={isDarkAtmosphere ? 'text-slate-600' : 'text-slate-400'}>·</span>
                     <span>Rain: <strong className={`font-semibold tabular-nums ${
                       isDarkAtmosphere ? 'text-slate-200' : 'text-slate-900'
-                    }`}>{current.precipitation.toFixed(1)} mm/h</strong></span>
+                    }`}>{current.precipitation == null ? 'Unavailable' : `${current.precipitation.toFixed(1)} mm (model interval)`}</strong></span>
                   </span>
                 </div>
               </div>

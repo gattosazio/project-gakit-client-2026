@@ -9,6 +9,7 @@ import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import type { WeatherAlert } from '@/types/weather';
 import type { ReportStatus } from '@/types/report';
 import { DashboardOverview, type DashboardReviewOptions } from './features/dashboard/DashboardOverview';
+import { applyReportDeepLinkParams, consumeReportDeepLinkParams } from './reportDeepLink';
 import { monitoringFeatureMap, monitoringFeatures, type MonitoringFeatureId } from './features/monitoringFeatureConfig';
 import { TabLoading } from '@/components/ui/TabLoading';
 import type { AuthSnapshot } from '@/lib/auth/roles';
@@ -117,6 +118,9 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     setHighlightedNotificationId(null);
     updateUrl(tab, (params) => {
       params.delete('notification');
+      // Entering any other tab consumes the dashboard's reports deep link so
+      // it cannot be re-applied when the user comes back to Reports later.
+      if (tab !== 'reports') consumeReportDeepLinkParams(params);
     });
   };
 
@@ -126,9 +130,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     setHighlightedNotificationId(null);
     updateUrl('reports', (params) => {
       params.delete('notification');
-      if (options?.status) params.set('status', options.status);
-      else params.delete('status');
-      params.set('time', options?.time ?? '24h');
+      applyReportDeepLinkParams(params, options);
     });
   };
 
@@ -138,6 +140,9 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     setHighlightedNotificationId(null);
     updateUrl('reports', (params) => {
       params.delete('notification');
+      // A stale deep link's status filter could hide the very report being
+      // opened (e.g. a VERIFIED report under a pinned UNVERIFIED filter).
+      consumeReportDeepLinkParams(params);
     });
   };
 
@@ -147,6 +152,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     setHighlightedNotificationId(notificationId);
     updateUrl('alerts', (params) => {
       params.set('notification', notificationId);
+      consumeReportDeepLinkParams(params);
     });
   };
 

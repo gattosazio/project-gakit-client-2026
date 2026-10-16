@@ -7,6 +7,7 @@ import { hazardSummary, isPagasaAlert, otherProvinceCount, parseLocalTowns, shor
 import { WeatherAttribution } from './weather/WeatherAttribution';
 import { RainStrip } from './weather/RainStrip';
 import { Dialog } from '@/components/ui/Dialog';
+import { WeatherOutlookModal } from './weather/WeatherOutlookModal';
 
 const SEVERITY_CONFIG: Record<
   AlertSeverity,
@@ -81,6 +82,12 @@ interface WeatherAlertModalProps {
 }
 
 export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAlertModalProps) {
+  return alert.alertType === 'daily_digest'
+    ? <WeatherOutlookModal key={`${alert.id}:${highlightDate ?? ''}`} alert={alert} highlightDate={highlightDate} onClose={onClose} />
+    : <AdvisoryWeatherAlertModal alert={alert} highlightDate={highlightDate} onClose={onClose} />;
+}
+
+function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAlertModalProps) {
   const activeAlert = alert;
   const titleId = useId();
 
@@ -171,9 +178,9 @@ export function WeatherAlertModal({ alert, highlightDate, onClose }: WeatherAler
                         <span className="text-slate-900">{day.tempMax}°</span>
                         <span className="text-slate-400 font-normal text-[9px]">{day.tempMin}°</span>
                       </div>
-                      <span className={`mt-1 flex items-center justify-center gap-0.5 text-[9px] font-semibold tabular-nums leading-none ${day.rainChance > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
-                        {day.rainChance > 0 && <Droplet className="h-2.5 w-2.5 text-sky-500 fill-sky-500/30 shrink-0" />}
-                        <span>{day.rainChance}%</span>
+                      <span className={`mt-1 flex items-center justify-center gap-0.5 text-[9px] font-semibold tabular-nums leading-none ${(day.rainChance ?? 0) > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
+                        {(day.rainChance ?? 0) > 0 && <Droplet className="h-2.5 w-2.5 text-sky-500 fill-sky-500/30 shrink-0" />}
+                        <span>{day.rainChance == null ? 'Unavailable' : `${day.rainChance}%`}</span>
                       </span>
                     </button>
                   );

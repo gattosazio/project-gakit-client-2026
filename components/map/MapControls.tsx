@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ChevronUp, History, Info, Layers, ListFilter, RotateCwFadingClock, Search, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import {
+  BASEMAP_LABELS,
   REPORT_MARKER_COLORS,
   REPORT_STATUS_LEGEND,
 } from '@/constants/publicMap';
@@ -291,20 +292,20 @@ export function MapViewToggle({
 
   return (
     <div className={`${className} flex items-center gap-2 p-1.5 hud-pill select-none`}>
-      {/* Basemap Switch: Base vs Satellite */}
+      {/* Basemap Switch: Light vs Satellite */}
       <div className="flex items-center gap-0.5">
         <button
           type="button"
           onClick={() => onBasemapChange('light')}
           aria-pressed={basemap === 'light'}
-          title="Base map (Positron)"
+          title="Light street map (Positron)"
           className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-colors duration-150 ${
             basemap === 'light'
               ? 'bg-gakit-maroon text-white shadow-xs'
               : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
           }`}
         >
-          Base
+          {BASEMAP_LABELS.light}
         </button>
         <button
           type="button"
@@ -317,7 +318,7 @@ export function MapViewToggle({
               : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
           }`}
         >
-          Satellite
+          {BASEMAP_LABELS.satellite}
         </button>
       </div>
 
@@ -673,6 +674,11 @@ function StormTrackSelector({
         {isLoadingHistory && <Spinner size="xs" />}
       </div>
 
+      {historicalStorms.length === 0 && (
+        <p className="text-[10px] text-slate-500" role="status">
+          {isLoadingHistory ? 'Loading archived storms…' : 'No archived storms available. The archive refreshes automatically.'}
+        </p>
+      )}
       {/* Trigger Button: floating dropdown trigger with neutral styling */}
       <button
         ref={buttonRef}
@@ -927,7 +933,7 @@ export function DataLayerControls({
     >
       <div className="space-y-1.5">
         <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-          Hazards
+          Hazard maps
           <CoverageChip label="Lanao del Norte" detail="Covers Lanao del Norte only" />
         </div>
 
@@ -941,17 +947,14 @@ export function DataLayerControls({
           }}
         />
         {showFloodHazard && (
-          <div className="pl-7 pt-1 pb-1 space-y-1">
-            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-              Hazard level
-            </div>
-            <div className="flex items-center gap-1.5">
+          <div className="pl-10 pt-0.5 pb-1 space-y-1">
+            <div className="flex w-full items-center gap-1.5">
               <div
-                className="h-2.5 w-44 rounded-full"
+                className="h-1.5 w-full rounded-full"
                 style={{ background: FLOOD_HAZARD_GRADIENT_CSS }}
               />
             </div>
-            <div className="flex w-44 justify-between text-[9px] text-slate-500">
+            <div className="flex w-full justify-between text-[9px] text-slate-500">
               <span>Low</span>
               <span>Medium</span>
               <span>High</span>
@@ -969,17 +972,14 @@ export function DataLayerControls({
           }}
         />
         {showLandslide && (
-          <div className="pl-7 pt-1 pb-1 space-y-1">
-            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-              Hazard level
-            </div>
-            <div className="flex items-center gap-1.5">
+          <div className="pl-10 pt-0.5 pb-1 space-y-1">
+            <div className="flex w-full items-center gap-1.5">
               <div
-                className="h-2.5 w-44 rounded-full"
+                className="h-1.5 w-full rounded-full"
                 style={{ background: LANDSLIDE_GRADIENT_CSS }}
               />
             </div>
-            <div className="flex w-44 justify-between text-[9px] text-slate-500">
+            <div className="flex w-full justify-between text-[9px] text-slate-500">
               <span>Low</span>
               <span>Medium</span>
               <span>High</span>
@@ -1000,10 +1000,7 @@ export function DataLayerControls({
           }}
         />
         {showStormSurge && (
-          <div className="pl-7 pt-1 pb-1 space-y-1">
-            <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-              Hazard level
-            </div>
+          <div className="pl-10 pt-0.5 pb-1 space-y-1">
             {STORM_SURGE_LEGEND.map(({ key, label, color }) => (
               <PillToggle
                 key={key}
@@ -1014,11 +1011,11 @@ export function DataLayerControls({
               />
             ))}
             <div className="flex items-center gap-1.5 pt-1.5">
-              <div className="h-2.5 w-44 rounded-full" style={{
+              <div className="h-1.5 w-full rounded-full" style={{
                 background: STORM_SURGE_GRADIENT_CSS,
               }} />
             </div>
-            <div className="flex w-44 justify-between text-[9px] text-slate-500">
+            <div className="flex w-full justify-between text-[9px] text-slate-500">
               <span>Low</span>
               <span>Medium</span>
               <span>High</span>
@@ -1027,7 +1024,7 @@ export function DataLayerControls({
         )}
 
         <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-          Inundation estimates
+          Flood simulation
           <CoverageChip label="Iligan City" detail="Estimated inundation based on rainfall" />
         </div>
 
@@ -1045,11 +1042,10 @@ export function DataLayerControls({
         {showSimulatedFlood && (
           <div className="ml-2 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 space-y-2.5">
             <p className="text-[10px] leading-4 text-slate-500">Use the floating timeline to explore past and forecast estimates.</p>
-            <div className="grid grid-cols-3 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white py-2 text-center">
+            <div className="grid grid-cols-2 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white py-2 text-center">
               {[
                 ['Inundated', `${formatFloodMetric(simulatedFloodTelemetry?.inundatedKm2, 2)} km²`],
                 ['Max depth', `${formatFloodMetric(simulatedFloodTelemetry?.maxDepthM, 2)} m`],
-                ['Rain / 24h', `${formatFloodMetric(simulatedFloodTelemetry?.effectiveRainfallMm, 1)} mm`],
               ].map(([label, value]) => <div key={label}><p className="text-[9px] text-slate-400">{label}</p><p className="mt-0.5 text-[11px] font-bold tabular-nums text-slate-700">{value}</p></div>)}
             </div>
             <div className="space-y-1 border-t border-slate-200 pt-2">
@@ -1066,7 +1062,7 @@ export function DataLayerControls({
         </div>
 
         <PillToggle
-          label="Rainfall Accumulation"
+          label="Rainfall"
           checked={showRainfall}
           onChange={onShowRainfallChange}
           loading={showRainfall && isLoadingRainfall}
@@ -1076,7 +1072,7 @@ export function DataLayerControls({
           }}
         />
         {showRainfall && (
-          <div className="pl-7 pt-1 pb-1 space-y-1.5">
+          <div className="pl-10 pt-0.5 pb-1 space-y-1.5">
             <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1 flex items-center justify-between gap-2">
               <span>Accumulation window</span>
               {rainfallObservedAt && (
@@ -1142,7 +1138,7 @@ export function DataLayerControls({
         )}
 
         <PillToggle
-          label="Himawari IR Satellite"
+          label="Satellite imagery"
           checked={showHimawariIR}
           onChange={onShowHimawariIRChange}
           loading={showHimawariIR && isLoadingHimawari}
@@ -1152,7 +1148,7 @@ export function DataLayerControls({
           }}
         />
         {showHimawariIR && (
-          <div className="pl-7 pt-1 pb-1 space-y-1.5">
+          <div className="pl-10 pt-0.5 pb-1 space-y-1.5">
             <div className="text-[10px] leading-snug text-slate-400">
               Last hour · 10-min satellite frames
             </div>
@@ -1178,7 +1174,7 @@ export function DataLayerControls({
 
 
         <PillToggle
-          label="Typhoon Tracker"
+          label="Typhoon tracks"
           checked={showTyphoonTrack}
           onChange={(checked) => onShowTyphoonTrackChange?.(checked)}
           loading={showTyphoonTrack && isLoadingTyphoon}
@@ -1188,7 +1184,7 @@ export function DataLayerControls({
           }}
         />
         {showTyphoonTrack && (
-          <div className="pl-7 pt-1 pb-1 space-y-1.5">
+          <div className="pl-10 pt-0.5 pb-1 space-y-1.5">
             <div className="text-[10px] leading-snug text-slate-400">
               {selectedHistoricalStorm ? (
                 <span>Viewing archived cyclone track</span>
@@ -1203,11 +1199,11 @@ export function DataLayerControls({
               )}
             </div>
 
-            {historicalStorms && historicalStorms.length > 0 && (
+            {(
               <StormTrackSelector
                 hasActiveTyphoon={hasActiveTyphoon}
                 activeTyphoonName={activeTyphoonName}
-                historicalStorms={historicalStorms}
+                historicalStorms={historicalStorms ?? []}
                 selectedHistoricalStorm={selectedHistoricalStorm}
                 onSelectHistoricalStorm={onSelectHistoricalStorm}
                 isLoadingHistory={isLoadingHistory}
@@ -1290,7 +1286,8 @@ export function DataLayerControls({
             </div>
 
             <PillToggle
-              label="Barangay Boundaries"
+              label="Barangay boundaries"
+
               checked={showBarangayBoundaries}
               onChange={(checked) => onShowBarangayBoundariesChange?.(checked)}
               credit={{

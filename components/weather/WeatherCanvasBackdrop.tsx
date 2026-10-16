@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from 'react';
 import { isDaytimeInManila } from '@/lib/weather/weatherCodes';
+import { weatherPlayback } from '@/lib/weather/animationPlayback';
 
 interface WeatherCanvasBackdropProps {
+  paused?: boolean;
   conditionCode: number;
   observedAt?: string;
   className?: string;
@@ -92,6 +94,10 @@ function pseudoRandom(seed: number) {
  * Supports daytime overcast (textured slate midtones with silver-white crests),
  * daytime fair-weather cumulus, and nocturnal silver-slate clouds.
  */
+const cloudSpriteCache = new Map<string, HTMLCanvasElement>();
+const MAX_CLOUD_SPRITES = 6;
+const CLOUD_SPRITE_CONFIG = [[320, 48, 101], [280, 44, 203], [240, 40, 307]] as const;
+
 function createVolumetricCloudSprite(
   width: number,
   height: number,
@@ -99,6 +105,9 @@ function createVolumetricCloudSprite(
   isOvercast: boolean,
   seed: number
 ): HTMLCanvasElement {
+  const cacheKey = `${width}:${height}:${isDaytime}:${isOvercast}:${seed}`;
+  const cached = cloudSpriteCache.get(cacheKey);
+  if (cached) return cached;
   const canvas = document.createElement('canvas');
   canvas.width = width;
   canvas.height = height;
@@ -184,6 +193,8 @@ function createVolumetricCloudSprite(
     ctx.fill();
   }
 
+  if (cloudSpriteCache.size >= MAX_CLOUD_SPRITES) cloudSpriteCache.delete(cloudSpriteCache.keys().next().value!);
+  cloudSpriteCache.set(cacheKey, canvas);
   return canvas;
 }
 
@@ -204,9 +215,16 @@ export function WeatherCanvasBackdrop({
   conditionCode,
   observedAt,
   className = '',
+  paused = false,
 }: WeatherCanvasBackdropProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const pausedRef = useRef(paused);
+  const playbackRef = useRef<ReturnType<typeof weatherPlayback> | null>(null);
+  useEffect(() => {
+    pausedRef.current = paused;
+    playbackRef.current?.refresh();
+  }, [paused]);
 
   // Weather classification
   const isThunder = conditionCode >= 95 && conditionCode <= 99;
@@ -227,23 +245,29 @@ export function WeatherCanvasBackdrop({
     const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) return;
 
-    let animId: number | null = null;
+    let playback: ReturnType<typeof weatherPlayback> | null = null;
+    let renderDpr = 0;
     let width = 0;
     let height = 0;
-    let lastTime = performance.now();
     let totalTime = 0;
 
-    const prefersReducedMotion =
+    let prefersReducedMotion =
       typeof window !== 'undefined' &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     // ─── Pre-render Volumetric Cloud Sprites ─────────────────────────────────────
     // Cloud sprites with appropriate shading based on condition and daytime/nighttime
-    const cloudSprites = [
-      createVolumetricCloudSprite(320, 48, isDaytime, isOvercast, 101),
-      createVolumetricCloudSprite(280, 44, isDaytime, isOvercast, 203),
-      createVolumetricCloudSprite(240, 40, isDaytime, isOvercast, 307),
-    ];
+    // Build only the cloud textures a visible cloud scene actually uses.
+    // Rain, thunderstorms, and clear skies never allocate them.
+    const sceneSprites = new Map<number, HTMLCanvasElement>();
+    function cloudSprite(index: number) {
+      const cached = sceneSprites.get(index);
+      if (cached) return cached;
+      const [spriteWidth, spriteHeight, seed] = CLOUD_SPRITE_CONFIG[index % CLOUD_SPRITE_CONFIG.length];
+      const sprite = createVolumetricCloudSprite(spriteWidth, spriteHeight, isDaytime, isOvercast, seed);
+      sceneSprites.set(index, sprite);
+      return sprite;
+    }
 
     // ─── Atmospheric Entity Instances ───────────────────────────────────────────
 
@@ -359,14 +383,19 @@ export function WeatherCanvasBackdrop({
     function updateSize() {
       if (!container || !canvas || !ctx) return;
       const rect = container.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
+      if (rect.width === 0 || rect.height === 0) { width = 0; height = 0; return; }
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+      // Atmospheric backdrops do not need the full 2–3x phone pixel density.
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       width = rect.width;
       height = rect.height;
 
-      canvas.width = Math.floor(width * dpr);
-      canvas.height = Math.floor(height * dpr);
+      const pixelWidth = Math.floor(width * dpr);
+      const pixelHeight = Math.floor(height * dpr);
+      if (canvas.width === pixelWidth && canvas.height === pixelHeight && renderDpr === dpr) return;
+      renderDpr = dpr;
+      canvas.width = pixelWidth;
+      canvas.height = pixelHeight;
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
 
@@ -376,9 +405,7 @@ export function WeatherCanvasBackdrop({
 
     const resizeObserver = new ResizeObserver(() => {
       updateSize();
-      if (prefersReducedMotion) {
-        drawFrame(0.016);
-      }
+      playback?.refresh();
     });
     resizeObserver.observe(container);
     updateSize();
@@ -632,13 +659,13 @@ export function WeatherCanvasBackdrop({
         for (const cloud of partlyClouds) {
           if (!prefersReducedMotion) {
             cloud.x += cloud.speed * dt;
-            const sprite = cloudSprites[cloud.spriteIndex] ?? cloudSprites[0];
+            const sprite = cloudSprite(cloud.spriteIndex);
             const scaledW = sprite.width * cloud.scale;
             if (cloud.x > width) {
               cloud.x = -scaledW;
             }
           }
-          const sprite = cloudSprites[cloud.spriteIndex] ?? cloudSprites[0];
+          const sprite = cloudSprite(cloud.spriteIndex);
           const scaledW = sprite.width * cloud.scale;
           const scaledH = sprite.height * cloud.scale;
           ctx.drawImage(sprite, cloud.x, cloud.relY * height, scaledW, scaledH);
@@ -669,13 +696,13 @@ export function WeatherCanvasBackdrop({
         for (const cloud of partlyClouds) {
           if (!prefersReducedMotion) {
             cloud.x += cloud.speed * dt;
-            const sprite = cloudSprites[cloud.spriteIndex] ?? cloudSprites[0];
+            const sprite = cloudSprite(cloud.spriteIndex);
             const scaledW = sprite.width * cloud.scale;
             if (cloud.x > width) {
               cloud.x = -scaledW;
             }
           }
-          const sprite = cloudSprites[cloud.spriteIndex] ?? cloudSprites[0];
+          const sprite = cloudSprite(cloud.spriteIndex);
           const scaledW = sprite.width * cloud.scale;
           const scaledH = sprite.height * cloud.scale;
           ctx.drawImage(sprite, cloud.x, cloud.relY * height, scaledW, scaledH);
@@ -769,7 +796,7 @@ export function WeatherCanvasBackdrop({
             cloud.x -= OVERCAST_TOTAL_SPAN;
           }
         }
-        const sprite = cloudSprites[cloud.spriteIndex] ?? cloudSprites[0];
+        const sprite = cloudSprite(cloud.spriteIndex);
         const scaledW = sprite.width * cloud.scale;
         const scaledH = sprite.height * cloud.scale;
         ctx.drawImage(sprite, cloud.x, cloud.relY * height, scaledW, scaledH);
@@ -786,7 +813,7 @@ export function WeatherCanvasBackdrop({
             cloud.x -= OVERCAST_TOTAL_SPAN;
           }
         }
-        const sprite = cloudSprites[cloud.spriteIndex] ?? cloudSprites[0];
+        const sprite = cloudSprite(cloud.spriteIndex);
         const scaledW = sprite.width * cloud.scale;
         const scaledH = sprite.height * cloud.scale;
         ctx.drawImage(sprite, cloud.x, cloud.relY * height, scaledW, scaledH);
@@ -837,12 +864,15 @@ export function WeatherCanvasBackdrop({
         const tailY = drop.y;
 
         const dropGrad = ctx.createLinearGradient(tailX, tailY, tipX, tipY);
-        dropGrad.addColorStop(0, 'rgba(186, 230, 253, 0)');
-        dropGrad.addColorStop(0.6, `rgba(186, 230, 253, ${drop.alpha * 0.5})`);
-        dropGrad.addColorStop(1, `rgba(224, 242, 254, ${drop.alpha})`);
+        const lightBackground = isDaytime && !isThunder;
+        const rainColor = lightBackground ? '3, 105, 161' : '186, 230, 253';
+        const tipColor = lightBackground ? '2, 132, 199' : '224, 242, 254';
+        dropGrad.addColorStop(0, `rgba(${rainColor}, 0)`);
+        dropGrad.addColorStop(0.6, `rgba(${rainColor}, ${drop.alpha * (lightBackground ? 0.75 : 0.5)})`);
+        dropGrad.addColorStop(1, `rgba(${tipColor}, ${drop.alpha})`);
 
         ctx.strokeStyle = dropGrad;
-        ctx.lineWidth = drop.width;
+        ctx.lineWidth = drop.width * (lightBackground ? 1.2 : 1);
         ctx.lineCap = 'round';
         ctx.beginPath();
         ctx.moveTo(tailX, tailY);
@@ -866,7 +896,7 @@ export function WeatherCanvasBackdrop({
           const progress = splash.life / splash.maxLife;
           const a = splash.alpha * (1 - progress);
 
-          ctx.fillStyle = `rgba(186, 230, 253, ${a})`;
+          ctx.fillStyle = `rgba(${isDaytime && !isThunder ? '3, 105, 161' : '186, 230, 253'}, ${a})`;
           ctx.beginPath();
           ctx.arc(splash.x, splash.y, splash.radius, 0, Math.PI * 2);
           ctx.fill();
@@ -959,47 +989,18 @@ export function WeatherCanvasBackdrop({
       }
     }
 
-    function animate(currentTime: number) {
-      const dt = Math.min((currentTime - lastTime) / 1000, 0.08);
-      lastTime = currentTime;
-      totalTime += dt;
-
-      drawFrame(dt);
-
-      if (!prefersReducedMotion) {
-        animId = requestAnimationFrame(animate);
-      }
-    }
-
-    if (prefersReducedMotion) {
-      drawFrame(0.016);
-    } else {
-      animId = requestAnimationFrame(animate);
-    }
-
-    function handleVisibilityChange() {
-      if (document.hidden) {
-        if (animId !== null) {
-          cancelAnimationFrame(animId);
-          animId = null;
-        }
-      } else if (!prefersReducedMotion && animId === null) {
-        lastTime = performance.now();
-        animId = requestAnimationFrame(animate);
-      }
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
+    playback = weatherPlayback(container, {
+      paused: () => pausedRef.current || !(isThunder || isRain || isOvercast || isClearOrPartly),
+      reducedMotion: reduced => { prefersReducedMotion = reduced; },
+      draw: dt => { totalTime += dt; drawFrame(dt); },
+    });
+    playbackRef.current = playback;
     return () => {
       resizeObserver.disconnect();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      if (animId !== null) {
-        cancelAnimationFrame(animId);
-      }
+      playback?.dispose();
+      if (playbackRef.current === playback) playbackRef.current = null;
     };
   }, [
-    conditionCode,
     isThunder,
     isRain,
     isOvercast,

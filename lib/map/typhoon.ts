@@ -568,18 +568,13 @@ export async function fetchTyphoonTrack(stormName?: string | null): Promise<Typh
  * Fetches list of archived recent storms
  */
 export async function fetchHistoricalStorms(): Promise<HistoricalStormSummary[]> {
-  try {
-    const res = await fetch('/api/typhoon-track?history=true', {
-      headers: { Accept: 'application/json' },
-    });
-
-    if (!res.ok) {
-      return [];
-    }
-
-    return await res.json();
-  } catch {
-    return [];
-  }
+  const res = await fetch('/api/typhoon-track?history=true', {
+    headers: { Accept: 'application/json' },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error(`Failed to fetch storm archive: ${res.status}`);
+  const storms: unknown = await res.json();
+  if (!Array.isArray(storms)) throw new Error('Invalid storm archive response');
+  return storms;
 }
-

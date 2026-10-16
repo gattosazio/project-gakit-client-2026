@@ -9,6 +9,8 @@ export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron'
 // Flat basemap choices (orthogonal to the 2D/3D mode toggle).
 export type BasemapId = 'light' | 'satellite';
 
+// Display names for the basemap switchers (MapViewToggle and the header's
+// map display popover) so every surface labels the choices identically.
 export const BASEMAP_LABELS: Record<BasemapId, string> = {
   light: 'Light',
   satellite: 'Satellite',

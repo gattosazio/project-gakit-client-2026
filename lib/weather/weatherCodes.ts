@@ -105,6 +105,7 @@ export function getWeatherCondition(code: number, isDay = true): WeatherConditio
  */
 export function formatDayForecast(day: WeatherDayData): string {
   let condition = getWeatherCondition(day.conditionCode);
+  if (day.rainChance == null) return `${condition.label} · Rain probability unavailable`;
   const isPrecip = day.conditionCode >= 51 && day.rainChance >= 20;
 
   if (isPrecip) {

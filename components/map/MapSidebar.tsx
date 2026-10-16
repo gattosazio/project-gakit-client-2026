@@ -32,6 +32,7 @@ export interface MapSidebarProps {
   onStartReport?: () => void;
 
   // Weather Outlook
+  weatherLocation?: { lat: number; lng: number } | null;
   weatherOpen: boolean;
   onToggleWeather: (open: boolean) => void;
   weatherExpandedByDefault?: boolean;
@@ -112,6 +113,7 @@ export function MapSidebar({
   weatherOpen,
   onToggleWeather,
   weatherExpandedByDefault,
+  weatherLocation,
   layersOpen,
   onToggleLayers,
   showFloodHazard,
@@ -455,6 +457,7 @@ export function MapSidebar({
             {!hideWeather && (
               <div ref={weatherCardRef} className="w-full">
                 <WeatherChip
+                  location={weatherLocation}
                   open={weatherOpen}
                   onToggle={handleToggleWeather}
                   defaultExpanded={weatherExpandedByDefault}

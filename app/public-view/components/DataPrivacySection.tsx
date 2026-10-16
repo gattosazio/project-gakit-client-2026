@@ -173,6 +173,13 @@ export function DataPrivacySection() {
             <p className="mt-2 text-[13px] leading-6 text-slate-600">High-resolution 10m LiDAR terrain data used to represent ground elevation, drainage patterns, and floodplain features in the platform’s flood simulation model.</p>
           </div>
         </div>
+        <div className="border-t border-slate-100 px-6 py-4 text-xs leading-relaxed text-slate-500 sm:px-7 lg:px-8">
+          <span className="font-semibold text-slate-700">Location lookup: </span>
+          Road geometry © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-slate-900">OpenStreetMap contributors</a>,
+          available under the <a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-slate-900">ODbL</a>.
+          {' '}<a href="/data/iligan-roads.json" download className="underline underline-offset-2 hover:text-slate-900">Download the local road dataset</a>.
+          {' '}Place search and landmark context use <a href="https://docs.overturemaps.org/attribution/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-slate-900">Overture Maps</a>.
+        </div>
       </div>
     </div>
   );

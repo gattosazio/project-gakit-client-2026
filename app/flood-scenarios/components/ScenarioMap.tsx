@@ -26,10 +26,9 @@ import {
   BUILDING_FOOTPRINT_LAYER_ID,
   syncBuildingLayers,
 } from '@/lib/map/buildingLayers';
+import { ensurePmtilesProtocol } from '@/lib/map/pmtilesProtocol';
 import { useScenarioDisplay } from '@/lib/map/scenarioDisplayStore';
 import type { ScenarioFrame } from '@/types/scenario';
-
-let pmtilesProtocolRegistered = false;
 
 interface ScenarioMapProps {
   scenarioId: string;
@@ -90,19 +89,9 @@ export function ScenarioMap({ scenarioId, currentFrame, bounds, onRasterStateCha
 
     maplibregl.setWorkerUrl('/vendor/maplibre-gl/maplibre-gl-worker.mjs');
 
-    // Register PMTiles protocol for building footprints
-    void (async () => {
-      if (!pmtilesProtocolRegistered) {
-        try {
-          const pmtiles = await import('pmtiles');
-          const protocol = new pmtiles.Protocol();
-          maplibregl.addProtocol('pmtiles', protocol.tile);
-          pmtilesProtocolRegistered = true;
-        } catch (err) {
-          console.error('Failed to register PMTiles protocol:', err);
-        }
-      }
-    })();
+    // Kick off the shared pmtiles:// protocol registration now; the style.load
+    // handler below awaits it before adding any pmtiles:// source.
+    void ensurePmtilesProtocol(maplibregl).catch(() => {});
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
@@ -157,28 +146,45 @@ export function ScenarioMap({ scenarioId, currentFrame, bounds, onRasterStateCha
 
       // Flood images are added by the selected-frame effect after map load.
 
-      // 4. Add Iligan building footprints (PMTiles vector source)
-      map.addSource('iligan-buildings-source', {
-        type: 'vector',
-        url: BUILDINGS_PMTILES_URL,
-        attribution:
-          'Buildings: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
-      });
+      // 4. Add Iligan building footprints (PMTiles vector source). The
+      //    pmtiles:// protocol is registered on demand and MapLibre resolves
+      //    protocols when a request is made, so the source must only be added
+      //    once the handler is ready — otherwise MapLibre falls back to
+      //    fetching the pmtiles:// URL itself and the tiles never load.
+      void (async () => {
+        try {
+          await ensurePmtilesProtocol(maplibregl);
+        } catch (err) {
+          console.error('Failed to register PMTiles protocol:', err);
+          return;
+        }
+        if (mapRef.current !== map) return; // unmounted while the import resolved
 
-      // 5. Footprints on the flat view, extrusions once terrain tilts the
-      //    camera. Same layer builder the public map uses, and only one variant
-      //    is ever attached so the worker builds a single bucket per tile.
-      syncBuildingLayers(
-        map,
-        'iligan-buildings-source',
-        buildingModeRef.current
-      );
-      for (const id of [BUILDING_FOOTPRINT_LAYER_ID, BUILDING_EXTRUSION_LAYER_ID]) {
-        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', enableBuildingsRef.current ? 'visible' : 'none');
-      }
-      if (buildingModeRef.current === '3d') {
-        map.setLight(FLAT_EXTRUSION_LIGHT);
-      }
+        if (!map.getSource('iligan-buildings-source')) {
+          map.addSource('iligan-buildings-source', {
+            type: 'vector',
+            url: BUILDINGS_PMTILES_URL,
+            attribution:
+              'Buildings: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+          });
+        }
+
+        // 5. Footprints on the flat view, extrusions once terrain tilts the
+        //    camera. Same layer builder the public map uses, and only one
+        //    variant is ever attached so the worker builds a single bucket per
+        //    tile.
+        syncBuildingLayers(
+          map,
+          'iligan-buildings-source',
+          buildingModeRef.current
+        );
+        for (const id of [BUILDING_FOOTPRINT_LAYER_ID, BUILDING_EXTRUSION_LAYER_ID]) {
+          if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', enableBuildingsRef.current ? 'visible' : 'none');
+        }
+        if (buildingModeRef.current === '3d') {
+          map.setLight(FLAT_EXTRUSION_LIGHT);
+        }
+      })();
     });
 
     return () => {
