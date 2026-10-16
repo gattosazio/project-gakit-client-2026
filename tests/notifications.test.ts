@@ -18,6 +18,20 @@ function makeReport(overrides: Partial<Report> & { id: string }): Report {
 }
 
 describe('createNotifications', () => {
+  it('keeps historical deep observations in review without a current emergency alert', () => {
+    const [notification] = createNotifications([makeReport({
+      id: 'historical', validationFlags: ['HISTORICAL_OBSERVATION_REVIEW'],
+      depth: { code: 'head', label: 'Head deep', approximateCm: 159 },
+    })]);
+    expect(notification).toMatchObject({ type: 'needs-review', severity: 'low' });
+  });
+  it('preserves critical urgency when a deep report has conflicting evidence', () => {
+    const [notification] = createNotifications([makeReport({
+      id: 'deep-conflict', status: 'ANOMALY',
+      depth: { code: 'head', label: 'Head deep', approximateCm: 159 },
+    })]);
+    expect(notification).toMatchObject({ type: 'flagged', severity: 'critical' });
+  });
   it('maps an UNVERIFIED shallow report to new-report / medium when includeRoutine is true', () => {
     const [notification] = createNotifications([
       makeReport({ id: 'r1' }),

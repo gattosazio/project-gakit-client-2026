@@ -366,7 +366,7 @@ export function PublicMap({
       mapRef.current.setLayoutProperty(
         'simulation-flood-grid',
         'visibility',
-        checked ? 'visible' : 'none'
+        'none'
       );
     }
   }, []);
@@ -997,7 +997,6 @@ export function PublicMap({
     try {
       const layers: Array<[string, boolean]> = [
         ['flood-hazard-fill', showFloodHazard],
-        ['simulation-flood-grid', showSimulatedFlood],
         ['landslide-fill', showLandslide],
         ['rainfall-grid', showRainfall],
         ['himawari-ir-layer', himawari.showHimawariIR],
@@ -1088,11 +1087,15 @@ export function PublicMap({
         showSimulatedFlood={showSimulatedFlood}
         onShowSimulatedFloodChange={handleShowSimulatedFloodChange}
         isLoadingSimulatedFlood={simulatedFlood.isLoading}
-        simulatedFloodHorizon={simulatedFlood.horizon}
-        onSimulatedFloodHorizonChange={simulatedFlood.setHorizon}
+        simulatedFloodHorizon={simulatedFlood.displayHorizon}
+        onSimulatedFloodHorizonChange={simulatedFlood.selectHorizon}
         simulatedFloodTelemetry={simulatedFlood.telemetry}
+        simulatedFloodStatus={simulatedFlood.status}
         simulatedFloodOpacity={simulatedFlood.opacity}
         onSimulatedFloodOpacityChange={simulatedFlood.setOpacity}
+        simulatedFloodReplayFrames={simulatedFlood.replayFrames}
+        simulatedFloodReplayIndex={simulatedFlood.replayIndex}
+        onSimulatedFloodReplayChange={simulatedFlood.selectReplayFrame}
         showRainfall={showRainfall}
         onShowRainfallChange={handleShowRainfallChange}
         isLoadingRainfall={rainfall.isLoading}

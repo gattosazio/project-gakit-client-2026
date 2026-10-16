@@ -1,8 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bell, CloudRain, AlertTriangle, Flame, Thermometer, X } from 'lucide-react';
+import { Bell, CloudRain, X } from 'lucide-react';
 import type { WeatherAlert, AlertSeverity, AlertType, WeatherAlertData } from '@/types/weather';
+import { ALERT_ICONS, ALERT_TYPE_LABELS } from '@/lib/weather/alertLabels';
 
 const SEVERITY_CONFIG: Record<
   AlertSeverity,
@@ -11,20 +12,6 @@ const SEVERITY_CONFIG: Record<
   critical: { bg: 'bg-red-50', text: 'text-red-800', icon: 'text-red-500', dot: 'bg-red-500' },
   warning: { bg: 'bg-orange-50', text: 'text-orange-800', icon: 'text-orange-500', dot: 'bg-orange-500' },
   info: { bg: 'bg-blue-50', text: 'text-blue-800', icon: 'text-blue-500', dot: 'bg-blue-500' },
-};
-
-const ALERT_ICONS: Record<AlertType, typeof CloudRain> = {
-  thunderstorm: AlertTriangle,
-  heavy_rain: CloudRain,
-  extreme_heat: Flame,
-  daily_digest: Thermometer,
-};
-
-const ALERT_TYPE_LABELS: Record<AlertType, string> = {
-  thunderstorm: 'Thunderstorm',
-  heavy_rain: 'Heavy Rain',
-  extreme_heat: 'Heat Advisory',
-  daily_digest: 'Daily Forecast',
 };
 
 export interface NotificationItem {

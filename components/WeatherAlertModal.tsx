@@ -1,7 +1,8 @@
 import { useId, useState } from 'react';
-import { CloudRain, AlertTriangle, Flame, Thermometer, X, Droplet } from 'lucide-react';
-import type { WeatherAlert, AlertSeverity, AlertType, WeatherDayData } from '@/types/weather';
+import { CloudRain, X, Droplet } from 'lucide-react';
+import type { WeatherAlert, AlertSeverity, WeatherDayData } from '@/types/weather';
 import { alertTitle, digestPeriod, formatDayForecast, getWeatherCondition } from '@/lib/weather/weatherCodes';
+import { ALERT_ICONS, ALERT_TYPE_LABELS } from '@/lib/weather/alertLabels';
 import { hazardSummary, isPagasaAlert, otherProvinceCount, parseLocalTowns, shortTitle } from '@/lib/weather/pagasa';
 import { WeatherAttribution } from './weather/WeatherAttribution';
 import { RainStrip } from './weather/RainStrip';
@@ -29,20 +30,6 @@ const SEVERITY_CONFIG: Record<
     icon: 'text-blue-500',
     dot: 'bg-blue-500',
   },
-};
-
-const ALERT_ICONS: Record<AlertType, typeof CloudRain> = {
-  thunderstorm: AlertTriangle,
-  heavy_rain: CloudRain,
-  extreme_heat: Flame,
-  daily_digest: Thermometer,
-};
-
-const ALERT_TYPE_LABELS: Record<AlertType, string> = {
-  thunderstorm: 'Thunderstorm',
-  heavy_rain: 'Heavy Rain',
-  extreme_heat: 'Heat Advisory',
-  daily_digest: 'Daily Forecast',
 };
 
 function startOfDay(d: Date): number {

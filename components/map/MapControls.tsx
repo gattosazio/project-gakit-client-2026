@@ -1,5 +1,7 @@
 'use client';
 
+import { formatFloodMetric } from '@/lib/map/liveFloodState';
+
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ChevronUp, History, Info, Layers, ListFilter, RotateCwFadingClock, Search, X } from 'lucide-react';
@@ -29,6 +31,7 @@ import {
 } from '@/lib/map/surrogate';
 import type { MapMode } from '@/lib/map/overlayLayers';
 import type { ReportStatus } from '@/types/report';
+import type { ScenarioFrame } from '@/types/scenario';
 import { PillSlider } from '@/components/ui/PillSlider';
 import type { BasemapId } from '@/constants/publicMap';
 import {
@@ -451,11 +454,15 @@ interface DataLayerControlsProps {
   showSimulatedFlood?: boolean;
   onShowSimulatedFloodChange?: (checked: boolean) => void;
   isLoadingSimulatedFlood?: boolean;
-  simulatedFloodHorizon?: SimulatedFloodHorizon;
+  simulatedFloodHorizon?: SimulatedFloodHorizon | null;
   onSimulatedFloodHorizonChange?: (horizon: SimulatedFloodHorizon) => void;
   simulatedFloodTelemetry?: SimulatedFloodTelemetry | null;
+  simulatedFloodStatus?: string;
   simulatedFloodOpacity?: number;
   onSimulatedFloodOpacityChange?: (value: number) => void;
+  simulatedFloodReplayFrames?: ScenarioFrame[];
+  simulatedFloodReplayIndex?: number | null;
+  onSimulatedFloodReplayChange?: (index: number | null) => void;
   showRainfall: boolean;
   onShowRainfallChange: (checked: boolean) => void;
   isLoadingRainfall?: boolean;
@@ -831,8 +838,12 @@ export function DataLayerControls({
   simulatedFloodHorizon = 0,
   onSimulatedFloodHorizonChange,
   simulatedFloodTelemetry,
+  simulatedFloodStatus,
   simulatedFloodOpacity = 0.85,
   onSimulatedFloodOpacityChange,
+  simulatedFloodReplayFrames,
+  simulatedFloodReplayIndex,
+  onSimulatedFloodReplayChange,
   showRainfall,
   onShowRainfallChange,
   isLoadingRainfall = false,
@@ -988,7 +999,7 @@ export function DataLayerControls({
 
         <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
           AI Simulation
-          <CoverageChip label="Iligan City" detail="Real-time ONNX Physics Surrogate" />
+          <CoverageChip label="Iligan City" detail="Estimated inundation based on rainfall" />
         </div>
 
         <PillToggle
@@ -1008,7 +1019,7 @@ export function DataLayerControls({
               <span className="normal-case tracking-normal font-medium flex items-center gap-1.5">
                 {simulatedFloodTelemetry?.timestamp && (
                   <span className="text-slate-500">
-                    {simulatedFloodHorizon > 0 && simulatedFloodTelemetry.forecastValidTime
+                    {(simulatedFloodHorizon ?? 0) > 0 && simulatedFloodTelemetry.forecastValidTime
                       ? formatSimulationClock(simulatedFloodTelemetry.forecastValidTime)
                       : formatSimulationTime(simulatedFloodTelemetry.timestamp)}
                   </span>
@@ -1019,14 +1030,15 @@ export function DataLayerControls({
                     title={
                       simulatedFloodTelemetry.forecastSource === 'gsmap_rnc'
                         ? 'JAXA GSMaP_RNC nowcast layers'
-                        : 'Estimated fallback (satellite extrapolation + NWP)'
+                        : 'Forecast rainfall source'
                     }
                   >
-                    {simulatedFloodTelemetry.forecastSource === 'gsmap_rnc' ? 'RNC' : 'est.'}
+                    {simulatedFloodTelemetry.forecastSource === 'gsmap_rnc' ? 'RNC' : 'NWP / mixed'}
                   </span>
                 )}
               </span>
             </div>
+            <div role="status" className="text-[10px] text-slate-600">{simulatedFloodStatus ?? simulatedFloodTelemetry?.status ?? 'Live estimates unavailable'}</div>
             <div
               className="grid grid-cols-4 gap-1"
               role="group"
@@ -1044,22 +1056,81 @@ export function DataLayerControls({
                       : 'bg-white text-slate-600 shadow-[0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/90 hover:bg-slate-50 hover:text-slate-900'
                   }`}
                 >
-                  {h === 0 ? 'Live' : `+${h}h`}
+                  {h === 0 ? 'Latest' : `+${h}h`}
                 </button>
               ))}
             </div>
+
+            {(() => {
+              const frames = simulatedFloodReplayFrames ?? [];
+              if (frames.length < 2) return null;
+              const nowIndex = frames.reduce((acc, f, i) => (!f.is_forecast ? i : acc), 0);
+              // Clamp: an hourly refresh can shrink the frame list under the
+              // user's previous scrub position.
+              const activeIndex = Math.min(
+                simulatedFloodReplayIndex ?? nowIndex,
+                frames.length - 1
+              );
+              const selected = frames[activeIndex];
+              return (
+                <div className="pt-1.5">
+                  <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-400 font-semibold mb-1">
+                    <span>Rolling 24h replay</span>
+                    <button
+                      type="button"
+                      onClick={() => onSimulatedFloodReplayChange?.(null)}
+                      className={`normal-case tracking-normal font-bold rounded border px-1.5 py-px transition-colors ${
+                        simulatedFloodReplayIndex == null
+                          ? 'border-gakit-maroon bg-gakit-maroon text-white'
+                          : 'border-slate-200 bg-slate-100 text-slate-500 hover:text-slate-800'
+                      }`}
+                      title="Return to the current live extent"
+                    >
+                      Now
+                    </button>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={frames.length - 1}
+                    step={1}
+                    value={activeIndex}
+                    onChange={(e) => onSimulatedFloodReplayChange?.(Number(e.target.value))}
+                    className="w-full accent-gakit-maroon"
+                    aria-label="Rolling 24-hour replay hour"
+                  />
+                  <div className="flex items-center justify-between text-[9px] text-slate-500 mt-0.5 gap-2">
+                    <span className="truncate">{selected?.display_time ?? '—'}</span>
+                    <span className="flex items-center gap-1 shrink-0">
+                      {typeof selected?.inundated_km2 === 'number' && (
+                        <span className="font-semibold text-slate-600">
+                          {selected.inundated_km2.toFixed(2)} km²
+                        </span>
+                      )}
+                      {selected?.is_forecast && (
+                        <span className="rounded border border-amber-200 bg-amber-50 px-1 font-bold uppercase text-amber-700">
+                          {selected.forecast_horizon_hours
+                            ? `+${selected.forecast_horizon_hours}h`
+                            : 'Nowcast'}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {simulatedFloodTelemetry && (
               <div className="pt-0.5">
                 <div className="grid grid-cols-3 text-[9px] font-semibold uppercase tracking-wider text-slate-400">
                   <span>Inundated</span>
                   <span className="text-center">Max depth</span>
-                  <span className="text-right">Rain</span>
+                  <span className="text-right">Rain / 24h</span>
                 </div>
                 <div className="grid grid-cols-3 text-xs font-bold text-slate-700">
-                  <span>{simulatedFloodTelemetry.inundatedKm2.toFixed(2)} km²</span>
+                  <span>{formatFloodMetric(simulatedFloodTelemetry.inundatedKm2, 2)} km²</span>
                   <span className="text-center">
-                    {simulatedFloodTelemetry.maxDepthM.toFixed(2)} m
+                    {formatFloodMetric(simulatedFloodTelemetry.maxDepthM, 2)} m
                   </span>
                   <span className="text-right">
                     {typeof simulatedFloodTelemetry.effectiveRainfallMm === 'number'

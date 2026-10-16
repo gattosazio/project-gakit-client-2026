@@ -132,3 +132,8 @@ export async function updateReportStatus(
   invalidateApiCache('/api/v1/reports/map');
   return report;
 }
+
+export async function requestReportReassessment(reportId: string): Promise<void> {
+  await request(`/api/v1/reports/${reportId}/reassess`, { method: 'POST' });
+  invalidateApiCache('/api/v1/reports');
+}

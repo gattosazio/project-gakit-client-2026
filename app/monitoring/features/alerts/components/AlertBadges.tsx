@@ -3,9 +3,13 @@ import {
   BellRing,
   CheckCircle2,
   CloudRain,
+  Flame,
   ShieldAlert,
+  Thermometer,
 } from 'lucide-react';
-import type { NotificationType, Severity } from '@/lib/notifications';
+import type { Notification, NotificationType, Severity } from '@/lib/notifications';
+import type { AlertType } from '@/types/weather';
+import { ALERT_TYPE_LABELS } from '@/lib/weather/alertLabels';
 
 export const TYPE_META: Record<
   NotificationType,
@@ -69,4 +73,42 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
       {severity}
     </span>
   );
+}
+
+/**
+ * Per-advisory badge for weather rows. The generic `weather` TYPE_META entry
+ * only says "Weather alert"; in its own panel the specific advisory matters
+ * more (thunderstorm vs heat advisory).
+ */
+export const WEATHER_TYPE_META: Record<
+  AlertType,
+  { icon: typeof CloudRain; className: string }
+> = {
+  thunderstorm: { icon: AlertTriangle, className: 'bg-cyan-50 text-cyan-700' },
+  heavy_rain: { icon: CloudRain, className: 'bg-cyan-50 text-cyan-700' },
+  extreme_heat: { icon: Flame, className: 'bg-orange-50 text-orange-700' },
+  daily_digest: { icon: Thermometer, className: 'bg-slate-100 text-slate-600' },
+};
+
+/**
+ * Badge that picks the right vocabulary for the row: specific weather advisory
+ * for weather notifications, report status for everything else.
+ */
+export function AlertTypeBadge({ notification }: { notification: Notification }) {
+  const alertType = notification.weatherAlert?.alertType;
+
+  if (notification.type === 'weather' && alertType) {
+    const meta = WEATHER_TYPE_META[alertType];
+    const Icon = meta.icon;
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs font-semibold ${meta.className}`}
+      >
+        <Icon className="h-3.5 w-3.5" />
+        {ALERT_TYPE_LABELS[alertType]}
+      </span>
+    );
+  }
+
+  return <NotificationTypeBadge type={notification.type} />;
 }

@@ -1,4 +1,14 @@
-import type { FloodDepthCode, FloodReference, ReportStatus } from '@/types/report';
+import type { FloodDepthCode, FloodReference, Report, ReportStatus } from '@/types/report';
+
+/** Use the same current evidence points in the table, modal and map. */
+export function getReportScoreDisplay(report: Pick<Report, 'validationScore' | 'validationSummary'>) {
+  const score = report.validationSummary?.evidenceScore;
+  return {
+    score,
+    label: 'Evidence points',
+    title: score == null ? 'Awaiting evidence assessment' : `Evidence points: ${score}`,
+  };
+}
 
 export const DEPTH_LABELS: Record<FloodDepthCode, string> = {
   ankle: 'Ankle Deep',
@@ -113,152 +123,155 @@ export interface ValidationFlagMeta {
 
 export const VALIDATION_FLAG_LABELS: Record<string, ValidationFlagMeta> = {
   // Consensus / Peer Corroboration
-  ISOLATED_REPORT: {
-    label: 'First Witness (Isolated)',
-    category: 'Consensus',
-    description: 'First report submitted in this 250m area; no prior peer reports within 45 minutes.',
-    type: 'info',
-  },
-  CONSENSUS_DEPTH_AGREEMENT: {
-    label: 'Peer Depth Corroboration',
-    category: 'Consensus',
-    description: 'Nearby citizen reports confirm consistent flood depth levels.',
-    type: 'success',
-  },
 
   // Hydrodynamic Simulation
   SIMULATION_MATCH: {
-    label: 'Simulation Match',
+    label: 'Model Supports Depth',
     category: 'Simulation',
-    description: 'Reported depth closely aligns with 2D hydrodynamic flood simulation (within 30cm).',
+    description: 'Flood model shows water here, within 20 cm of the reported depth.',
     type: 'success',
   },
   SIMULATION_ACCEPTABLE_VARIANCE: {
-    label: 'Plausible Simulation Variance',
+    label: 'Model Roughly Matches',
     category: 'Simulation',
-    description: 'Reported depth is within an acceptable variance bracket of simulated flood level (within 60cm).',
+    description: 'Model depth is within 40 cm of the report.',
     type: 'success',
   },
-  SIMULATION_DRY_ANOMALY: {
-    label: 'Simulation Dry Cell Discrepancy',
+  SIMULATION_DRY_UNCORROBORATED: {
+    label: 'Model Shows No Water',
     category: 'Simulation',
-    description: 'Simulation model predicts dry ground (0cm), but citizen reported significant water (>=50cm).',
-    type: 'warning',
-  },
-  SIMULATION_DRAINAGE_OUTLIER: {
-    label: 'Pluvial / Local Drainage Outlier',
-    category: 'Simulation',
-    description: 'River model is dry, but heavy rainfall indicates localized urban street/drainage overflow.',
+    description:
+      'Model is dry here — it neither confirms nor refutes a modest claim, and earns no simulation credit.',
     type: 'info',
   },
   SIMULATION_DIVERGENCE: {
-    label: 'Simulation Depth Divergence',
+    label: 'Model Differs a Lot',
     category: 'Simulation',
-    description: 'Reported water depth diverges notably from hydrodynamic simulation predictions.',
+    description: 'Model depth differs from the report by more than 40 cm.',
     type: 'warning',
   },
 
   // Weather / Rainfall
-  ZERO_RAINFALL: {
-    label: 'No Rainfall Recorded',
-    category: 'Weather',
-    description: 'Radar and local rain gauges indicate dry weather with zero active precipitation.',
-    type: 'warning',
-  },
   HEAVY_RAINFALL: {
-    label: 'Heavy Rainfall Measured',
+    label: 'Heavy Rain (Measured)',
     category: 'Weather',
-    description: 'Active downpour (>=15mm/hr or >=30mm in 3h) strongly corroborates flooding.',
+    description: 'Satellite measured heavy rain (15+ mm/hr or 30+ mm in 4 hrs).',
     type: 'success',
   },
   MODERATE_RAINFALL: {
-    label: 'Moderate Rainfall Measured',
+    label: 'Moderate Rain (Measured)',
     category: 'Weather',
-    description: 'Moderate precipitation recorded in the river basin (>=5mm/hr or >=10mm in 3h).',
+    description: 'Satellite measured moderate rain (5+ mm/hr or 10+ mm in 4 hrs).',
     type: 'info',
   },
   RESIDUAL_RAINFALL: {
-    label: 'Residual Basin Precipitation',
+    label: 'Rain in Past 12 Hrs',
     category: 'Weather',
-    description: 'Recent storm accumulation recorded in past 12 hours.',
-    type: 'info',
-  },
-  WEATHER_ALERT_ACTIVE: {
-    label: 'Active Weather Advisory',
-    category: 'Weather',
-    description: 'Official PAGASA heavy rainfall warning or cyclone advisory is active.',
+    description: 'Rain was recorded in the last 12 hours.',
     type: 'info',
   },
 
-  // Terrain / NOAH Hazard
+  // Terrain / NOAH map context is correlated with the trained flood model.
   HAZARD_ZONE_CORE: {
-    label: 'Core Flood Hazard Zone',
+    label: 'Low-Lying Terrain (Historical)',
     category: 'Terrain',
-    description: 'Location lies inside official high-susceptibility NOAH flood zone (HAND <= 1.5m).',
+    description: 'A previous assessment recorded low HAND terrain. Terrain is model context, not independent evidence.',
     type: 'info',
   },
   HAZARD_ZONE_BUFFER: {
-    label: 'Flood Hazard Buffer',
+    label: 'Low-Lying Terrain (Historical)',
     category: 'Terrain',
-    description: 'Location is within a 150m buffer of an official flood hazard zone (HAND <= 5m).',
+    description: 'A previous assessment recorded low HAND terrain. Terrain is model context, not independent evidence.',
     type: 'info',
   },
-  HIGH_ELEVATION_RIDGE: {
-    label: 'Elevated Ridge / High Terrain',
+  LOW_HAND_TERRAIN_CONTEXT: {
+    label: 'Low-Lying Terrain (Model Context)',
     category: 'Terrain',
-    description: 'Steep slope (>15%) or high elevation (HAND > 15m) where flooding is physically improbable.',
-    type: 'warning',
+    description: 'The location is low relative to nearby drainage. HAND is a flood-model input, so this does not add independent evidence points.',
+    type: 'info',
   },
-  TERRAIN_MODERATE: {
-    label: 'Alluvial Urban Plain',
+  HIGH_HAND_TERRAIN_CONTEXT: {
+    label: 'Terrain Context: High Above Drainage',
     category: 'Terrain',
-    description: 'Typical lowland alluvial or urban terrain.',
+    description: 'HAND terrain is high above nearby drainage. This is model context and does not independently confirm or disprove the report.',
+    type: 'info',
+  },
+  HIGH_SLOPE_TERRAIN_CONTEXT: {
+    label: 'Terrain Context: Steep Slope',
+    category: 'Terrain',
+    description: 'Terrain slope is steep at this location. This is model context and does not independently confirm or disprove the report.',
+    type: 'info',
+  },
+  NOAH_HAZARD_MAP_CONTEXT: {
+    label: 'NOAH Flood Map Context',
+    category: 'Terrain',
+    description: 'This location falls in a NOAH flood map area used to train the flood model. It is not independent corroboration.',
+    type: 'info',
+  },
+  TERRAIN_DATA_UNAVAILABLE: {
+    label: 'Terrain Check Skipped',
+    category: 'Terrain',
+    description:
+      'Eligible terrain data are unavailable for this assessment. Missing terrain does not disprove the report.',
     type: 'info',
   },
 
   // Reporter Reliability & Verification
   USER_AUTHENTICATED: {
-    label: 'Authenticated Citizen',
+    label: 'Signed-In Reporter',
     category: 'Reporter',
-    description: 'Submitted from an authenticated citizen user account.',
+    description: 'Submitted from a signed-in citizen account.',
     type: 'info',
   },
   USER_HIGH_TRUST: {
-    label: 'High Reputation Reporter',
+    label: 'Trusted Reporter',
     category: 'Reporter',
-    description: 'Citizen has an established historical track record of accurate verified reports.',
+    description: 'History of accurate, verified reports.',
     type: 'success',
   },
-  USER_LOW_TRUST: {
-    label: 'Low Reputation Reporter',
+  USER_STANDARD_TRUST: {
+    label: 'Reliable Reporter',
     category: 'Reporter',
-    description: 'Citizen history contains previous unverified or rejected submissions.',
+    description: 'Mostly consistent report history.',
+    type: 'info',
+  },
+  USER_BASELINE_TRUST: {
+    label: 'New or Neutral History',
+    category: 'Reporter',
+    description: 'New or average history — default trust level.',
+    type: 'info',
+  },
+  USER_LOW_TRUST: {
+    label: 'Prior False Reports',
+    category: 'Reporter',
+    description: 'Independent human moderation includes rejected reports.',
     type: 'warning',
   },
   USER_UNTRUSTED: {
-    label: 'Unrated Reporter',
+    label: 'Poor Report History',
     category: 'Reporter',
-    description: 'Reporter account has low historical confidence score.',
+    description: 'Low historical confidence score.',
     type: 'warning',
   },
   USER_BLACKLISTED: {
-    label: 'Blacklisted Submitter',
+    label: 'Blocked Account',
     category: 'Reporter',
-    description: 'Account or device has been flagged for spam or chronic false submissions.',
+    description: 'Flagged for spam or repeated false reports.',
     type: 'danger',
   },
-  ADMIN_BYPASS: {
-    label: 'Staff Priority Bypass',
+  STAFF_REPORTER: {
+    label: 'Staff Submission',
     category: 'Reporter',
-    description: 'Submitted or authorized by verified CDRRMO disaster responder personnel.',
+    description:
+      'From a CDRRMO staff account — verified only with enough consistent evidence; otherwise queued for inspection.',
     type: 'success',
   },
 
   // Photographic Evidence
   EVIDENCE_PHOTO_ATTACHED: {
-    label: 'Photographic Proof Attached',
+    label: 'Photo Attached',
     category: 'Evidence',
-    description: 'Citizen provided ground-level photographic evidence of water depth.',
+    description: 'Ground-level photo of the flood.',
     type: 'success',
   },
 };
@@ -268,26 +281,23 @@ export function formatValidationFlag(flag: string): ValidationFlagMeta {
     return VALIDATION_FLAG_LABELS[flag];
   }
 
-  // Handle dynamic peer count flags, e.g. CONSENSUS_PEERS_2
-  const peerMatch = flag.match(/^CONSENSUS_PEERS_(\d+)$/);
-  if (peerMatch) {
-    const count = peerMatch[1];
+  const independentPeers = flag.match(/^INDEPENDENT_PEERS_(\d+)$/);
+  if (independentPeers) {
     return {
-      label: `${count} Nearby Peer Reports`,
-      category: 'Consensus',
-      description: `Corroborated by ${count} independent citizen reports within 250m and 45 minutes.`,
-      type: 'success',
+      label: `${independentPeers[1]} Independent Witnesses`, category: 'Consensus',
+      description: 'Distinct reporters with independently moderated, matching observations.', type: 'success',
     };
   }
-
-  // Handle dynamic staff actor flags, e.g. ACTOR_RESPONDER@CDRRMO...
-  const actorMatch = flag.match(/^ACTOR_(.+)$/);
-  if (actorMatch) {
+  if (/_CONFLICT$/.test(flag) || flag === 'SIMULATION_DIVERGENCE') {
     return {
-      label: `Authorized by ${actorMatch[1].toLowerCase()}`,
-      category: 'Reporter',
-      description: `Action authorized by disaster management personnel.`,
-      type: 'success',
+      label: flag.replace(/_/g, ' ').toLowerCase(), category: 'General',
+      description: 'Evidence differs from the observation. A moderator should inspect it.', type: 'warning',
+    };
+  }
+  if (/(?:_UNAVAILABLE|_STALE|_OUTSIDE_COVERAGE)$/.test(flag)) {
+    return {
+      label: flag.replace(/_/g, ' ').toLowerCase(), category: 'General',
+      description: 'This source cannot currently provide eligible evidence. It does not disprove the report.', type: 'info',
     };
   }
 
@@ -305,43 +315,3 @@ export function formatValidationFlag(flag: string): ValidationFlagMeta {
     type: 'info',
   };
 }
-
-export function getValidationScoreMeta(score: number | null | undefined): {
-  colorClass: string;
-  badgeClass: string;
-  textClass: string;
-  tier: 'High' | 'Medium' | 'Low' | 'Unrated';
-} {
-  if (score == null) {
-    return {
-      colorClass: 'bg-slate-200 text-slate-700',
-      badgeClass: 'bg-slate-50 text-slate-600 border-slate-200',
-      textClass: 'text-slate-500',
-      tier: 'Unrated',
-    };
-  }
-  if (score >= 70) {
-    return {
-      colorClass: 'bg-emerald-500 text-white',
-      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-      textClass: 'text-emerald-700',
-      tier: 'High',
-    };
-  }
-  if (score >= 30) {
-    return {
-      colorClass: 'bg-amber-500 text-white',
-      badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
-      textClass: 'text-amber-700',
-      tier: 'Medium',
-    };
-  }
-  return {
-    colorClass: 'bg-rose-500 text-white',
-    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
-    textClass: 'text-rose-700',
-    tier: 'Low',
-  };
-}
-
-

@@ -8,6 +8,7 @@ import {
   SkipBack,
   SkipForward,
   FastForward,
+  CloudLightning,
 } from 'lucide-react';
 import type { ScenarioFrame } from '@/types/scenario';
 
@@ -20,6 +21,12 @@ interface TimelinePlayerProps {
   playbackSpeed: number;
   onToggleSpeed: () => void;
   onReset: () => void;
+  /** How many nowcast forecast frames the full timeline carries (0 = hide the toggle). */
+  forecastCount?: number;
+  forecastMaxHours?: number;
+  /** Whether the forecast tail is currently included in the scrubber. */
+  showForecast?: boolean;
+  onToggleForecast?: (enabled: boolean) => void;
 }
 
 export function TimelinePlayer({
@@ -31,13 +38,18 @@ export function TimelinePlayer({
   playbackSpeed,
   onToggleSpeed,
   onReset,
+  forecastCount = 0,
+  forecastMaxHours = forecastCount,
+  showForecast = true,
+  onToggleForecast,
 }: TimelinePlayerProps) {
   const currentFrame = frames[currentIndex];
   const maxIndex = Math.max(0, frames.length - 1);
+  const isLive = frames.some(frame => frame.live);
 
   const peakIndex = React.useMemo(() => {
     if (!frames || frames.length === 0) return -1;
-    return frames.reduce((best, f, i, arr) => (f.inundated_km2 > arr[best].inundated_km2 ? i : best), 0);
+    return frames.reduce((best, f, i, arr) => ((f.inundated_km2 ?? 0) > (arr[best].inundated_km2 ?? 0) ? i : best), 0);
   }, [frames]);
 
   const handleStepBack = () => {
@@ -57,7 +69,7 @@ export function TimelinePlayer({
           <div className="flex items-center gap-1.5 min-w-0">
             <span
               className={`flex h-2 w-2 sm:h-2.5 sm:w-2.5 shrink-0 rounded-full ${
-                currentIndex === peakIndex && currentFrame && currentFrame.inundated_km2 > 0
+                currentIndex === peakIndex && currentFrame && (currentFrame.inundated_km2 ?? 0) > 0
                   ? 'bg-amber-500 animate-pulse'
                   : 'bg-sky-500'
               }`}
@@ -69,9 +81,9 @@ export function TimelinePlayer({
 
           <div className="flex items-center gap-1.5 shrink-0">
             <span className="rounded-full bg-slate-100 text-slate-600 font-mono text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 border border-slate-200/80 whitespace-nowrap">
-              Hour {currentIndex} / {maxIndex}
+              {isLive ? currentFrame?.is_forecast ? `Forecast +${currentFrame.forecast_horizon_hours}h` : 'Rainfall history' : `Hour ${currentIndex} / ${maxIndex}`}
             </span>
-            {peakIndex >= 0 && frames[peakIndex].inundated_km2 > 0 && (
+            {peakIndex >= 0 && (frames[peakIndex].inundated_km2 ?? 0) > 0 && (
               <button
                 type="button"
                 onClick={() => onIndexChange(peakIndex)}
@@ -84,6 +96,26 @@ export function TimelinePlayer({
               >
                 <span className="sm:hidden">Peak Flood</span>
                 <span className="hidden sm:inline">Max Flood Extent</span>
+              </button>
+            )}
+            {forecastCount > 0 && onToggleForecast && (
+              <button
+                type="button"
+                onClick={() => onToggleForecast(!showForecast)}
+                aria-pressed={showForecast}
+                title={
+                  showForecast
+                    ? 'Hide the +1h..+6h nowcast forecast tail'
+                    : 'Show the +1h..+6h nowcast forecast tail'
+                }
+                className={`flex items-center gap-1 rounded-full font-semibold text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 border transition-all duration-200 whitespace-nowrap ${
+                  showForecast
+                    ? 'bg-amber-50 text-amber-800 border-amber-300 shadow-sm cursor-pointer'
+                    : 'bg-white text-slate-400 border-slate-200 hover:bg-slate-100 hover:text-slate-600 cursor-pointer'
+                }`}
+              >
+                <CloudLightning className="h-3 w-3" />
+                <span className="hidden sm:inline">Forecast +{forecastMaxHours}h</span>
               </button>
             )}
           </div>
@@ -155,11 +187,13 @@ export function TimelinePlayer({
 
       {/* Progress tick labels */}
       <div className="flex justify-between text-[9.5px] sm:text-[11px] text-slate-500 font-medium font-mono mt-1 px-0.5">
-        <span>+0h<span className="hidden sm:inline"> (Onset)</span></span>
-        <span>+6h</span>
-        <span>+12h</span>
-        <span>+18h</span>
-        <span>+24h</span>
+        {isLive ? [0, 0.25, 0.5, 0.75, 1].map((fraction, i) => {
+          const frame = frames[Math.round(maxIndex * fraction)];
+          return <span key={i} className="max-w-[19%] truncate" title={frame?.display_time}>{frame?.display_time ?? '—'}</span>;
+        }) : <>
+          <span>+0h<span className="hidden sm:inline"> (Onset)</span></span>
+          <span>+6h</span><span>+12h</span><span>+18h</span><span>+24h</span>
+        </>}
       </div>
     </div>
   );

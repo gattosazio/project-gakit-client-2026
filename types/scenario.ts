@@ -1,13 +1,21 @@
+import type { LiveFrame, LiveTimeline } from './liveFlood';
+
 export interface ScenarioFrame {
   hour_index: number;
   raw_time: string;
   display_time: string;
-  hourly_rain_mm: number;
-  cum_rain_mm: number;
-  inundated_km2: number;
+  hourly_rain_mm: number | null;
+  cum_rain_mm: number | null;
+  inundated_km2: number | null;
+  max_depth_m?: number | null;
+  live?: LiveFrame;
   q_peak_m3s?: number;
   narrative: string;
   raster_uri: string;
+  /** Live replay only: true for nowcast-derived forecast frames. */
+  is_forecast?: boolean;
+  forecast_source?: string;
+  forecast_horizon_hours?: number;
 }
 
 export interface ScenarioData {
@@ -17,19 +25,25 @@ export interface ScenarioData {
   event_name: string;
   category: string;
   dates: string;
-  total_rainfall_mm: number;
-  official_total_mm: number;
+  total_rainfall_mm: number | null;
+  official_total_mm: number | null;
+  live?: LiveTimeline;
   is_calibrated: boolean;
   description: string;
   total_frames: number;
   bounds: [[number, number], [number, number], [number, number], [number, number]];
   frames: ScenarioFrame[];
+  /** Live replay only: id of the server-cached timeline build. */
+  timeline_id?: string;
+  is_live?: boolean;
 }
+
+export type ScenarioPresetType = 'live' | 'historical' | 'design_storm' | 'pagasa_alert';
 
 export interface ScenarioPreset {
   id: string;
   name: string;
-  type: 'historical' | 'design_storm' | 'pagasa_alert';
+  type: ScenarioPresetType;
   alertLevel?: 'yellow' | 'orange' | 'red';
   badge: string;
   totalRain: string;
@@ -41,6 +55,18 @@ export interface ScenarioPreset {
 }
 
 export const SCENARIO_PRESETS: ScenarioPreset[] = [
+  {
+    id: 'live',
+    name: 'Live inundation estimates',
+    type: 'live',
+    badge: 'LIVE',
+    totalRain: '0.0 mm',
+    dates: 'Rolling last 24 hours',
+    timeWindow: '24h Replay + Nowcast Tail',
+    description:
+      'Estimated inundation based on complete 24-hour rainfall windows, with observed rainfall history and available forecast rainfall. Water depth and flood timing require independent validation.',
+    dataFile: '',
+  },
   {
     id: 'pagasa_yellow',
     name: 'PAGASA Yellow Warning (LPA / Monsoon)',

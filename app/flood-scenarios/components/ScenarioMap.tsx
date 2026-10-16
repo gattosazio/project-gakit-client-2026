@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { LiveRasterController } from '@/lib/map/liveRasterController';
 import {
   OPENFREEMAP_STYLE,
+  SURROGATE_SIMULATION_PLACEHOLDER_DATA_URL,
   AWS_TERRAIN_TILES,
   AWS_TERRAIN_TILE_SIZE,
   AWS_TERRAIN_MAX_ZOOM,
@@ -31,6 +33,7 @@ let pmtilesProtocolRegistered = false;
 
 interface ScenarioMapProps {
   currentFrame?: ScenarioFrame;
+  onRasterStateChange?: (state: string | null) => void;
   bounds?: [[number, number], [number, number], [number, number], [number, number]];
 }
 
@@ -40,6 +43,7 @@ const buildFloodLayer = (renderMode: 'nearest' | 'linear') => ({
   id: 'simulation-flood-layer',
   type: 'raster' as const,
   source: 'simulation-flood-source',
+  layout: { visibility: 'none' as const },
   paint: {
     'raster-opacity': 0.85,
     'raster-fade-duration': 0,
@@ -47,7 +51,8 @@ const buildFloodLayer = (renderMode: 'nearest' | 'linear') => ({
   },
 });
 
-export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
+export function ScenarioMap({ currentFrame, bounds, onRasterStateChange }: ScenarioMapProps) {
+  const rasterController = useRef(new LiveRasterController());
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
 
@@ -77,6 +82,7 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
   // Initialize MapLibre
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
+    const imageController = rasterController.current;
 
     maplibregl.setWorkerUrl('/vendor/maplibre-gl/maplibre-gl-worker.mjs');
 
@@ -145,16 +151,7 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
       }
       map.setLight(FLAT_EXTRUSION_LIGHT);
 
-      // 3. Add the current flood frame (re-anchored if bounds arrive later)
-      if (bounds && currentFrame) {
-        map.addSource('simulation-flood-source', {
-          type: 'image',
-          url: currentFrame.raster_uri,
-          coordinates: bounds,
-        });
-
-        map.addLayer(buildFloodLayer(renderModeRef.current), firstSymbolLayerId);
-      }
+      // Flood images are added by the selected-frame effect after map load.
 
       // 4. Add Iligan building footprints (PMTiles vector source)
       map.addSource('iligan-buildings-source', {
@@ -179,41 +176,37 @@ export function ScenarioMap({ currentFrame, bounds }: ScenarioMapProps) {
 
     return () => {
       map.remove();
+      imageController.dispose();
       mapRef.current = null;
     };
   }, []);
 
-  // Update raster image frame whenever currentFrame changes
-  useEffect(() => {
+  const imageUrl = currentFrame?.raster_uri;
+  const coordinateKey = JSON.stringify(bounds ?? []);
+
+  // Hide old output until the selected immutable image has finished loading.
+  useLayoutEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapLoaded || !currentFrame || !bounds) return;
-
-    const source = map.getSource('simulation-flood-source') as maplibregl.ImageSource;
-    if (source) {
-      source.updateImage({
-        url: currentFrame.raster_uri,
-        coordinates: bounds,
-      });
-    } else {
-      map.addSource('simulation-flood-source', {
-        type: 'image',
-        url: currentFrame.raster_uri,
-        coordinates: bounds,
-      });
-
-      if (!map.getLayer('simulation-flood-layer')) {
-        // Land under whichever building variant is attached so the buildings
-        // stay legible on top of the water they stand in.
-        const anchor = [BUILDING_FOOTPRINT_LAYER_ID, BUILDING_EXTRUSION_LAYER_ID].find(
-          (id) => map.getLayer(id)
-        );
-        map.addLayer(
-          buildFloodLayer(renderMode),
-          anchor ?? getFirstBasemapSymbolLayerId(map)
-        );
-      }
+    const controller = rasterController.current;
+    if (!map || !mapLoaded) { onRasterStateChange?.(imageUrl ? 'Loading map' : null); return; }
+    const url = imageUrl || null;
+    const coordinates = JSON.parse(coordinateKey);
+    if (coordinates.length !== 4 || !url) {
+      controller.cancel();
+      if (map.getLayer('simulation-flood-layer')) map.setLayoutProperty('simulation-flood-layer', 'visibility', 'none');
+      onRasterStateChange?.('Flood estimate unavailable');
+      return;
     }
-  }, [currentFrame, bounds, mapLoaded, renderMode]);
+    if (!map.getSource('simulation-flood-source')) {
+      map.addSource('simulation-flood-source', { type: 'image', url: SURROGATE_SIMULATION_PLACEHOLDER_DATA_URL, coordinates });
+      const anchor = [BUILDING_FOOTPRINT_LAYER_ID, BUILDING_EXTRUSION_LAYER_ID].find(id => map.getLayer(id));
+      map.addLayer(buildFloodLayer(renderMode), anchor ?? getFirstBasemapSymbolLayerId(map));
+    }
+    onRasterStateChange?.('Loading flood image');
+    controller.show(map, 'simulation-flood-source', 'simulation-flood-layer', url, coordinates,
+      error => onRasterStateChange?.(error?.message ?? null));
+    return () => controller.cancel();
+  }, [imageUrl, coordinateKey, mapLoaded, renderMode, onRasterStateChange]);
 
   // Update resampling filter dynamically when renderMode changes
   useEffect(() => {

@@ -1,87 +1,68 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  formatValidationFlag,
-  getValidationScoreMeta,
-  VALIDATION_FLAG_LABELS,
-} from '@/lib/reports/reportFormatting';
-import {
-  getOrCreateReporterToken,
-  reporterHeaders,
-} from '@/lib/reports/reporterIdentity';
+import { describe, it, expect } from 'vitest';
+import { formatValidationFlag, getReportScoreDisplay, VALIDATION_FLAG_LABELS } from '@/lib/reports/reportFormatting';
+import { getOrCreateReporterToken, reporterHeaders } from '@/lib/reports/reporterIdentity';
+import type { ValidationSummary } from '@/types/report';
 
-describe('Report Validation Client Helpers', () => {
-  describe('getValidationScoreMeta', () => {
-    it('returns Unrated tier when score is null or undefined', () => {
-      const nullMeta = getValidationScoreMeta(null);
-      expect(nullMeta.tier).toBe('Unrated');
+describe('report score display', () => {
+  const summary: ValidationSummary = {
+    assessedAt: '2026-10-16T00:00:00Z', recommendedStatus: 'UNVERIFIED', evidenceScore: 20,
+    support: [], conflicts: [], missing: [], explanation: 'Awaiting evidence',
+  };
 
-      const undefinedMeta = getValidationScoreMeta(undefined);
-      expect(undefinedMeta.tier).toBe('Unrated');
-    });
-
-    it('returns High tier for scores >= 70', () => {
-      const meta = getValidationScoreMeta(70);
-      expect(meta.tier).toBe('High');
-      expect(meta.colorClass).toContain('bg-emerald');
-
-      const meta100 = getValidationScoreMeta(100);
-      expect(meta100.tier).toBe('High');
-    });
-
-    it('returns Medium tier for scores 30-69', () => {
-      const meta30 = getValidationScoreMeta(30);
-      expect(meta30.tier).toBe('Medium');
-      expect(meta30.colorClass).toContain('bg-amber');
-
-      const meta69 = getValidationScoreMeta(69);
-      expect(meta69.tier).toBe('Medium');
-    });
-
-    it('returns Low tier for scores < 30', () => {
-      const meta29 = getValidationScoreMeta(29);
-      expect(meta29.tier).toBe('Low');
-      expect(meta29.colorClass).toContain('bg-rose');
-
-      const meta0 = getValidationScoreMeta(0);
-      expect(meta0.tier).toBe('Low');
-    });
+  it('uses the same current evidence score even when the saved score differs', () => {
+    const display = getReportScoreDisplay({ validationScore: 15, validationSummary: summary });
+    expect(display).toEqual({ score: 20, label: 'Evidence points', title: 'Evidence points: 20' });
   });
 
-  describe('VALIDATION_FLAG_LABELS & formatValidationFlag', () => {
-    it('correctly formats the triggered rulesets requested by user', () => {
-      const isolated = formatValidationFlag('ISOLATED_REPORT');
-      expect(isolated.label).toBe('First Witness (Isolated)');
-      expect(isolated.category).toBe('Consensus');
-
-      const simDry = formatValidationFlag('SIMULATION_DRY_ANOMALY');
-      expect(simDry.label).toBe('Simulation Dry Cell Discrepancy');
-      expect(simDry.type).toBe('warning');
-
-      const zeroRain = formatValidationFlag('ZERO_RAINFALL');
-      expect(zeroRain.label).toBe('No Rainfall Recorded');
-      expect(zeroRain.type).toBe('warning');
-
-      const hazardCore = formatValidationFlag('HAZARD_ZONE_CORE');
-      expect(hazardCore.label).toBe('Core Flood Hazard Zone');
-      expect(hazardCore.category).toBe('Terrain');
+  it('hides obsolete scores when no current assessment exists', () => {
+    expect(getReportScoreDisplay({ validationScore: 15 })).toMatchObject({
+      score: undefined, title: 'Awaiting evidence assessment',
     });
-
-    it('formats dynamic peer and actor flags', () => {
-      const peer3 = formatValidationFlag('CONSENSUS_PEERS_3');
-      expect(peer3.label).toBe('3 Nearby Peer Reports');
-      expect(peer3.type).toBe('success');
-
-      const actor = formatValidationFlag('ACTOR_ADMIN@GAKIT.GOV.PH');
-      expect(actor.label).toBe('Authorized by admin@gakit.gov.ph');
-      expect(actor.type).toBe('success');
-    });
-
-    it('falls back to title case for any unknown flag', () => {
-      const custom = formatValidationFlag('CUSTOM_EXPERIMENTAL_SENSOR_FLAG');
-      expect(custom.label).toBe('Custom Experimental Sensor Flag');
-    });
+    expect(getReportScoreDisplay({ validationScore: 0 }).score).toBeUndefined();
+    expect(getReportScoreDisplay({}).score).toBeUndefined();
   });
 
+  it('preserves a genuine zero in the current assessment', () => {
+    expect(getReportScoreDisplay({ validationScore: 15, validationSummary: { ...summary, evidenceScore: 0 } }))
+      .toMatchObject({ score: 0, title: 'Evidence points: 0' });
+  });
+});
+
+describe('report evidence labels', () => {
+  it('formats current evidence rather than removed bypass and scoring rules', () => {
+    expect(formatValidationFlag('HAZARD_ZONE_CORE').label).toBe('Inside Flood Hazard Zone');
+    expect(formatValidationFlag('SIMULATION_DRY_CONFLICT').type).toBe('warning');
+    expect(formatValidationFlag('INDEPENDENT_PEERS_2').label).toBe('2 Independent Witnesses');
+    expect(formatValidationFlag('HEAVY_RAINFALL').description).toContain('4 hrs');
+    expect(VALIDATION_FLAG_LABELS).not.toHaveProperty('ADMIN_BYPASS');
+    expect(VALIDATION_FLAG_LABELS).not.toHaveProperty('NO_ENVIRONMENTAL_CORROBORATION');
+  });
+
+  it('distinguishes unavailable evidence from a contradiction', () => {
+    expect(formatValidationFlag('RAIN_24H_UNAVAILABLE').type).toBe('info');
+    expect(formatValidationFlag('RAIN_RATE_STALE').description).toContain('does not disprove');
+    expect(formatValidationFlag('PEER_DEPTH_CONFLICT').type).toBe('warning');
+    expect(formatValidationFlag('TERRAIN_DATA_UNAVAILABLE').label).toBe('Terrain Check Skipped');
+  });
+
+  it('distinguishes a dry model from supporting model evidence', () => {
+    expect(formatValidationFlag('SIMULATION_DRY_UNCORROBORATED').type).toBe('info');
+    expect(formatValidationFlag('SIMULATION_MATCH').label).toBe('Model Supports Depth');
+    expect(formatValidationFlag('SIMULATION_MATCH').type).toBe('success');
+  });
+
+  it('labels human reputation tiers', () => {
+    expect(formatValidationFlag('USER_HIGH_TRUST').label).toBe('Trusted Reporter');
+    expect(formatValidationFlag('USER_STANDARD_TRUST').label).toBe('Reliable Reporter');
+    expect(formatValidationFlag('USER_BASELINE_TRUST').label).toBe('New or Neutral History');
+  });
+
+  it('formats unknown source flags without inventing an interpretation', () => {
+    expect(formatValidationFlag('CUSTOM_EXPERIMENTAL_SENSOR_FLAG').label).toBe('Custom Experimental Sensor Flag');
+  });
+});
+
+describe('reporter identity', () => {
   describe('reporterIdentity', () => {
     it('returns empty string when window is undefined (SSR)', () => {
       // In Node.js environment, window is undefined by default

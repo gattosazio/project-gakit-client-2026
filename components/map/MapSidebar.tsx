@@ -18,6 +18,7 @@ import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
 import type { ReportStatus } from '@/types/report';
 import type { ActiveStormSummary, HistoricalStormSummary } from '@/types/typhoon';
 import type { SimulatedFloodHorizon, SimulatedFloodTelemetry } from '@/lib/map/surrogate';
+import type { ScenarioFrame } from '@/types/scenario';
 
 export interface MapSidebarProps {
   isCollapsed: boolean;
@@ -43,11 +44,15 @@ export interface MapSidebarProps {
   showSimulatedFlood?: boolean;
   onShowSimulatedFloodChange?: (checked: boolean) => void;
   isLoadingSimulatedFlood?: boolean;
-  simulatedFloodHorizon?: SimulatedFloodHorizon;
+  simulatedFloodHorizon?: SimulatedFloodHorizon | null;
   onSimulatedFloodHorizonChange?: (horizon: SimulatedFloodHorizon) => void;
   simulatedFloodTelemetry?: SimulatedFloodTelemetry | null;
+  simulatedFloodStatus?: string;
   simulatedFloodOpacity?: number;
   onSimulatedFloodOpacityChange?: (value: number) => void;
+  simulatedFloodReplayFrames?: ScenarioFrame[];
+  simulatedFloodReplayIndex?: number | null;
+  onSimulatedFloodReplayChange?: (index: number | null) => void;
   showRainfall: boolean;
   onShowRainfallChange: (checked: boolean) => void;
   isLoadingRainfall?: boolean;
@@ -115,8 +120,12 @@ export function MapSidebar({
   simulatedFloodHorizon = 0,
   onSimulatedFloodHorizonChange,
   simulatedFloodTelemetry,
+  simulatedFloodStatus,
   simulatedFloodOpacity = 0.85,
   onSimulatedFloodOpacityChange,
+  simulatedFloodReplayFrames,
+  simulatedFloodReplayIndex,
+  onSimulatedFloodReplayChange,
   showRainfall,
   onShowRainfallChange,
   isLoadingRainfall = false,
@@ -459,8 +468,12 @@ export function MapSidebar({
                 simulatedFloodHorizon={simulatedFloodHorizon}
                 onSimulatedFloodHorizonChange={onSimulatedFloodHorizonChange}
                 simulatedFloodTelemetry={simulatedFloodTelemetry}
+                simulatedFloodStatus={simulatedFloodStatus}
                 simulatedFloodOpacity={simulatedFloodOpacity}
                 onSimulatedFloodOpacityChange={onSimulatedFloodOpacityChange}
+                simulatedFloodReplayFrames={simulatedFloodReplayFrames}
+                simulatedFloodReplayIndex={simulatedFloodReplayIndex}
+                onSimulatedFloodReplayChange={onSimulatedFloodReplayChange}
                 showRainfall={showRainfall}
                 onShowRainfallChange={onShowRainfallChange}
                 isLoadingRainfall={isLoadingRainfall}

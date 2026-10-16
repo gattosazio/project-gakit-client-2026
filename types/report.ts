@@ -8,6 +8,16 @@ export interface DepthCategory {
   approximateCm: number;
 }
 
+export interface ValidationSummary {
+  assessedAt: string;
+  recommendedStatus: ReportStatus;
+  evidenceScore: number;
+  support: string[];
+  conflicts: string[];
+  missing: string[];
+  explanation: string;
+}
+
 export interface Report {
   id: string;
   location: {
@@ -21,8 +31,12 @@ export interface Report {
   /** Public URL of citizen-submitted evidence photo, when one was attached. */
   photoUrl?: string | null;
   status: ReportStatus;
+  decisionSource?: 'legacy' | 'automated' | 'manual';
+  validationSummary?: ValidationSummary | null;
   validationScore?: number | null;
   validationFlags?: string[] | null;
+  /** Per-flag point contributions applied by the validation engine (markers = 0). */
+  validationFlagScores?: Record<string, number> | null;
   observedAt: string;
   createdAt: string;
   updatedAt: string;
@@ -37,8 +51,12 @@ export interface MapReportProperties {
   /** Public URL of citizen-submitted evidence photo, when one was attached. */
   photoUrl?: string | null;
   status: ReportStatus;
+  decisionSource?: 'legacy' | 'automated' | 'manual';
+  validationSummary?: ValidationSummary | null;
   validationScore?: number | null;
   validationFlags?: string[] | null;
+  /** Per-flag point contributions applied by the validation engine (markers = 0). */
+  validationFlagScores?: Record<string, number> | null;
   observedAt: string;
 
   createdAt: string;

@@ -18,6 +18,8 @@ COPY . .
 # Only override API URL here (Docker internal networking).
 ARG NEXT_PUBLIC_API_URL=http://localhost:4000
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ARG API_INTERNAL_URL=http://api:4000
+ENV API_INTERNAL_URL=$API_INTERNAL_URL
 
 RUN npm run build
 
