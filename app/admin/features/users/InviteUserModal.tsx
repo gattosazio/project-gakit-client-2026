@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Check, Copy, Mail, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { Dialog } from '@/components/ui/Dialog';
 import { inviteUser } from '../../actions/admin';
 import type { InviteResult, RoleView } from '@/types/admin';
 
@@ -15,14 +16,17 @@ export function InviteUserModal({
   onClose: () => void;
   onInvited: () => void;
 }) {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<InviteResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const titleId = useId();
 
-  const canSubmit = email.trim() !== '' && role !== '' && !submitting;
+  const canSubmit =
+    name.trim() !== '' && email.trim() !== '' && role !== '' && !submitting;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -30,7 +34,11 @@ export function InviteUserModal({
     setServerError(null);
     setCopied(false);
     try {
-      const invite = await inviteUser({ email: email.trim(), role });
+      const invite = await inviteUser({
+        email: email.trim(),
+        name: name.trim(),
+        role,
+      });
       setResult(invite);
     } catch (err: unknown) {
       setServerError(
@@ -38,6 +46,14 @@ export function InviteUserModal({
       );
       setSubmitting(false);
     }
+  };
+
+  // Before a successful invite, dismissing must not trigger a refetch (Cancel
+  // and the close button share behaviour). After success, dismissing refreshes
+  // the list so the new member appears, matching the "Done" button.
+  const dismiss = () => {
+    if (result) onInvited();
+    else onClose();
   };
 
   const copyInviteLink = async () => {
@@ -52,17 +68,7 @@ export function InviteUserModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Invite a user"
-    >
-      <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl ring-1 ring-slate-200"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <Dialog isOpen onClose={dismiss} ariaLabelledBy={titleId} maxWidthClass="max-w-md">
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-maroon-50">
@@ -73,19 +79,19 @@ export function InviteUserModal({
               )}
             </div>
             <div>
-              <h2 className="text-base font-semibold text-slate-900">
+              <h2 id={titleId} className="text-base font-semibold text-slate-900">
                 {result ? 'Invitation sent' : 'Invite a user'}
               </h2>
               <p className="text-sm text-slate-500">
                 {result
-                  ? `An invitation was created for ${result.email ?? 'the user'}.`
+                  ? `An invitation was created for ${result.name?.trim() || result.email || 'the user'}.`
                   : 'An invitation email will be sent to the address below.'}
               </p>
             </div>
           </div>
           <button
             type="button"
-            onClick={onInvited}
+            onClick={dismiss}
             aria-label="Close"
             className="rounded-lg p-1.5 text-slate-400 hover:bg-canvas-light hover:text-slate-600"
           >
@@ -111,6 +117,7 @@ export function InviteUserModal({
                   <input
                     readOnly
                     value={result.inviteLink}
+                    aria-label="One-time invitation link"
                     onFocus={(event) => event.currentTarget.select()}
                     className="w-full rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 text-xs text-slate-600 outline-none"
                   />
@@ -158,13 +165,25 @@ export function InviteUserModal({
 
             <div className="mt-5 space-y-4">
               <label className="block">
+                <span className="text-sm font-semibold text-slate-700">Name</span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="e.g. Juan Dela Cruz"
+                  maxLength={120}
+                  autoFocus
+                  className="mt-1.5 w-full rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-gakit-maroon/40 focus:bg-white focus:ring-2 focus:ring-gakit-maroon/10"
+                />
+              </label>
+
+              <label className="block">
                 <span className="text-sm font-semibold text-slate-700">Email</span>
                 <input
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="name@organization.gov.ph"
-                  autoFocus
                   className="mt-1.5 w-full rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-gakit-maroon/40 focus:bg-white focus:ring-2 focus:ring-gakit-maroon/10"
                 />
               </label>
@@ -177,13 +196,22 @@ export function InviteUserModal({
                   className="mt-1.5 w-full rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2.5 text-sm text-slate-700 outline-none transition-colors focus:border-gakit-maroon/40 focus:bg-white focus:ring-2 focus:ring-gakit-maroon/10"
                 >
                   <option value="">Select a role…</option>
-                  {roles.map((item) => (
-                    <option key={item.id} value={item.name}>
-                      {item.name}
-                    </option>
-                  ))}
+                  {roles
+                    .filter((item) => item.isActive)
+                    .map((item) => (
+                      <option key={item.id} value={item.name}>
+                        {item.name}
+                      </option>
+                    ))}
                 </select>
               </label>
+
+              <p className="text-xs text-slate-500">
+                The user&apos;s name is shown in User Management. Custom roles
+                have the same access as staff; only the built-in{' '}
+                <span className="font-semibold">admin</span> role unlocks the
+                Administration portal.
+              </p>
             </div>
 
             <div className="mt-6 flex justify-end gap-2">
@@ -207,7 +235,6 @@ export function InviteUserModal({
             </div>
           </>
         )}
-      </div>
-    </div>
+    </Dialog>
   );
 }

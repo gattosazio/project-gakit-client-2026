@@ -43,6 +43,7 @@ export async function listUsers(query: UserListQuery = {}): Promise<UserListResu
 
 export async function inviteUser(input: {
   email: string;
+  name: string;
   role?: string;
 }): Promise<InviteResult> {
   const result = await apiRequest<InviteResult>('/api/v1/admin/users/invite', {

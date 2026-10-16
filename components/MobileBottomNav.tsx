@@ -2,16 +2,19 @@
 
 import type { PortalNavItem } from '@/types/portal';
 import { BentoMenu } from './BentoMenu';
-import { monitoringBentoTiles } from '@/lib/navigation/bentoMenu';
+import { getBentoTilesForRole } from '@/lib/navigation/bentoMenu';
+import type { StaffRole } from '@/lib/auth/roles';
 
 export function MobileBottomNav<T extends string>({
   items,
   activeTab,
   onTabChange,
+  role = null,
 }: {
   items: PortalNavItem<T>[];
   activeTab: T;
   onTabChange: (tab: T) => void;
+  role?: StaffRole | null;
 }) {
   return (
     <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-3 pb-2 lg:hidden">
@@ -46,7 +49,7 @@ export function MobileBottomNav<T extends string>({
           );
         })}
         <BentoMenu
-          items={monitoringBentoTiles}
+          items={getBentoTilesForRole(role)}
           variant="mobile-nav"
         />
       </div>

@@ -166,7 +166,6 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           description={activeFeature.description}
           icon={activeFeature.icon}
           badge={activeFeature.badge}
-          role={initialAuth?.role ?? null}
           showTopo
           onNotificationClick={handleOpenNotification}
         />
@@ -196,6 +195,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
         items={monitoringFeatures}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        role={initialAuth?.role ?? null}
       />
       {selectedWeatherAlert && (
         <WeatherAlertModal

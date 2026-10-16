@@ -3,6 +3,8 @@ export type UserStatus = 'active' | 'suspended';
 export interface AdminUser {
   id: string;
   email: string | null;
+  /** Display name captured at invite time (Auth `user_metadata.full_name`). */
+  name: string | null;
   role: string | null;
   status: UserStatus;
   lastSignInAt: string | null;

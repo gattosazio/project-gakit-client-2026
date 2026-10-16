@@ -2,26 +2,30 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { PlusCircle, RotateCcw, Search } from 'lucide-react';
-import { Spinner } from '@/components/ui/Spinner';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { toast } from 'react-toastify';
 import { FeaturePageShell } from '@/components/FeaturePageShell';
 import { AdminPagination } from '../shared/AdminPagination';
-import {
-  shortenId,
-  USER_STATUS_META,
-} from '../shared/adminFormatting';
+import { USER_STATUS_META } from '../shared/adminFormatting';
 import {
   listRoles,
   listUsers as fetchUsers,
-  updateUserRole,
   updateUserStatus,
 } from '../../actions/admin';
 import { InviteUserModal } from './InviteUserModal';
+import { EditUserRoleModal } from './EditUserRoleModal';
+import { UserRowActions } from './UserRowActions';
 import type { AdminUser, RoleView, UserStatus } from '@/types/admin';
 import { formatDateTime } from '@/lib/reports/reportFormatting';
 
 const USERS_PER_PAGE = 10;
+
+/** Primary display name with an email fallback, plus the email as sub-text. */
+function userIdentity(user: AdminUser): { primary: string; secondary: string | null } {
+  const name = user.name?.trim() || '';
+  if (name) return { primary: name, secondary: user.email };
+  return { primary: user.email || 'No email', secondary: null };
+}
 
 export function UsersTab({ active = true }: { active?: boolean }) {
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -35,9 +39,9 @@ export function UsersTab({ active = true }: { active?: boolean }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
   const [roles, setRoles] = useState<RoleView[]>([]);
-  const [savingRoleFor, setSavingRoleFor] = useState<string | null>(null);
   const [savingStatusFor, setSavingStatusFor] = useState<string | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
   const requestSeqRef = useRef(0);
 
   useEffect(() => {
@@ -101,37 +105,15 @@ export function UsersTab({ active = true }: { active?: boolean }) {
     setCurrentPage(1);
   };
 
-  const handleRoleChange = async (user: AdminUser, role: string) => {
-    if (role === user.role) return;
-    setSavingRoleFor(user.id);
-    try {
-      await updateUserRole(user.id, role);
-      toast.success(`Role changed to "${role}".`, {
-        position: 'top-right',
-        autoClose: 3000,
-      });
-      setRefreshKey((key) => key + 1);
-    } catch (err: unknown) {
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to update role.',
-        { position: 'top-right', autoClose: 4000 }
-      );
-      setRefreshKey((key) => key + 1);
-    } finally {
-      setSavingRoleFor(null);
-    }
-  };
-
   const handleStatusChange = async (user: AdminUser, suspend: boolean) => {
     setSavingStatusFor(user.id);
     try {
       await updateUserStatus(user.id, suspend);
-      toast.success(
-        suspend
-          ? `${user.email ?? 'User'} deactivated.`
-          : `${user.email ?? 'User'} reactivated.`,
-        { position: 'top-right', autoClose: 3000 }
-      );
+      const label = user.name?.trim() || user.email || 'User';
+      toast.success(suspend ? `${label} deactivated.` : `${label} reactivated.`, {
+        position: 'top-right',
+        autoClose: 3000,
+      });
       setRefreshKey((key) => key + 1);
     } catch (err: unknown) {
       toast.error(
@@ -146,6 +128,11 @@ export function UsersTab({ active = true }: { active?: boolean }) {
   const handleInvited = () => {
     setIsInviteOpen(false);
     setCurrentPage(1);
+    setRefreshKey((key) => key + 1);
+  };
+
+  const handleRoleSaved = () => {
+    setEditingUser(null);
     setRefreshKey((key) => key + 1);
   };
 
@@ -172,7 +159,8 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                   setQuery(event.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="Search email"
+                placeholder="Search name or email"
+                aria-label="Search users by name or email"
                 className="w-full bg-transparent text-sm outline-none text-slate-700 placeholder:text-slate-400"
               />
             </label>
@@ -182,6 +170,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                 setRoleFilter(event.target.value);
                 setCurrentPage(1);
               }}
+              aria-label="Filter by role"
               className="rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 text-sm text-slate-700 outline-none focus:border-gakit-maroon/40 focus:bg-white"
             >
               <option value="all">All roles</option>
@@ -197,6 +186,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                 setStatusFilter(event.target.value as 'all' | UserStatus);
                 setCurrentPage(1);
               }}
+              aria-label="Filter by status"
               className="rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 text-sm text-slate-700 outline-none focus:border-gakit-maroon/40 focus:bg-white"
             >
               <option value="all">All statuses</option>
@@ -223,7 +213,10 @@ export function UsersTab({ active = true }: { active?: boolean }) {
           </div>
         }
       >
-        <div className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm">
+        <div
+          aria-busy={loading}
+          className="overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm"
+        >
           {error ? (
             <div className="p-6 text-sm text-red-700">{error}</div>
           ) : (
@@ -232,53 +225,38 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                 <table className="w-full text-sm">
                   <thead className="bg-canvas-light text-slate-500">
                     <tr>
-                      <th className="px-5 py-3 text-left font-semibold">User</th>
-                      <th className="px-5 py-3 text-left font-semibold">Role</th>
-                      <th className="px-5 py-3 text-left font-semibold">Status</th>
-                      <th className="px-5 py-3 text-left font-semibold">Last sign-in</th>
-                      <th className="px-5 py-3 text-left font-semibold">Created</th>
-                      <th className="px-5 py-3 text-left font-semibold">Actions</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">User</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">Role</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">Status</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">Last sign-in</th>
+                      <th scope="col" className="px-5 py-3 text-left font-semibold">Created</th>
+                      <th scope="col" className="px-5 py-3 text-right font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-canvas-grey">
                     {users.map((user) => {
                       const status = USER_STATUS_META[user.status];
-                      const savingRole = savingRoleFor === user.id;
-                      const savingStatus = savingStatusFor === user.id;
+                      const identity = userIdentity(user);
                       return (
                         <tr key={user.id} className="hover:bg-canvas-light/70">
                           <td className="px-5 py-4">
                             <div className="font-semibold text-slate-900">
-                              {user.email ?? 'No email'}
+                              {identity.primary}
                             </div>
-                            <div className="font-mono text-xs text-slate-400">
-                              {shortenId(user.id)}
-                            </div>
+                            {identity.secondary && (
+                              <div className="text-xs text-slate-500">
+                                {identity.secondary}
+                              </div>
+                            )}
                           </td>
                           <td className="px-5 py-4">
-                            <select
-                              value={user.role ?? ''}
-                              disabled={savingRole}
-                              onChange={(event) =>
-                                void handleRoleChange(user, event.target.value)
-                              }
-                              className="rounded-lg border border-canvas-grey bg-canvas-light px-2.5 py-1.5 text-sm font-medium text-slate-700 outline-none focus:border-gakit-maroon/40 focus:bg-white disabled:opacity-50"
-                            >
-                              {roles.length === 0 && (
-                                <option value={user.role ?? ''}>
-                                  {user.role ?? '—'}
-                                </option>
-                              )}
-                              {roles.map((role) => (
-                                <option
-                                  key={role.id}
-                                  value={role.name}
-                                  disabled={!role.isActive}
-                                >
-                                  {role.name}
-                                </option>
-                              ))}
-                            </select>
+                            {user.role ? (
+                              <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                                {user.role}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-slate-400">No role</span>
+                            )}
                           </td>
                           <td className="px-5 py-4">
                             <span
@@ -297,34 +275,16 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                               ? formatDateTime(user.createdAt)
                               : '—'}
                           </td>
-                          <td className="px-5 py-4">
-                            {user.status === 'suspended' ? (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  void handleStatusChange(user, false)
-                                }
-                                disabled={savingStatus}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
-                              >
-                                {savingStatus && (
-                                  <Spinner size="sm" />
-                                )}
-                                Reactivate
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => void handleStatusChange(user, true)}
-                                disabled={savingStatus}
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
-                              >
-                                {savingStatus && (
-                                  <Spinner size="sm" />
-                                )}
-                                Deactivate
-                              </button>
-                            )}
+                          <td className="px-5 py-4 text-right">
+                            <UserRowActions
+                              userLabel={identity.primary}
+                              status={user.status}
+                              busy={savingStatusFor === user.id}
+                              onEditRole={() => setEditingUser(user)}
+                              onToggleStatus={() =>
+                                void handleStatusChange(user, user.status !== 'suspended')
+                              }
+                            />
                           </td>
                         </tr>
                       );
@@ -333,12 +293,15 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                       <>
                         {Array.from({ length: 5 }).map((_, index) => (
                           <tr key={index}>
-                            <td className="px-5 py-4"><Skeleton className="h-3.5 w-40 rounded-md" /></td>
-                            <td className="px-5 py-4"><Skeleton className="h-3.5 w-24 rounded-md" /></td>
+                            <td className="px-5 py-4">
+                              <Skeleton className="h-3.5 w-40 rounded-md" />
+                              <Skeleton className="mt-2 h-3 w-52 rounded-md" />
+                            </td>
                             <td className="px-5 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
-                            <td className="px-5 py-4"><Skeleton className="h-6 w-24 rounded-md" /></td>
+                            <td className="px-5 py-4"><Skeleton className="h-6 w-20 rounded-full" /></td>
+                            <td className="px-5 py-4"><Skeleton className="h-3.5 w-24 rounded-md" /></td>
                             <td className="px-5 py-4"><Skeleton className="h-3.5 w-28 rounded-md" /></td>
-                            <td className="px-5 py-4"><Skeleton className="h-8 w-24 rounded-lg" /></td>
+                            <td className="px-5 py-4"><div className="flex justify-end"><Skeleton className="h-8 w-8 rounded-lg" /></div></td>
                           </tr>
                         ))}
                       </>
@@ -360,61 +323,62 @@ export function UsersTab({ active = true }: { active?: boolean }) {
               <div className="divide-y divide-canvas-grey lg:hidden">
                 {users.map((user) => {
                   const status = USER_STATUS_META[user.status];
+                  const identity = userIdentity(user);
                   return (
-                    <div key={user.id} className="space-y-2 p-4">
+                    <div key={user.id} className="space-y-3 p-4">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-semibold text-slate-900">
-                            {user.email ?? 'No email'}
+                        <div className="min-w-0">
+                          <div className="truncate font-semibold text-slate-900">
+                            {identity.primary}
                           </div>
-                          <div className="font-mono text-xs text-slate-400">
-                            {shortenId(user.id)}
-                          </div>
-                        </div>
-                        <span
-                          className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.className}`}
-                        >
-                          {status.label}
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <select
-                          value={user.role ?? ''}
-                          disabled={savingRoleFor === user.id}
-                          onChange={(event) =>
-                            void handleRoleChange(user, event.target.value)
-                          }
-                          className="rounded-lg border border-canvas-grey bg-canvas-light px-2.5 py-1.5 text-sm font-medium text-slate-700 outline-none disabled:opacity-50"
-                        >
-                          {roles.length === 0 && (
-                            <option value={user.role ?? ''}>
-                              {user.role ?? '—'}
-                            </option>
+                          {identity.secondary && (
+                            <div className="truncate text-xs text-slate-500">
+                              {identity.secondary}
+                            </div>
                           )}
-                          {roles.map((role) => (
-                            <option
-                              key={role.id}
-                              value={role.name}
-                              disabled={!role.isActive}
-                            >
-                              {role.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void handleStatusChange(user, user.status !== 'suspended')
-                          }
-                          disabled={savingStatusFor === user.id}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-canvas-grey px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-canvas-light disabled:opacity-50"
-                        >
-                          {user.status === 'suspended' ? 'Reactivate' : 'Deactivate'}
-                        </button>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.className}`}
+                          >
+                            {status.label}
+                          </span>
+                          <UserRowActions
+                            userLabel={identity.primary}
+                            status={user.status}
+                            busy={savingStatusFor === user.id}
+                            onEditRole={() => setEditingUser(user)}
+                            onToggleStatus={() =>
+                              void handleStatusChange(user, user.status !== 'suspended')
+                            }
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span className="font-semibold text-slate-500">Role</span>
+                        <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 font-semibold text-slate-600">
+                          {user.role ?? 'None'}
+                        </span>
                       </div>
                     </div>
                   );
                 })}
+                {users.length === 0 && loading && (
+                  <>
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <div key={index} className="space-y-3 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <Skeleton className="h-3.5 w-36 rounded-md" />
+                            <Skeleton className="mt-2 h-3 w-48 rounded-md" />
+                          </div>
+                          <Skeleton className="h-6 w-20 rounded-full" />
+                        </div>
+                        <Skeleton className="h-4 w-24 rounded-full" />
+                      </div>
+                    ))}
+                  </>
+                )}
                 {users.length === 0 && !loading && (
                   <div className="px-5 py-10 text-center text-sm text-slate-500">
                     No users match the current filters.
@@ -440,6 +404,15 @@ export function UsersTab({ active = true }: { active?: boolean }) {
           roles={roles}
           onClose={() => setIsInviteOpen(false)}
           onInvited={handleInvited}
+        />
+      )}
+
+      {editingUser && (
+        <EditUserRoleModal
+          user={editingUser}
+          roles={roles}
+          onClose={() => setEditingUser(null)}
+          onSaved={handleRoleSaved}
         />
       )}
     </>

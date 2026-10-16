@@ -4,6 +4,7 @@ import { LogOut, UserRound } from 'lucide-react';
 import type { RefObject } from 'react';
 
 interface UserNavMenuProps {
+  name?: string | null;
   email: string | null;
   isOpen: boolean;
   onToggle: () => void;
@@ -14,6 +15,7 @@ interface UserNavMenuProps {
 }
 
 export function UserNavMenu({
+  name,
   email,
   isOpen,
   onToggle,
@@ -22,7 +24,7 @@ export function UserNavMenu({
   containerRef,
   variant = 'header',
 }: UserNavMenuProps) {
-  if (!email) return null;
+  if (!email && !name) return null;
 
   const isMobileNav = variant === 'mobile-nav';
 
@@ -72,7 +74,7 @@ export function UserNavMenu({
             </span>
           </div>
           <div className="break-all px-2 py-2 text-sm font-semibold text-slate-700">
-            {email}
+            {name || email}
           </div>
           <button
             type="button"

@@ -27,14 +27,12 @@ import type { WeatherAlert } from '@/types/weather';
 import { MobileSignOutButton } from './SideBar';
 import { TopoBackground } from '@/app/public-view/components/TopoBackground';
 import { SettingsDropdown } from './SettingsDropdown';
-import type { StaffRole } from '@/lib/auth/roles';
 
 interface AdminHeaderProps {
   title: string;
   description: string;
   icon?: LucideIcon;
   badge?: string;
-  role?: StaffRole | null;
   showTopo?: boolean;
   onNotificationClick?: (notificationId: string) => void;
 }
@@ -137,7 +135,6 @@ export function AdminHeader({
   description,
   icon: Icon,
   badge,
-  role = null,
   showTopo = false,
   onNotificationClick,
 }: AdminHeaderProps) {
@@ -506,7 +503,7 @@ export function AdminHeader({
             </div>
           )}
         </div>
-        <SettingsDropdown role={role} />
+        <SettingsDropdown />
         <div className="lg:hidden">
           <MobileSignOutButton compact />
         </div>

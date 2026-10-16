@@ -22,12 +22,14 @@ export const adminFeatures: PortalNavItem<AdminFeatureId>[] = [
     label: 'Role Management',
     mobileLabel: 'Roles',
     title: 'Role Management',
-    description: 'Define the named roles that govern platform access and membership.',
+    description:
+      'Create and manage named roles for labelling members. Only the built-in admin and staff roles grant portal access.',
     icon: ShieldCheck,
     contents: [
-      'Create named roles for user assignment',
+      'Create named roles used to label and group members',
       'Edit role descriptions and activation state',
       'View live member counts per role',
+      'Note: custom roles do not grant access to any portal route yet',
     ],
   },
   {

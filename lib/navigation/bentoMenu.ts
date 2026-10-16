@@ -10,6 +10,8 @@ export interface BentoTile {
   iconSrc?: string;
   badge?: string;
   requiresAuth?: boolean;
+  /** Tile is only offered to administrators (e.g. the admin portal entry). */
+  requiresAdmin?: boolean;
 }
 
 /** Intrinsic size every bento mark is authored at. */
@@ -40,9 +42,26 @@ export const monitoringBentoTiles: BentoTile[] = [
   },
 ];
 
+export const administrationBentoTile: BentoTile = {
+  id: 'administration',
+  label: 'Administration',
+  href: '/admin',
+  iconSrc: '/images/bento-administration.svg',
+  requiresAuth: true,
+  requiresAdmin: true,
+};
+
 export const gakitAppTiles = monitoringBentoTiles;
 
-export function getBentoTilesForRole(_role?: StaffRole | null): BentoTile[] {
+/**
+ * Cross-portal launcher tiles. Everyone who can reach the launcher sees the
+ * monitoring-side tiles; administrators additionally get the Administration
+ * entry. The current portal's own tile is filtered out by `BentoMenu`.
+ */
+export function getBentoTilesForRole(role?: StaffRole | null): BentoTile[] {
+  if (role === ROLE_ADMIN) {
+    return [...monitoringBentoTiles, administrationBentoTile];
+  }
   return monitoringBentoTiles;
 }
 

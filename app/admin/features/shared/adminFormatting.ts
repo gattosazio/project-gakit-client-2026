@@ -1,16 +1,5 @@
 import type { UserStatus } from '@/types/admin';
 
-export const ROLE_BADGE_CLASS: Record<string, string> = {
-  admin: 'bg-maroon-50 text-gakit-maroon border-gakit-maroon/20',
-  staff: 'bg-blue-50 text-blue-700 border-blue-200',
-  sentinel: 'bg-purple-50 text-purple-700 border-purple-200',
-  citizen: 'bg-slate-100 text-slate-600 border-slate-200',
-};
-
-export function roleBadgeClass(role: string | null): string {
-  return (role && ROLE_BADGE_CLASS[role]) || 'bg-slate-100 text-slate-600 border-slate-200';
-}
-
 export const USER_STATUS_META: Record<UserStatus, { label: string; className: string }> = {
   active: { label: 'Active', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   suspended: { label: 'Deactivated', className: 'bg-red-50 text-red-700 border-red-200' },
