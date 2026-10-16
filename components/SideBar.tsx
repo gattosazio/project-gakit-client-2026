@@ -6,7 +6,6 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { LogOut, PanelLeftClose, PanelLeftOpen, UserRound } from 'lucide-react';
-import { Spinner } from '@/components/ui/Spinner';
 import { Dialog } from '@/components/ui/Dialog';
 import { createClient } from '@/lib/supabase/client';
 import { getDisplayName, getStaffRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
@@ -68,7 +67,6 @@ export function SignOutConfirmDialog({
           disabled={isSigningOut}
           className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
         >
-          {isSigningOut && <Spinner size="sm" iconClassName="bg-white" />}
           {isSigningOut ? 'Signing out…' : 'Sign out'}
         </button>
       </div>

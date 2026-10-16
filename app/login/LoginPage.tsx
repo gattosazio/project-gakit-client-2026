@@ -269,7 +269,7 @@ function ForgotPasswordModal({
       return;
     }
     setSent(true);
-  };
+};
 
   return (
     <Dialog
