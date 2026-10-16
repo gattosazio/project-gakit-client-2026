@@ -30,7 +30,10 @@ describe('report score display', () => {
 
 describe('report evidence labels', () => {
   it('formats current evidence rather than removed bypass and scoring rules', () => {
-    expect(formatValidationFlag('HAZARD_ZONE_CORE').label).toBe('Inside Flood Hazard Zone');
+    // HAZARD_ZONE_CORE is a legacy validation-v2 flag: the backend no longer
+    // emits it (it re-assesses old reports under the context-only terrain
+    // policy), but the label is kept so historical reports still render.
+    expect(formatValidationFlag('HAZARD_ZONE_CORE').label).toBe('Low-Lying Terrain (Historical)');
     expect(formatValidationFlag('SIMULATION_DRY_CONFLICT').type).toBe('warning');
     expect(formatValidationFlag('INDEPENDENT_PEERS_2').label).toBe('2 Independent Witnesses');
     expect(formatValidationFlag('HEAVY_RAINFALL').description).toContain('4 hrs');
