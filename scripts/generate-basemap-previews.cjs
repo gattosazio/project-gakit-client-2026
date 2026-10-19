@@ -3,9 +3,10 @@
 // styles, or tile requests on page load — the committed images are only
 // fetched when the popover opens).
 //
-// Both previews render the exact basemaps the app uses (OpenFreeMap Positron
-// style URL and the Esri World Imagery tiles) through MapLibre in a throwaway
-// page, cropped around Iligan center at the app's default zoom.
+// Every preview renders the exact basemap the app uses (the OpenFreeMap
+// Positron/Bright/Fiord style URLs and the Esri World Imagery tiles) through
+// MapLibre in a throwaway page, cropped around Iligan center at the app's
+// default zoom.
 //
 // Usage (MapLibre, sharp, and Playwright must be resolvable from this repo):
 //   node scripts/generate-basemap-previews.cjs
@@ -32,6 +33,12 @@ const ZOOM = 13; // PublicMap's initial zoom
 const esriTiles =
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 
+const openfreemapStyles = {
+  light: 'https://tiles.openfreemap.org/styles/positron',
+  bright: 'https://tiles.openfreemap.org/styles/bright',
+  dark: 'https://tiles.openfreemap.org/styles/fiord',
+};
+
 const pageHtml = `<!doctype html>
 <html>
 <head>
@@ -53,9 +60,10 @@ const satelliteStyle = {
 };
 
 const basemap = new URLSearchParams(location.search).get('basemap') || 'light';
+const openfreemapStyles = ${JSON.stringify(openfreemapStyles)};
 const map = new maplibregl.Map({
   container: 'map',
-  style: basemap === 'satellite' ? satelliteStyle : 'https://tiles.openfreemap.org/styles/positron',
+  style: basemap === 'satellite' ? satelliteStyle : openfreemapStyles[basemap] || openfreemapStyles.light,
   center: ${JSON.stringify(CENTER)},
   zoom: ${ZOOM},
   pitch: 0,
@@ -119,11 +127,13 @@ const capture = async (page, base, basemap) => {
       viewport: { width: WIDTH, height: HEIGHT },
       deviceScaleFactor: 2,
     });
-    const light = await capture(page, base, 'light');
-    const satellite = await capture(page, base, 'satellite');
-    await fs.promises.writeFile(path.join(outDir, 'light.webp'), light);
-    await fs.promises.writeFile(path.join(outDir, 'satellite.webp'), satellite);
-    console.log(`Wrote light.webp and satellite.webp to ${outDir}`);
+    const captured = [];
+    for (const basemap of Object.keys(openfreemapStyles).concat(['satellite'])) {
+      const shot = await capture(page, base, basemap);
+      await fs.promises.writeFile(path.join(outDir, `${basemap}.webp`), shot);
+      captured.push(basemap);
+    }
+    console.log(`Wrote ${captured.map((name) => `${name}.webp`).join(', ')} to ${outDir}`);
   } finally {
     await browser.close();
     server.close();

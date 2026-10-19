@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Bike, Bus, Car, MapPin, UserRound, X } from 'lucide-react';
+import { Bike, Bus, Car, Clock3, MapPin, Ruler, UserRound, X } from 'lucide-react';
 import { useModalA11y } from '@/hooks/useModalA11y';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
@@ -17,7 +17,8 @@ import {
 import { FloodDepthPicker } from '@/components/reporting/FloodDepthPicker';
 import { FilterDropdown } from '@/components/ui/FilterDropdown';
 import { PhotoCapture } from '@/components/reporting/PhotoCapture';
-import type { SelectedLocation } from '@/types/report';
+import type { ObservationMetadata, SelectedLocation } from '@/types/report';
+import { reportObservationMetadata } from '@/lib/reports/observationMetadata';
 import type { PreparedPhoto } from '@/lib/reports/photoUpload';
 import type { FloodDepth } from '@/app/public-view/actions/publicView';
 import { isRawCoordinateString, reverseGeocode } from '@/lib/map/geoUtils';
@@ -38,15 +39,13 @@ export interface ReportModalProps {
   onClose: () => void;
   onSuccess?: () => void;
   onLocationChange?: (location: SelectedLocation) => Promise<void>;
-  selectedLocation: {
-    lat: number;
-    lng: number;
-    address: string;
-  } | null;
+  selectedLocation: SelectedLocation | null;
   onSubmit: (data: {
-    location: { lat: number; lng: number };
+    location: SelectedLocation;
     depth: FloodDepth;
     depthCm: number;
+    observation: ObservationMetadata;
+    observedAt: string;
     reference: { id: FloodReference; label: string; landmark: string };
     /** Pre-compressed evidence photo, uploaded after the report is created. */
     photo?: PreparedPhoto;
@@ -78,6 +77,10 @@ export function ReportModal({
   const panelRef = useModalA11y<HTMLDivElement>({ enabled: isOpen && !adjustingLocation });
   const [selectedCm, setSelectedCm] = useState<number | null>(null);
   const [customCm, setCustomCm] = useState('');
+  const [depthMethod, setDepthMethod] = useState<'estimated' | 'measured'>('estimated');
+  const [measurementReference, setMeasurementReference] = useState('');
+  const [observationTime, setObservationTime] = useState('');
+  const [observedEarlier, setObservedEarlier] = useState(false);
   const [selectedReference, setSelectedReference] = useState<FloodReference>('adult');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
@@ -106,6 +109,10 @@ export function ReportModal({
     setAdjustingLocation(false);
     setSelectedCm(null);
     setCustomCm('');
+    setDepthMethod('estimated');
+    setMeasurementReference('');
+    setObservationTime('');
+    setObservedEarlier(false);
     setSelectedReference('adult');
     setPhoto(null);
   };
@@ -166,6 +173,15 @@ export function ReportModal({
 
   const handleSubmit = async () => {
     if (isSubmitting) return;
+    if (depthMethod === 'measured' && !measurementReference.trim()) {
+      toast.error('Describe what you used to measure the depth.');
+      return;
+    }
+    const observed = observedEarlier ? new Date(observationTime) : new Date();
+    if (!Number.isFinite(observed.getTime()) || observed.getTime() > Date.now() + 300000) {
+      toast.error('Choose a valid observation time that is not in the future.');
+      return;
+    }
     if (withinCity === false || !selectedLocation || selectedCm == null || selectedCm < 1 || !referenceMeta || selectedCode == null) {
       toast.error('Please complete the report details.', {
         position: 'top-right',
@@ -181,6 +197,8 @@ export function ReportModal({
         location: selectedLocation,
         depth: selectedCode,
         depthCm: selectedCm,
+        observation: reportObservationMetadata(selectedLocation, depthMethod, measurementReference),
+        observedAt: observed.toISOString(),
         reference: {
           id: selectedReference,
           label: referenceMeta.label,
@@ -287,15 +305,40 @@ export function ReportModal({
                 })}
               </div>
               <div className="mt-2 flex items-center justify-between gap-2 rounded-lg border border-slate-200 px-2.5 py-2">
-                <label htmlFor={`${titleId}-depth`} className="text-[11px] font-medium text-slate-600">Exact depth <span className="font-normal text-slate-400">(optional)</span></label>
+                <label htmlFor={`${titleId}-depth`} className="text-[11px] font-medium text-slate-600">Depth in cm <span className="font-normal text-slate-400">(optional)</span></label>
                 <div className="flex items-center gap-1.5">
                   <input id={`${titleId}-depth`} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={3}
                     value={customCm} onChange={handleCustomCmChange} disabled={isSubmitting} placeholder="e.g. 45"
-                    aria-label="Exact water depth in centimeters"
+                    aria-label="Reported water depth in centimeters"
                     className="h-8 w-16 rounded-md border border-slate-200 bg-slate-50 px-2 text-center text-xs font-semibold tabular-nums text-slate-800 outline-none focus:border-gakit-maroon" />
                   <span className="text-[11px] text-slate-400">cm</span>
                 </div>
               </div>
+              <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-600">
+                <span>Depth method</span>
+                <FilterDropdown<'estimated' | 'measured'> value={depthMethod} onSelect={setDepthMethod} size="sm"
+                  triggerIcon={<Ruler className="h-3.5 w-3.5" />}
+                  options={[{ value: 'estimated', label: 'Estimated' }, { value: 'measured', label: 'Measured' }]}
+                  triggerLabel={depthMethod === 'measured' ? 'Measured' : 'Estimated'} />
+              </div>
+              {depthMethod === 'measured' && <label className="mt-2 block text-[11px] text-slate-600">
+                Measured using
+                <input value={measurementReference} onChange={event => setMeasurementReference(event.target.value)}
+                  maxLength={200} disabled={isSubmitting} placeholder="e.g. ruler or marked flood gauge"
+                  className="mt-1 h-8 w-full rounded-md border border-slate-200 px-2 text-xs outline-none focus:border-gakit-maroon" />
+              </label>}
+              <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-slate-600">
+                <span>When observed</span>
+                <FilterDropdown<'now' | 'earlier'> value={observedEarlier ? 'earlier' : 'now'} onSelect={value => setObservedEarlier(value === 'earlier')} size="sm"
+                  triggerIcon={<Clock3 className="h-3.5 w-3.5" />}
+                  options={[{ value: 'now', label: 'Just now' }, { value: 'earlier', label: 'Earlier' }]}
+                  triggerLabel={observedEarlier ? 'Earlier' : 'Just now'} />
+              </div>
+              {observedEarlier && <label className="mt-2 block text-[11px] text-slate-600">
+                Observation date and time
+                <input type="datetime-local" value={observationTime} onChange={event => setObservationTime(event.target.value)}
+                  disabled={isSubmitting} className="mt-1 h-8 w-full rounded-md border border-slate-200 px-2 text-xs" />
+              </label>}
               {referenceMeta && <section className="my-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-[10px] font-semibold text-slate-500">Visual reference</div>

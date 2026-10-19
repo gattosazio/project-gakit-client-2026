@@ -113,6 +113,8 @@ export const buildReportsGeoJson = (
         validationScore: scoreDisplay.score,
         validationScoreLabel: scoreDisplay.label,
         decisionSource: props.decisionSource,
+        verificationScope: props.validationSummary?.verificationScope,
+        demoAutoValidated: props.validationSummary?.demoAutoValidated,
         createdAt: new Date(props.createdAt).toLocaleString(),
       },
     });
@@ -171,6 +173,9 @@ export const buildReportPopupHtml = (feature: Record<string, any>): string => {
         : ''}
       ${props.depthLabel ? row('Depth', props.depthLabel) : ''}
       ${props.statusLabel ? row('Status', props.statusLabel) : ''}
+      ${props.demoAutoValidated === true || props.demoAutoValidated === 'true' ? row('Origin', 'Demo submission; evidence checks skipped') : ''}
+      ${props.verificationScope === 'flood_presence' ? row('Verification', 'Flood presence; depth as reported') : ''}
+      ${props.verificationScope === 'physical_consistency' ? row('Assessment', 'Physical support; depth as reported') : ''}
       ${props.validationScore != null ? row(props.validationScoreLabel ?? (props.decisionSource === 'automated' ? 'Evidence points' : 'Score'), props.validationScoreLabel || props.decisionSource === 'automated' ? `${props.validationScore}` : `${props.validationScore}/100`) : ''}
       ${props.elevation != null ? row('Elevation', `${Number(props.elevation).toFixed(1)} m`) : ''}
       ${props.createdAt ? row('Reported', props.createdAt) : ''}

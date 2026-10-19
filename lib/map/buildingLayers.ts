@@ -1,14 +1,18 @@
 import {
   BUILDING_EXTRUSION_BASE,
   BUILDING_EXTRUSION_COLOR,
+  BUILDING_EXTRUSION_COLOR_DARK,
   BUILDING_EXTRUSION_HEIGHT,
   BUILDING_EXTRUSION_OPACITY,
   BUILDING_EXTRUSION_VERTICAL_GRADIENT,
   BUILDING_FILL_COLOR,
+  BUILDING_FILL_COLOR_DARK,
   BUILDING_FILL_OPACITY,
   BUILDING_FILL_OUTLINE_COLOR,
+  BUILDING_FILL_OUTLINE_COLOR_DARK,
   BUILDINGS_MIN_ZOOM,
   type BasemapId,
+  isDarkBasemap,
 } from '@/constants/publicMap';
 import { getFirstBasemapSymbolLayerId } from '@/lib/map/basemapLayers';
 
@@ -69,6 +73,35 @@ export const addBuildingExtrusionLayer = (
   );
 };
 
+/**
+ * Paints the building layers for the active basemap: the pale warm tones are
+ * tuned for the light street maps (Positron, Bright), while dark palettes
+ * (Fiord, Satellite) need cooler tones that lift barely off the background.
+ * Safe to call at any time; restyles whichever building variant is attached.
+ */
+export const applyBuildingBasemapPaint = (map: any, basemap: BasemapId | undefined) => {
+  const dark = isDarkBasemap(basemap);
+  if (map.getLayer(BUILDING_FOOTPRINT_LAYER_ID)) {
+    map.setPaintProperty(
+      BUILDING_FOOTPRINT_LAYER_ID,
+      'fill-color',
+      dark ? BUILDING_FILL_COLOR_DARK : BUILDING_FILL_COLOR
+    );
+    map.setPaintProperty(
+      BUILDING_FOOTPRINT_LAYER_ID,
+      'fill-outline-color',
+      dark ? BUILDING_FILL_OUTLINE_COLOR_DARK : BUILDING_FILL_OUTLINE_COLOR
+    );
+  }
+  if (map.getLayer(BUILDING_EXTRUSION_LAYER_ID)) {
+    map.setPaintProperty(
+      BUILDING_EXTRUSION_LAYER_ID,
+      'fill-extrusion-color',
+      dark ? BUILDING_EXTRUSION_COLOR_DARK : BUILDING_EXTRUSION_COLOR
+    );
+  }
+};
+
 // Keeps exactly one building variant on the map. MapLibre builds a separate
 // bucket per layer for every tile it loads, and that happens regardless of the
 // layer's visibility, so leaving an unused variant attached doubles the
@@ -76,7 +109,8 @@ export const addBuildingExtrusionLayer = (
 export const syncBuildingLayers = (
   map: any,
   sourceId: string,
-  mode: '2d' | '3d'
+  mode: '2d' | '3d',
+  basemap?: BasemapId
 ) => {
   const wantsFootprints = mode === '2d';
 
@@ -95,6 +129,10 @@ export const syncBuildingLayers = (
   } else if (!wantsFootprints && !map.getLayer(BUILDING_EXTRUSION_LAYER_ID)) {
     addBuildingExtrusionLayer(map, sourceId, before);
   }
+
+  // Freshly re-added layers carry the light palette paint, so restyle them for
+  // the active basemap (dark palettes keep their lifted tones).
+  if (basemap !== undefined) applyBuildingBasemapPaint(map, basemap);
 };
 
 /**

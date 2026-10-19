@@ -79,19 +79,19 @@ export function ScenarioDisclaimerModal() {
             <li className="flex items-start gap-2.5">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 text-xs font-bold mt-0.5">1</span>
               <span>
-                <strong className="text-slate-900 font-semibold">Historical Storms:</strong> Retrospective reconstructions of past events like Tropical Storm Sendong (2011) and Odette (2021).
+                <strong className="text-slate-900 font-semibold">Historical Storms:</strong> Illustrative spatial estimates using stored rainfall sequences. Flood arrival and recession are unvalidated.
               </span>
             </li>
             <li className="flex items-start gap-2.5">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 text-xs font-bold mt-0.5">2</span>
               <span>
-                <strong className="text-slate-900 font-semibold">PAGASA Warning Benchmarks:</strong> Simulated inundation patterns matching Yellow, Orange, and Red rainfall warnings.
+                <strong className="text-slate-900 font-semibold">Rainfall Examples:</strong> Hypothetical Yellow, Orange, and Red themed inputs, separate from issued PAGASA advisories.
               </span>
             </li>
             <li className="flex items-start gap-2.5">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 text-xs font-bold mt-0.5">3</span>
               <span>
-                <strong className="text-slate-900 font-semibold">Return Periods:</strong> UP NOAH 5-year, 25-year, and 100-year design flood benchmarks.
+                <strong className="text-slate-900 font-semibold">Return Periods:</strong> Emulator outputs trained on NOAH design hazard classes, rather than original hydraulic time series.
               </span>
             </li>
           </ul>

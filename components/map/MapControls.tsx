@@ -12,8 +12,7 @@ import {
   BASEMAP_LABELS,
   REPORT_MARKER_COLORS,
   REPORT_STATUS_LEGEND,
-} from '@/constants/publicMap';
-import {
+} from '@/constants/publicMap';import {
   RAINFALL_ACCUMULATION_HOURS,
   type RainfallAccumulationHours,
 } from '@/lib/map/rainfall';
@@ -275,6 +274,14 @@ function CoverageChip({ label, detail }: { label: string; detail: string }) {
   );
 }
 
+// Hover titles for the basemap switch buttons, keyed in display order.
+const BASEMAP_TITLES: Record<BasemapId, string> = {
+  light: 'Light street map (Positron)',
+  bright: 'Colorful street map (OSM Bright)',
+  dark: 'Dark street map (Fiord)',
+  satellite: 'Satellite imagery (Esri)',
+};
+
 export function MapViewToggle({
   basemap,
   mode,
@@ -292,34 +299,24 @@ export function MapViewToggle({
 
   return (
     <div className={`${className} flex items-center gap-2 p-1.5 hud-pill select-none`}>
-      {/* Basemap Switch: Light vs Satellite */}
+      {/* Basemap Switch: Light / Bright / Dark / Satellite */}
       <div className="flex items-center gap-0.5">
-        <button
-          type="button"
-          onClick={() => onBasemapChange('light')}
-          aria-pressed={basemap === 'light'}
-          title="Light street map (Positron)"
-          className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-colors duration-150 ${
-            basemap === 'light'
-              ? 'bg-gakit-maroon text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-          }`}
-        >
-          {BASEMAP_LABELS.light}
-        </button>
-        <button
-          type="button"
-          onClick={() => onBasemapChange('satellite')}
-          aria-pressed={basemap === 'satellite'}
-          title="Satellite imagery"
-          className={`rounded-xl px-3 py-1.5 text-xs font-bold leading-none transition-colors duration-150 ${
-            basemap === 'satellite'
-              ? 'bg-gakit-maroon text-white shadow-xs'
-              : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
-          }`}
-        >
-          {BASEMAP_LABELS.satellite}
-        </button>
+        {(Object.keys(BASEMAP_TITLES) as BasemapId[]).map((id) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onBasemapChange(id)}
+            aria-pressed={basemap === id}
+            title={BASEMAP_TITLES[id]}
+            className={`rounded-xl px-2.5 py-1.5 text-xs font-bold leading-none transition-colors duration-150 md:px-3 ${
+              basemap === id
+                ? 'bg-gakit-maroon text-white shadow-xs'
+                : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900'
+            }`}
+          >
+            {BASEMAP_LABELS[id]}
+          </button>
+        ))}
       </div>
 
       <span className="h-4 w-px bg-slate-200" aria-hidden="true" />
@@ -1051,7 +1048,7 @@ export function DataLayerControls({
             <div className="space-y-1 border-t border-slate-200 pt-2">
               <div className="h-2 rounded-full" style={{ background: SIMULATION_DEPTH_GRADIENT_CSS }} />
               <div className="flex justify-between text-[9px] text-slate-400"><span>0.2 m</span><span>0.5–1.5 m</span><span>&gt;1.5 m</span></div>
-              <p className="text-[9px] leading-4 text-slate-400">Rainfall-based estimates, not confirmed flooding. Forecast availability varies.</p>
+              <p className="text-[9px] leading-4 text-slate-500">{simulatedFloodTelemetry?.modelNotice ?? 'Rainfall-based spatial estimates. Flood arrival and recession are unvalidated.'}</p>
             </div>
           </div>
         )}

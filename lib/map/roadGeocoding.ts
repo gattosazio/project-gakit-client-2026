@@ -52,6 +52,17 @@ export class RoadIndex {
     }
   }
 
+  inBounds(west: number, south: number, east: number, north: number): RoadRecord[] {
+    // Clip wide/invalid views to the local dataset; a world view must not iterate millions of cells.
+    const candidates = new Set<RoadRecord>();
+    for (const [key, roads] of this.cells) {
+      const [x, y] = key.split(',').map(Number);
+      if ((x + 1) * CELL_SIZE < west || x * CELL_SIZE > east || (y + 1) * CELL_SIZE < south || y * CELL_SIZE > north) continue;
+      for (const road of roads) candidates.add(road);
+    }
+    return [...candidates];
+  }
+
   nearby(lat: number, lng: number): { name: string; distanceM: number } | null {
     const candidates = new Set<RoadRecord>();
     const x = Math.floor(lng / CELL_SIZE), y = Math.floor(lat / CELL_SIZE);

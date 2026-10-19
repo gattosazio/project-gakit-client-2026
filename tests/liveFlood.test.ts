@@ -1,7 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { liveScenario, selectedLiveFrame, selectionForFrame, formatFloodMetric } from '@/lib/map/liveFloodState';
+import { liveScenario, selectedLiveFrame, selectionForFrame, formatFloodMetric, liveModelNotice } from '@/lib/map/liveFloodState';
 import { LiveRasterController } from '@/lib/map/liveRasterController';
 import type { LiveFrame, LiveTimeline } from '@/types/liveFlood';
+import { liveTimelineSchema } from '@/types/liveFlood';
 
 function frame(hour: number, kind: LiveFrame['kind'] = 'replay'): LiveFrame {
   return { frame_id: String(hour), valid_at: `2026-10-16T${String(hour).padStart(2, '0')}:00:00Z`, kind,
@@ -19,6 +20,25 @@ function timeline(frames: LiveFrame[]): LiveTimeline {
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
 
 describe('live frame selection', () => {
+  it('retains server model capabilities and per-frame limitations through parsing', () => {
+    const data = liveTimelineSchema.parse({ ...timeline([{ ...frame(1), rainfall_support: 'below_wet_training',
+      dry_output_assumption: 'no_existing_floodwater' }]), capabilities: {
+      model_kind: 'static_hazard_emulator', temporal_state: false, independently_validated: false,
+      depth_basis: 'noah_class_proxies', rainfall_forcing: 'single_point_rolling_24h',
+      wet_training_rainfall_mm: [110.4, 148.2, 179.4], dry_training_rainfall_mm: 0,
+      dry_output_threshold_mm: 16.933333333333337,
+    } });
+    expect(data.capabilities?.temporal_state).toBe(false);
+    expect(data.frames[0].rainfall_support).toBe('below_wet_training');
+    expect(liveModelNotice(data.frames[0])).toContain('assumes no existing floodwater');
+  });
+  it('explains training limits without presenting interpolation as validated', () => {
+    expect(liveModelNotice({ ...frame(1), rainfall_support: 'above_wet_training' })).toContain('exceeds');
+    expect(liveModelNotice({ ...frame(1), rainfall_support: 'below_wet_training' })).toContain('below');
+    expect(liveModelNotice({ ...frame(1), rainfall_support: 'within_wet_training' })).toContain('unvalidated');
+    expect(liveModelNotice({ ...frame(1), dry_output_assumption: 'no_existing_floodwater' })).toContain('assumes no existing floodwater');
+    expect(liveModelNotice({ ...frame(1), availability: 'incomplete', rainfall_support: 'unknown' })).not.toContain('dry output');
+  });
   it('preserves an absolute replay time when the rolling array shifts', () => {
     const selected = selectionForFrame(frame(2));
     const next = timeline([frame(2), frame(3), frame(4, 'latest')]);

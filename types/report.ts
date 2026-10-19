@@ -2,6 +2,20 @@ export type FloodDepthCode = 'ankle' | 'knee' | 'waist' | 'shoulder' | 'head' | 
 export type FloodReference = 'adult' | 'motorcycle' | 'sedan' | 'suv' | 'jeepney' | 'bus';
 export type ReportStatus = 'UNVERIFIED' | 'VERIFIED' | 'ANOMALY' | 'REJECTED';
 
+export interface ObservationMetadata {
+  depthMethod: 'estimated' | 'measured' | 'category' | 'unknown';
+  measurementReference?: string | null;
+  depthUncertaintyCm?: number | null;
+  locationSource: 'gps' | 'adjusted_gps' | 'manual' | 'unknown';
+  /** Browser accuracy of the original fix; it does not describe an adjusted pin. */
+  gpsAccuracyM?: number | null;
+  locationCapturedAt?: string | null;
+  gpsLatitude?: number;
+  gpsLongitude?: number;
+  locationAdjustmentM?: number | null;
+  timeSource?: 'reported' | 'submission_default' | 'unknown';
+}
+
 export interface DepthCategory {
   code: FloodDepthCode;
   label: string;
@@ -9,9 +23,20 @@ export interface DepthCategory {
 }
 
 export interface ValidationSummary {
+  observation?: ObservationMetadata | null;
   assessedAt: string;
   recommendedStatus: ReportStatus;
-  evidenceScore: number;
+  evidenceScore?: number | null;
+  decisionBasis?: 'original_observations' | 'physical_support' | 'demo_override';
+  demoAutoValidated?: boolean;
+  corroboratingSourceCount?: number;
+  modelIndependent?: boolean;
+  modelAssisted?: boolean;
+  nearbyModeledWaterM?: number | null;
+  verificationScope?: 'flood_presence' | 'physical_consistency' | null;
+  depthQuality?: 'estimated' | 'measured' | 'category' | 'unknown' | 'exact';
+  depthDisagreement?: boolean;
+  context?: string[];
   support: string[];
   conflicts: string[];
   missing: string[];
@@ -20,6 +45,8 @@ export interface ValidationSummary {
 
 export interface Report {
   id: string;
+  /** Guest credential returned only on creation; never persist in caches or URLs. */
+  photoUploadToken?: string;
   reporterType?: 'public' | 'staff';
   location: {
     latitude: number;
@@ -28,6 +55,7 @@ export interface Report {
   };
   depth: DepthCategory;
   depthCm?: number | null;
+  observation?: ObservationMetadata | null;
   reference?: FloodReference | null;
   /** Public URL of citizen-submitted evidence photo, when one was attached. */
   photoUrl?: string | null;
@@ -41,6 +69,13 @@ export interface Report {
   observedAt: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ReportReceipt {
+  status: ReportStatus;
+  decisionSource?: Report['decisionSource'];
+  validationSummary?: Partial<Pick<ValidationSummary,
+    'assessedAt' | 'recommendedStatus' | 'explanation' | 'demoAutoValidated' | 'decisionBasis'>> | null;
 }
 
 export interface MapReportProperties {
@@ -122,6 +157,7 @@ export interface CreateReportInput {
   };
   depth: FloodDepthCode;
   depthCm?: number;
+  observation?: ObservationMetadata;
   reference?: FloodReference;
   observedAt?: string;
 }
@@ -154,6 +190,11 @@ export interface SelectedLocation {
   lng: number;
   address: string;
   elevation?: number;
+  source?: ObservationMetadata['locationSource'];
+  gpsAccuracyM?: number;
+  gpsOriginLat?: number;
+  gpsOriginLng?: number;
+  locationCapturedAt?: string;
 }
 
 export interface PaginatedReports {

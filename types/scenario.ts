@@ -9,9 +9,12 @@ export interface ScenarioFrame {
   inundated_km2: number | null;
   max_depth_m?: number | null;
   live?: LiveFrame;
-  q_peak_m3s?: number;
+  q_peak_m3s?: number | null;
+  effective_rainfall_mm?: number;
   narrative: string;
   raster_uri: string;
+  /** Original numeric raster when a demo canvas composite replaces its visual image. */
+  depth_raster_uri?: string;
   /** Live replay only: true for nowcast-derived forecast frames. */
   is_forecast?: boolean;
   forecast_source?: string;
@@ -27,6 +30,9 @@ export interface ScenarioData {
   dates: string;
   total_rainfall_mm: number | null;
   official_total_mm: number | null;
+  reference_total_mm?: number | null;
+  model_notice?: string;
+  scenario_contract?: string;
   live?: LiveTimeline;
   is_calibrated: boolean;
   description: string;
@@ -69,41 +75,41 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
   },
   {
     id: 'pagasa_yellow',
-    name: 'PAGASA Yellow Warning (LPA / Monsoon)',
+    name: 'Yellow rainfall example',
     type: 'pagasa_alert',
     alertLevel: 'yellow',
     badge: '50–100 mm',
     totalRain: '100.0 mm',
-    dates: 'PAGASA Operational Alert',
+    dates: 'Hypothetical rainfall',
     timeWindow: '24h Alert Timeline',
     peakTime: '12:00 PM',
-    description: 'DOST-PAGASA Yellow Rainfall Advisory (7.5–15 mm/hr, 50–100 mm 24h). Light-to-moderate rain from an active Low Pressure Area causing localized street pooling.',
+    description: 'A hypothetical 100 mm rainfall input with a synthetic hourly pattern. Flood progression is illustrative; this is not an issued PAGASA advisory.',
     dataFile: '/data/scenarios/pagasa_yellow.json',
   },
   {
     id: 'pagasa_orange',
-    name: 'PAGASA Orange Warning (Tropical Depression)',
+    name: 'Orange rainfall example',
     type: 'pagasa_alert',
     alertLevel: 'orange',
     badge: '100–200 mm',
     totalRain: '160.0 mm',
-    dates: 'PAGASA Operational Alert',
+    dates: 'Hypothetical rainfall',
     timeWindow: '24h Alert Timeline',
     peakTime: '12:00 PM',
-    description: 'DOST-PAGASA Orange Rainfall Advisory (15–30 mm/hr, 100–200 mm 24h). Intense rainbands threatening river swelling and bank overtopping in Mahayahay and Tubod.',
+    description: 'A hypothetical 160 mm rainfall input with a synthetic hourly pattern. Flood progression is illustrative; this is not an issued PAGASA advisory.',
     dataFile: '/data/scenarios/pagasa_orange.json',
   },
   {
     id: 'pagasa_red',
-    name: 'PAGASA Red Warning (Torrential Typhoon)',
+    name: 'Red rainfall example',
     type: 'pagasa_alert',
     alertLevel: 'red',
     badge: '>200 mm',
     totalRain: '280.0 mm',
-    dates: 'PAGASA Operational Alert',
+    dates: 'Hypothetical rainfall',
     timeWindow: '24h Alert Timeline',
     peakTime: '12:00 PM',
-    description: 'DOST-PAGASA Red Torrential Advisory (>30 mm/hr, >200 mm 24h). Catastrophic mountain runoff triggering widespread flash flooding down the Mandulog River corridor.',
+    description: 'A hypothetical 280 mm rainfall input, exceeding the model’s wet training cases. Flood progression is illustrative; this is not an issued PAGASA advisory.',
     dataFile: '/data/scenarios/pagasa_red.json',
   },
   {
@@ -114,20 +120,18 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     totalRain: '161.1 mm',
     dates: 'December 16–17, 2011',
     timeWindow: '00:00 – 24:00 PHT',
-    peakTime: '10:00 PM',
-    description: 'The deadliest flash flood in Iligan\'s modern history. A massive nocturnal deluge over the steep Mandulog watershed triggered a violent, debris-choked flood wave that completely submerged Brgy. Hinaplanon, Bayug Island, Santiago, San Roque, Mahayahay, and Tambacan while residents slept.',
+    description: 'Illustrative spatial estimates driven by the stored Sendong rainfall sequence. The station adjustment and simulated flood timing have not been independently validated.',
     dataFile: '/data/scenarios/sendong.json',
   },
   {
     id: 'basyang',
     name: 'Tropical Storm Basyang (Penha, 2026)',
     type: 'historical',
-    badge: '144.5 mm',
-    totalRain: '144.5 mm',
+    badge: '133.9 mm',
+    totalRain: '133.9 mm',
     dates: 'February 5–6, 2026',
     timeWindow: '00:00 – 24:00 PHT',
-    peakTime: '07:00 PM',
-    description: 'A prolonged, relentless 17-hour monsoon-enhanced downpour. Extreme sediment runoff and debris damming at major bridges forced the Tubod River to overtop its banks, causing widespread waist-deep urban inundation across Brgy. Mahayahay and Tubod.',
+    description: 'Illustrative spatial estimates driven by 133.9 mm in the bundled Basyang rainfall sequence. Its separate 144.5 mm reference and flood timing are unverified.',
     dataFile: '/data/scenarios/basyang.json',
   },
   {
@@ -138,8 +142,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     totalRain: '95.0 mm',
     dates: 'December 16–17, 2021',
     timeWindow: '00:00 – 24:00 PHT',
-    peakTime: '06:00 PM',
-    description: 'A Category 5 Super Typhoon that severely impacted Northern Mindanao. While the eye passed further north, Odette\'s intense southern convective rainbands delivered torrential downpours that rapidly overwhelmed coastal drainage and swelled primary river arteries.',
+    description: 'Illustrative spatial estimates driven by the stored Odette rainfall sequence. The station adjustment and simulated flood timing have not been independently validated.',
     dataFile: '/data/scenarios/odette.json',
   },
   {
@@ -150,7 +153,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     totalRain: '179.4 mm',
     dates: '100-Year Recurrence',
     timeWindow: '24h Design Event',
-    description: 'Official UP NOAH 100-year extreme design storm benchmark modeled on FLO-2D with UP DREAM LiDAR and PAGASA RIDF data.',
+    description: 'An emulator trained on the NOAH 100-year hazard map, driven by a synthetic rainfall pattern. Hourly timing and exact depths are unvalidated.',
     dataFile: '/data/scenarios/100yr.json',
   },
   {
@@ -161,7 +164,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     totalRain: '148.2 mm',
     dates: '25-Year Recurrence',
     timeWindow: '24h Design Event',
-    description: 'Official UP NOAH 25-year severe storm benchmark modeled on FLO-2D with UP DREAM LiDAR and PAGASA RIDF data.',
+    description: 'An emulator trained on the NOAH 25-year hazard map, driven by a synthetic rainfall pattern. Hourly timing and exact depths are unvalidated.',
     dataFile: '/data/scenarios/25yr.json',
   },
   {
@@ -172,7 +175,7 @@ export const SCENARIO_PRESETS: ScenarioPreset[] = [
     totalRain: '110.4 mm',
     dates: '5-Year Recurrence',
     timeWindow: '24h Design Event',
-    description: 'Official UP NOAH 5-year monsoon benchmark modeled on FLO-2D with UP DREAM LiDAR and PAGASA RIDF data.',
+    description: 'An emulator trained on the NOAH 5-year hazard map, driven by a synthetic rainfall pattern. Hourly timing and exact depths are unvalidated.',
     dataFile: '/data/scenarios/5yr.json',
   },
 ];

@@ -37,6 +37,7 @@ const CUSTOM_LAYER_IDS = [
   'report-pins-anomaly',
   'report-pins-rejected',
   'selected-report-pin',
+  'demo-observation-points',
   'hillshade',
 ];
 

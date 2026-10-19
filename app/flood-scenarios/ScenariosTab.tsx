@@ -10,6 +10,7 @@ import { ScenarioMap } from './components/ScenarioMap';
 import { ScenarioSelector } from './components/ScenarioSelector';
 import { TimelinePlayer } from './components/TimelinePlayer';
 import { TelemetryHUD } from './components/TelemetryHUD';
+import { liveObservationPollDelay, liveReportNotice } from '@/lib/map/liveReportObservations';
 import { liveStatus, selectedLiveFrame, selectionForFrame } from '@/lib/map/liveFloodState';
 import type { ScenarioFrame } from '@/types/scenario';
 import { LoadingOverlay } from '@/components/ui/LoadingState';
@@ -95,6 +96,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
         setLoadError(null);
         setScenarioData(data);
         if (data.live?.build_state === 'building') loadDelay = 2000;
+        loadDelay = liveObservationPollDelay(data.live?.report_observations, loadDelay);
         if (data.live?.build_state === 'failed') loadDelay = 30000;
         if (!loaded) {
           loaded = true;
@@ -206,7 +208,8 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
       {/* Main Map Canvas */}
       <div className="relative flex-1 w-full h-full">
         {hasEverBeenActive ? (
-          <ScenarioMap scenarioId={activePreset.id} currentFrame={currentFrame} bounds={scenarioData?.bounds} onRasterStateChange={handleRasterStateChange} />
+          <ScenarioMap
+          reportObservations={scenarioData?.live?.report_observations} scenarioId={activePreset.id} currentFrame={currentFrame} bounds={scenarioData?.bounds} onRasterStateChange={handleRasterStateChange} />
         ) : null}
         {!initialLoading && frameLoading && <div role="status" className="pointer-events-none absolute bottom-32 left-1/2 z-20 -translate-x-1/2 rounded-full border border-slate-200 bg-white/95 px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm">Loading next frame…</div>}
 
@@ -229,6 +232,8 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
               presetType={activePreset.type}
               status={status ?? undefined}
               rasterState={rasterState}
+              reportNotice={currentFrame?.live?.kind === 'latest' ? liveReportNotice(scenarioData?.live?.report_observations) : undefined}
+              modelNotice={scenarioData?.model_notice}
             />
           </div>
         </div>

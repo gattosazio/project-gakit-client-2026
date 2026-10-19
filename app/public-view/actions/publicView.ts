@@ -11,6 +11,7 @@ import type {
   MapReportFeature,
   MapReportsResponse,
   Report,
+  ReportReceipt,
   ReportStatus,
 } from '@/types/report';
 
@@ -156,7 +157,8 @@ export async function createReport(
 export async function uploadReportPhoto(
   reportId: string,
   blob: Blob,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  uploadToken?: string
 ): Promise<ReportRecord> {
   const form = new FormData();
   form.append('photo', blob, 'evidence.jpg');
@@ -164,7 +166,18 @@ export async function uploadReportPhoto(
   return request<ReportRecord>(`/api/v1/reports/${encodeURIComponent(reportId)}/photo`, {
     method: 'POST',
     body: form,
+    ...(uploadToken ? { headers: { 'X-Report-Upload-Token': uploadToken } } : {}),
     signal,
+  });
+}
+
+/** Owner-scoped, uncached status; the guest credential stays in memory/headers. */
+export async function fetchReportReceipt(
+  reportId: string, signal?: AbortSignal, uploadToken?: string,
+): Promise<ReportReceipt> {
+  return request<ReportReceipt>(`/api/v1/reports/${encodeURIComponent(reportId)}/receipt`, {
+    signal, cache: 'no-store',
+    ...(uploadToken ? { headers: { 'X-Report-Upload-Token': uploadToken } } : {}),
   });
 }
 

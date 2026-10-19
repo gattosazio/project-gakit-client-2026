@@ -71,7 +71,7 @@ export function ReportsTab({
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const mapRef = useRef<PublicMapHandle | null>(null);
-  const [mapDisplay, setMapDisplay] = useState<MapDisplaySettings & { showBarangayBoundaries: boolean; ready: boolean }>({ basemap: 'satellite', mode: '2d', showBuildings: true, showBarangayBoundaries: true, ready: false });
+  const [mapDisplay, setMapDisplay] = useState<MapDisplaySettings & { showBarangayBoundaries: boolean; ready: boolean }>({ basemap: 'satellite', mode: '2d', showBuildings: true, showRoads: false, showBarangayBoundaries: true, ready: false });
   const mapSectionRef = useRef<HTMLElement | null>(null);
   const tableSectionRef = useRef<HTMLElement | null>(null);
   const requestSeqRef = useRef(0);
@@ -361,7 +361,9 @@ export function ReportsTab({
                   onModeChange={(value) => mapRef.current?.setMapMode(value)}
                   onBarangayBoundariesChange={(value) => mapRef.current?.setBarangayBoundariesVisible(value)}
                   onSmoothingChange={value => mapRef.current?.setPolygonSmoothing(value)}
-                  onBuildingsChange={(value) => mapRef.current?.setBuildingsVisible(value)} />
+                  onBuildingsChange={(value) => mapRef.current?.setBuildingsVisible(value)}
+                  onRoadsChange={(value) => mapRef.current?.setRoadsVisible(value)}
+                  onFocusRoadsChange={(value) => mapRef.current?.setFocusRoads(value)} />
               </div>
             </div>
         </section>
@@ -431,7 +433,7 @@ export function ReportsTab({
                         { label: 'Report / location' },
                         { label: 'Flood depth', column: 'depth' },
                         { label: 'Reporter', column: 'reporterType' },
-                        { label: 'Evidence', column: 'evidenceScore' },
+                        { label: 'Sources', column: 'evidenceScore' },
                         { label: 'Submitted', column: 'createdAt' },
                         { label: 'Status', column: 'status' },
                         { label: 'Details' },

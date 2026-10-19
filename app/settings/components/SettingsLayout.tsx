@@ -44,7 +44,7 @@ export function SettingsLayout({
       <div className="mx-auto max-w-6xl px-4 pb-20 pt-6 md:px-7 md:pb-24 md:pt-8 lg:px-8">
         <div className="md:flex md:gap-8 lg:gap-10">
           <aside className="md:w-56 md:shrink-0 lg:w-64 md:sticky md:top-6 md:h-[calc(100vh-6rem)] md:overflow-y-auto">
-            <SettingsNav active={active} />
+            <SettingsNav active={active} isAdmin={role === 'admin'} />
           </aside>
           <main className="mt-6 flex-1 space-y-6 md:mt-0">{children}</main>
         </div>

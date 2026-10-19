@@ -105,6 +105,7 @@ export interface SimulatedFloodTelemetry {
   rasterUrl: string;
   timestamp: string;
   status?: string;
+  modelNotice?: string;
   forecastSource: string | null;
   forecastIssueTime: string | null;
   forecastValidTime: string | null;

@@ -1,6 +1,6 @@
 'use client';
 
-export type SectionId = 'account' | 'security' | 'appearance';
+export type SectionId = 'account' | 'security' | 'appearance' | 'developer';
 
 const NAV_ITEMS = [
   { id: 'account', label: 'My Account' },
@@ -8,7 +8,9 @@ const NAV_ITEMS = [
   { id: 'appearance', label: 'Appearance' },
 ] as const;
 
-export function SettingsNav({ active }: { active: SectionId }) {
+export function SettingsNav({ active, isAdmin = false }: { active: SectionId; isAdmin?: boolean }) {
+  const items: ReadonlyArray<{ id: SectionId; label: string }> = isAdmin
+    ? [...NAV_ITEMS, { id: 'developer', label: 'Developer tools' }] : NAV_ITEMS;
 
   return (
     <nav
@@ -17,7 +19,7 @@ export function SettingsNav({ active }: { active: SectionId }) {
       className="rounded-2xl border border-canvas-grey bg-white p-2 shadow-sm md:p-1.5"
     >
       <ul className="flex flex-wrap gap-1 md:flex-col">
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const isActive = active === item.id;
           return (
             <li key={item.id} className="w-full">

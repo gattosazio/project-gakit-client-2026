@@ -28,6 +28,7 @@ import type { WeatherAlert } from '@/types/weather';
 import { MobileSignOutButton } from './SideBar';
 import { TopoBackground } from '@/app/public-view/components/TopoBackground';
 import { SettingsDropdown } from './SettingsDropdown';
+import { ValidationModeBadge } from './header/ValidationModeBadge';
 
 interface AdminHeaderProps {
   title: string;
@@ -505,6 +506,7 @@ export function AdminHeader({
           )}
         </div>
         <SettingsDropdown />
+        <ValidationModeBadge />
         <div className="lg:hidden">
           <MobileSignOutButton compact />
         </div>

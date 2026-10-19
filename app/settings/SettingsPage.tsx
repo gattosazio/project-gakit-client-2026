@@ -12,6 +12,7 @@ import { SessionsSection } from './components/SessionsSection';
 import { DisplayPreferencesSection } from './components/DisplayPreferencesSection';
 import { SettingsLayout } from './components/SettingsLayout';
 import type { SectionId } from './components/SettingsNav';
+import { DeveloperToolsSection } from './components/DeveloperToolsSection';
 
 export function SettingsPage({ initialAuth }: { initialAuth?: AuthSnapshot }) {
   const role = initialAuth?.role ?? null;
@@ -27,6 +28,8 @@ export function SettingsPage({ initialAuth }: { initialAuth?: AuthSnapshot }) {
       const raw = window.location.hash.replace('#', '');
       if (raw === 'account' || raw === 'security' || raw === 'appearance') {
         setActive(raw);
+      } else if (raw === 'developer' && role === 'admin') {
+        setActive('developer');
       } else if (!raw) {
         setActive('account');
       }
@@ -37,7 +40,7 @@ export function SettingsPage({ initialAuth }: { initialAuth?: AuthSnapshot }) {
     return () => {
       window.removeEventListener('hashchange', readHash);
     };
-  }, []);
+  }, [role]);
 
   // Fetch full user for timestamps
   useEffect(() => {
@@ -61,6 +64,7 @@ export function SettingsPage({ initialAuth }: { initialAuth?: AuthSnapshot }) {
 
   return (
     <SettingsLayout role={role} active={active}>
+      {active === 'developer' && role === 'admin' && <SettingsSection title="Developer tools" description="Control global report demo approval and isolated storm demonstrations."><DeveloperToolsSection /></SettingsSection>}
       {active === 'account' && (
         <div className="space-y-6">
           <AccountCard

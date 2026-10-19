@@ -20,12 +20,11 @@ import {
   STATUS_META,
   formatDateTime,
   formatReportDepth,
-  formatValidationFlag,
-  getReportScoreDisplay,
 } from '@/lib/reports/reportFormatting';
 import type { Report, ReportStatus } from '@/types/report';
 import { requestReportReassessment } from './actions/reports';
 import { RejectionReasonSelect } from './RejectionReason';
+import { ReportAssessment } from './ReportAssessment';
 
 const ReportMiniMap = dynamic(() =>
   import('./ReportMiniMap').then((mod) => ({ default: mod.ReportMiniMap })),
@@ -168,7 +167,7 @@ export function ReportDetail({
                 {report.reference && <span>Reference: {REFERENCE_LABELS[report.reference] || report.reference}</span>}
               </div>
             </div>
-            <ValidationSection report={report} />
+            <ReportAssessment report={report} />
             <ReassessmentAction key={report.id} reportId={report.id} />
           </div>
         </div>
@@ -506,53 +505,11 @@ function ReassessmentAction({ reportId }: { reportId: string }) {
     <div className="text-xs">
       <button type="button" onClick={request} disabled={state === 'loading' || state === 'queued'}
         className="rounded-md border border-canvas-grey px-2.5 py-1.5 font-semibold text-slate-700 disabled:opacity-60">
-        {state === 'loading' ? 'Queuing assessment…' : state === 'queued' ? 'Assessment queued' : 'Request reassessment'}
+        {state === 'loading' ? 'Requesting check…' : state === 'queued' ? 'Check requested' : 'Check again'}
       </button>
       <p role="status" className="mt-1 text-[10px] leading-4 text-slate-500">
-        {state === 'queued' ? 'The updated assessment will be available after processing.' : state === 'error' ? 'Could not queue an assessment. Please try again.' : ''}
+        {state === 'queued' ? 'A new check will run shortly.' : state === 'error' ? 'Could not request a check. Please try again.' : ''}
       </p>
-    </div>
-  );
-}
-
-function ValidationSection({ report }: { report: Report }) {
-  const scoreDisplay = getReportScoreDisplay(report);
-  if (report.validationSummary) {
-    const summary = report.validationSummary;
-    return (
-      <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h4 className="text-[10px] font-bold uppercase tracking-wide text-slate-700">Evidence assessment</h4>
-          <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700" title={scoreDisplay.title}>{scoreDisplay.score == null ? "Awaiting assessment" : `${scoreDisplay.score} points`}</span>
-        </div>
-        <p className="text-xs leading-5 text-slate-700">{summary.explanation}</p>
-        <p className="text-[10px] leading-4 text-slate-500">
-          {report.decisionSource === 'manual' ? 'Status set by a moderator.' : report.decisionSource === 'automated' ? 'Status set by automated assessment.' : 'Awaiting reassessment of the saved status.'}
-          {' '}Assessed {formatDateTime(summary.assessedAt)}.
-        </p>
-        {report.decisionSource === 'manual' && summary.recommendedStatus !== report.status && (
-          <p className="text-xs text-slate-600">Assessment recommendation: {STATUS_META[summary.recommendedStatus].label}. The moderator’s decision remains in effect.</p>
-        )}
-        {([
-          ['Supporting evidence', summary.support],
-          ['Evidence conflicts', summary.conflicts],
-          ['Missing or stale evidence', summary.missing],
-        ] as const).filter(([, flags]) => flags.length > 0).map(([label, flags]) => (
-          <div key={label}>
-            <h5 className="text-[10px] font-semibold text-slate-500">{label}</h5>
-            <p className="mt-0.5 text-[11px] leading-4 text-slate-700">
-              {flags.length ? flags.map(flag => formatValidationFlag(flag).label).join(' · ') : 'None recorded'}
-            </p>
-          </div>
-        ))}
-        <p className="border-t border-slate-100 pt-2 text-[10px] leading-4 text-slate-400">Evidence points support verification; they do not measure urgency.</p>
-      </div>
-    );
-  }
-  return (
-    <div className="space-y-2 rounded-xl border border-slate-200 bg-white p-3">
-      <h4 className="text-[10px] font-bold uppercase tracking-wide text-slate-700">Evidence assessment</h4>
-      <p className="text-xs leading-5 text-slate-600">Awaiting evidence assessment. Request reassessment to check this report.</p>
     </div>
   );
 }

@@ -47,7 +47,7 @@ export function ReportTableRow({ report, highlighted, selected, updating, onInsp
         <div className="flex flex-wrap items-center gap-x-2 text-[10px] leading-4 text-slate-500">
           <span className={isStaffReporter ? 'font-semibold text-gakit-maroon' : ''}>{reporterLabel}</span>
           <span aria-hidden="true">·</span>
-          <span title={evidence.title}>{evidence.score == null ? 'Awaiting assessment' : `${evidence.score} evidence points`}</span>
+          <span title={evidence.title}>{evidence.score == null ? evidence.label : `${evidence.score} sources`}</span>
           <span className="font-mono text-slate-400" title={report.id}>#{report.id.slice(0, 8)}</span>
         </div>
         <div className="flex items-center justify-between gap-2 pt-0.5">
@@ -96,8 +96,8 @@ export function ReportTableRow({ report, highlighted, selected, updating, onInsp
       </div>
       <div role="cell" title={evidence.title}>
         <span className="mb-1 block text-[10px] text-slate-400 xl:hidden">Evidence</span>
-        {evidence.score == null ? <span className="text-[11px] text-slate-400">Awaiting assessment</span>
-          : <p className="text-xs text-slate-500"><strong className="font-semibold tabular-nums text-slate-800">{evidence.score}</strong> points</p>}
+        {evidence.score == null ? <span className="text-[11px] text-slate-400">{evidence.label}</span>
+          : <p className="text-xs text-slate-500"><strong className="font-semibold tabular-nums text-slate-800">{evidence.score}</strong> sources</p>}
       </div>
       <div role="cell">
         <span className="mb-1 block text-[10px] text-slate-400 xl:hidden">Submitted</span>

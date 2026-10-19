@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LiveRasterController } from '@/lib/map/liveRasterController';
 
 const coordinates = [[124, 8], [125, 8], [125, 9], [124, 9]];
+afterEach(() => vi.unstubAllGlobals());
 
 function setup() {
   let resolve!: (image: ImageBitmap) => void;
@@ -15,6 +16,40 @@ function setup() {
 }
 
 describe('hourly flood image transitions', () => {
+  it('keeps the original numeric source when the demo canvas replaces its image', async () => {
+    const t = setup();
+    const fetch = vi.fn(async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(0) }));
+    vi.stubGlobal('fetch', fetch);
+    const readDepth = vi.fn(() => () => ({ value: '~45 cm', detail: 'Original numeric baseline' }));
+    const controller = new LiveRasterController(async () => t.image, undefined, readDepth);
+    const complete = vi.fn();
+    controller.show(t.map, 'source', 'layer', 'data:composited-canvas', coordinates, complete, false, false, { depthUrl: '/original-frame.png' });
+    await vi.waitFor(() => expect(complete).toHaveBeenCalledOnce());
+    expect(fetch).toHaveBeenCalledWith('/original-frame.png', expect.objectContaining({ mode: 'cors', signal: expect.any(AbortSignal) }));
+    expect(controller.sampleDepth(124.5, 8.5)?.value).toBe('~45 cm');
+    controller.dispose();
+  });
+  it('keeps hover on the displayed frame until its replacement commits, then clears it on failure', async () => {
+    const t = setup();
+    let completeDecode!: (image: ImageBitmap) => void;
+    const decode = vi.fn(async () => t.image).mockImplementationOnce(async () => t.image)
+      .mockImplementationOnce(() => new Promise(resolve => { completeDecode = resolve; }));
+    const readDepth = vi.fn()
+      .mockReturnValueOnce(() => ({ value: '20–50 cm', detail: 'Old frame' }))
+      .mockReturnValueOnce(() => ({ value: '50–150 cm', detail: 'New frame' }));
+    const controller = new LiveRasterController(decode, undefined, readDepth);
+    const complete = vi.fn();
+    controller.show(t.map, 'source', 'layer', '/old.png', coordinates, complete);
+    await vi.waitFor(() => expect(complete).toHaveBeenCalledOnce());
+    controller.show(t.map, 'source', 'layer', '/new.png', coordinates, complete, true);
+    expect(controller.sampleDepth(124.5, 8.5)?.detail).toBe('Old frame');
+    completeDecode(t.image);
+    await vi.waitFor(() => expect(complete).toHaveBeenCalledTimes(2));
+    expect(controller.sampleDepth(124.5, 8.5)?.detail).toBe('New frame');
+    controller.show(t.map, 'source', 'layer', null, coordinates, complete);
+    expect(controller.sampleDepth(124.5, 8.5)).toBeNull();
+    controller.dispose();
+  });
   it('installs the blended raster and releases the original when smoothing is enabled', async () => {
     const t = setup();
     const blended = { close: vi.fn() } as unknown as ImageBitmap;

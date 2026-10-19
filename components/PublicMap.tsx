@@ -55,6 +55,7 @@ import {
   resolveBuildingsAfterToggle,
   resolveBuildingsForBasemapSwitch,
 } from '@/lib/map/buildingLayers';
+import { applyRoadsVisibility } from '@/lib/map/roadLayers';
 import {
   aggregateBarangayStats,
   barangayBanner,
@@ -105,6 +106,8 @@ export interface PublicMapHandle {
   setBasemap: (basemap: BasemapId) => void;
   setMapMode: (mode: MapMode) => void;
   setBuildingsVisible: (visible: boolean) => void;
+  setRoadsVisible: (visible: boolean) => void;
+  setFocusRoads: (enabled: boolean) => void;
   setPolygonSmoothing: (smooth: boolean) => void;
   setBarangayBoundariesVisible: (visible: boolean) => void;
   checkLocation: (location: {
@@ -119,7 +122,7 @@ export interface PublicMapHandle {
 }
 
 interface PublicMapProps {
-  onDisplaySettingsChange?: (settings: { basemap: BasemapId; mode: MapMode; showBuildings: boolean; showBarangayBoundaries: boolean; smoothPolygons: boolean; ready: boolean }) => void;
+  onDisplaySettingsChange?: (settings: { basemap: BasemapId; mode: MapMode; showBuildings: boolean; showBarangayBoundaries: boolean; smoothPolygons: boolean; showRoads: boolean; focusRoads: boolean; ready: boolean }) => void;
   hideDisplayControls?: boolean;
   onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
   selectedLocation: { lat: number; lng: number } | null;
@@ -311,6 +314,11 @@ export function PublicMap({
   const [showBuildings, setShowBuildings] = useState(defaultShowBuildings);
   const showBuildingsRef = useRef(defaultShowBuildings);
   const buildingsBasePreferenceRef = useRef(true);
+  // The road overlay is opt-in: both basemaps already carry their own street
+  // network, so the highlighted overlay stays off until the user asks for it.
+  const [showRoads, setShowRoads] = useState(false);
+  const [focusRoads, setFocusRoads] = useState(false);
+  const showRoadsRef = useRef(false);
   const layersReadyRef = useRef(false);
   const onReadyFiredRef = useRef(false);
 
@@ -353,7 +361,7 @@ export function PublicMap({
   }, []);
   const typhoon = useTyphoonLayer(mapRef, layersReadyRef, handleTyphoonPointClick);
   const typhoonPopupRef = useRef<any>(null);
-  const simulatedFlood = useSimulatedFloodLayer(mapRef, showSimulatedFlood, smoothPolygons);
+  const simulatedFlood = useSimulatedFloodLayer(mapRef, showSimulatedFlood, smoothPolygons, focusRoads);
 
   useEffect(() => {
     loadTyphoonRef.current = typhoon.loadData;
@@ -709,6 +717,7 @@ export function PublicMap({
           basemap: basemapRef.current,
           smoothPolygons: smoothPolygonsRef.current,
           showBuildings: showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
+          showRoads: showRoadsRef.current,
         });
 
         layersReadyRef.current = true;
@@ -819,6 +828,7 @@ export function PublicMap({
       basemap: basemapRef.current,
       smoothPolygons: smoothPolygonsRef.current,
       showBuildings: showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
+      showRoads: showRoadsRef.current,
     });
   }, [himawari.visibleRef, typhoon, hoursRef, hideBuildingsOnSatellite]);
 
@@ -840,12 +850,20 @@ export function PublicMap({
     if (mapRef.current) applyBuildingsVisibility(mapRef.current, mapModeRef.current, visible && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'));
   }, [hideBuildingsOnSatellite]);
 
+  const handleRoadsChange = useCallback((visible: boolean) => {
+    showRoadsRef.current = visible;
+    setShowRoads(visible);
+    if (mapRef.current) applyRoadsVisibility(mapRef.current, visible);
+  }, []);
+
   useEffect(() => {
     if (mapApiRef) {
       mapApiRef.current = {
         setBasemap: handleBasemapChange,
         setMapMode: handleModeChange,
         setBuildingsVisible: handleBuildingsChange,
+        setRoadsVisible: handleRoadsChange,
+        setFocusRoads,
         setPolygonSmoothing: handleSmoothingChange,
         setBarangayBoundariesVisible: handleShowBarangayBoundariesChange,
         checkLocation,
@@ -862,11 +880,11 @@ export function PublicMap({
         mapApiRef.current = null;
       };
     }
-  }, [handleBasemapChange, handleModeChange, handleBuildingsChange, handleSmoothingChange, handleShowBarangayBoundariesChange, mapApiRef, checkLocation, focusLocation, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload, handleShareLocation]);
+  }, [handleBasemapChange, handleModeChange, handleBuildingsChange, handleRoadsChange, handleSmoothingChange, handleShowBarangayBoundariesChange, mapApiRef, checkLocation, focusLocation, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload, handleShareLocation]);
 
   useEffect(() => {
-    onDisplaySettingsChange?.({ basemap, mode: mapMode, showBuildings, showBarangayBoundaries, smoothPolygons, ready: mapReady });
-  }, [basemap, mapMode, showBuildings, showBarangayBoundaries, smoothPolygons, mapReady, onDisplaySettingsChange]);
+    onDisplaySettingsChange?.({ basemap, mode: mapMode, showBuildings, showBarangayBoundaries, smoothPolygons, showRoads, focusRoads, ready: mapReady });
+  }, [basemap, mapMode, showBuildings, showBarangayBoundaries, smoothPolygons, showRoads, focusRoads, mapReady, onDisplaySettingsChange]);
 
   useEffect(() => {
     if (mapRef.current) {
@@ -1091,6 +1109,7 @@ export function PublicMap({
 
       applyOverlaySmoothing(map, smoothPolygons);
       applyBuildingsVisibility(map, mapMode, showBuildings && !(hideBuildingsOnSatellite && basemap === 'satellite'));
+      applyRoadsVisibility(map, showRoads);
 
       if (map.getLayer('flood-hazard-fill')) {
         map.setFilter('flood-hazard-fill', riskLevelFilter({ high: true, medium: true, low: true }));
@@ -1112,6 +1131,7 @@ export function PublicMap({
     mapMode,
     basemap,
     showBuildings,
+    showRoads,
     smoothPolygons,
     hideBuildingsOnSatellite,
   ]);

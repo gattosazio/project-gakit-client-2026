@@ -5,13 +5,13 @@ import type { ValidationSummary } from '@/types/report';
 
 describe('report score display', () => {
   const summary: ValidationSummary = {
-    assessedAt: '2026-10-16T00:00:00Z', recommendedStatus: 'UNVERIFIED', evidenceScore: 20,
+    assessedAt: '2026-10-16T00:00:00Z', recommendedStatus: 'UNVERIFIED', evidenceScore: null, decisionBasis: 'original_observations', corroboratingSourceCount: 2,
     support: [], conflicts: [], missing: [], explanation: 'Awaiting evidence',
   };
 
-  it('uses the same current evidence score even when the saved score differs', () => {
+  it('shows corroborating sources instead of a historical score', () => {
     const display = getReportScoreDisplay({ validationScore: 15, validationSummary: summary });
-    expect(display).toEqual({ score: 20, label: 'Evidence points', title: 'Evidence points: 20' });
+    expect(display).toEqual({ score: 2, label: 'Corroborating sources', title: '2 corroborating observation sources' });
   });
 
   it('hides obsolete scores when no current assessment exists', () => {
@@ -23,12 +23,36 @@ describe('report score display', () => {
   });
 
   it('preserves a genuine zero in the current assessment', () => {
-    expect(getReportScoreDisplay({ validationScore: 15, validationSummary: { ...summary, evidenceScore: 0 } }))
-      .toMatchObject({ score: 0, title: 'Evidence points: 0' });
+    expect(getReportScoreDisplay({ validationScore: 15, validationSummary: { ...summary, corroboratingSourceCount: 0 } }))
+      .toMatchObject({ score: 0, title: '0 corroborating observation sources' });
+  });
+
+  it('distinguishes retired assessments from reports that have never been assessed', () => {
+    expect(getReportScoreDisplay({ validationSummary: { ...summary, decisionBasis: undefined } }))
+      .toMatchObject({ label: 'Reassessment needed' });
+    expect(getReportScoreDisplay({})).toMatchObject({ label: 'Awaiting assessment' });
+  });
+
+  it('labels demo approvals instead of implying independent witnesses were checked', () => {
+    expect(getReportScoreDisplay({ validationSummary: { ...summary, decisionBasis: 'demo_override', demoAutoValidated: true } }))
+      .toMatchObject({ score: undefined, label: 'Demo approval' });
+    expect(formatValidationFlag('UNSUPPORTED_DRY_REPORT').type).toBe('warning');
+    expect(formatValidationFlag('UNSUPPORTED_REPORT')).toMatchObject({ label: 'No Flood Evidence', type: 'danger' });
+  });
+
+  it('shows physical acceptance without a zero-source or obsolete-assessment badge', () => {
+    const accepted: ValidationSummary = { ...summary, recommendedStatus: 'VERIFIED',
+      decisionBasis: 'physical_support', verificationScope: 'physical_consistency', modelAssisted: true,
+      corroboratingSourceCount: 0 };
+    expect(getReportScoreDisplay({ validationSummary: accepted })).toMatchObject({ score: undefined, label: 'Physical support' });
+    expect(formatValidationFlag('PHYSICALLY_SUPPORTED_REPORT').type).toBe('success');
   });
 });
 
 describe('report evidence labels', () => {
+  it('makes differing reported depths visible', () => {
+    expect(formatValidationFlag('PEER_DEPTH_VARIATION').type).toBe('warning');
+  });
   it('formats current evidence rather than removed bypass and scoring rules', () => {
     // HAZARD_ZONE_CORE is a legacy validation-v2 flag: the backend no longer
     // emits it (it re-assesses old reports under the context-only terrain
@@ -50,8 +74,8 @@ describe('report evidence labels', () => {
 
   it('distinguishes a dry model from supporting model evidence', () => {
     expect(formatValidationFlag('SIMULATION_DRY_UNCORROBORATED').type).toBe('info');
-    expect(formatValidationFlag('SIMULATION_MATCH').label).toBe('Model Supports Depth');
-    expect(formatValidationFlag('SIMULATION_MATCH').type).toBe('success');
+    expect(formatValidationFlag('SIMULATION_MATCH').label).toBe('Model Agrees');
+    expect(formatValidationFlag('SIMULATION_MATCH').type).toBe('info');
   });
 
   it('labels human reputation tiers', () => {

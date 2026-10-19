@@ -4,11 +4,15 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import type { MutableRefObject } from 'react';
 import { fetchLiveFloodSnapshot, LiveFloodPending, LIVE_TIMELINE_POLL_MS,
   type SimulatedFloodHorizon, type SimulatedFloodTelemetry } from '@/lib/map/surrogate';
-import { liveStatus, scenarioFrame, selectedLiveFrame, selectionForFrame } from '@/lib/map/liveFloodState';
+import { liveModelNotice, liveStatus, scenarioFrame, selectedLiveFrame, selectionForFrame } from '@/lib/map/liveFloodState';
 import { LiveRasterController } from '@/lib/map/liveRasterController';
+import { liveObservationPollDelay, liveReportNotice } from '@/lib/map/liveReportObservations';
+import { useLiveReportObservations } from '@/hooks/useLiveReportObservations';
+import { useFloodDepthHover } from '@/hooks/useFloodDepthHover';
+import { useRoadFloodFocus } from '@/hooks/useRoadFloodFocus';
 import type { LiveSelection, LiveTimeline } from '@/types/liveFlood';
 
-export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: boolean, smooth = false) {
+export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: boolean, smooth = false, focusRoads = false) {
   const [timeline, setTimeline] = useState<LiveTimeline | null>(null);
   const [selection, setSelection] = useState<LiveSelection>({ kind: 'latest' });
   const [isLoading, setIsLoading] = useState(false);
@@ -19,6 +23,8 @@ export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: b
   const opacityRef = useRef(0.85);
   const [refresh, setRefresh] = useState(0);
   const raster = useRef(new LiveRasterController());
+  useFloodDepthHover(mapRef, raster, 'simulation-flood-grid', enabled && !focusRoads);
+  useRoadFloodFocus(mapRef, raster, 'simulation-flood-grid', focusRoads);
   const imageRetries = useRef(new Set<string>());
   const refreshRef = useRef<() => void>(() => undefined);
 
@@ -40,7 +46,8 @@ export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: b
         if (stopped || request !== generation) return;
         setTimeline(next);
         setFailure(null);
-        timer = setTimeout(() => void load(), next.build_state === 'building' ? 2000 : next.build_state === 'failed' ? 30000 : LIVE_TIMELINE_POLL_MS);
+        const pollDelay = next.build_state === 'building' ? 2000 : next.build_state === 'failed' ? 30000 : LIVE_TIMELINE_POLL_MS;
+        timer = setTimeout(() => void load(), liveObservationPollDelay(next.report_observations, pollDelay));
       } catch (error) {
         if (stopped || request !== generation || controller.signal.aborted) return;
         if (error instanceof LiveFloodPending) {
@@ -72,13 +79,17 @@ export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: b
   useEffect(() => { const controller = raster.current; return () => controller.dispose(); }, []);
 
   const frame = selectedLiveFrame(timeline, selection);
+  useLiveReportObservations(mapRef, timeline?.report_observations, enabled && frame?.kind === 'latest');
   const replayFrames = useMemo(() => timeline?.frames.map(scenarioFrame) ?? [], [timeline]);
   const replayIndex = selection.kind === 'latest' ? null : timeline?.frames.findIndex(f => f.frame_id === frame?.frame_id) ?? null;
   const imageKey = `${timeline?.snapshot_id}:${frame?.frame_id}`;
   const rasterUrl = frame?.availability === 'ready' ? frame.raster_url : null;
   const coordinateKey = JSON.stringify(timeline?.bounds ?? []);
-  const expiresAt = timeline?.expires_at;
+  const expiresAt = frame?.report_update_expires_at && timeline?.expires_at
+    ? new Date(Math.min(Date.parse(frame.report_update_expires_at), Date.parse(timeline.expires_at))).toISOString()
+    : timeline?.expires_at;
   const snapshotId = timeline?.snapshot_id;
+  const hoverTime = frame?.valid_at ? new Date(frame.valid_at).toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : undefined;
   const imageReady = imageResult?.key === imageKey && !imageResult.error;
   const imageFailure = imageResult?.key === imageKey ? imageResult.error : null;
   useLayoutEffect(() => {
@@ -106,11 +117,24 @@ export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: b
           setImageResult({ key: imageKey });
           setHasRenderedImage(true);
         }
-      }, false, smooth);
+      }, false, smooth, { time: hoverTime });
     };
     show();
     return () => { clearTimeout(retry); controller.cancel(); };
-  }, [enabled, mapRef, imageKey, rasterUrl, coordinateKey, expiresAt, snapshotId, smooth]);
+  }, [enabled, mapRef, imageKey, rasterUrl, coordinateKey, expiresAt, snapshotId, smooth, hoverTime]);
+
+  useEffect(() => {
+    if (!enabled || !frame?.report_update_count || !expiresAt) return;
+    const expire = () => {
+      raster.current.cancel();
+      const map = mapRef.current;
+      if (map?.getLayer('simulation-flood-grid')) map.setLayoutProperty('simulation-flood-grid', 'visibility', 'none');
+      setImageResult({ key: imageKey, error: 'Report observation expired; refreshing estimate' });
+      refreshRef.current();
+    };
+    const timer = setTimeout(expire, Math.max(0, Date.parse(expiresAt) - Date.now()));
+    return () => clearTimeout(timer);
+  }, [enabled, frame?.report_update_count, expiresAt, imageKey, mapRef]);
 
   const status = failure ?? imageFailure ?? liveStatus(timeline, frame);
   const isPreparing = enabled && (
@@ -129,6 +153,7 @@ export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: b
     rasterUrl: frame.raster_url ?? '', timestamp: frame.valid_at,
     forecastSource: frame.forecast_source, forecastIssueTime: frame.source_issues[0] ?? null,
     forecastValidTime: frame.kind === 'forecast' ? frame.valid_at : null, status,
+    modelNotice: `${liveModelNotice(frame)} ${frame.kind === 'latest' ? liveReportNotice(timeline?.report_observations) : ''}`.trim(),
   } : null;
   const selectReplayFrame = useCallback((index: number | null) => {
     if (index === null) setSelection({ kind: 'latest' });

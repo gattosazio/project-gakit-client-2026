@@ -7,6 +7,7 @@ import {
   serializeScenarioDisplay,
   setScenarioRenderMode,
   setScenarioEnableBuildings,
+  setScenarioEnableRoads,
 } from '@/lib/map/scenarioDisplayStore';
 
 /** Minimal in-memory stand-in for `window.localStorage`. */
@@ -39,6 +40,8 @@ describe('scenarioDisplayStore', () => {
     expect(snapshot.mode).toBe('2d');
     expect(snapshot.basemap).toBe('light');
     expect(snapshot.enableBuildings).toBe(true);
+    expect(snapshot.enableRoads).toBe(false);
+    expect(snapshot.focusRoads).toBe(false);
   });
 
   it('updates renderMode and notifies subscribers', () => {
@@ -60,6 +63,19 @@ describe('scenarioDisplayStore', () => {
     unsubscribe();
     setScenarioRenderMode('linear');
     expect(listener).toHaveBeenCalledTimes(2);
+  });
+
+  it('persists road focus separately from the highlighted road overlay', () => {
+    const listener = vi.fn();
+    const unsubscribe = scenarioDisplayStore.subscribe(listener);
+    scenarioDisplayStore.setFocusRoads(true);
+    scenarioDisplayStore.setFocusRoads(true);
+    expect(listener).toHaveBeenCalledOnce();
+    expect(scenarioDisplayStore.getSnapshot().focusRoads).toBe(true);
+    expect(scenarioDisplayStore.getSnapshot().enableRoads).toBe(false);
+    expect(parseScenarioDisplay(serializeScenarioDisplay(scenarioDisplayStore.getSnapshot())).focusRoads).toBe(true);
+    expect(parseScenarioDisplay('{"focusRoads":"yes"}')).toEqual({});
+    unsubscribe();
   });
 
   it('changes 2D/3D view and notifies subscribers', () => {
@@ -90,6 +106,35 @@ describe('scenarioDisplayStore', () => {
     expect(listener).toHaveBeenCalledTimes(2);
 
     unsubscribe();
+  });
+
+  it('toggles enableRoads and notifies subscribers', () => {
+    const listener = vi.fn();
+    const unsubscribe = scenarioDisplayStore.subscribe(listener);
+
+    setScenarioEnableRoads(true);
+    expect(scenarioDisplayStore.getSnapshot().enableRoads).toBe(true);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    // No-op if same value
+    setScenarioEnableRoads(true);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    setScenarioEnableRoads(false);
+    expect(scenarioDisplayStore.getSnapshot().enableRoads).toBe(false);
+    expect(listener).toHaveBeenCalledTimes(2);
+
+    unsubscribe();
+  });
+
+  it('leaves the roads preference untouched across basemap switches', () => {
+    setScenarioEnableRoads(true);
+
+    scenarioDisplayStore.setBasemap('satellite');
+    expect(scenarioDisplayStore.getSnapshot().enableRoads).toBe(true);
+
+    scenarioDisplayStore.setBasemap('light');
+    expect(scenarioDisplayStore.getSnapshot().enableRoads).toBe(true);
   });
 
   it('disables buildings by default when switching to satellite and restores them on return', () => {
@@ -131,6 +176,7 @@ describe('scenarioDisplayStore', () => {
     scenarioDisplayStore.setMode('3d');
     scenarioDisplayStore.setBasemap('satellite');
     setScenarioEnableBuildings(false);
+    setScenarioEnableRoads(true);
 
     scenarioDisplayStore.reset();
 
@@ -139,6 +185,7 @@ describe('scenarioDisplayStore', () => {
     expect(snapshot.mode).toBe('2d');
     expect(snapshot.basemap).toBe('light');
     expect(snapshot.enableBuildings).toBe(true);
+    expect(snapshot.enableRoads).toBe(false);
   });
 });
 
@@ -161,9 +208,17 @@ describe('parseScenarioDisplay', () => {
   it('drops invalid enum and type values', () => {
     expect(
       parseScenarioDisplay(
-        JSON.stringify({ renderMode: 'bilinear', enableBuildings: 'yes' })
+        JSON.stringify({ renderMode: 'bilinear', enableBuildings: 'yes', enableRoads: 'yes' })
       )
     ).toEqual({});
+  });
+
+  it('keeps every known basemap id and drops unknown ones', () => {
+    expect(parseScenarioDisplay(JSON.stringify({ basemap: 'bright' }))).toEqual({
+      basemap: 'bright',
+    });
+    expect(parseScenarioDisplay(JSON.stringify({ basemap: 'dark' }))).toEqual({ basemap: 'dark' });
+    expect(parseScenarioDisplay(JSON.stringify({ basemap: 'fiord' }))).toEqual({});
   });
 });
 
@@ -174,6 +229,8 @@ describe('serializeScenarioDisplay', () => {
       mode: '2d' as const,
       basemap: 'light' as const,
       enableBuildings: true,
+      enableRoads: false,
+      focusRoads: false,
     };
     expect(parseScenarioDisplay(serializeScenarioDisplay(settings))).toEqual(settings);
   });
@@ -201,6 +258,7 @@ describe('scenarioDisplayStore persistence', () => {
         [SCENARIO_DISPLAY_STORAGE_KEY]: JSON.stringify({
           renderMode: 'nearest',
           enableBuildings: false,
+          enableRoads: true,
         }),
       }),
     });
@@ -212,6 +270,7 @@ describe('scenarioDisplayStore persistence', () => {
     const snapshot = scenarioDisplayStore.getSnapshot();
     expect(snapshot.renderMode).toBe('nearest');
     expect(snapshot.enableBuildings).toBe(false);
+    expect(snapshot.enableRoads).toBe(true);
     // A field absent from storage keeps its default.
     expect(snapshot.mode).toBe('2d');
   });

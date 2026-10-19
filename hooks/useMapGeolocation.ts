@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { toast } from 'react-toastify';
 import { reverseGeocode } from '@/lib/map/geoUtils';
+import { locationFromGps } from '@/lib/reports/observationMetadata';
+import type { SelectedLocation } from '@/types/report';
 
 interface UseMapGeolocationOptions {
   mapRef: MutableRefObject<any>;
-  onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
+  onLocationSelect: (location: SelectedLocation) => void;
   enableAddressLookup?: boolean;
 }
 
@@ -25,15 +27,15 @@ export function useMapGeolocation({
   }, [onLocationSelect]);
 
   const reverseGeocodeWithAbort = useCallback(
-    async (lat: number, lng: number) => {
+    async (location: SelectedLocation) => {
       if (abortControllerRef.current) abortControllerRef.current.abort();
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
       try {
-        const address = await reverseGeocode(lat, lng, controller.signal);
+        const address = await reverseGeocode(location.lat, location.lng, controller.signal);
         if (controller.signal.aborted) return;
-        onLocationSelectRef.current({ lat, lng, address });
+        onLocationSelectRef.current({ ...location, address });
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') return;
       }
@@ -55,13 +57,12 @@ export function useMapGeolocation({
   );
 
   const handleLocationSelect = useCallback(
-    (lat: number, lng: number) => {
+    (lat: number, lng: number, gpsLocation?: SelectedLocation) => {
       // Immediately update with coordinates for instant pin placement.
-      onLocationSelectRef.current({
-        lat,
-        lng,
-        address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`,
-      });
+      const location: SelectedLocation = gpsLocation ?? {
+        lat, lng, address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, source: 'manual',
+      };
+      onLocationSelectRef.current(location);
 
       panToSelectedLocation(lat, lng);
 
@@ -72,7 +73,7 @@ export function useMapGeolocation({
       if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
       geocodeTimerRef.current = setTimeout(() => {
         geocodeTimerRef.current = null;
-        void reverseGeocodeWithAbort(lat, lng);
+        void reverseGeocodeWithAbort(location);
       }, 25);
     },
     [panToSelectedLocation, enableAddressLookup, reverseGeocodeWithAbort]
@@ -94,7 +95,7 @@ export function useMapGeolocation({
             const { latitude, longitude } = position.coords;
             try {
               panToSelectedLocation(latitude, longitude, 16);
-              handleLocationSelect(latitude, longitude);
+              handleLocationSelect(latitude, longitude, locationFromGps(position));
             } finally {
               resolve(true);
             }

@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import type { BasemapId } from '@/constants/publicMap';
+import { BASEMAP_LABELS, type BasemapId } from '@/constants/publicMap';
 import {
   resolveBuildingsAfterToggle,
   resolveBuildingsForBasemapSwitch,
@@ -10,6 +10,8 @@ export interface ScenarioDisplaySettings {
   mode: '2d' | '3d';
   renderMode: 'nearest' | 'linear';
   enableBuildings: boolean;
+  enableRoads: boolean;
+  focusRoads: boolean;
 }
 
 export const SCENARIO_DISPLAY_STORAGE_KEY = 'gakit.scenario-display';
@@ -21,6 +23,10 @@ export const DEFAULT_SCENARIO_DISPLAY: ScenarioDisplaySettings = {
   mode: '2d',
   renderMode: 'linear',
   enableBuildings: true,
+  // The highlighted road overlay is opt-in, same as on the public and reports
+  // maps: both basemaps already carry their own street network.
+  enableRoads: false,
+  focusRoads: false,
 };
 
 let currentSettings: ScenarioDisplaySettings = { ...DEFAULT_SCENARIO_DISPLAY };
@@ -46,7 +52,8 @@ function sameSettings(
   return (
     a.renderMode === b.renderMode &&
     a.mode === b.mode && a.basemap === b.basemap &&
-    a.enableBuildings === b.enableBuildings
+    a.enableBuildings === b.enableBuildings &&
+    a.enableRoads === b.enableRoads && a.focusRoads === b.focusRoads
   );
 }
 
@@ -75,10 +82,16 @@ export function parseScenarioDisplay(
   }
   if (source.mode === '2d' || source.mode === '3d') result.mode = source.mode;
   else if (typeof source.enableTerrain === 'boolean') result.mode = source.enableTerrain ? '3d' : '2d';
-  if (source.basemap === 'light' || source.basemap === 'satellite') result.basemap = source.basemap;
+  if (typeof source.basemap === 'string' && source.basemap in BASEMAP_LABELS) {
+    result.basemap = source.basemap as BasemapId;
+  }
   if (typeof source.enableBuildings === 'boolean') {
     result.enableBuildings = source.enableBuildings;
   }
+  if (typeof source.enableRoads === 'boolean') {
+    result.enableRoads = source.enableRoads;
+  }
+  if (typeof source.focusRoads === 'boolean') result.focusRoads = source.focusRoads;
   return result;
 }
 
@@ -176,6 +189,17 @@ export const scenarioDisplayStore = {
     persist();
     notify();
   },
+  setEnableRoads(visible: boolean): void {
+    if (currentSettings.enableRoads === visible) return;
+    currentSettings = { ...currentSettings, enableRoads: visible };
+    persist();
+    notify();
+  },
+  setFocusRoads(enabled: boolean): void {
+    if (currentSettings.focusRoads === enabled) return;
+    currentSettings = { ...currentSettings, focusRoads: enabled };
+    persist(); notify();
+  },
   reset(): void {
     currentSettings = { ...DEFAULT_SCENARIO_DISPLAY };
     baseBuildingsPreference = DEFAULT_SCENARIO_DISPLAY.enableBuildings;
@@ -194,3 +218,4 @@ export function useScenarioDisplay(): ScenarioDisplaySettings {
 
 export const setScenarioRenderMode = scenarioDisplayStore.setRenderMode;
 export const setScenarioEnableBuildings = scenarioDisplayStore.setEnableBuildings;
+export const setScenarioEnableRoads = scenarioDisplayStore.setEnableRoads;

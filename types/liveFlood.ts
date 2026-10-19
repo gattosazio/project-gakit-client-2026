@@ -11,6 +11,12 @@ export const liveFrameSchema = z.object({
   inundated_km2: numberOrNull, max_depth_m: numberOrNull, raster_url: z.string().nullable(),
   forecast_source: z.string().nullable(), source_issues: z.array(z.string()),
   coverage_fraction: numberOrNull,
+  rainfall_support: z.enum(['unknown', 'dry_anchor', 'below_wet_training', 'within_wet_training', 'above_wet_training']).optional(),
+  dry_output_assumption: z.literal('no_existing_floodwater').nullable().optional(),
+  report_update_count: z.number().int().nonnegative().optional(),
+  report_update_method: z.string().nullable().optional(),
+  report_analysis_storage_change_m3: z.number().finite().nullable().optional(),
+  report_update_expires_at: z.string().datetime({ offset: true }).nullable().optional(),
 });
 const coordinate = z.tuple([z.number(), z.number()]);
 export const liveTimelineSchema = z.object({
@@ -23,6 +29,27 @@ export const liveTimelineSchema = z.object({
   bounds: z.tuple([coordinate, coordinate, coordinate, coordinate]),
   frames: z.array(liveFrameSchema), available_horizons: z.array(z.number()),
   policy_version: z.string(), rendering: z.string(),
+  report_observations: z.object({
+    captured_at: z.string().datetime({ offset: true }),
+    availability: z.enum(['available', 'unavailable', 'not_configured']),
+    reason: z.string().nullable(),
+    correction_method: z.enum(['observation_only', 'experimental_local_update']),
+    observations: z.array(z.object({
+      report_id: z.string(), latitude: z.number().finite().min(-90).max(90),
+      longitude: z.number().finite().min(-180).max(180), depth_m: z.number().finite().nonnegative(),
+      observed_at: z.string().datetime({ offset: true }), available_at: z.string().datetime({ offset: true }),
+      expires_at: z.string().datetime({ offset: true }), depth_method: z.string(),
+      depth_uncertainty_m: numberOrNull, location_accuracy_m: numberOrNull,
+      source_group: z.string(), fingerprint: z.string(), correction_eligible: z.boolean(), reasons: z.array(z.string()),
+    })),
+  }).nullable().optional(),
+  capabilities: z.object({
+    model_kind: z.literal('static_hazard_emulator'), temporal_state: z.literal(false),
+    independently_validated: z.literal(false), depth_basis: z.literal('noah_class_proxies'),
+    rainfall_forcing: z.literal('single_point_rolling_24h'),
+    wet_training_rainfall_mm: z.array(z.number().finite().positive()), dry_training_rainfall_mm: z.literal(0),
+    dry_output_threshold_mm: z.number().finite().nonnegative(),
+  }).optional(),
 });
 export type LiveFrame = z.infer<typeof liveFrameSchema>;
 export type LiveTimeline = z.infer<typeof liveTimelineSchema>;

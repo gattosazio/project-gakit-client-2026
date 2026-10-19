@@ -1,6 +1,7 @@
 'use client';
 
-import { LogOut, UserRound } from 'lucide-react';
+import { LogOut, Settings, UserRound } from 'lucide-react';
+import Link from 'next/link';
 import type { RefObject } from 'react';
 
 interface UserNavMenuProps {
@@ -77,6 +78,10 @@ export function UserNavMenu({
           <div className="break-all px-2 py-2 text-sm font-semibold text-slate-700">
             {name || email}
           </div>
+          <Link href="/settings#account" onClick={onToggle}
+            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-100">
+            <Settings className="h-4 w-4" />Settings
+          </Link>
           <button
             type="button"
             onClick={onSignOutClick}

@@ -1,6 +1,6 @@
 'use client';
 
-import { formatFloodMetric } from '@/lib/map/liveFloodState';
+import { formatFloodMetric, liveModelNotice } from '@/lib/map/liveFloodState';
 import React, { useState } from 'react';
 import { CloudRain, Droplets, Waves, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import type { ScenarioFrame, ScenarioPresetType } from '@/types/scenario';
@@ -10,18 +10,19 @@ interface TelemetryHUDProps {
   totalRainfallMm: number | null;
   status?: string;
   rasterState?: string | null;
+  modelNotice?: string;
+  reportNotice?: string;
   presetType?: ScenarioPresetType;
 }
 
-export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'historical', status, rasterState }: TelemetryHUDProps) {
+export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'historical', status, rasterState, modelNotice, reportNotice }: TelemetryHUDProps) {
   const [mobileExpanded, setMobileExpanded] = useState(false);
   if (!currentFrame) return null;
-
-  const isStatic = presetType === 'design_storm';
 
   return (
     <div className="hud-card w-full p-2.5 sm:p-3 shadow-lg text-slate-800 pointer-events-auto">
       {(status || rasterState) && <div role="status" className="mb-2 text-xs text-slate-600">{currentFrame.live && currentFrame.live.availability !== 'ready' ? status : rasterState ?? status}</div>}
+      {reportNotice && <p className="mb-2 text-[10px] leading-4 text-teal-800">{reportNotice}</p>}
       {/* Mobile Quick Strip (compact 1-row telemetry) */}
       <div className="flex md:hidden items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
@@ -66,7 +67,7 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
               <span>Inundated Area</span>
             </div>
             <span className="text-[10px] text-slate-400 font-medium">
-              {isStatic ? 'Benchmark Footprint' : 'Estimated footprint'}
+              Estimated footprint
             </span>
           </div>
           <div className="text-2xl font-bold tracking-tight text-slate-900">
@@ -81,7 +82,7 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
           <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-700 mb-1">
               <CloudRain className="h-3.5 w-3.5" />
-              <span>{isStatic ? 'Peak Intensity' : 'Hourly Precip'}</span>
+              <span>Hourly rain</span>
             </div>
             <div className="text-lg font-bold text-slate-900">
               {formatFloodMetric(currentFrame.hourly_rain_mm, 1)}{' '}
@@ -93,14 +94,14 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
           <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
             <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 mb-1">
               <Droplets className="h-3.5 w-3.5" />
-              <span>{presetType === 'live' ? 'Rainfall over 24h' : isStatic ? 'Total Rain' : 'Accumulated'}</span>
+              <span>{presetType === 'live' ? 'Rainfall over 24h' : 'Accumulated'}</span>
             </div>
             <div className="text-lg font-bold text-slate-900">
               {formatFloodMetric(currentFrame.cum_rain_mm, 1)}{' '}
-              {!isStatic && presetType !== 'live' && (
+              {presetType !== 'live' && (
                 <span className="text-xs font-normal text-slate-500">/ {totalRainfallMm} mm</span>
               )}
-              {(isStatic || presetType === 'live') && (
+              {presetType === 'live' && (
                 <span className="text-xs font-normal text-slate-500">mm</span>
               )}
             </div>
@@ -119,13 +120,13 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
             <Layers className="h-3 w-3 text-gakit-maroon" />
             <span>Inundation Depth</span>
           </div>
-          <span className="text-[9px] text-slate-400">{isStatic ? 'UP NOAH · FLO-2D' : 'PIML · 10m LiDAR'}</span>
+          <span className="text-[9px] text-slate-400">NOAH-trained estimate</span>
         </div>
         <div className="grid grid-cols-3 gap-1.5 text-center">
           <div className="flex flex-col items-center rounded-lg bg-slate-50/80 p-1 border border-slate-200/60">
             <span
               className="h-1.5 w-full rounded-sm mb-1 shadow-sm"
-              style={{ backgroundColor: isStatic ? '#06B6D4' : '#EAB308' }}
+              style={{ backgroundColor: '#EAB308' }}
             />
             <span className="text-[10px] font-bold text-slate-800">&lt; 0.5 m</span>
             <span className="text-[9px] text-slate-400 font-medium">Low</span>
@@ -133,7 +134,7 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
           <div className="flex flex-col items-center rounded-lg bg-slate-50/80 p-1 border border-slate-200/60">
             <span
               className="h-1.5 w-full rounded-sm mb-1 shadow-sm"
-              style={{ backgroundColor: isStatic ? '#3B82F6' : '#F97316' }}
+              style={{ backgroundColor: '#F97316' }}
             />
             <span className="text-[10px] font-bold text-slate-800">0.5–1.5 m</span>
             <span className="text-[9px] text-slate-400 font-medium">Medium</span>
@@ -141,13 +142,16 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
           <div className="flex flex-col items-center rounded-lg bg-slate-50/80 p-1 border border-slate-200/60">
             <span
               className="h-1.5 w-full rounded-sm mb-1 shadow-sm"
-              style={{ backgroundColor: isStatic ? '#1E3A8A' : '#DC2626' }}
+              style={{ backgroundColor: '#DC2626' }}
             />
             <span className="text-[10px] font-bold text-slate-800">&gt; 1.5 m</span>
             <span className="text-[9px] text-slate-400 font-medium">High</span>
           </div>
         </div>
       </div>
+      <p className="mt-2 border-t border-slate-100 pt-2 text-[10px] leading-4 text-slate-500">
+        {currentFrame.live ? liveModelNotice(currentFrame.live) : modelNotice ?? 'Illustrative timing; flood arrival, recession and depths are unvalidated.'}
+      </p>
     </div>
   );
 }

@@ -1,12 +1,20 @@
 import type { FloodDepthCode, FloodReference, Report, ReportStatus } from '@/types/report';
 
-/** Use the same current evidence points in the table, modal and map. */
+/** Use the same original-source count in the table, modal and map. */
 export function getReportScoreDisplay(report: Pick<Report, 'validationScore' | 'validationSummary'>) {
-  const score = report.validationSummary?.evidenceScore;
+  if (report.validationSummary?.demoAutoValidated) return {
+    score: undefined, label: 'Demo approval', title: 'Approved by the global demo override; evidence checks were skipped',
+  };
+  if (report.validationSummary?.decisionBasis === 'physical_support') return {
+    score: undefined, label: 'Physical support',
+    title: 'Storm conditions and location support flooding; reported depth is not independently proven',
+  };
+  const score = report.validationSummary?.decisionBasis === 'original_observations'
+    ? report.validationSummary.corroboratingSourceCount : undefined;
   return {
     score,
-    label: 'Evidence points',
-    title: score == null ? 'Awaiting evidence assessment' : `Evidence points: ${score}`,
+    label: score == null ? report.validationSummary ? 'Reassessment needed' : 'Awaiting assessment' : 'Corroborating sources',
+    title: score == null ? report.validationSummary ? 'Saved assessment used retired rules; request reassessment' : 'Awaiting evidence assessment' : `${score} corroborating observation sources`,
   };
 }
 
@@ -122,14 +130,82 @@ export interface ValidationFlagMeta {
 }
 
 export const VALIDATION_FLAG_LABELS: Record<string, ValidationFlagMeta> = {
+  WARNING_ARCHIVE_UNAVAILABLE: {
+    label: 'PAGASA record incomplete', category: 'Weather', type: 'info',
+    description: 'No reliable record covers when flooding was observed. This cannot be treated as no warning.',
+  },
+  SHALLOW_MODELED_WATER: {
+    label: 'Model Shows Shallow Water', category: 'Simulation', type: 'info',
+    description: 'The uncorrected model estimates water below the 20 cm inundation display threshold. This is partial context, not a dry prediction or independent confirmation.',
+  },
+  CURRENT_CONDITIONS_UNSUPPORTED: {
+    label: 'Current Flood Support Missing', category: 'Evidence', type: 'danger',
+    description: 'Complete rainfall windows are below event thresholds, the baseline model shows no nearby water, and no relevant warning or direct evidence supports this report. Low terrain alone cannot establish flooding; new evidence can trigger reassessment.',
+  },
+  PHYSICALLY_SUPPORTED_REPORT: {
+    label: 'Physically Supported', category: 'Evidence', type: 'success',
+    description: 'Timely storm conditions and the location support acceptance. This is model-assisted operational evidence, not independent depth ground truth.',
+  },
+  LOCAL_FLOOD_WARNING: {
+    label: 'Relevant PAGASA Warning', category: 'Weather', type: 'info',
+    description: 'The warning type, affected area and validity cover this observation. Severity is not converted into measured rainfall.',
+  },
+  PAGASA_THUNDERSTORM_WATCH: {
+    label: 'Thunderstorm Watch Only', category: 'Weather', type: 'info',
+    description: 'Thunderstorms may develop. A watch does not establish active rainfall or flooding and cannot qualify a report for physical acceptance.',
+  },
+  PAGASA_WEATHER_NOTICE: {
+    label: 'Weather Notice Only', category: 'Weather', type: 'info',
+    description: 'General weather or thunderstorm information is context; it does not establish a qualifying flood event.',
+  },
+  WARNING_UNAVAILABLE: {
+    label: 'PAGASA Check Unavailable', category: 'Weather', type: 'info',
+    description: 'A matching bulletin check is unavailable for this observation. Missing warning data cannot be treated as a confirmed absence of warnings.',
+  },
+  LOW_CONNECTED_TERRAIN_CONTEXT: {
+    label: 'Low, Gentle Terrain', category: 'Terrain', type: 'info',
+    description: 'Low HAND and gentle slope support possible flooding during a storm. This proxy does not prove a routed water connection.',
+  },
+  DRY_EVENT_TERRAIN_CONTRADICTION: {
+    label: 'Dry Event and Unsuitable Terrain', category: 'Evidence', type: 'danger',
+    description: 'Complete dry rainfall windows, a dry baseline model and steep terrain high above drainage contradict this unsupported claim. Missing providers alone never establish this contradiction.',
+  },
+  UNSUPPORTED_REPORT: {
+    label: 'No Flood Evidence', category: 'Evidence', type: 'danger',
+    description: 'No independent flood observations, photo evidence or available physical flood context support this submission. New original evidence can trigger reassessment.',
+  },
+  NEAR_MODELED_INUNDATION: {
+    label: 'Within or Near Modeled Flooding', category: 'Simulation', type: 'info',
+    description: 'Uncorrected modeled inundation is at this location or within a provisional 100 m buffer. This supports plausibility, not independent verification.',
+  },
+  MODELED_INUNDATION_PRESENT: {
+    label: 'Model Predicts Flooding Here', category: 'Simulation', type: 'info',
+    description: 'The baseline model predicts at least 20 cm of water. This is physical context, not an independent witness.',
+  },
+  PHYSICAL_PLAUSIBILITY_ONLY: {
+    label: 'Previous Physical Context Assessment', category: 'Evidence', type: 'info',
+    description: 'An earlier assessment retained this report for review. Request reassessment against current evidence.',
+  },
+  SCENARIO_RAINFALL_CONTEXT: {
+    label: 'Synthetic Storm Rainfall', category: 'Weather', type: 'info',
+    description: 'Rainfall from the selected demonstration storm, not an observed weather measurement.',
+  },
+  UNSUPPORTED_DRY_REPORT: {
+    label: 'Unsupported During Dry Conditions', category: 'General', type: 'warning',
+    description: 'Fresh, complete rainfall estimates indicate dry conditions and the submission has no verifiable observation evidence, photo or corroboration. This is an intake rejection, not proof of a dry street.',
+  },
+  DEMO_AUTO_VALIDATED: {
+    label: 'Demo Approval — Checks Skipped', category: 'General', type: 'warning',
+    description: 'Global demo auto-validation was enabled for this submission. This approval does not establish flood or measurement accuracy.',
+  },
   // Consensus / Peer Corroboration
 
   // Hydrodynamic Simulation
   SIMULATION_MATCH: {
-    label: 'Model Supports Depth',
+    label: 'Model Agrees',
     category: 'Simulation',
-    description: 'Flood model shows water here, within 20 cm of the reported depth.',
-    type: 'success',
+    description: 'The model predicts inundation here, within 40 cm of the reported depth. This is diagnostic context.',
+    type: 'info',
   },
   SIMULATION_ACCEPTABLE_VARIANCE: {
     label: 'Model Roughly Matches',
@@ -141,7 +217,7 @@ export const VALIDATION_FLAG_LABELS: Record<string, ValidationFlagMeta> = {
     label: 'Model Shows No Water',
     category: 'Simulation',
     description:
-      'Model is dry here — it neither confirms nor refutes a modest claim, and earns no simulation credit.',
+      'The model predicts no inundation here. This does not independently prove that the report is false.',
     type: 'info',
   },
   SIMULATION_DIVERGENCE: {
@@ -277,10 +353,27 @@ export const VALIDATION_FLAG_LABELS: Record<string, ValidationFlagMeta> = {
 };
 
 export function formatValidationFlag(flag: string): ValidationFlagMeta {
+  if (flag === 'PEER_DEPTH_VARIATION') return {
+    label: 'Reported Depths Vary', category: 'Consensus', type: 'warning',
+    description: 'Nearby observations report different depths. They corroborate flooding, not a precise shared depth.',
+  };
   if (VALIDATION_FLAG_LABELS[flag]) {
     return VALIDATION_FLAG_LABELS[flag];
   }
 
+  const originalSources = flag.match(/^ORIGINAL_OBSERVATION_SOURCES_(\d+)$/);
+  if (originalSources) return {
+    label: `${originalSources[1]} Corroborating Sources`, category: 'Consensus', type: 'success',
+    description: 'Distinct original observations corroborate flooding, not numeric depth accuracy.',
+  };
+  if (flag === 'SIMULATION_DIFFERS') return {
+    label: 'Model Differs', category: 'General', type: 'info',
+    description: 'A model difference is diagnostic context; it does not invalidate the observation.',
+  };
+  if (flag === 'HEAVY_RAINFALL_CONTEXT') return {
+    label: 'Recent Heavy Rain', category: 'General', type: 'info',
+    description: 'Observed rainfall estimates support flood plausibility, not a particular water depth.',
+  };
   const independentPeers = flag.match(/^INDEPENDENT_PEERS_(\d+)$/);
   if (independentPeers) {
     return {

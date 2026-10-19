@@ -30,10 +30,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const body = await response.json().catch(() => null);
 
   if (!response.ok) {
-    const detail =
-      body && typeof body === 'object' && 'detail' in body
-        ? String(body.detail)
-        : null;
+    const fieldDetails = body && typeof body === 'object' && 'errors' in body && Array.isArray(body.errors)
+      ? body.errors.map((entry: unknown) => entry && typeof entry === 'object' && 'message' in entry ? String(entry.message) : '')
+        .filter(Boolean).join('; ')
+      : '';
+    const rawDetail: unknown = body && typeof body === 'object' && 'detail' in body ? body.detail : null;
+    const detail = fieldDetails || (typeof rawDetail === 'string' ? rawDetail : Array.isArray(rawDetail)
+      ? rawDetail.map(entry => entry && typeof entry === 'object' && 'msg' in entry ? String(entry.msg) : '')
+        .filter(Boolean).join('; ')
+      : null);
 
     if (response.status === 429) {
       throw new RateLimitedError(

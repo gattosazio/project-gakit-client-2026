@@ -1,5 +1,7 @@
 'use client';
 
+import { locationFromGps } from '@/lib/reports/observationMetadata';
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
@@ -63,7 +65,7 @@ export function PublicViewPage({
   const [locationPromptMode, setLocationPromptMode] = useState<'assessment' | 'report'>('assessment');
   const [isManualLocationMode, setIsManualLocationMode] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
-  const [mapDisplay, setMapDisplay] = useState<MapDisplaySettings & { showBarangayBoundaries: boolean; ready: boolean }>({ basemap: 'light', mode: '2d', showBuildings: true, showBarangayBoundaries: false, ready: false });
+  const [mapDisplay, setMapDisplay] = useState<MapDisplaySettings & { showBarangayBoundaries: boolean; ready: boolean }>({ basemap: 'light', mode: '2d', showBuildings: true, showRoads: false, showBarangayBoundaries: false, ready: false });
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
@@ -274,7 +276,7 @@ export function PublicViewPage({
       }
 
       setWithinCity(within);
-      setSelectedLocation({ lat: location.lat, lng: location.lng, address: finalAddress });
+      setSelectedLocation({ ...location, address: finalAddress });
       setIsReportModalOpen(false);
       setIsAssessmentOpen(true);
     },
@@ -301,7 +303,7 @@ export function PublicViewPage({
       }
 
       setWithinCity(within);
-      setSelectedLocation({ lat: location.lat, lng: location.lng, address: finalAddress });
+      setSelectedLocation({ ...location, address: finalAddress });
       setIsAssessmentOpen(false);
       setIsReportModalOpen(true);
     },
@@ -367,11 +369,7 @@ export function PublicViewPage({
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude } = position.coords;
-          const fallbackLocation = {
-            lat: latitude,
-            lng: longitude,
-            address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`,
-          };
+          const fallbackLocation = locationFromGps(position);
 
           // Close the prompt only once we actually have a fix, so the
           // locating state in the button is the visible feedback meanwhile.
@@ -388,8 +386,7 @@ export function PublicViewPage({
           }
 
           const targetLocation = {
-            lat: latitude,
-            lng: longitude,
+            ...fallbackLocation,
             address: resolvedAddress,
           };
           setSelectedLocation(targetLocation);
@@ -550,9 +547,11 @@ export function PublicViewPage({
   }, []);
 
   const handleReportSubmit = async (data: {
-    location: { lat: number; lng: number };
+    location: SelectedLocation;
     depth: CreateReportInput['depth'];
     depthCm: number;
+    observation: CreateReportInput['observation'];
+    observedAt: string;
     reference: { id: FloodReference; label: string; landmark: string };
     photo?: PreparedPhoto;
   }): Promise<void> => {
@@ -569,7 +568,7 @@ export function PublicViewPage({
     }
     const fallbackAddress = `${data.location.lat.toFixed(4)}, ${data.location.lng.toFixed(4)}`;
 
-    const report: Report = await createReport({
+    let report: Report = await createReport({
       location: {
         latitude: data.location.lat,
         longitude: data.location.lng,
@@ -577,14 +576,17 @@ export function PublicViewPage({
       },
       depth: data.depth,
       depthCm: data.depthCm,
+      observation: data.observation,
+      observedAt: data.observedAt,
       reference: data.reference.id,
     });
+    const receiptToken = report.photoUploadToken;
 
     // The report exists at this point, so a failed photo upload is reported but
     // never rolls the submission back.
     if (data.photo) {
       try {
-        await uploadReportPhoto(report.id, data.photo.blob);
+        report = await uploadReportPhoto(report.id, data.photo.blob, undefined, receiptToken);
       } catch (uploadError) {
         console.error('Report photo upload failed:', uploadError);
         toast.error(
@@ -605,6 +607,9 @@ export function PublicViewPage({
       depthCm: report.depthCm,
       reference: data.reference,
       status: report.status,
+      decisionSource: report.decisionSource,
+      validationSummary: report.validationSummary,
+      photoUploadToken: receiptToken,
       submittedAt: new Date(report.createdAt).toLocaleString(),
     });
 
@@ -619,7 +624,9 @@ export function PublicViewPage({
           onModeChange={value => mapRef.current?.setMapMode(value)}
           onBarangayBoundariesChange={value => mapRef.current?.setBarangayBoundariesVisible(value)}
           onSmoothingChange={value => mapRef.current?.setPolygonSmoothing(value)}
-          onBuildingsChange={value => mapRef.current?.setBuildingsVisible(value)} />}
+          onBuildingsChange={value => mapRef.current?.setBuildingsVisible(value)}
+          onRoadsChange={value => mapRef.current?.setRoadsVisible(value)}
+          onFocusRoadsChange={value => mapRef.current?.setFocusRoads(value)} />}
         activeSection={activeSection}
         initialAuth={initialAuth}
         onNavigateSection={scrollToSection}

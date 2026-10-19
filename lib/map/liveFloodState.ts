@@ -31,6 +31,22 @@ export function formatFloodMetric(value: number | null | undefined, digits: numb
   return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(digits) : '—';
 }
 
+export function liveModelNotice(frame?: LiveFrame): string {
+  if (frame?.report_update_count) return 'Experimental local observation update. It does not forecast water movement.';
+  if (frame?.availability === 'ready') {
+    if (frame.dry_output_assumption === 'no_existing_floodwater' || frame.rainfall_support === 'dry_anchor') {
+      return 'The model assumes no existing floodwater for this dry output. Drainage and recession are unvalidated.';
+    }
+    if (frame.rainfall_support === 'below_wet_training') {
+      return 'Rainfall is below the wet training cases (110.4–179.4 mm/24h). Flood depth and timing are unvalidated.';
+    }
+    if (frame.rainfall_support === 'above_wet_training') {
+      return 'Rainfall exceeds the wet training cases (110.4–179.4 mm/24h). Flood depth and timing are unvalidated.';
+    }
+  }
+  return 'Spatial estimates trained on NOAH hazard classes. Flood arrival, recession and exact depths are unvalidated.';
+}
+
 export function scenarioFrame(frame: LiveFrame, index: number): ScenarioFrame {
   return {
     hour_index: index, raw_time: frame.valid_at,

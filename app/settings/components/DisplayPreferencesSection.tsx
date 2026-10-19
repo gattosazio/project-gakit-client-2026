@@ -61,6 +61,12 @@ export function DisplayPreferencesSection() {
         checked={prefs.enableBuildings}
         onChange={scenarioDisplayStore.setEnableBuildings}
       />
+      <Switch
+        label="Road network"
+        description="Highlight the Iligan road network in the scenario view."
+        checked={prefs.enableRoads}
+        onChange={scenarioDisplayStore.setEnableRoads}
+      />
 
       <div className="flex justify-end">
         <button

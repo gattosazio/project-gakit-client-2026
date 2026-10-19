@@ -4,23 +4,28 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { BASEMAP_LABELS, type BasemapId } from '@/constants/publicMap';
 
-export interface MapDisplaySettings { basemap: BasemapId; mode: '2d' | '3d'; showBuildings: boolean; smoothPolygons?: boolean }
+export interface MapDisplaySettings { basemap: BasemapId; mode: '2d' | '3d'; showBuildings: boolean; smoothPolygons?: boolean; showRoads?: boolean; focusRoads?: boolean }
 
 // Static thumbnails captured from the real basemaps (scripts/generate-basemap-previews.cjs)
 // around Iligan City. They are only fetched when this popover opens and cost
 // nothing on page load — no extra map instances or tile requests.
 const BASEMAP_PREVIEWS: Array<{ value: BasemapId; src: string }> = [
   { value: 'light', src: '/images/basemap-previews/light.webp' },
+  { value: 'bright', src: '/images/basemap-previews/bright.webp' },
+  { value: 'dark', src: '/images/basemap-previews/dark.webp' },
   { value: 'satellite', src: '/images/basemap-previews/satellite.webp' },
 ];
 
-export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChange, onModeChange, onBuildingsChange, smoothPolygons = true, onSmoothingChange, showBarangayBoundaries = false, onBarangayBoundariesChange, disabled = false, className = '', placement = 'below', compact = false }: MapDisplaySettings & {
+export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChange, onModeChange, onBuildingsChange, smoothPolygons = true, onSmoothingChange, showBarangayBoundaries = false, onBarangayBoundariesChange, showRoads = false, onRoadsChange, focusRoads = false, onFocusRoadsChange, disabled = false, className = '', placement = 'below', compact = false }: MapDisplaySettings & {
   onBasemapChange: (basemap: BasemapId) => void;
   onModeChange: (mode: '2d' | '3d') => void;
   onBuildingsChange: (visible: boolean) => void;
   onSmoothingChange?: (smooth: boolean) => void;
   showBarangayBoundaries?: boolean;
   onBarangayBoundariesChange?: (visible: boolean) => void;
+  showRoads?: boolean;
+  onRoadsChange?: (visible: boolean) => void;
+  onFocusRoadsChange?: (enabled: boolean) => void;
   disabled?: boolean;
   className?: string;
   placement?: 'above' | 'below';
@@ -79,6 +84,8 @@ export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChang
               { label: '3D view', description: 'Tilt the map and show terrain relief', checked: mode === '3d', change: (checked: boolean) => onModeChange(checked ? '3d' : '2d') },
               ...(onSmoothingChange ? [{ label: 'Polygon smoothing', description: 'Round hazard edges and blend simulation colors; visual only', checked: smoothPolygons, change: onSmoothingChange }] : []),
               { label: 'Buildings', description: 'Show building footprints or 3D structures', checked: showBuildings, change: onBuildingsChange },
+              ...(onRoadsChange ? [{ label: 'Roads', description: 'Highlight the mapped road network over the basemap', checked: showRoads, change: onRoadsChange }] : []),
+              ...(onFocusRoadsChange ? [{ label: 'Focus roads', description: 'Show flood colors along roads; hover for names and depths', checked: focusRoads, change: onFocusRoadsChange }] : []),
               ...(onBarangayBoundariesChange ? [{ label: 'Barangay boundaries', description: 'Show barangay borders and report summaries', checked: showBarangayBoundaries, change: onBarangayBoundariesChange }] : []),
             ].map(setting => <div key={setting.label} className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
               <div><p className="text-xs font-semibold">{setting.label}</p><p className="mt-0.5 text-[10px] leading-4 text-slate-400">{setting.description}</p></div>

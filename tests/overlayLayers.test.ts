@@ -78,6 +78,36 @@ describe('setupOverlayLayers himawari source', () => {
     expect(buildings!.spec.url).toBe('pmtiles:///data/iligan-buildings.pmtiles');
   });
 
+  it('matches overlay styling to the basemap palette (light vs dark)', async () => {
+    const maplibregl = { addProtocol: () => {} };
+
+    const lightRun = createMockMap();
+    const lightLayers: any[] = [];
+    lightRun.map.addLayer = (layer: any) => {
+      lightLayers.push(layer);
+    };
+    await setupOverlayLayers(lightRun.map, maplibregl, { ...baseState, mapMode: '3d' });
+
+    const lightCasing = lightLayers.find((l) => l.id === 'barangay-outline-casing');
+    expect(lightCasing?.paint['line-color']).toBe('rgba(255, 255, 255, 0.9)');
+    expect(lightLayers.some((l) => l.id === 'hillshade')).toBe(true);
+
+    const darkRun = createMockMap();
+    const darkLayers: any[] = [];
+    darkRun.map.addLayer = (layer: any) => {
+      darkLayers.push(layer);
+    };
+    await setupOverlayLayers(darkRun.map, maplibregl, {
+      ...baseState,
+      basemap: 'dark',
+      mapMode: '3d',
+    });
+
+    const darkCasing = darkLayers.find((l) => l.id === 'barangay-outline-casing');
+    expect(darkCasing?.paint['line-color']).toBe('rgba(0, 0, 0, 0.85)');
+    expect(darkLayers.some((l) => l.id === 'hillshade')).toBe(false);
+  });
+
   it('configures AWS Terrarium raster-dem source in 3D mode', async () => {
     const { map, addedSources } = createMockMap();
     const maplibregl = { addProtocol: () => {} };
@@ -114,6 +144,55 @@ describe('setupOverlayLayers himawari source', () => {
     expect(b3d.source).toBe('iligan-buildings');
     expect(b3d.layout.visibility).toBe('none');
     expect(b3d.paint['fill-extrusion-vertical-gradient']).toBe(false);
+  });
+
+  it('adds iligan-roads pmtiles vector source and line layers', async () => {
+    const { map, addedSources } = createMockMap();
+    const addedLayers: any[] = [];
+    map.addLayer = (layer: any) => {
+      addedLayers.push(layer);
+    };
+
+    const maplibregl = { addProtocol: () => {} };
+    await setupOverlayLayers(map, maplibregl, { ...baseState, showRoads: true });
+
+    const roads = addedSources.find((s) => s.id === 'iligan-roads');
+    expect(roads).toBeDefined();
+    expect(roads!.spec.type).toBe('vector');
+    expect(roads!.spec.url).toBe('pmtiles:///data/iligan-roads.pmtiles');
+
+    const casing = addedLayers.find((l) => l.id === 'iligan-roads-casing');
+    const major = addedLayers.find((l) => l.id === 'iligan-roads-major');
+    const minor = addedLayers.find((l) => l.id === 'iligan-roads-minor');
+
+    expect(casing?.type).toBe('line');
+    expect(casing?.layout.visibility).toBe('visible');
+    expect(major?.type).toBe('line');
+    expect(major?.source).toBe('iligan-roads');
+    expect(major?.layout.visibility).toBe('visible');
+    expect(minor?.type).toBe('line');
+    expect(minor?.layout.visibility).toBe('visible');
+  });
+
+  it('keeps road layers hidden when the roads toggle is off', async () => {
+    const { map } = createMockMap();
+    const addedLayers: any[] = [];
+    map.addLayer = (layer: any) => {
+      addedLayers.push(layer);
+    };
+
+    const maplibregl = { addProtocol: () => {} };
+    await setupOverlayLayers(map, maplibregl, { ...baseState, showRoads: false });
+
+    expect(
+      addedLayers.find((l) => l.id === 'iligan-roads-casing')?.layout.visibility
+    ).toBe('none');
+    expect(
+      addedLayers.find((l) => l.id === 'iligan-roads-major')?.layout.visibility
+    ).toBe('none');
+    expect(
+      addedLayers.find((l) => l.id === 'iligan-roads-minor')?.layout.visibility
+    ).toBe('none');
   });
 
   it('registers simulation-flood image source and raster layer with coordinates', async () => {

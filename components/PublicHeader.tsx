@@ -20,6 +20,7 @@ import { WeatherAlertModal } from './WeatherAlertModal';
 import { LocationSearch, type SearchedLocation } from '@/app/public-view/components/LocationSearch';
 import { HowToReportPopover } from '@/components/header/HowToReportPopover';
 import { UserNavMenu } from '@/components/header/UserNavMenu';
+import { ValidationModeBadge } from '@/components/header/ValidationModeBadge';
 import { BentoMenu } from './BentoMenu';
 import { getBentoTilesForRole } from '@/lib/navigation/bentoMenu';
 
@@ -269,6 +270,7 @@ export function PublicHeader({
     <>
     <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-6xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
       <div className="flex h-12 md:h-14 items-center justify-between px-3.5 md:px-5">
+        <ValidationModeBadge />
         {/* Left: Brand Logo & Title */}
         <div className="flex items-center gap-2 md:gap-3 min-w-0">
           {!showSectionNav && (

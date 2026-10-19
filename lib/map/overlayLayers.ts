@@ -15,10 +15,12 @@ import {
   HILLSHADE_EXAGGERATION,
   HILLSHADE_HIGHLIGHT_COLOR,
   HILLSHADE_SHADOW_COLOR,
+  isDarkBasemap,
   TERRAIN_EXAGGERATION,
   REPORT_MARKER_COLORS,
   REPORT_MARKER_IMAGE_IDS,
   REPORT_STATUS_LEGEND,
+  ROADS_PMTILES_URL,
   SURROGATE_SIMULATION_COORDINATES,
   SURROGATE_SIMULATION_PLACEHOLDER_DATA_URL,
 } from '@/constants/publicMap';
@@ -45,9 +47,17 @@ import { getFirstBasemapSymbolLayerId } from '@/lib/map/basemapLayers';
 import {
   addBuildingExtrusionLayer,
   addBuildingFootprintLayer,
+  applyBuildingBasemapPaint,
   BUILDING_EXTRUSION_LAYER_ID,
   BUILDING_FOOTPRINT_LAYER_ID,
 } from '@/lib/map/buildingLayers';
+import {
+  addRoadLayers,
+  applyRoadsVisibility,
+  ROAD_CASING_LAYER_ID,
+  ROAD_MAJOR_LAYER_ID,
+  ROAD_MINOR_LAYER_ID,
+} from '@/lib/map/roadLayers';
 import { ensurePmtilesProtocol } from '@/lib/map/pmtilesProtocol';
 
 export type MapMode = '2d' | '3d';
@@ -89,6 +99,7 @@ export interface OverlayLayerState {
   showTyphoonTrack?: boolean;
   showBarangayBoundaries?: boolean;
   showBuildings?: boolean;
+  showRoads?: boolean;
   smoothPolygons?: boolean;
   visibleRiskLevels: Record<string, boolean>;
   showLandslide: boolean;
@@ -855,12 +866,14 @@ export const setupOverlayLayers = async (
         'Boundaries: <a href="https://namria.gov.ph/" target="_blank" rel="noopener">NAMRIA / PSA</a>',
     });
 
-    const isSatellite = state.basemap === 'satellite';
+    // Dark palettes (Fiord, satellite imagery) need light strokes and labels
+    // for contrast; light street maps keep the darker tuned variants.
+    const isDark = isDarkBasemap(state.basemap);
     const boundaryColor = '#06b6d4';
-    const boundaryCasingColor = isSatellite ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.9)';
+    const boundaryCasingColor = isDark ? 'rgba(0, 0, 0, 0.85)' : 'rgba(255, 255, 255, 0.9)';
     const boundaryFillColor = '#06b6d4';
-    const labelColor = isSatellite ? '#22d3ee' : '#0891b2';
-    const labelHaloColor = isSatellite ? '#0f172a' : '#ffffff';
+    const labelColor = isDark ? '#22d3ee' : '#0891b2';
+    const labelHaloColor = isDark ? '#0f172a' : '#ffffff';
     const boundaryVisibility = (state.showBarangayBoundaries ?? false) ? 'visible' : 'none';
 
     // Choropleth fill tinted by each barangay's current worst depth. Data is
@@ -951,7 +964,7 @@ export const setupOverlayLayers = async (
         'fill-opacity': [
           'case',
           ['boolean', ['feature-state', 'hover'], false],
-          isSatellite ? 0.22 : 0.16,
+          isDark ? 0.22 : 0.16,
           0,
         ],
       },
@@ -965,9 +978,9 @@ export const setupOverlayLayers = async (
       data: { type: 'FeatureCollection', features: [] },
     });
 
-    const isSatellite = state.basemap === 'satellite';
-    const labelColor = isSatellite ? '#22d3ee' : '#0891b2';
-    const labelHaloColor = isSatellite ? '#0f172a' : '#ffffff';
+    const isDark = isDarkBasemap(state.basemap);
+    const labelColor = isDark ? '#22d3ee' : '#0891b2';
+    const labelHaloColor = isDark ? '#0f172a' : '#ffffff';
 
     map.addLayer({
       id: 'barangay-label',
@@ -1056,11 +1069,39 @@ export const setupOverlayLayers = async (
     }
   }
 
+  // Footprints/extrusions restyle for the active basemap palette (light vs dark).
+  applyBuildingBasemapPaint(map, state.basemap);
+
   // Keep visibility in sync when basemap/mode changes
   applyBuildingsVisibility(map, state.mapMode, state.showBuildings);
 
+  // --- Iligan road network (Overture transportation segments, PMTiles) ---
+  if (!map.getSource('iligan-roads')) {
+    map.addSource('iligan-roads', {
+      type: 'vector',
+      url: ROADS_PMTILES_URL,
+      attribution:
+        'Roads: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors, via <a href="https://overturemaps.org/" target="_blank" rel="noopener">Overture Maps</a>',
+    });
+  }
+
+  // Roads draw above the building footprints but beneath the basemap labels so
+  // street/place names stay readable. Styles without labels (Satellite) have
+  // no first symbol layer, so anchor beneath the report pins instead of
+  // stacking the roads over them.
+  const roadsBefore =
+    firstSymbolLayer ?? (map.getLayer('report-clusters') ? 'report-clusters' : undefined);
+  if (
+    !map.getLayer(ROAD_CASING_LAYER_ID) &&
+    !map.getLayer(ROAD_MAJOR_LAYER_ID) &&
+    !map.getLayer(ROAD_MINOR_LAYER_ID)
+  ) {
+    addRoadLayers(map, 'iligan-roads', roadsBefore, state.showRoads ?? false);
+  }
+  applyRoadsVisibility(map, state.showRoads ?? false);
+
 // Guarantee layer stacking order:
-  // Light -> Buildings (under labels) -> Basemap Labels -> Himawari Satellite -> Flood Hazard -> Rainfall Grid -> Barangay -> PAR -> Typhoon Cone -> Typhoon Track -> Typhoon Points -> Report Pins
+  // Light -> Buildings (under labels) -> Roads (under labels) -> Basemap Labels -> Himawari Satellite -> Flood Hazard -> Rainfall Grid -> Barangay -> PAR -> Typhoon Cone -> Typhoon Track -> Typhoon Points -> Report Pins
   const orderedLayers = [
     'himawari-ir-layer',
     'flood-hazard-fill',
@@ -1109,10 +1150,12 @@ export const setupOverlayLayers = async (
     }
     map.setTerrain({ source: 'terrain', exaggeration: TERRAIN_EXAGGERATION });
 
-    // Subtle hillshade on Light (Positron) map to give depth and definition to white slopes.
-    // Omitted on Satellite since aerial photos already provide natural lighting and contrast.
-    const isSatellite = state.basemap === 'satellite';
-    if (!isSatellite) {
+    // Subtle hillshade on the light street styles (Positron, Bright) to give
+    // depth and definition to the pale slopes. Omitted on dark and satellite
+    // choices: Fiord is flat-shaded and aerial photos already provide natural
+    // lighting and contrast.
+    const showHillshade = !isDarkBasemap(state.basemap);
+    if (showHillshade) {
       if (!map.getLayer('hillshade')) {
         map.addLayer({
           id: 'hillshade',

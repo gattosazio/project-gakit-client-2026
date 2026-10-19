@@ -3,16 +3,21 @@ import { ILIGAN_BOUNDS } from '@/lib/map/geoUtils';
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 import type { ReportStatus } from '@/types/report';
 
-// 2D & 3D basemap — OpenFreeMap Positron (vector, no API key needed).
+// 2D & 3D basemaps — OpenFreeMap styles (vector, no API key needed).
 export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
+const OPENFREEMAP_BRIGHT_STYLE = 'https://tiles.openfreemap.org/styles/bright';
+const OPENFREEMAP_FIORD_STYLE = 'https://tiles.openfreemap.org/styles/fiord';
 
 // Flat basemap choices (orthogonal to the 2D/3D mode toggle).
-export type BasemapId = 'light' | 'satellite';
+export type BasemapId = 'light' | 'bright' | 'dark' | 'satellite';
 
 // Display names for the basemap switchers (MapViewToggle and the header's
 // map display popover) so every surface labels the choices identically.
+// Key order defines the button order everywhere.
 export const BASEMAP_LABELS: Record<BasemapId, string> = {
   light: 'Light',
+  bright: 'Bright',
+  dark: 'Dark',
   satellite: 'Satellite',
 };
 
@@ -41,8 +46,16 @@ const SATELLITE_STYLE: StyleSpecification = {
 
 export const BASEMAP_STYLES: Record<BasemapId, string | StyleSpecification> = {
   light: OPENFREEMAP_STYLE,
+  bright: OPENFREEMAP_BRIGHT_STYLE,
+  dark: OPENFREEMAP_FIORD_STYLE,
   satellite: SATELLITE_STYLE,
 };
+
+// Overlay painters query this to pick palette-aware colors: Fiord reads like
+// the satellite imagery (which needs light strokes/labels for contrast), while
+// Positron and Bright keep the dark strokes/labels tuned for light street maps.
+export const isDarkBasemap = (basemap: BasemapId | undefined): boolean =>
+  basemap === 'dark' || basemap === 'satellite';
 
 // AWS Open Data Terrarium raster DEM for 3D terrain.
 // Native Mapzen DEM resolution is ~30m (SRTM), which corresponds to zoom 12 (~37m/pixel in Iligan).
@@ -63,11 +76,39 @@ export const BUILDING_FILL_COLOR = '#dfdeda';
 export const BUILDING_FILL_OUTLINE_COLOR = '#d0ceca';
 export const BUILDING_FILL_OPACITY = 0.65;
 export const BUILDING_EXTRUSION_COLOR = '#dedcd7';
+// Dark-palette variants (Fiord): where the light tones sit slightly darker
+// than the pale street background, these lift slightly above the dark navy one.
+export const BUILDING_FILL_COLOR_DARK = '#55607a';
+export const BUILDING_FILL_OUTLINE_COLOR_DARK = '#67718a';
+export const BUILDING_EXTRUSION_COLOR_DARK = '#626d85';
 export const BUILDING_EXTRUSION_OPACITY = 0.75;
 export const BUILDING_EXTRUSION_HEIGHT = 6;
 export const BUILDING_EXTRUSION_BASE = 0;
 export const BUILDINGS_MIN_ZOOM = 13;
 export const BUILDINGS_PMTILES_URL = 'pmtiles:///data/iligan-buildings.pmtiles';
+
+// Iligan road network (Overture transportation segments) as PMTiles. Serve the
+// source from pipeline/data/raw/iligan_roads.geoparquet (server repo), keeping
+// road segments only (ferry/water routes dropped) inside the city region.
+// Regenerate with:
+//   tippecanoe -o iligan-roads.pmtiles -N "Iligan Roads" -Z10 -z16 \
+//     --drop-densest-as-needed --extend-zooms-if-still-dropping -l roads \
+//     --force iligan-roads.geojson
+// Widths follow the Positron hierarchy, but the colors deliberately don't: the
+// fuchsia ramp stands apart from the basemap streets on Light and from the
+// imagery on Satellite, while avoiding every hazard hue already on the map
+// (flood/rainfall blues, storm-surge amber/red, landslide browns, typhoon
+// rose, PAR amber).
+export const ROADS_PMTILES_URL = 'pmtiles:///data/iligan-roads.pmtiles';
+export const ROADS_MAJOR_MIN_ZOOM = 10;
+export const ROADS_MINOR_MIN_ZOOM = 12;
+export const ROAD_CASING_COLOR = '#701a75';
+export const ROAD_CASING_OPACITY = 0.85;
+export const ROAD_PRIMARY_COLOR = '#e879f9';
+export const ROAD_SECONDARY_COLOR = '#d946ef';
+export const ROAD_MAJOR_OPACITY = 0.95;
+export const ROAD_MINOR_COLOR = '#c026d3';
+export const ROAD_MINOR_OPACITY = 0.9;
 
 // Flattened 3D shading. MapLibre shades fill-extrusion walls with a vertical
 // gradient (darker at the base) and lights them from a default 0.5-intensity

@@ -9,6 +9,7 @@ import { BASEMAP_STYLES } from '@/constants/publicMap';
 import { reverseGeocode } from '@/lib/map/geoUtils';
 import { LocationSearch } from '@/app/public-view/components/LocationSearch';
 import type { SelectedLocation } from '@/types/report';
+import { adjustedReportLocation, locationFromGps } from '@/lib/reports/observationMetadata';
 import 'maplibre-gl/dist/maplibre-gl.css';
 
 export function ReportLocationPicker({ initialLocation, onClose, onConfirm }: {
@@ -18,6 +19,8 @@ export function ReportLocationPicker({ initialLocation, onClose, onConfirm }: {
 }) {
   const titleId = useId();
   const initial = useRef(initialLocation);
+  const gpsTarget = useRef<SelectedLocation | null>(null);
+  const origin = useRef(initialLocation);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const alive = useRef(false);
   const [container, setContainer] = useState<HTMLDivElement | null>(null);
@@ -45,7 +48,11 @@ export function ReportLocationPicker({ initialLocation, onClose, onConfirm }: {
       const center = map.getCenter();
       const current = ++generation;
       setMoving(false);
-      const location = { lat: center.lat, lng: center.lng, address: `${center.lat.toFixed(5)}, ${center.lng.toFixed(5)}` };
+      const target = gpsTarget.current;
+      const atGpsTarget = target && Math.abs(target.lat - center.lat) < 1e-7 && Math.abs(target.lng - center.lng) < 1e-7;
+      const location = atGpsTarget ? target : adjustedReportLocation(origin.current, center.lat, center.lng);
+      if (atGpsTarget) origin.current = target;
+      gpsTarget.current = null;
       setCandidate(location);
       void reverseGeocode(location.lat, location.lng).then(address => {
         if (alive.current && current === generation) setCandidate({ ...location, address });
@@ -61,6 +68,10 @@ export function ReportLocationPicker({ initialLocation, onClose, onConfirm }: {
     navigator.geolocation.getCurrentPosition(position => {
       if (!alive.current) return;
       setLocating(false);
+      const location = locationFromGps(position);
+      gpsTarget.current = location;
+      origin.current = location;
+      setCandidate(location);
       mapRef.current?.flyTo({ center: [position.coords.longitude, position.coords.latitude], zoom: 17 });
     }, () => {
       if (!alive.current) return;
