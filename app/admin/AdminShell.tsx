@@ -86,7 +86,7 @@ export function AdminShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50/80">
+    <div className="flex h-dvh overflow-hidden bg-slate-50/80">
       <SideBar
         activeTab={activeTab}
         items={adminFeatures}
@@ -104,7 +104,7 @@ export function AdminShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {
           showTopo
         />
 
-        <main className="flex-1 overflow-y-auto p-4 pb-20 md:px-7 md:py-6 lg:px-8 lg:pb-8">
+        <main className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:px-7 md:pt-6 lg:px-8 lg:pb-8">
           {/* All three tabs stay mounted and are toggled with `hidden`, so
               switching is instant and in-tab state (filters, page, scroll)
               survives. Each tab defers its own fetching via `active`. */}

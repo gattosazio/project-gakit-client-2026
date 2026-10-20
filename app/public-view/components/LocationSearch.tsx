@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { Loader2, Locate, MapPin, Search, X } from 'lucide-react';
 import { searchLocations } from '@/lib/map/geoUtils';
 import type { LocationSearchResult } from '@/lib/map/geoUtils';
@@ -8,6 +8,15 @@ export interface SearchedLocation {
   lng: number;
   address: string;
 }
+
+const mobileQuery = '(max-width: 767px)';
+const subscribeMobile = (onChange: () => void) => {
+  const query = window.matchMedia(mobileQuery);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+};
+const isMobileViewport = () => window.matchMedia(mobileQuery).matches;
+const serverViewport = () => false;
 
 export function LocationSearch({
   onSelect,
@@ -32,6 +41,7 @@ export function LocationSearch({
   const [isInternalLocating, setIsInternalLocating] = useState(false);
   const searchAbortRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const isMobile = useSyncExternalStore(subscribeMobile, isMobileViewport, serverViewport);
 
   const activeLocating = isLocating || isInternalLocating;
 
@@ -154,7 +164,7 @@ export function LocationSearch({
             } pr-1.5 py-1.5 hud-pill focus-within:ring-2 focus-within:ring-gakit-maroon/40 ${className}`
       }
     >
-      <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-1.5 md:gap-2">
+      <form onSubmit={handleSearch} className="flex h-full w-full items-center gap-1 md:gap-2">
         {onLocate ? (
           <button
             type="button"
@@ -163,7 +173,7 @@ export function LocationSearch({
             title="Locate my position (GPS)"
             aria-label={activeLocating ? 'Locating your device…' : 'Locate my position'}
             className={`flex shrink-0 items-center justify-center rounded-full text-slate-500 hover:text-gakit-maroon hover:bg-slate-200/80 active:scale-95 transition-all ${
-              isCompact ? 'h-6 w-6 md:h-7 md:w-7' : 'h-8 w-8 md:h-9 md:w-9'
+              isCompact ? 'hidden h-6 w-6 md:flex md:h-7 md:w-7' : 'h-8 w-8 md:h-9 md:w-9'
             } ${activeLocating ? 'text-gakit-maroon' : ''}`}
           >
             {activeLocating ? (
@@ -182,9 +192,9 @@ export function LocationSearch({
             setSearchError(null);
             setIsFocused(true);
           }}
-          placeholder={placeholder}
+          placeholder={isMobile && isCompact ? 'Search location' : placeholder}
           aria-label="Search for a location in Iligan City"
-          className="min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 truncate"
+          className={`min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 truncate ${isCompact ? 'text-center md:text-left' : ''}`}
         />
         {searchQuery && (
           <button
@@ -213,8 +223,8 @@ export function LocationSearch({
       </form>
 
       {showDropdown && (
-        <div className={`absolute z-50 mt-2 overflow-hidden hud-card left-1/2 -translate-x-1/2 top-full ${
-          isCompact ? 'w-[calc(100vw-2.5rem)] max-w-[340px] sm:max-w-[380px] md:w-96 md:max-w-none' : 'w-full'
+        <div className={`z-50 overflow-hidden hud-card ${
+          isCompact ? 'fixed inset-x-4 top-[4.5rem] mx-auto max-h-[calc(100dvh-11rem-env(safe-area-inset-bottom,0px))] max-w-[380px] overflow-y-auto overscroll-contain md:absolute md:inset-x-auto md:left-1/2 md:top-full md:mt-2 md:w-96 md:max-w-none md:-translate-x-1/2 md:max-h-[70dvh]' : 'absolute left-1/2 top-full mt-2 w-full -translate-x-1/2'
         }`}>
           {searchError && (
             <p

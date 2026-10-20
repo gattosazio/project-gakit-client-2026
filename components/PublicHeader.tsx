@@ -269,10 +269,10 @@ export function PublicHeader({
   return (
     <>
     <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-6xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
-      <div className="flex h-12 md:h-14 items-center justify-between px-3.5 md:px-5">
+      <div className="flex h-12 md:h-14 items-center justify-between px-2 md:px-5">
         <ValidationModeBadge />
         {/* Left: Brand Logo & Title */}
-        <div className="flex items-center gap-2 md:gap-3 min-w-0">
+        <div className="flex shrink-0 items-center gap-2 md:gap-3 min-w-0">
           {!showSectionNav && (
             <button
               type="button"
@@ -324,7 +324,7 @@ export function PublicHeader({
         </div>
 
         {/* Center: Title (for Scenario Simulator) OR Location Search (for Hazard Map) */}
-        <div className="flex flex-1 items-center justify-center px-2 min-w-0">
+        <div className="flex min-w-0 flex-1 items-center justify-center px-2">
           {!showSectionNav && (
             <div className="hidden md:inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-slate-100/80 px-3.5 py-1 shadow-xs backdrop-blur-sm">
               <Waves className="h-3.5 w-3.5 text-sky-600 shrink-0" />
@@ -341,7 +341,7 @@ export function PublicHeader({
               variant="header-compact"
               onSelect={onSearchSelect}
               onLocate={onLocate}
-              className="w-full max-w-md lg:max-w-lg"
+              className="w-full min-w-0 max-w-md lg:max-w-lg"
             />
           )}
         </div>
@@ -401,7 +401,7 @@ export function PublicHeader({
         </div>
 
         {/* Mobile top-right cluster */}
-        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1 md:hidden">
+        <div className="flex shrink-0 items-center gap-0.5 sm:gap-1 md:hidden [&>button]:h-8 [&>button]:min-w-8 [&>div>button]:h-8 [&>div>button]:min-w-8">
           {extraAction}
           {/* Show bento menu in top header only when bottom nav is absent (e.g. on /flood-scenarios) */}
           {showBentoMenu && !showBottomNav && (
@@ -465,7 +465,7 @@ export function PublicHeader({
     </header>
 
     {showBottomNav && (
-      <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-3 pb-2 md:hidden">
+      <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-3 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] md:hidden">
         <div className="pointer-events-auto mx-auto grid max-w-sm grid-cols-5 items-end gap-1 rounded-full border-0 bg-white/95 px-1.5 py-1 shadow-[0_6px_24px_-6px_rgba(15,23,42,0.18)] backdrop-blur-md">
           {/* 1. Map */}
           <button

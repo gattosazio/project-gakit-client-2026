@@ -17,7 +17,7 @@ export function MobileBottomNav<T extends string>({
   role?: StaffRole | null;
 }) {
   return (
-    <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-3 pb-2 lg:hidden">
+    <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-3 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] lg:hidden">
       <div className="pointer-events-auto mx-auto grid max-w-sm grid-cols-4 items-center gap-1 p-1.5 rounded-2xl bg-white/85 shadow-[0_12px_40px_rgba(15,23,42,0.12),inset_0_1px_0_0_rgba(255,255,255,0.9)] border border-white/60 ring-1 ring-slate-200/80 backdrop-blur-xl">
         {items.map((feature) => {
           const Icon = feature.icon;

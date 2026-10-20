@@ -157,7 +157,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50/80">
+    <div className="flex h-dvh overflow-hidden bg-slate-50/80">
       <SideBar
         activeTab={activeTab}
         items={monitoringFeatures}
@@ -175,7 +175,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           showTopo
           onNotificationClick={handleOpenNotification}
         />
-        <main className={`flex-1 overflow-y-auto overflow-x-hidden p-4 pb-20 md:px-7 lg:px-8 space-y-6 ${activeTab === 'dashboard' ? 'md:py-4 lg:pb-4' : 'md:py-6 lg:pb-8'}`}>
+        <main className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:px-7 lg:px-8 space-y-6 ${activeTab === 'dashboard' ? 'md:pt-4 lg:pb-4' : 'md:pt-6 lg:pb-8'}`}>
           <div className={activeTab === 'dashboard' ? 'min-w-0 space-y-4' : 'hidden'}>
             <DashboardOverview active={activeTab === 'dashboard'} onReviewReports={handleReviewReports} />
           </div>
