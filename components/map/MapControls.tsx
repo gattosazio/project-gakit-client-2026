@@ -929,13 +929,14 @@ export function DataLayerControls({
       }
     >
       <div className="space-y-1.5">
-        <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-          Hazard maps
-          <CoverageChip label="Lanao del Norte" detail="Covers Lanao del Norte only" />
-        </div>
+        <div data-tour="layers-hazards" className="space-y-1.5 scroll-mt-2">
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+            Hazard maps
+            <CoverageChip label="Lanao del Norte" detail="Covers Lanao del Norte only" />
+          </div>
 
-        <PillToggle
-          label="Flood"
+          <PillToggle
+            label="Flood"
           checked={showFloodHazard}
           onChange={onShowFloodHazardChange}
           credit={{
@@ -1019,7 +1020,9 @@ export function DataLayerControls({
             </div>
           </div>
         )}
+        </div>
 
+        <div data-tour="flood-simulation" className="space-y-1.5 scroll-mt-2">
         <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
           Flood simulation
           <CoverageChip label="Iligan City" detail="Estimated inundation based on rainfall" />
@@ -1052,6 +1055,7 @@ export function DataLayerControls({
             </div>
           </div>
         )}
+        </div>
 
         <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
           Weather &amp; Satellite

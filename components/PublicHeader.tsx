@@ -35,6 +35,7 @@ export function PublicHeader({
   showBottomNav = true,
   extraAction,
   onStartReport,
+  onStartTour,
 }: {
   activeSection?: 'hazard-map' | 'about';
   initialAuth?: AuthSnapshot;
@@ -44,6 +45,8 @@ export function PublicHeader({
   /** Starts the flood-reporting flow. When provided, a raised primary action
    *  button is centred in the mobile bottom nav. */
   onStartReport?: () => void;
+  /** Replays the guided map tour from the Platform Guide. */
+  onStartTour?: () => void;
   /** Adds the bento portals launcher left of the bell. */
   showBentoMenu?: boolean;
   /** Hides the About button and the account pill. For pages with no About
@@ -337,12 +340,14 @@ export function PublicHeader({
             </div>
           )}
           {onSearchSelect && (
-            <LocationSearch
-              variant="header-compact"
-              onSelect={onSearchSelect}
-              onLocate={onLocate}
-              className="w-full min-w-0 max-w-md lg:max-w-lg"
-            />
+            <div data-tour="search" className="w-full min-w-0 max-w-md lg:max-w-lg">
+              <LocationSearch
+                variant="header-compact"
+                onSelect={onSearchSelect}
+                onLocate={onLocate}
+                className="w-full min-w-0"
+              />
+            </div>
           )}
         </div>
 
@@ -374,6 +379,7 @@ export function PublicHeader({
                 setIsMenuOpen(false);
               }}
               onNavigateAbout={() => scrollToSection('about')}
+              onStartTour={onStartTour}
               containerRef={infoRef}
             />
             <NotificationBell
@@ -427,6 +433,7 @@ export function PublicHeader({
               setIsMenuOpen(false);
             }}
             onNavigateAbout={() => scrollToSection('about')}
+            onStartTour={onStartTour}
             containerRef={mobileInfoRef}
           />
           {!isChecking && (
@@ -500,6 +507,7 @@ export function PublicHeader({
               onClick={onStartReport}
               aria-label="Report flooding"
               title="Report flooding"
+              data-tour="report"
               className="flex w-full flex-col items-center justify-center gap-1 active:scale-95"
             >
               <span className="-mt-7 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_8px_20px_-4px_rgba(15,23,42,0.28)] ring-1 ring-slate-200/70">

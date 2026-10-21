@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { HazardAssessmentModal } from '@/components/HazardAssessmentModal';
 import { ReportModal } from '@/components/ReportModal';
+import { MapPin, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth, uploadReportPhoto } from './actions/publicView';
@@ -29,9 +30,23 @@ import {
 } from './components/SuccessModal';
 import { TopoBackground } from './components/TopoBackground';
 import {
-  FirstVisitGuide,
-  hasSeenFirstVisitGuide,
-} from '@/components/FirstVisitGuide';
+  OnboardingWelcome,
+  type OnboardingLocationStatus,
+} from '@/components/onboarding/OnboardingWelcome';
+import { MapTour } from '@/components/onboarding/MapTour';
+import { TOUR_STEPS } from '@/lib/onboarding/steps';
+import {
+  getGeolocationPermission,
+  requestCurrentPosition,
+} from '@/lib/map/geolocation';
+import {
+  isOnboardingComplete,
+  markAutoLocatedThisSession,
+  readOnboardingRecord,
+  saveOnboardingChoice,
+  wasAutoLocatedThisSession,
+  type OnboardingLocationChoice,
+} from '@/lib/onboarding/storage';
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
@@ -46,6 +61,7 @@ const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ 
 // Home comes first in the DOM, but the map is scrolled to on load so it opens first
 const SECTION_ORDER = ['hazard-map', 'about'] as const;
 type SectionId = (typeof SECTION_ORDER)[number];
+type OnboardingStage = 'closed' | 'welcome' | 'picking' | 'tour';
 
 const REPORT_STATUS_TOGGLE_STATUSES: ReportStatus[] = ['VERIFIED'];
 const DEFAULT_VISIBLE_REPORT_STATUSES: Partial<Record<ReportStatus, boolean>> = {
@@ -66,7 +82,6 @@ export function PublicViewPage({
   const [isManualLocationMode, setIsManualLocationMode] = useState(false);
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [mapDisplay, setMapDisplay] = useState<MapDisplaySettings & { showBarangayBoundaries: boolean; ready: boolean }>({ basemap: 'light', mode: '2d', showBuildings: true, showRoads: false, showBarangayBoundaries: false, ready: false });
-  const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
   const [withinCity, setWithinCity] = useState<boolean | null>(null);
@@ -79,8 +94,25 @@ export function PublicViewPage({
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Fetching reports…');
   const [rainfallHours, setRainfallHours] = useState(1);
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('closed');
+  const [onboardingLocationStatus, setOnboardingLocationStatus] =
+    useState<OnboardingLocationStatus>('checking');
+  const [onboardingAddress, setOnboardingAddress] = useState<string | null>(null);
+  const [onboardingError, setOnboardingError] = useState<string | null>(null);
+  const [tourStepIndex, setTourStepIndex] = useState(0);
   const mapRef = useRef<PublicMapHandle | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const onboardingStageRef = useRef<OnboardingStage>('closed');
+  const onboardingChoiceRef = useRef<OnboardingLocationChoice | null>(null);
+  const onboardingInitializedRef = useRef(false);
+  const onboardingRequestRef = useRef(0);
+  const lastOnboardingPickRef = useRef<{ key: string; at: number } | null>(null);
+
+  const updateOnboardingStage = useCallback((stage: OnboardingStage) => {
+    onboardingStageRef.current = stage;
+    setOnboardingStage(stage);
+  }, []);
 
   useEffect(() => {
     if (!isLoadingReports) return;
@@ -310,7 +342,18 @@ export function PublicViewPage({
     [withPreparing]
   );
 
+  const abandonOnboardingPickForReport = useCallback(() => {
+    if (onboardingStageRef.current !== 'picking') return;
+    const choice =
+      readOnboardingRecord()?.locationChoice ?? onboardingChoiceRef.current ?? 'skipped';
+    onboardingChoiceRef.current = choice;
+    saveOnboardingChoice(choice);
+    setIsManualLocationMode(false);
+    updateOnboardingStage('closed');
+  }, [updateOnboardingStage]);
+
   const handleStartReport = useCallback(() => {
+    abandonOnboardingPickForReport();
     scrollToMap();
     if (selectedLocation) {
       void openReportModalFor(selectedLocation);
@@ -319,39 +362,215 @@ export function PublicViewPage({
     setLocationPromptMode('report');
     setIsManualLocationMode(false);
     setIsLocationPromptOpen(true);
-  }, [openReportModalFor, scrollToMap, selectedLocation]);
+  }, [abandonOnboardingPickForReport, openReportModalFor, scrollToMap, selectedLocation]);
 
-  const hasOpenedPromptRef = useRef(false);
-
-  // Open the location prompt only once on first load when the map is ready
   const handleMapReady = useCallback(() => {
-    if (!hasOpenedPromptRef.current) {
-      hasOpenedPromptRef.current = true;
-      // A first-time visitor gets the orientation guide instead of the location
-      // prompt — two competing modals on arrival is what confused the team.
-      if (!hasSeenFirstVisitGuide()) {
-        setIsGuideOpen(true);
-        try {
-          sessionStorage.setItem('gakit:location-prompt-shown', 'true');
-        } catch {
-          /* storage unavailable; harmless */
-        }
-      } else {
-        try {
-          const alreadyShown = sessionStorage.getItem('gakit:location-prompt-shown');
-          if (!alreadyShown) {
-            setLocationPromptMode('assessment');
-            setIsLocationPromptOpen(true);
-            sessionStorage.setItem('gakit:location-prompt-shown', 'true');
-          }
-        } catch {
-          setLocationPromptMode('assessment');
-          setIsLocationPromptOpen(true);
-        }
-      }
-    }
+    setIsMapReady(true);
     setRainfallHours(mapRef.current?.getRainfallHours?.() ?? 1);
-  }, [setRainfallHours]);
+  }, []);
+
+  const rememberOnboardingChoice = useCallback((choice: OnboardingLocationChoice) => {
+    onboardingChoiceRef.current = choice;
+    saveOnboardingChoice(choice);
+  }, []);
+
+  const beginOnboardingTour = useCallback(() => {
+    setTourStepIndex(0);
+    updateOnboardingStage('tour');
+  }, [updateOnboardingStage]);
+
+  const finishOnboarding = useCallback(() => {
+    const choice =
+      readOnboardingRecord()?.locationChoice ?? onboardingChoiceRef.current ?? 'skipped';
+    rememberOnboardingChoice(choice);
+    lastOnboardingPickRef.current = null;
+    updateOnboardingStage('closed');
+  }, [rememberOnboardingChoice, updateOnboardingStage]);
+
+  const handleOnboardingUseLocation = useCallback(async () => {
+    // A permission check started before the visitor dismissed the welcome card
+    // must not reopen it after they have moved on.
+    if (onboardingStageRef.current !== 'welcome') return;
+
+    const requestId = ++onboardingRequestRef.current;
+    updateOnboardingStage('welcome');
+    setOnboardingLocationStatus('locating');
+    setOnboardingError(null);
+    setOnboardingAddress(null);
+
+    const result = await requestCurrentPosition();
+    if (requestId !== onboardingRequestRef.current) return;
+
+    if (!result.ok) {
+      setOnboardingLocationStatus(
+        result.error.code === 'denied'
+          ? 'denied'
+          : result.error.code === 'unsupported'
+            ? 'unsupported'
+            : 'error'
+      );
+      setOnboardingError(result.error.message);
+      return;
+    }
+
+    const gpsLocation = locationFromGps(result.position);
+    let within: boolean | null = null;
+    try {
+      within = await isWithinIligan(gpsLocation.lat, gpsLocation.lng);
+    } catch {
+      within = null;
+    }
+    if (requestId !== onboardingRequestRef.current) return;
+
+    let address = gpsLocation.address;
+    try {
+      address = (await reverseGeocode(gpsLocation.lat, gpsLocation.lng)) || address;
+    } catch {
+      /* keep the coordinate fallback */
+    }
+    if (requestId !== onboardingRequestRef.current) return;
+
+    const resolvedLocation = { ...gpsLocation, address };
+    setOnboardingAddress(address);
+    setOnboardingError(null);
+
+    if (within === false) {
+      // The map is clamped to Iligan City. Explain the mismatch instead of
+      // dropping the visitor outside the usable area.
+      setSelectedLocation(null);
+      setWithinCity(false);
+      setOnboardingLocationStatus('outside');
+      return;
+    }
+
+    setSelectedLocation(resolvedLocation);
+    setWithinCity(within);
+    mapRef.current?.focusLocation(resolvedLocation);
+    setOnboardingLocationStatus('ready');
+    rememberOnboardingChoice('gps');
+  }, [rememberOnboardingChoice, updateOnboardingStage]);
+
+  const handleOnboardingChooseMap = useCallback(() => {
+    setIsManualLocationMode(true);
+    setIsLocationPromptOpen(false);
+    updateOnboardingStage('picking');
+    scrollToMap();
+  }, [scrollToMap, updateOnboardingStage]);
+
+  const handleOnboardingCancelPick = useCallback(() => {
+    setIsManualLocationMode(false);
+    updateOnboardingStage('welcome');
+  }, [updateOnboardingStage]);
+
+  const handleOnboardingSkipLocation = useCallback(() => {
+    rememberOnboardingChoice('skipped');
+    setIsManualLocationMode(false);
+    beginOnboardingTour();
+  }, [beginOnboardingTour, rememberOnboardingChoice]);
+
+  const handleOnboardingStartTour = useCallback(() => {
+    if (!readOnboardingRecord()) {
+      rememberOnboardingChoice(onboardingChoiceRef.current ?? 'skipped');
+    }
+    setIsManualLocationMode(false);
+    beginOnboardingTour();
+  }, [beginOnboardingTour, rememberOnboardingChoice]);
+
+  const handleOnboardingExplore = useCallback(() => {
+    const choice =
+      readOnboardingRecord()?.locationChoice ?? onboardingChoiceRef.current ?? 'skipped';
+    rememberOnboardingChoice(choice);
+    setIsManualLocationMode(false);
+    updateOnboardingStage('closed');
+  }, [rememberOnboardingChoice, updateOnboardingStage]);
+
+  const startMapTour = useCallback(() => {
+    if (!isMapReady) {
+      scrollToMap();
+      toast.info('The map is still loading. Try the tour again in a moment.', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+    scrollToMap();
+    beginOnboardingTour();
+  }, [beginOnboardingTour, isMapReady, scrollToMap]);
+
+  const autoLocateSavedGps = useCallback(async () => {
+    if (wasAutoLocatedThisSession()) return;
+    markAutoLocatedThisSession();
+
+    const permission = await getGeolocationPermission();
+    if (permission !== 'granted') return;
+
+    const result = await requestCurrentPosition();
+    if (!result.ok) return;
+
+    const gpsLocation = locationFromGps(result.position);
+    try {
+      const within = await isWithinIligan(gpsLocation.lat, gpsLocation.lng);
+      if (within === false) return;
+    } catch {
+      /* if the boundary check fails, let the map clamp the camera */
+    }
+
+    setSelectedLocation(gpsLocation);
+    mapRef.current?.focusLocation(gpsLocation);
+    try {
+      const address = await reverseGeocode(gpsLocation.lat, gpsLocation.lng);
+      if (address) setSelectedLocation({ ...gpsLocation, address });
+    } catch {
+      /* coordinate fallback is enough */
+    }
+  }, []);
+
+  // First-visit onboarding. Wait until the map is mounted so GPS can center it,
+  // and defer if the visitor landed directly on the About section.
+  /* eslint-disable react-hooks/set-state-in-effect -- first-visit browser state */
+  useEffect(() => {
+    if (!isMapReady || onboardingInitializedRef.current) return;
+    if (activeSection !== 'hazard-map') return;
+    if (typeof window !== 'undefined' && window.location.hash === '#about') return;
+
+    onboardingInitializedRef.current = true;
+    const record = readOnboardingRecord();
+
+    if (isOnboardingComplete()) {
+      if (record?.locationChoice === 'gps') {
+        queueMicrotask(() => {
+          void autoLocateSavedGps();
+        });
+      }
+      return;
+    }
+
+    setOnboardingAddress(null);
+    setOnboardingError(null);
+    setOnboardingLocationStatus('checking');
+    updateOnboardingStage('welcome');
+
+    void getGeolocationPermission().then((permission) => {
+      if (permission === 'granted') {
+        // Permission already exists, so this does not need a fresh gesture and
+        // will not show a browser prompt.
+        void handleOnboardingUseLocation();
+      } else if (permission === 'denied') {
+        setOnboardingLocationStatus('denied');
+      } else if (permission === 'unsupported') {
+        setOnboardingLocationStatus('unsupported');
+      } else {
+        setOnboardingLocationStatus('idle');
+      }
+    });
+  }, [
+    activeSection,
+    autoLocateSavedGps,
+    handleOnboardingUseLocation,
+    isMapReady,
+    updateOnboardingStage,
+  ]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleUseCurrentLocation = useCallback(() => {
     const isReportMode = locationPromptMode === 'report';
@@ -444,6 +663,45 @@ export function PublicViewPage({
 
   const handleLocationSelect = useCallback(
     (location: SelectedLocation) => {
+      const pickKey = `${location.lat.toFixed(5)},${location.lng.toFixed(5)}`;
+      const lastPick = lastOnboardingPickRef.current;
+      if (
+        lastPick &&
+        lastPick.key === pickKey &&
+        (Date.now() - lastPick.at < 2500 || onboardingStageRef.current === 'tour')
+      ) {
+        // Map taps emit a raw coordinate and then a reverse-geocoded copy of the
+        // same point. The first pick starts the tour; the second only refines
+        // the address instead of opening the assessment modal over the tour.
+        setSelectedLocation((prev) => {
+          if (!prev) return location;
+          const samePoint =
+            Math.abs(prev.lat - location.lat) < 1e-3 &&
+            Math.abs(prev.lng - location.lng) < 1e-3;
+          if (
+            samePoint &&
+            isRawCoordinateString(prev.address) &&
+            !isRawCoordinateString(location.address)
+          ) {
+            return { ...prev, address: location.address };
+          }
+          return prev;
+        });
+        return;
+      }
+
+      if (onboardingStageRef.current === 'picking') {
+        lastOnboardingPickRef.current = { key: pickKey, at: Date.now() };
+        setSelectedLocation(location);
+        setWithinCity(null);
+        setIsLocationPromptOpen(false);
+        setIsManualLocationMode(false);
+        setLocationPromptMode('assessment');
+        rememberOnboardingChoice('map');
+        beginOnboardingTour();
+        return;
+      }
+
       if (isReportModalOpen) {
         setSelectedLocation((prev) => {
           if (!prev) return location;
@@ -488,17 +746,34 @@ export function PublicViewPage({
       void openAssessmentModalFor(location);
     },
     [
+      beginOnboardingTour,
       isAssessmentOpen,
       isManualLocationMode,
       isReportModalOpen,
       locationPromptMode,
       openAssessmentModalFor,
       openReportModalFor,
+      rememberOnboardingChoice,
     ]
   );
 
   const handleSearchedLocationSelect = useCallback(
     (location: SelectedLocation) => {
+      if (onboardingStageRef.current === 'picking') {
+        lastOnboardingPickRef.current = {
+          key: `${location.lat.toFixed(5)},${location.lng.toFixed(5)}`,
+          at: Date.now(),
+        };
+        setSelectedLocation(location);
+        setWithinCity(null);
+        setIsLocationPromptOpen(false);
+        setIsManualLocationMode(false);
+        setLocationPromptMode('assessment');
+        mapRef.current?.focusLocation(location);
+        rememberOnboardingChoice('map');
+        beginOnboardingTour();
+        return;
+      }
       if (isAssessmentOpen || isReportModalOpen) return;
       setIsLocationPromptOpen(false);
       mapRef.current?.focusLocation(location);
@@ -510,11 +785,13 @@ export function PublicViewPage({
       }
     },
     [
+      beginOnboardingTour,
       isAssessmentOpen,
       isReportModalOpen,
       locationPromptMode,
       openAssessmentModalFor,
       openReportModalFor,
+      rememberOnboardingChoice,
     ]
   );
 
@@ -634,6 +911,7 @@ export function PublicViewPage({
         onLocate={handleLocate}
         showBentoMenu
         onStartReport={handleStartReport}
+        onStartTour={startMapTour}
       />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
@@ -675,6 +953,8 @@ export function PublicViewPage({
                   hideBarangayBoundariesToggle
                   hideShareLocation
                   onStartReport={handleStartReport}
+                  tourActive={onboardingStage === 'tour'}
+                  tourPanel={TOUR_STEPS[tourStepIndex]?.panel ?? null}
                 />
               </div>
             </div>
@@ -728,6 +1008,30 @@ export function PublicViewPage({
           </section>
       </main>
       </div>
+
+      {onboardingStage === 'picking' && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed left-1/2 top-20 z-[1250] flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 items-center gap-2.5 rounded-2xl border border-slate-200 bg-white/95 px-3 py-2.5 shadow-lg backdrop-blur-md"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-maroon-50 text-gakit-maroon">
+            <MapPin className="h-4 w-4" aria-hidden />
+          </span>
+          <p className="min-w-0 flex-1 text-xs leading-4 text-slate-600">
+            <span className="font-semibold text-slate-900">Pick a place on the map.</span>{' '}
+            Search above or tap anywhere to start the tour there.
+          </p>
+          <button
+            type="button"
+            onClick={handleOnboardingCancelPick}
+            aria-label="Cancel map selection"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+      )}
 
       <LocationPromptModal
         isOpen={isLocationPromptOpen}
@@ -788,7 +1092,30 @@ export function PublicViewPage({
         onClose={() => setIsSuccessOpen(false)}
       />
 
-      <FirstVisitGuide isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
+      <OnboardingWelcome
+        isOpen={onboardingStage === 'welcome'}
+        status={onboardingLocationStatus}
+        address={onboardingAddress}
+        errorMessage={onboardingError}
+        onUseLocation={() => void handleOnboardingUseLocation()}
+        onChooseMap={handleOnboardingChooseMap}
+        onStartTour={handleOnboardingStartTour}
+        onExplore={handleOnboardingExplore}
+        onSkipLocation={handleOnboardingSkipLocation}
+        onDismiss={handleOnboardingExplore}
+      />
+
+      <MapTour
+        isOpen={onboardingStage === 'tour'}
+        stepIndex={tourStepIndex}
+        onStepChange={setTourStepIndex}
+        onClose={finishOnboarding}
+        onFinish={finishOnboarding}
+        onReport={() => {
+          finishOnboarding();
+          handleStartReport();
+        }}
+      />
     </div>
   );
 }
