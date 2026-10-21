@@ -84,6 +84,7 @@ import { useHimawariLayer } from '@/hooks/useHimawariLayer';
 import { useTyphoonLayer } from '@/hooks/useTyphoonLayer';
 import { useSimulatedFloodLayer } from '@/hooks/useSimulatedFloodLayer';
 import { buildTyphoonPopupHtml } from '@/lib/map/typhoon';
+import type { TourPanel } from '@/lib/onboarding/steps';
 
 export interface LocationRiskInfo {
   floodHazard: FloodRiskLevel | null;
@@ -163,6 +164,10 @@ interface PublicMapProps {
   onStartReport?: () => void;
   /** Initial sidebar collapse state. Embedded maps default to collapsed icon rail. */
   defaultSidebarCollapsed?: boolean;
+  /** Guided map tour is driving the sidebar. */
+  tourActive?: boolean;
+  /** Sidebar card the active tour step needs to be visible. */
+  tourPanel?: TourPanel | null;
 }
 
 const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
@@ -238,6 +243,8 @@ export function PublicMap({
   defaultSidebarCollapsed,
   onDisplaySettingsChange,
   hideDisplayControls = false,
+  tourActive = false,
+  tourPanel = null,
 }: PublicMapProps) {
   const initialVisibleReportStatuses = {
     ...DEFAULT_VISIBLE_REPORT_STATUSES,
@@ -384,6 +391,37 @@ export function PublicMap({
   });
   const [layersOpen, setLayersOpen] = useState(() => Boolean(hideWeather));
   const [reportsOpen, setReportsOpen] = useState(false);
+  const wasTourActiveRef = useRef(false);
+
+  // Keep the sidebar in sync with the tour step. While a step has no panel, the
+  // sidebar collapses so the highlighted map/search controls stay reachable.
+  // Once the tour ends, close the demo panels so the map is unobstructed.
+  /* eslint-disable react-hooks/set-state-in-effect -- externally driven tour state */
+  useEffect(() => {
+    if (!tourActive) {
+      if (!wasTourActiveRef.current) return;
+      wasTourActiveRef.current = false;
+      setIsSidebarCollapsed(true);
+      setWeatherOpen(false);
+      setLayersOpen(false);
+      setReportsOpen(false);
+      return;
+    }
+
+    wasTourActiveRef.current = true;
+    if (!tourPanel) {
+      setIsSidebarCollapsed(true);
+      setWeatherOpen(false);
+      setLayersOpen(false);
+      setReportsOpen(false);
+      return;
+    }
+    setIsSidebarCollapsed(false);
+    setWeatherOpen(tourPanel === 'weather');
+    setLayersOpen(tourPanel === 'layers');
+    setReportsOpen(tourPanel === 'reports');
+  }, [tourActive, tourPanel]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ─── Sub-layer toggle handlers ─────────────────────────────────────────────
 

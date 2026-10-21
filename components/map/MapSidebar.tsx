@@ -455,7 +455,7 @@ export function MapSidebar({
           >
             {/* Weather Outlook Card */}
             {!hideWeather && (
-              <div ref={weatherCardRef} className="w-full">
+              <div ref={weatherCardRef} data-tour="weather" className="w-full scroll-mt-2">
                 <WeatherChip
                   location={weatherLocation}
                   open={weatherOpen}
@@ -523,7 +523,7 @@ export function MapSidebar({
             </div>
 
             {/* Citizen Flood Reports Card */}
-            <div ref={reportsCardRef} className="w-full">
+            <div ref={reportsCardRef} data-tour="reports" className="w-full scroll-mt-2">
               <ReportControls
                 open={reportsOpen}
                 onToggle={handleToggleReports}
@@ -543,7 +543,7 @@ export function MapSidebar({
 
           {/* Primary Action Row: Report Flooding (mobile uses the bottom-nav FAB) */}
           {onStartReport && (
-            <div className="mt-1.5 hidden shrink-0 md:block">
+            <div data-tour="report" className="mt-1.5 hidden shrink-0 md:block">
               <button
                 type="button"
                 onClick={onStartReport}

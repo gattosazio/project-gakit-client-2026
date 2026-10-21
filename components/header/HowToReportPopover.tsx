@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import {
   ArrowUpRight,
+  ChevronRight,
+  Compass,
   HelpCircle,
   MapPin,
   Megaphone,
@@ -16,6 +18,7 @@ interface HowToReportPopoverProps {
   onToggle: () => void;
   containerRef: RefObject<HTMLDivElement | null>;
   onNavigateAbout?: () => void;
+  onStartTour?: () => void;
 }
 
 export function HowToReportPopover({
@@ -23,6 +26,7 @@ export function HowToReportPopover({
   onToggle,
   containerRef,
   onNavigateAbout,
+  onStartTour,
 }: HowToReportPopoverProps) {
   const panelId = useId();
   const handleAboutClick = (e: React.MouseEvent) => {
@@ -87,6 +91,22 @@ export function HowToReportPopover({
               </div>)}
             </div>
             <div className="space-y-2 border-t border-slate-100 bg-slate-50/60 px-3.5 py-3">
+              {onStartTour && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onToggle();
+                    onStartTour();
+                  }}
+                  className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-semibold text-slate-600 transition-colors hover:border-maroon-200 hover:bg-maroon-50/40 hover:text-gakit-maroon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Compass className="h-3.5 w-3.5" aria-hidden="true" />
+                    Replay map tour
+                  </span>
+                  <ChevronRight className="h-3 w-3 text-slate-400" aria-hidden="true" />
+                </button>
+              )}
               <Link href="/#about" onClick={handleAboutClick} className="flex items-center justify-between text-[10px] font-medium text-slate-500 transition-colors hover:text-gakit-maroon focus-visible:outline-gakit-maroon">About Project GAKIT<ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
             </div>
           </div>
