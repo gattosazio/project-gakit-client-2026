@@ -7,6 +7,7 @@ export type AlertType =
 export type AlertSeverity = 'info' | 'warning' | 'critical';
 
 export interface WeatherDayData {
+  partialDay?: boolean;
   date: string;
   tempMax: number;
   tempMin: number;
@@ -21,6 +22,9 @@ export interface WeatherDayData {
 }
 
 export interface CurrentWeather {
+  source?: string;
+  kind?: 'model_estimate';
+  location?: { latitude: number; longitude: number; label: string };
   observedAt: string;
   temperature: number;
   precipitation: number | null;

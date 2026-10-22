@@ -20,6 +20,18 @@ export const ROAD_LAYER_IDS = [
   ROAD_MINOR_LAYER_ID,
 ] as const;
 
+const roadFocusActive = new WeakSet<object>();
+const requestedRoadVisibility = new WeakMap<object, boolean>();
+
+export function setRoadFocusActive(map: any, active: boolean) {
+  const visible = requestedRoadVisibility.get(map) ?? ROAD_LAYER_IDS.some(
+    id => map.getLayer(id) && map.getLayoutProperty(id, 'visibility') !== 'none'
+  );
+  if (active) roadFocusActive.add(map);
+  else roadFocusActive.delete(map);
+  applyRoadsVisibility(map, visible);
+}
+
 // All variants read the same source-layer of the same PMTiles source.
 const SOURCE_LAYER = { 'source-layer': 'roads' } as const;
 
@@ -66,16 +78,15 @@ const MINOR_WIDTH = [
   18, 4.5,
 ];
 
-// Casing + fill (majors) and a single stroke (locals). The dark plum casing
-// keeps the highlighted network legible over bright imagery and makes the
-// overlay unmistakably distinct from the basemap streets on Light.
+// Neutral road context; flood focus supplies the depth colors when active.
 export const addRoadLayers = (
   map: any,
   sourceId: string,
   before?: string,
   visible = true
 ) => {
-  const visibility = visible ? 'visible' : 'none';
+  requestedRoadVisibility.set(map, visible);
+  const visibility = visible && !roadFocusActive.has(map) ? 'visible' : 'none';
 
   map.addLayer(
     {
@@ -140,9 +151,13 @@ export const addRoadLayers = (
 
 // Toggles visibility for all road layers.
 export const applyRoadsVisibility = (map: any, visible: boolean) => {
+  if (!map) return;
+  requestedRoadVisibility.set(map, visible);
   try {
-    if (map?.isStyleLoaded && !map.isStyleLoaded()) return;
-    const visibility = visible ? 'visible' : 'none';
+    // Existing layers can be updated while source tiles are still loading.
+    // Waiting for isStyleLoaded() can leave restored context roads visible
+    // after flood focus is detached and the Roads switch has been turned off.
+    const visibility = visible && !roadFocusActive.has(map) ? 'visible' : 'none';
     ROAD_LAYER_IDS.forEach((id) => {
       if (map?.getLayer?.(id)) map.setLayoutProperty(id, 'visibility', visibility);
     });

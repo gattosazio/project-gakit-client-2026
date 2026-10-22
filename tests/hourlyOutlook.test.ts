@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest';
 import type { WeatherDayData } from '@/types/weather';
-import { hourlyRainSeries, outlookHour, rainChartMaximum, rainIntervalLabel } from '@/lib/weather/hourlyOutlook';
+import { dailyRainMetric, hourlyRainSeries, outlookHour, rainChartMaximum, rainIntervalLabel } from '@/lib/weather/hourlyOutlook';
 
 const day = (values: Partial<WeatherDayData> = {}): WeatherDayData => ({ date: '2026-10-17', tempMax: 30, tempMin: 24, rainChance: 50, rainMm: 2, conditionCode: 61, windMax: 10, ...values });
 
@@ -54,4 +54,16 @@ it('keeps a missing hourly value unknown without dropping valid neighbouring hou
   expect(values?.[2]).toBe(0);
   expect(values?.[3]).toBeNull();
   expect(values?.[4]).toBe(0);
+});
+
+it('shows rainfall rather than a missing percentage for deterministic forecasts', () => {
+  expect(dailyRainMetric(day({ rainChance: null, rainMm: 2.5 }))).toMatchObject({ label: 'Forecast rainfall', value: '2.5 mm' });
+  expect(dailyRainMetric(day({ rainChance: null, rainMm: 0 }))).toMatchObject({ value: '0.0 mm' });
+  expect(dailyRainMetric(day({ rainChance: 0, rainMm: 0 }))).toMatchObject({ value: '0%' });
+  expect(dailyRainMetric(day({ rainChance: null, rainMm: 2.5, partialDay: true }))).toMatchObject({ label: 'Remaining rainfall' });
+});
+
+it('does not turn invalid or missing daily rainfall into zero', () => {
+  expect(dailyRainMetric(day({ rainChance: null, rainMm: NaN })).value).toBe('Unavailable');
+  expect(dailyRainMetric(day({ rainChance: 101, rainMm: 2.5 })).value).toBe('2.5 mm');
 });

@@ -57,16 +57,16 @@ export const BASEMAP_STYLES: Record<BasemapId, string | StyleSpecification> = {
 export const isDarkBasemap = (basemap: BasemapId | undefined): boolean =>
   basemap === 'dark' || basemap === 'satellite';
 
-// AWS Open Data Terrarium raster DEM for 3D terrain.
-// Native Mapzen DEM resolution is ~30m (SRTM), which corresponds to zoom 12 (~37m/pixel in Iligan).
-// Capping maxzoom at 12 allows MapLibre to interpolate elevation on GPU at higher zooms,
-// eliminating 90%+ of redundant HTTP tile fetches and eliminating tile request thrashing.
-export const AWS_TERRAIN_TILES = [
-  'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
+// Mapterhorn's native Terrarium tiles are for map relief, not flood-model input.
+// Its 512 px tiles avoid the coastal spikes found in the older AWS tiles here.
+// Cap source zoom at 12 to match the regional ~30 m data without oversampling.
+export const TERRAIN_TILES = [
+  'https://tiles.mapterhorn.com/{z}/{x}/{y}.webp',
 ];
-export const AWS_TERRAIN_TILE_SIZE = 256;
-export const AWS_TERRAIN_MAX_ZOOM = 12;
-export const AWS_TERRAIN_ENCODING = 'terrarium' as const;
+export const TERRAIN_TILE_SIZE = 512;
+export const TERRAIN_MAX_ZOOM = 12;
+export const TERRAIN_ENCODING = 'terrarium' as const;
+export const TERRAIN_ATTRIBUTION = '<a href="https://mapterhorn.com/attribution/" target="_blank" rel="noopener">© Mapterhorn</a>';
 
 // Iligan building footprint paint (PMTiles) — shared by every map surface
 // (public map 2D/3D layers and the scenario flood map) so extrusions always
@@ -94,20 +94,16 @@ export const BUILDINGS_PMTILES_URL = 'pmtiles:///data/iligan-buildings.pmtiles';
 //   tippecanoe -o iligan-roads.pmtiles -N "Iligan Roads" -Z10 -z16 \
 //     --drop-densest-as-needed --extend-zooms-if-still-dropping -l roads \
 //     --force iligan-roads.geojson
-// Widths follow the Positron hierarchy, but the colors deliberately don't: the
-// fuchsia ramp stands apart from the basemap streets on Light and from the
-// imagery on Satellite, while avoiding every hazard hue already on the map
-// (flood/rainfall blues, storm-surge amber/red, landslide browns, typhoon
-// rose, PAR amber).
+// Neutral road colors preserve the visual priority of hazard and depth colors.
 export const ROADS_PMTILES_URL = 'pmtiles:///data/iligan-roads.pmtiles';
 export const ROADS_MAJOR_MIN_ZOOM = 10;
 export const ROADS_MINOR_MIN_ZOOM = 12;
-export const ROAD_CASING_COLOR = '#701a75';
+export const ROAD_CASING_COLOR = '#ffffff';
 export const ROAD_CASING_OPACITY = 0.85;
-export const ROAD_PRIMARY_COLOR = '#e879f9';
-export const ROAD_SECONDARY_COLOR = '#d946ef';
+export const ROAD_PRIMARY_COLOR = '#64748b';
+export const ROAD_SECONDARY_COLOR = '#94a3b8';
 export const ROAD_MAJOR_OPACITY = 0.95;
-export const ROAD_MINOR_COLOR = '#c026d3';
+export const ROAD_MINOR_COLOR = '#94a3b8';
 export const ROAD_MINOR_OPACITY = 0.9;
 
 // Flattened 3D shading. MapLibre shades fill-extrusion walls with a vertical

@@ -47,11 +47,32 @@ export function himawariFrameTimes(frames = 6): string[] {
 export async function fetchHimawariFrame(time: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    const finish = (error?: Error) => {
+      clearTimeout(timer);
+      img.onload = null;
+      img.onerror = null;
+      if (error) {
+        img.src = '';
+        reject(error);
+      } else resolve(img);
+    };
+    const timer = setTimeout(() => finish(new Error('Satellite imagery request timed out')), 15_000);
     img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Failed to load Himawari frame ${time}`));
+    img.onload = () => finish();
+    img.onerror = () => finish(new Error(`Failed to load Himawari frame ${time}`));
     img.src = himawariFrameURL(time);
   });
+}
+
+/** One missing scan is normal; only an empty batch means imagery is unavailable. */
+export async function loadHimawariFrames(times: string[], onProgress?: (loaded: number) => void): Promise<Map<string, HTMLImageElement>> {
+  let count = 0;
+  const results = await Promise.allSettled(times.map(async time => {
+    const image = await fetchHimawariFrame(time);
+    onProgress?.(++count);
+    return image;
+  }));
+  return new Map(results.flatMap((result, index) => result.status === 'fulfilled' ? [[times[index], result.value] as const] : []));
 }
 
 // JMA overwrites each dateless slot URL in place and leaves yesterday's file

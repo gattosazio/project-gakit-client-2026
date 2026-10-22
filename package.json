@@ -21,6 +21,7 @@
     "next": "^16.3.3",
     "pbf": "^5.1.2",
     "pmtiles": "^4.4.1",
+    "polyclip-ts": "0.16.8",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.86.0",

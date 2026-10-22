@@ -1,3 +1,4 @@
+import { buildFullForecastCone } from '@/lib/map/forecastCone';
 import crypto from 'crypto';
 import {
   buildColoredTrackLines,
@@ -51,131 +52,6 @@ export function isCycloneExpired(
   const parsedTime = Date.parse(formatted);
   if (Number.isNaN(parsedTime)) return false;
   return Date.now() > parsedTime + maxAgeMs;
-}
-
-/**
- * Great-circle destination point calculation (geodesic spherical forward azimuth)
- */
-function fnp(latDeg: number, lngDeg: number, dKm: number, bearingDeg: number): [number, number] {
-  const r = 6378.14;
-  const lat = (latDeg * Math.PI) / 180;
-  const lng = (lngDeg * Math.PI) / 180;
-  const b = (bearingDeg * Math.PI) / 180;
-
-  const lat2 = Math.asin(
-    Math.sin(lat) * Math.cos(dKm / r) + Math.cos(lat) * Math.sin(dKm / r) * Math.cos(b)
-  );
-  const lng2 =
-    lng +
-    Math.atan2(
-      Math.sin(b) * Math.sin(dKm / r) * Math.cos(lat),
-      Math.cos(dKm / r) - Math.sin(lat) * Math.sin(lat2)
-    );
-
-  return [(lat2 * 180) / Math.PI, (lng2 * 180) / Math.PI];
-}
-
-function crossProduct(o: [number, number], a: [number, number], b: [number, number]): number {
-  return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
-}
-
-/**
- * 2D Monotone chain convex hull algorithm
- * Returns closed ring of [lng, lat] coordinates
- */
-function convexHull2D(points: Array<[number, number]>): Array<[number, number]> {
-  if (points.length <= 1) return points;
-
-  // Deduplicate and sort by lng then lat
-  const pts = Array.from(
-    new Map(points.map((p) => [`${p[0].toFixed(5)},${p[1].toFixed(5)}`, p])).values()
-  ).sort((a, b) => (a[0] === b[0] ? a[1] - b[1] : a[0] - b[0]));
-
-  if (pts.length <= 2) {
-    return [...pts, pts[0]];
-  }
-
-  const lower: Array<[number, number]> = [];
-  for (const p of pts) {
-    while (lower.length >= 2 && crossProduct(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
-      lower.pop();
-    }
-    lower.push(p);
-  }
-
-  const upper: Array<[number, number]> = [];
-  for (let i = pts.length - 1; i >= 0; i--) {
-    const p = pts[i];
-    while (upper.length >= 2 && crossProduct(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
-      upper.pop();
-    }
-    upper.push(p);
-  }
-
-  const hull = [...lower.slice(0, -1), ...upper.slice(0, -1)];
-  hull.push(hull[0]);
-  return hull;
-}
-
-/**
- * Builds the continuous official PAGASA forecast uncertainty cone starting from current storm position
- */
-function buildFullForecastCone(milestones: Array<{ lat: number; lon: number; radius: number }>): Array<[number, number]> {
-  if (!milestones || !milestones.length) return [];
-
-  let currentAnchor: { lat: number; lon: number } | null = null;
-  const forecastNodes: Array<{ lat: number; lon: number; radius: number }> = [];
-
-  for (const m of milestones) {
-    if (m.radius === 0) {
-      currentAnchor = { lat: m.lat, lon: m.lon };
-    } else if (m.radius > 0) {
-      forecastNodes.push(m);
-    }
-  }
-
-  if (!forecastNodes.length) return [];
-  if (!currentAnchor) currentAnchor = { lat: forecastNodes[0].lat, lon: forecastNodes[0].lon };
-
-  const allPoints: Array<[number, number]> = [];
-  // Current storm center anchor
-  allPoints.push([currentAnchor.lon, currentAnchor.lat]);
-
-  // Connect current storm center to first forecast node with interpolated circle points
-  for (const t of [0.25, 0.5, 0.75]) {
-    const interLat = currentAnchor.lat + (forecastNodes[0].lat - currentAnchor.lat) * t;
-    const interLon = currentAnchor.lon + (forecastNodes[0].lon - currentAnchor.lon) * t;
-    const interRad = forecastNodes[0].radius * t;
-    for (let angle = 0; angle < 360; angle += 15) {
-      const [pLat, pLon] = fnp(interLat, interLon, interRad, angle);
-      allPoints.push([Number(pLon.toFixed(5)), Number(pLat.toFixed(5))]);
-    }
-  }
-
-  // Add perimeter circle points for every forecast node
-  for (let i = 0; i < forecastNodes.length; i++) {
-    const fn = forecastNodes[i];
-    for (let angle = 0; angle < 360; angle += 10) {
-      const [pLat, pLon] = fnp(fn.lat, fn.lon, fn.radius, angle);
-      allPoints.push([Number(pLon.toFixed(5)), Number(pLat.toFixed(5))]);
-    }
-
-    // Add intermediate tangent interpolation between consecutive forecast milestones
-    if (i < forecastNodes.length - 1) {
-      const nextFn = forecastNodes[i + 1];
-      for (const t of [0.25, 0.5, 0.75]) {
-        const interLat = fn.lat + (nextFn.lat - fn.lat) * t;
-        const interLon = fn.lon + (nextFn.lon - fn.lon) * t;
-        const interRad = fn.radius + (nextFn.radius - fn.radius) * t;
-        for (let angle = 0; angle < 360; angle += 15) {
-          const [pLat, pLon] = fnp(interLat, interLon, interRad, angle);
-          allPoints.push([Number(pLon.toFixed(5)), Number(pLat.toFixed(5))]);
-        }
-      }
-    }
-  }
-
-  return convexHull2D(allPoints);
 }
 
 export function formatTrackDateLabel(dateStr?: string, timeStr?: string, datetimeStr?: string): string {
@@ -310,12 +186,12 @@ export function convertPanahonToGeoJSON(
 
     // Add Uncertainty Forecast Cone
     const coneCoords = buildFullForecastCone(allMilestones);
-    if (coneCoords.length >= 3) {
+    if (coneCoords.length > 0) {
       features.push({
         type: 'Feature',
         geometry: {
           type: 'MultiPolygon',
-          coordinates: [[coneCoords]],
+          coordinates: coneCoords,
         },
         properties: {
           type: 'smoothed_hull',

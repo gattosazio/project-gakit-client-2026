@@ -7,10 +7,11 @@ import { LiveRasterController } from '@/lib/map/liveRasterController';
 import {
   BASEMAP_STYLES,
   SURROGATE_SIMULATION_PLACEHOLDER_DATA_URL,
-  AWS_TERRAIN_TILES,
-  AWS_TERRAIN_TILE_SIZE,
-  AWS_TERRAIN_MAX_ZOOM,
-  AWS_TERRAIN_ENCODING,
+  TERRAIN_TILE_SIZE,
+  TERRAIN_TILES,
+  TERRAIN_ATTRIBUTION,
+  TERRAIN_MAX_ZOOM,
+  TERRAIN_ENCODING,
   BUILDINGS_PMTILES_URL,
   ROADS_PMTILES_URL,
   FLAT_EXTRUSION_LIGHT,
@@ -87,7 +88,7 @@ export function ScenarioMap({ scenarioId, currentFrame, bounds, onRasterStateCha
   const [mapLoaded, setMapLoaded] = useState(false);
   const { basemap, mode, renderMode, enableBuildings, enableRoads, focusRoads } = useScenarioDisplay();
   useFloodDepthHover(mapRef, rasterController, 'simulation-flood-layer', mapLoaded && !focusRoads);
-  useRoadFloodFocus(mapRef, rasterController, 'simulation-flood-layer', mapLoaded && focusRoads);
+  useRoadFloodFocus(mapRef, rasterController, 'simulation-flood-layer', mapLoaded && !!currentFrame && focusRoads);
   useEffect(() => {
     if (mapLoaded && demoFocus) mapRef.current?.easeTo({ center: [demoFocus.longitude, demoFocus.latitude], zoom: 16, duration: 500 });
   }, [mapLoaded, demoFocus]);
@@ -224,7 +225,16 @@ export function ScenarioMap({ scenarioId, currentFrame, bounds, onRasterStateCha
       pitch: modeRef.current === '3d' ? 35 : 0,
       bearing: -10,
       renderWorldCopies: false,
+      attributionControl: false,
     });
+
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+    // MapLibre opens compact attribution initially; start closed while keeping
+    // its native information button and attribution links available.
+    const attribution = map.getContainer().querySelector<HTMLDetailsElement>('.maplibregl-ctrl-attrib');
+    attribution?.classList.add('maplibregl-compact');
+    attribution?.classList.remove('maplibregl-compact-show');
+    attribution?.removeAttribute('open');
 
     map.on('style.load', () => {
       mapRef.current = map;
@@ -236,13 +246,14 @@ export function ScenarioMap({ scenarioId, currentFrame, bounds, onRasterStateCha
       // hillshade -> flood -> footprints -> extrusions.
       const firstSymbolLayerId = getFirstBasemapSymbolLayerId(map);
 
-      // 1. Add 3D Terrain DEM source (AWS Open Data Terrarium DEM)
+      // 1. Add 3D Terrain DEM source (Mapterhorn Terrarium DEM)
       map.addSource('terrain-source', {
         type: 'raster-dem',
-        tiles: AWS_TERRAIN_TILES,
-        tileSize: AWS_TERRAIN_TILE_SIZE,
-        maxzoom: AWS_TERRAIN_MAX_ZOOM,
-        encoding: AWS_TERRAIN_ENCODING,
+        tiles: TERRAIN_TILES,
+        tileSize: TERRAIN_TILE_SIZE,
+        maxzoom: TERRAIN_MAX_ZOOM,
+        encoding: TERRAIN_ENCODING,
+        attribution: TERRAIN_ATTRIBUTION,
       });
 
       // 2. Add subtle hillshade layer to reveal mountain contours

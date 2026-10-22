@@ -80,6 +80,7 @@ import { formatReportDepth, STATUS_META, timeAgo } from '@/lib/reports/reportFor
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useRainfallLayer } from '@/hooks/useRainfallLayer';
 import { useReportsLayer } from '@/hooks/useReportsLayer';
+import { FailureModal } from '@/components/ui/FailureModal';
 import { useHimawariLayer } from '@/hooks/useHimawariLayer';
 import { useTyphoonLayer } from '@/hooks/useTyphoonLayer';
 import { useSimulatedFloodLayer } from '@/hooks/useSimulatedFloodLayer';
@@ -209,7 +210,7 @@ function MinimalCompass({
         {/* Down Arrow (South - Slate) */}
         <path
           d="M12 21 L7.5 13 H16.5 Z"
-          fill="#94A3B8"
+          fill={isActive ? '#7A0019' : '#94A3B8'}
         />
       </g>
     </svg>
@@ -1213,7 +1214,6 @@ export function PublicMap({
       {fullScreen && mapReady && <MapScaleRuler mapRef={mapRef} />}
 
       <MapSidebar
-        weatherLocation={selectedLocation}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={setIsSidebarCollapsed}
         controlsVisible={controlsVisible}
@@ -1255,10 +1255,10 @@ export function PublicMap({
         showTyphoonTrack={typhoon.showTyphoonTrack}
         onShowTyphoonTrackChange={handleShowTyphoonTrackChange}
         isLoadingTyphoon={typhoon.isLoading}
-        activeTyphoonName={typhoon.typhoonData?.stormName}
-        typhoonObservedAt={typhoon.typhoonData?.latestPosition?.datetime || typhoon.typhoonData?.fetchedAt}
-        hasActiveTyphoon={typhoon.typhoonData?.hasActiveTyphoon}
-        activeStorms={typhoon.typhoonData?.activeStorms}
+        activeTyphoonName={typhoon.liveTyphoonData?.stormName}
+        typhoonObservedAt={typhoon.liveTyphoonData?.latestPosition?.datetime || typhoon.liveTyphoonData?.fetchedAt}
+        hasActiveTyphoon={typhoon.liveTyphoonData?.hasActiveTyphoon}
+        activeStorms={typhoon.liveTyphoonData?.activeStorms}
         onFocusStorm={typhoon.focusStorm}
         historicalStorms={typhoon.historicalStorms}
         selectedHistoricalStorm={typhoon.selectedHistoricalStorm}
@@ -1349,7 +1349,7 @@ export function PublicMap({
               <MinimalCompass
                 bearing={mapBearing}
                 isActive={isOffNorth}
-                className="h-4 w-4"
+                className="h-8 w-8"
               />
             </button>
           );
@@ -1412,6 +1412,10 @@ export function PublicMap({
               </a>
             </>
           )}
+          {mapMode === '3d' && <>
+            <span>·</span>
+            <a href="https://mapterhorn.com/attribution/" target="_blank" rel="noopener noreferrer" className="hover:text-slate-800 hover:underline">Terrain © Mapterhorn</a>
+          </>}
         </div>
       )}
 
@@ -1419,6 +1423,14 @@ export function PublicMap({
         frames={simulatedFlood.replayFrames} selectedIndex={simulatedFlood.replayIndex}
         onSelect={simulatedFlood.selectReplayFrame} status={simulatedFlood.status}
         loading={simulatedFlood.isPreparing} hasBottomNav={hasBottomNav} fullScreen={fullScreen} />}
+
+      <FailureModal
+        isOpen={himawari.showHimawariIR && himawari.failureOpen}
+        title="Satellite imagery temporarily down"
+        message="Himawari satellite imagery is temporarily unavailable. Please try again later."
+        onClose={himawari.dismissFailure}
+        onRetry={himawari.retry}
+      />
 
       {/* Himawari Satellite Loading Overlay */}
       {himawari.showHimawariIR && himawari.isLoading && !himawari.hasFrames && (

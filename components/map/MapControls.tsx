@@ -1042,8 +1042,9 @@ export function DataLayerControls({
         {showSimulatedFlood && (
           <div className="ml-2 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 space-y-2.5">
             <p className="text-[10px] leading-4 text-slate-500">Use the floating timeline to explore past and forecast estimates.</p>
-            <div className="grid grid-cols-2 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white py-2 text-center">
+            <div className="grid grid-cols-3 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white py-2 text-center">
               {[
+                ['Rain rate', `${formatFloodMetric(simulatedFloodTelemetry?.hourlyRainMm, 1)} mm/hr`],
                 ['Inundated', `${formatFloodMetric(simulatedFloodTelemetry?.inundatedKm2, 2)} km²`],
                 ['Max depth', `${formatFloodMetric(simulatedFloodTelemetry?.maxDepthM, 2)} m`],
               ].map(([label, value]) => <div key={label}><p className="text-[9px] text-slate-400">{label}</p><p className="mt-0.5 text-[11px] font-bold tabular-nums text-slate-700">{value}</p></div>)}
@@ -1240,7 +1241,7 @@ export function DataLayerControls({
               </button>
             </div>
 
-            {activeStorms && activeStorms.length > 1 && (
+            {!selectedHistoricalStorm && activeStorms && activeStorms.length > 1 && (
               <div className="pt-1.5 border-t border-slate-100 space-y-1">
                 <div className="text-[9.5px] uppercase tracking-wider text-slate-400 font-bold">
                   Focus storm ({activeStorms.length})

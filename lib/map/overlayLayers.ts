@@ -3,10 +3,11 @@ import { registerHazardSmoothingProtocol } from './hazardSmoothingProtocol';
 export { applyOverlaySmoothing } from './overlaySmoothing';
 import { toast } from 'react-toastify';
 import {
-  AWS_TERRAIN_ENCODING,
-  AWS_TERRAIN_MAX_ZOOM,
-  AWS_TERRAIN_TILES,
-  AWS_TERRAIN_TILE_SIZE,
+  TERRAIN_ENCODING,
+  TERRAIN_MAX_ZOOM,
+  TERRAIN_TILE_SIZE,
+  TERRAIN_TILES,
+  TERRAIN_ATTRIBUTION,
   BasemapId,
   BUILDING_EXTRUSION_VERTICAL_GRADIENT,
   BUILDINGS_PMTILES_URL,
@@ -440,6 +441,7 @@ export const setupOverlayLayers = async (
   if (!map.getSource('typhoon-track')) {
     map.addSource('typhoon-track', {
       type: 'geojson',
+      tolerance: 0.1,
       data: { type: 'FeatureCollection', features: [] },
     });
 
@@ -459,6 +461,7 @@ export const setupOverlayLayers = async (
     map.addLayer({
       id: 'typhoon-forecast-cone-outline',
       type: 'line',
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
       source: 'typhoon-track',
       before: 'report-clusters',
       filter: ['==', ['get', 'type'], 'smoothed_hull'],
@@ -1137,15 +1140,16 @@ export const setupOverlayLayers = async (
     });
   }
 
-  // --- 3D terrain (AWS Open Data Terrarium DEM) ---
+  // --- 3D terrain (Mapterhorn Terrarium DEM) ---
   if (state.mapMode === '3d') {
     if (!map.getSource('terrain')) {
       map.addSource('terrain', {
         type: 'raster-dem',
-        tiles: AWS_TERRAIN_TILES,
-        tileSize: AWS_TERRAIN_TILE_SIZE,
-        maxzoom: AWS_TERRAIN_MAX_ZOOM,
-        encoding: AWS_TERRAIN_ENCODING,
+        tiles: TERRAIN_TILES,
+        tileSize: TERRAIN_TILE_SIZE,
+        maxzoom: TERRAIN_MAX_ZOOM,
+        encoding: TERRAIN_ENCODING,
+        attribution: TERRAIN_ATTRIBUTION,
       });
     }
     map.setTerrain({ source: 'terrain', exaggeration: TERRAIN_EXAGGERATION });

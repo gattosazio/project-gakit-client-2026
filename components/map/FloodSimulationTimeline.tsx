@@ -27,7 +27,8 @@ export function FloodSimulationTimeline({ frames, selectedIndex, onSelect, statu
 
   return <TimelinePlayer frames={frames} currentIndex={index} isPlaying={playing} playbackSpeed={speed}
     showPeakJump={false}
-    onIndexChange={next => { setPlaying(false); onSelect(next); }}
+    loading={loading}
+    onIndexChange={next => { setPlaying(false); onSelect(next === latestIndex ? null : next); }}
     onTogglePlay={() => {
       if (frames.length < 2) return;
       if (!playing) onSelect(index === frames.length - 1 ? 0 : index);
@@ -35,8 +36,8 @@ export function FloodSimulationTimeline({ frames, selectedIndex, onSelect, statu
     }}
     onToggleSpeed={() => setSpeed(value => value === 1 ? 2 : 1)}
     onReset={() => { setPlaying(false); onSelect(null); }}
-    resetLabel="Back to current time and follow updates"
-    resetText={selectedIndex === null && !playing ? 'Following current time' : 'Back to current time'}
+    resetLabel="Return to live and follow updates"
+    resetText={selectedIndex === null && !playing ? 'Following live' : 'Go live'}
     status={loading ? 'Loading selected estimate…' : status ?? undefined}
     className={`absolute left-16 right-14 z-[990] md:left-1/2 md:right-auto md:w-[42rem] md:max-w-[calc(100%-8rem)] md:-translate-x-1/2 ${hasBottomNav ? 'bottom-24' : 'bottom-6'} ${fullScreen ? 'md:bottom-6' : 'md:bottom-3'}`} />;
 }

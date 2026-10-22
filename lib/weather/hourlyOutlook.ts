@@ -26,3 +26,11 @@ export function outlookHour(hour: number): string {
 export function rainIntervalLabel(endHour: number): string {
   return `${outlookHour((endHour + 23) % 24)}–${outlookHour(endHour)}${endHour === 0 ? ' (starts previous day)' : ''}`;
 }
+
+/** Prefer a real probability; deterministic models show amounts instead. */
+export function dailyRainMetric(day: Pick<WeatherDayData, 'rainChance' | 'rainMm' | 'partialDay'>) {
+  const hasChance = typeof day.rainChance === 'number' && Number.isFinite(day.rainChance) && day.rainChance >= 0 && day.rainChance <= 100;
+  return hasChance
+    ? { label: 'Peak hourly rain chance', shortLabel: 'peak chance', value: `${Math.round(day.rainChance!)}%` }
+    : { label: day.partialDay ? 'Remaining rainfall' : 'Forecast rainfall', shortLabel: 'rainfall', value: typeof day.rainMm === 'number' && Number.isFinite(day.rainMm) && day.rainMm >= 0 ? `${day.rainMm.toFixed(1)} mm` : 'Unavailable' };
+}

@@ -163,3 +163,11 @@ export function alertDescription(alert: WeatherAlert): string {
   if (alert.alertType === 'daily_digest') return digestSubtitle(alert);
   return alert.data?.description ?? '';
 }
+
+/** Rain animation intensity follows the WMO condition, not the rain probability. */
+export function weatherRainIntensity(code: number): 'light' | 'moderate' | 'heavy' | null {
+  if ([55, 57, 65, 67, 82, 86, 95, 96, 99].includes(code)) return 'heavy';
+  if ([51, 56, 61, 66, 80].includes(code)) return 'light';
+  if ([53, 63, 81].includes(code)) return 'moderate';
+  return null;
+}

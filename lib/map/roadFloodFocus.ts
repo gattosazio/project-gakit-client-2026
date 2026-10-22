@@ -1,6 +1,7 @@
 import { attachFloodDepthHover, type FloodDepthReading } from './floodDepthHover';
 import type { LiveRasterController } from './liveRasterController';
 import { getLocalRoads, type RoadIndex, type RoadRecord } from './roadGeocoding';
+import { setRoadFocusActive } from './roadLayers';
 
 export const ROAD_FOCUS_SOURCE = 'flood-road-focus';
 export const ROAD_FOCUS_LAYER = 'flood-road-focus-depth';
@@ -71,6 +72,9 @@ export function attachRoadFloodFocus(map: any, raster: LiveRasterController, ras
   let index: RoadIndex | null = null;
   let savedOpacity: number | undefined;
   let lastAvailability = false;
+  let cachedRoads = new WeakMap<RoadRecord, GeoJSON.Feature<GeoJSON.LineString>[]>();
+  let cachedStep = 0;
+  setRoadFocusActive(map, true);
   const available = () => Boolean(map.getLayer(rasterLayer) && map.getLayoutProperty(rasterLayer, 'visibility') !== 'none' && raster.hasDepthData());
   const sample: Sample = (lng, lat) => available() ? raster.sampleDepth(lng, lat, true) : null;
   const opacity = () => {
@@ -90,14 +94,35 @@ export function attachRoadFloodFocus(map: any, raster: LiveRasterController, ras
       paint: { 'line-color': '#fff', 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 3, 15, 7, 18, 13] } }, before);
     if (!map.getLayer(ROAD_FOCUS_LAYER)) map.addLayer({ id: ROAD_FOCUS_LAYER, type: 'line', source: ROAD_FOCUS_SOURCE,
       layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: { 'line-color': ['match', ['get', 'band'], 0, '#cbd5e1', 1, '#fde047', 2, '#eab308', 3, '#f97316', 4, '#dc2626', '#94a3b8'],
+      paint: { 'line-color': ['match', ['get', 'band'], 0, '#94a3b8', 1, '#fde047', 2, '#eab308', 3, '#f97316', 4, '#dc2626', '#94a3b8'],
         'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1.5, 15, 4, 18, 9] } }, before);
     opacity();
     const bounds = map.getBounds();
     const roads = index.inBounds(bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth());
-    const step = Math.max(15, 156543 * Math.cos(map.getCenter().lat * Math.PI / 180) / 2 ** map.getZoom() * 2);
-    map.getSource(ROAD_FOCUS_SOURCE).setData(roadDepthFeatures(roads, sample, step));
-    lastAvailability = available();
+    // Quantize sampling to zoom levels so small camera changes reuse segments.
+    const step = Math.max(15, 156543 / 2 ** Math.floor(map.getZoom()) * 2);
+    const hasDepth = available();
+    if (step !== cachedStep || hasDepth !== lastAvailability) {
+      cachedRoads = new WeakMap();
+      cachedStep = step;
+    }
+    const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+    for (const road of roads) {
+      let segments = cachedRoads.get(road);
+      if (!segments) {
+        // No subdivision or depth sampling while the frame is unavailable.
+        segments = hasDepth
+          ? roadDepthFeatures([road], (lng, lat) => raster.sampleDepth(lng, lat, true), step).features
+          : road.c === 'pedestrian' || road.p.length < 2 ? [] : [{
+            type: 'Feature', properties: { roadName: road.n || 'Unnamed road', band: -1 },
+            geometry: { type: 'LineString', coordinates: road.p },
+          }];
+        cachedRoads.set(road, segments);
+      }
+      for (const segment of segments) features.push(segment);
+    }
+    map.getSource(ROAD_FOCUS_SOURCE).setData({ type: 'FeatureCollection', features });
+    lastAvailability = hasDepth;
   };
   const refresh = () => {
     if (stopped || changingStyle || !index) return;
@@ -107,19 +132,22 @@ export function attachRoadFloodFocus(map: any, raster: LiveRasterController, ras
   const styleLoading = () => { changingStyle = true; };
   const style = () => { changingStyle = false; savedOpacity = undefined; refresh(); };
   const render = () => { if (available() !== lastAvailability) refresh(); };
-  const unsubscribe = raster.subscribeDepth(refresh);
+  const unsubscribe = raster.subscribeDepth(() => {
+    cachedRoads = new WeakMap();
+    refresh();
+  });
   map.on('moveend', refresh);
   map.on('style.load', style);
   map.on('styledataloading', styleLoading);
   map.on('render', render);
   const detachHover = attachFloodDepthHover(map, ROAD_FOCUS_LAYER, (lng, lat) => {
-    if (!map.getLayer(ROAD_FOCUS_LAYER)) return null;
+    if (!map.getLayer(ROAD_FOCUS_LAYER) || !available()) return null;
     const p = map.project([lng, lat]);
     const features = map.queryRenderedFeatures([[p.x - 8, p.y - 8], [p.x + 8, p.y + 8]], { layers: [ROAD_FOCUS_LAYER] });
     const road = nearestRoadPoint(features, p, (position: Position) => map.project(position));
     if (!road) return null;
     const depth = sample(...road.position);
-    return { value: depth?.value ?? 'Depth unavailable', detail: `${road.name} · simulated depth`,
+    return { value: depth?.value ?? 'Depth unavailable', detail: 'Estimated road depth', location: road.name, depthM: depth?.depthM,
       time: depth?.time ?? (available() ? 'Outside numeric estimate coverage' : 'Enable a flood estimate to read depth') };
   });
   void loadRoads().then(roads => { if (!stopped) { index = roads; refresh(); } });
@@ -129,6 +157,7 @@ export function attachRoadFloodFocus(map: any, raster: LiveRasterController, ras
     unsubscribe(); detachHover();
     map.off('moveend', refresh); map.off('style.load', style); map.off('styledataloading', styleLoading); map.off('render', render);
     try {
+      setRoadFocusActive(map, false);
       for (const id of [ROAD_FOCUS_LAYER, CASING]) if (map.getLayer(id)) map.removeLayer(id);
       if (map.getSource(ROAD_FOCUS_SOURCE)) map.removeSource(ROAD_FOCUS_SOURCE);
       if (savedOpacity !== undefined && map.getLayer(rasterLayer)) map.setPaintProperty(rasterLayer, 'raster-opacity', savedOpacity);

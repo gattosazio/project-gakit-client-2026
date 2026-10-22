@@ -12,7 +12,9 @@ import {
 import { Spinner } from '@/components/ui/Spinner';
 import { WeatherChip } from '@/components/map/WeatherChip';
 import { DataLayerControls, ReportControls } from '@/components/map/MapControls';
-import { useActiveAlerts, useCurrentWeather } from '@/lib/weather/weatherStore';
+import { usePointOutlook } from '@/hooks/usePointOutlook';
+import { usableCurrentWeather } from '@/lib/weather/weather';
+import { useActiveAlerts } from '@/lib/weather/weatherStore';
 import { getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
 import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
 import type { MapReportFeature, ReportStatus } from '@/types/report';
@@ -32,7 +34,6 @@ export interface MapSidebarProps {
   onStartReport?: () => void;
 
   // Weather Outlook
-  weatherLocation?: { lat: number; lng: number } | null;
   weatherOpen: boolean;
   onToggleWeather: (open: boolean) => void;
   weatherExpandedByDefault?: boolean;
@@ -113,7 +114,6 @@ export function MapSidebar({
   weatherOpen,
   onToggleWeather,
   weatherExpandedByDefault,
-  weatherLocation,
   layersOpen,
   onToggleLayers,
   showFloodHazard,
@@ -180,7 +180,8 @@ export function MapSidebar({
   const reportsCardRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  const currentWeather = useCurrentWeather();
+  const selectedOutlook = usePointOutlook();
+  const currentWeather = usableCurrentWeather(selectedOutlook.data?.current ?? null);
   const alerts = useActiveAlerts();
   const digest = alerts?.find((a) => a.alertType === 'daily_digest') ?? null;
   const todayCondition = digest?.data?.days?.[0]
@@ -457,7 +458,6 @@ export function MapSidebar({
             {!hideWeather && (
               <div ref={weatherCardRef} data-tour="weather" className="w-full scroll-mt-2">
                 <WeatherChip
-                  location={weatherLocation}
                   open={weatherOpen}
                   onToggle={handleToggleWeather}
                   defaultExpanded={weatherExpandedByDefault}

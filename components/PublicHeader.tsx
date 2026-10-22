@@ -291,12 +291,12 @@ export function PublicHeader({
 
           {!showSectionNav && (
             <div className="flex items-center gap-1.5 md:hidden min-w-0 ml-1 sm:ml-2">
-              <span className="font-heading text-[11px] font-bold uppercase tracking-wider text-slate-700 truncate">
-                FLOOD SIM
+              <span className="truncate text-xs font-semibold text-gakit-maroon">
+                Flood sim
               </span>
-              <sup className="select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase tracking-wider text-amber-800 ring-1 ring-inset ring-amber-200/70 leading-none shadow-xs shrink-0">
-                BETA
-              </sup>
+              <span className="shrink-0 select-none rounded bg-amber-50 px-1 py-0.5 text-[10px] font-semibold leading-none text-amber-800">
+                Beta
+              </span>
             </div>
           )}
 
@@ -319,7 +319,7 @@ export function PublicHeader({
                 className="h-7 md:h-8 w-auto object-contain"
               />
             </div>
-            <div className="hidden h-9 pl-2 flex-col justify-center text-left font-heading text-[9px] font-bold uppercase tracking-wider leading-tight text-slate-500 xl:flex">
+            <div className="hidden h-9 pl-2 flex-col justify-center text-left font-heading text-xs font-semibold uppercase tracking-wide leading-4 text-slate-600 2xl:flex">
               <div>Geohazard Assessment &amp;</div>
               <div>Knowledge Integration Tool</div>
             </div>
@@ -329,14 +329,14 @@ export function PublicHeader({
         {/* Center: Title (for Scenario Simulator) OR Location Search (for Hazard Map) */}
         <div className="flex min-w-0 flex-1 items-center justify-center px-2">
           {!showSectionNav && (
-            <div className="hidden md:inline-flex items-center gap-2 rounded-full border border-slate-200/90 bg-slate-100/80 px-3.5 py-1 shadow-xs backdrop-blur-sm">
-              <Waves className="h-3.5 w-3.5 text-sky-600 shrink-0" />
-              <span className="font-heading text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                FLOOD SCENARIO SIMULATOR
+            <div className="hidden min-w-0 items-center gap-2 md:inline-flex">
+              <Waves className="h-3.5 w-3.5 shrink-0 text-gakit-maroon" />
+              <span className="truncate text-sm font-semibold text-gakit-maroon">
+                Flood scenario simulator
               </span>
-              <sup className="select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase tracking-wider text-amber-800 ring-1 ring-inset ring-amber-200/70 leading-none shadow-xs shrink-0">
-                BETA
-              </sup>
+              <span className="shrink-0 select-none rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-amber-800">
+                Beta
+              </span>
             </div>
           )}
           {onSearchSelect && (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { CloudFog } from 'lucide-react';
 import { isDaytimeInManila } from '@/lib/weather/weatherCodes';
 import styles from './WeatherAnimation.module.css';
 
@@ -119,6 +120,10 @@ export function AmbientWeatherIcon({
         </svg>
       </div>
     );
+  }
+
+  if (conditionCode === 45 || conditionCode === 48) {
+    return <div aria-hidden="true" className={`${paused ? styles.paused : ''} flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${darkMode ? 'bg-slate-800/90 text-slate-200' : 'bg-slate-100 text-slate-600'} ${className}`}><CloudFog className="h-5 w-5 animate-pulse [animation-duration:6s] motion-reduce:animate-none" /></div>;
   }
 
   // ─── 3. Overcast (Layered Double Cloud Deck) ───────────────────────────────

@@ -31,10 +31,21 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
   const [hasEverBeenActive, setHasEverBeenActive] = useState(Boolean(active));
   const [includeForecast, setIncludeForecast] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadCount, setReloadCount] = useState(0);
   const [rasterState, setRasterState] = useState<string | null>(null);
   const [readyScenario, setReadyScenario] = useState<string | null>(null);
   const frameRef = useRef<ScenarioFrame | undefined>(undefined);
   const followLatest = useRef(true);
+  const playerRef = useRef<HTMLDivElement>(null);
+  const [playerHeight, setPlayerHeight] = useState(120);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player) return;
+    const observer = new ResizeObserver(() => setPlayerHeight(player.getBoundingClientRect().height));
+    observer.observe(player);
+    return () => observer.disconnect();
+  }, [scenarioData]);
 
 
   useEffect(() => {
@@ -137,7 +148,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
       cancelled = true; request++; controller?.abort(); clearTimeout(pollTimer);
       document.removeEventListener('visibilitychange', visibility);
     };
-  }, [activePreset, hasEverBeenActive]);
+  }, [activePreset, hasEverBeenActive, reloadCount]);
 
   // Forecast tail (nowcast T+1..T+6) is toggleable without refetching: the
   // frames arrive with the timeline, and the toggle only filters the view.
@@ -193,10 +204,18 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
   }, [activePreset.id, frameUrl]);
   const frameLoading = rasterState === 'Loading map' || rasterState === 'Loading flood image';
   const initialLoading = readyScenario !== activePreset.id && (isLoading || loadError === 'Preparing live estimates' || frameLoading || (scenarioData?.live?.build_state === 'building' && !frameUrl));
+  const retryScenario = () => {
+    setReadyScenario(null);
+    setScenarioData(null);
+    setLoadError(null);
+    setRasterState(null);
+    setIsPlaying(false);
+    setReloadCount(value => value + 1);
+  };
 
 
   return (
-    <div className="relative h-[100dvh] w-full flex flex-col overflow-hidden">
+    <div className="relative h-[100dvh] w-full flex flex-col overflow-hidden" style={{ '--scenario-player-height': `${playerHeight}px` } as React.CSSProperties}>
       {/* Loading Overlay */}
       {initialLoading && (
         <LoadingOverlay message={loadError === 'Preparing live estimates' ? 'Preparing live flood estimates…' : rasterState === 'Loading flood image' ? 'Loading flood simulation map…' : `Loading ${activePreset.name}…`} className="pointer-events-none" />
@@ -211,12 +230,11 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
           <ScenarioMap
           reportObservations={scenarioData?.live?.report_observations} scenarioId={activePreset.id} currentFrame={currentFrame} bounds={scenarioData?.bounds} onRasterStateChange={handleRasterStateChange} />
         ) : null}
-        {!initialLoading && frameLoading && <div role="status" className="pointer-events-none absolute bottom-32 left-1/2 z-20 -translate-x-1/2 rounded-full border border-slate-200 bg-white/95 px-3 py-1.5 text-[11px] font-medium text-slate-600 shadow-sm">Loading next frame…</div>}
 
-        {/* Top Controls Overlay: flex-col stack on mobile, left/right on desktop.
-            Desktop cards align with the floating pill header top edge. */}
-        <div className="absolute top-[4.5rem] left-3 right-3 md:top-20 md:left-4 md:right-4 z-10 flex flex-col md:flex-row md:items-start md:justify-between gap-2.5 pointer-events-none">
-          <div className="pointer-events-auto w-full md:w-80">
+        {/* Wide screens place cards beside the header; smaller screens keep
+            them below it so the three panels never overlap. */}
+        <div className="absolute inset-0 z-10 pointer-events-none">
+          <div className="pointer-events-auto absolute left-3 right-3 top-[4.5rem] sm:right-auto sm:w-80 md:left-4 md:top-20 min-[1856px]:top-4">
             <ScenarioSelector
               activePreset={activePreset}
               onSelectPreset={preset => { setReadyScenario(null); setActivePreset(preset); setScenarioData(null); setLoadError(null); setRasterState(null); setCurrentIndex(0); }}
@@ -224,9 +242,10 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
             />
           </div>
 
-          <div className="pointer-events-auto w-full md:w-80">
-            {status && !currentFrame && <div role="status" className="rounded-lg bg-white p-3 text-sm text-slate-600">{status}</div>}
+          <div className="pointer-events-auto absolute bottom-[calc(var(--scenario-player-height)+2rem)] left-3 right-3 sm:bottom-[calc(var(--scenario-player-height)+2.5rem)] md:bottom-auto md:left-auto md:right-4 md:top-20 md:w-80 min-[1856px]:top-4">
+            {status && !currentFrame && <div className="hud-card flex items-center justify-between gap-3 p-3 text-xs text-slate-600"><p role="status">{status}</p>{loadError !== 'Preparing live estimates' && <button type="button" onClick={retryScenario} className="min-h-9 rounded-lg px-2 font-semibold text-gakit-maroon hover:bg-maroon-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon">Retry</button>}</div>}
             <TelemetryHUD
+              onRetry={retryScenario}
               currentFrame={currentFrame}
               totalRainfallMm={scenarioData ? scenarioData.total_rainfall_mm : null}
               presetType={activePreset.type}
@@ -241,6 +260,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
         {/* Bottom Center: Timeline Scrubber & Controls */}
         {scenarioData && visibleFrames.length > 0 && (
           <TimelinePlayer
+            containerRef={playerRef}
             frames={visibleFrames}
             currentIndex={safeIndex}
             onIndexChange={index => { followLatest.current = false; setCurrentIndex(index); }}
