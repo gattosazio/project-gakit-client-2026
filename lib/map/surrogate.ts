@@ -87,6 +87,7 @@ export interface LiveFloodExtentResponse {
   ];
   inundated_km2: number;
   max_depth_m: number;
+  hourly_rain_mm?: number | null;
   effective_rainfall_mm?: number;
   rain_mm?: number;
   raster_url: string;
@@ -99,6 +100,7 @@ export interface LiveFloodExtentResponse {
 
 export interface SimulatedFloodTelemetry {
   horizonHours: number;
+  hourlyRainMm: number | null;
   inundatedKm2: number | null;
   maxDepthM: number | null;
   effectiveRainfallMm: number | null;
@@ -130,6 +132,7 @@ export async function fetchLiveFloodExtent(
   const data: LiveFloodExtentResponse = await response.json();
   return {
     horizonHours: data.horizon_hours,
+    hourlyRainMm: data.hourly_rain_mm ?? null,
     inundatedKm2: data.inundated_km2,
     maxDepthM: data.max_depth_m,
     effectiveRainfallMm: data.effective_rainfall_mm ?? data.rain_mm ?? null,

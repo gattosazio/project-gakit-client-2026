@@ -34,9 +34,9 @@ export function WeatherAttribution({ source, className = '' }: WeatherAttributio
       target="_blank"
       rel="noopener noreferrer"
       className={`inline-block text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline ${className}`}
-      title="Weather data by Open-Meteo.com"
+      title="ECMWF IFS HRES forecast data provided through Open-Meteo"
     >
-      © Open-Meteo
+      ECMWF IFS HRES · Open-Meteo
     </a>
   );
 }

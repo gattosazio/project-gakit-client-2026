@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { alertDescription, alertTitle, digestPeriod, digestSubtitle, digestTitle, formatDayForecast } from '@/lib/weather/weatherCodes';
+import { alertDescription, alertTitle, digestPeriod, digestSubtitle, digestTitle, formatDayForecast, weatherRainIntensity } from '@/lib/weather/weatherCodes';
 import type { WeatherAlert, WeatherDayData } from '@/types/weather';
 
 process.env.TZ = 'Asia/Manila';
@@ -139,4 +139,14 @@ describe('alertDescription', () => {
   it('returns an empty string when there is no data description', () => {
     expect(alertDescription({ alertType: 'daily_digest', data: null } as WeatherAlert)).toBe('');
   });
+});
+
+it('matches rain animation strength to the displayed WMO condition', () => {
+  expect(weatherRainIntensity(51)).toBe('light');
+  expect(weatherRainIntensity(61)).toBe('light');
+  expect(weatherRainIntensity(63)).toBe('moderate');
+  expect(weatherRainIntensity(65)).toBe('heavy');
+  expect(weatherRainIntensity(95)).toBe('heavy');
+  expect(weatherRainIntensity(0)).toBeNull();
+  expect(weatherRainIntensity(45)).toBeNull();
 });

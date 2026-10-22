@@ -41,12 +41,13 @@ export async function fetchActiveAlerts(
 }
 
 export async function fetchCurrentWeather(
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  location?: { lat: number; lng: number } | null,
 ): Promise<CurrentWeather> {
   return cachedGet<CurrentWeather>(
-    'weather:current',
+    `weather:current:${outlookLocationKey(location)}`,
     WEATHER_TTL_MS,
-    () => request<CurrentWeather>('/api/v1/weather/current', signal)
+    () => request<CurrentWeather>(`/api/v1/weather/current${location ? `?${outlookLocationKey(location)}` : ''}`, signal)
   );
 }
 
@@ -64,4 +65,11 @@ export async function fetchAlertHistory(
         signal
       )
   );
+}
+
+/** A retained network response must not remain current indefinitely. */
+export function usableCurrentWeather(current: CurrentWeather | null, now = Date.now()): CurrentWeather | null {
+  if (!current) return null;
+  const age = now - Date.parse(current.observedAt);
+  return Number.isFinite(age) && age >= -15 * 60_000 && age <= 2 * 60 * 60_000 ? current : null;
 }

@@ -15,6 +15,7 @@ export interface FloodDepthPatch {
 export interface FloodDepthReading {
   value: string;
   detail: string;
+  location?: string;
   time?: string;
   depthM?: number;
 }
@@ -152,25 +153,36 @@ export function withNumericDepthPatches(fallback: FloodDepthSampler | null, patc
   };
 }
 
+const PROBE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28"><g fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"><circle cx="14" cy="14" r="5"/><path d="M14 2v4m0 16v4M2 14h4m16 0h4"/></g><g fill="none" stroke="#7b1113" stroke-width="1.75" stroke-linecap="round"><circle cx="14" cy="14" r="5"/><path d="M14 2v4m0 16v4M2 14h4m16 0h4"/></g></svg>';
+const DEPTH_PROBE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(PROBE_SVG)}") 14 14, crosshair`;
+
 /** A single DOM tooltip, throttled to animation frames; no React render on mousemove. */
 export function attachFloodDepthHover(map: any, layerId: string, sample: FloodDepthSampler): () => void {
   const container: HTMLElement = map.getContainer();
   const canvas: HTMLElement = map.getCanvas();
   const tooltip = document.createElement('div');
-  tooltip.className = 'pointer-events-none absolute z-30 rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-800 shadow-lg';
+  tooltip.className = 'pointer-events-none absolute z-30 rounded-xl bg-white px-3 py-2.5 text-slate-800 shadow-[0_6px_20px_rgba(15,23,42,0.16)]';
   tooltip.style.display = 'none';
   tooltip.setAttribute('role', 'tooltip');
   const caption = document.createElement('div');
-  caption.className = 'text-[10px] font-medium text-slate-500';
+  caption.className = 'text-xs font-medium leading-4 text-slate-600';
+  caption.textContent = 'Estimated depth';
   const value = document.createElement('div');
-  value.className = 'text-sm font-bold tabular-nums';
+  value.className = 'mt-0.5 text-lg font-semibold leading-6 tabular-nums text-gakit-maroon';
+  const context = document.createElement('div');
+  context.className = 'mt-1 text-xs font-semibold leading-4 text-slate-800 [overflow-wrap:anywhere]';
   const time = document.createElement('div');
-  time.className = 'text-[10px] text-slate-500';
-  tooltip.append(caption, value, time);
+  time.className = 'mt-1 text-xs leading-4 text-slate-600';
+  tooltip.append(caption, value, context, time);
   container.append(tooltip);
   let pending = 0;
+  let previousCursor = canvas.style.cursor || '';
   let last: { lngLat: { lng: number; lat: number }; point: { x: number; y: number } } | null = null;
-  const hide = () => { if (pending) cancelAnimationFrame(pending); pending = 0; last = null; tooltip.style.display = 'none'; };
+  const hide = () => {
+    if (pending) cancelAnimationFrame(pending);
+    pending = 0; last = null; tooltip.style.display = 'none';
+    if (canvas.style.cursor === DEPTH_PROBE_CURSOR) canvas.style.cursor = previousCursor;
+  };
   const sourceChanged = (event: { sourceId?: string }) => {
     if (event.sourceId === map.getLayer(layerId)?.source) hide();
   };
@@ -185,12 +197,20 @@ export function attachFloodDepthHover(map: any, layerId: string, sample: FloodDe
       if (!last || map.isMoving() || !map.getLayer(layerId) || map.getLayoutProperty(layerId, 'visibility') === 'none') { hide(); return; }
       const reading = sample(last.lngLat.lng, last.lngLat.lat);
       if (!reading) { hide(); return; }
-      caption.textContent = reading.detail;
       value.textContent = reading.value;
+      value.className = reading.depthM !== undefined ? 'mt-0.5 text-lg font-semibold leading-6 tabular-nums text-gakit-maroon' : 'mt-0.5 text-sm font-semibold leading-5 text-slate-700';
+      context.textContent = reading.location ?? (/^(simulated|estimated) (water )?depth$/i.test(reading.detail) ? '' : reading.detail);
+      context.style.display = context.textContent ? 'block' : 'none';
       time.textContent = reading.time ?? '';
+      time.style.display = reading.time ? 'block' : 'none';
+      if (canvas.style.cursor !== DEPTH_PROBE_CURSOR) previousCursor = canvas.style.cursor || '';
+      canvas.style.cursor = DEPTH_PROBE_CURSOR;
+      tooltip.style.maxWidth = `${Math.min(256, Math.max(0, container.clientWidth - 16))}px`;
       tooltip.style.display = 'block';
-      tooltip.style.left = `${Math.max(8, Math.min(last.point.x + 14, container.clientWidth - tooltip.offsetWidth - 8))}px`;
-      tooltip.style.top = `${Math.max(8, Math.min(last.point.y + 14, container.clientHeight - tooltip.offsetHeight - 8))}px`;
+      const left = last.point.x + 18 + tooltip.offsetWidth <= container.clientWidth - 8 ? last.point.x + 18 : last.point.x - tooltip.offsetWidth - 18;
+      const top = last.point.y + 18 + tooltip.offsetHeight <= container.clientHeight - 8 ? last.point.y + 18 : last.point.y - tooltip.offsetHeight - 18;
+      tooltip.style.left = `${Math.max(8, Math.min(left, container.clientWidth - tooltip.offsetWidth - 8))}px`;
+      tooltip.style.top = `${Math.max(8, Math.min(top, container.clientHeight - tooltip.offsetHeight - 8))}px`;
     });
   };
   map.on('mousemove', move);

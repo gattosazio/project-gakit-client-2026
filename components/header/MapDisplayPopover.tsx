@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { BASEMAP_LABELS, type BasemapId } from '@/constants/publicMap';
 
@@ -15,6 +16,27 @@ const BASEMAP_PREVIEWS: Array<{ value: BasemapId; src: string }> = [
   { value: 'dark', src: '/images/basemap-previews/dark.webp' },
   { value: 'satellite', src: '/images/basemap-previews/satellite.webp' },
 ];
+
+type DisplaySetting = { label: string; description: string; checked: boolean; change: (checked: boolean) => void };
+
+function DisplaySectionHeading({ children }: { children: ReactNode }) {
+  return <p className="text-[10px] font-semibold uppercase leading-3 tracking-wide text-slate-500">{children}</p>;
+}
+
+function DisplaySettingRow({ label, description, checked, change }: DisplaySetting) {
+  return (
+    <div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-2">
+      <div>
+        <p className="text-xs font-semibold leading-4">{label}</p>
+        <p className="text-[10px] leading-3.5 text-slate-400">{description}</p>
+      </div>
+      <button type="button" role="switch" aria-label={label} aria-checked={checked} onClick={() => change(!checked)}
+        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 ${checked ? 'bg-gakit-maroon' : 'bg-slate-300'}`}>
+        <span className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${checked ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+      </button>
+    </div>
+  );
+}
 
 export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChange, onModeChange, onBuildingsChange, smoothPolygons = true, onSmoothingChange, showBarangayBoundaries = false, onBarangayBoundariesChange, showRoads = false, onRoadsChange, focusRoads = false, onFocusRoadsChange, disabled = false, className = '', placement = 'below', compact = false }: MapDisplaySettings & {
   onBasemapChange: (basemap: BasemapId) => void;
@@ -58,15 +80,15 @@ export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChang
       {open && <>
         <div className="fixed inset-0 z-[1290] bg-black/20 md:hidden" onClick={close} aria-hidden="true" />
         <div id={id} role="region" aria-label="Map display settings"
-          className={`fixed inset-x-4 top-16 z-[1300] mx-auto max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom,0px))] max-w-[320px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-4 text-slate-800 shadow-xl backdrop-blur-xl md:absolute md:inset-x-auto md:right-0 md:w-72 md:max-h-[calc(100dvh-5rem)] ${placement === 'above' ? 'md:top-auto md:bottom-full md:mb-2' : 'md:top-12'}`}>
-          <div className="mb-3 flex items-center justify-between border-b border-slate-100 pb-2">
+          className={`fixed inset-x-4 top-16 z-[1300] mx-auto max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom,0px))] max-w-[320px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 text-slate-800 shadow-xl backdrop-blur-xl md:absolute md:inset-x-auto md:right-0 md:w-72 md:max-h-[calc(100dvh-5rem)] ${placement === 'above' ? 'md:top-auto md:bottom-full md:mb-2' : 'md:top-12'}`}>
+          <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-1.5">
             <h3 className="text-xs font-bold">Map display settings</h3>
             <button type="button" onClick={close} aria-label="Close display settings" className="rounded p-1 text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button>
           </div>
-          <fieldset disabled={disabled} className="space-y-3 disabled:opacity-50">
+          <fieldset disabled={disabled} className="space-y-2 disabled:opacity-50">
             <legend className="sr-only">Map appearance</legend>
             <div>
-              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Basemap</p>
+              <div className="mb-1"><DisplaySectionHeading>Basemap</DisplaySectionHeading></div>
               <div className="grid grid-cols-2 gap-2">
                 {BASEMAP_PREVIEWS.map(({ value, src }) => (
                   <button key={value} type="button" aria-pressed={basemap === value} onClick={() => onBasemapChange(value)}
@@ -75,7 +97,7 @@ export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChang
                     {/* eslint-disable-next-line @next/next/no-img-element -- tiny static WebP served directly; no optimizer roundtrip needed */}
                     <img src={src} alt="" width={256} height={160} loading="lazy" decoding="async"
                       className="block aspect-[8/5] w-full object-cover" />
-                    <span className={`block px-2 py-1 text-center text-[11px] font-semibold ${basemap === value ? 'text-gakit-maroon' : 'text-slate-500 group-hover:text-slate-800'}`}>{BASEMAP_LABELS[value]}</span>
+                    <span className={`block px-2 py-0.5 text-center text-[11px] font-semibold ${basemap === value ? 'text-gakit-maroon' : 'text-slate-500 group-hover:text-slate-800'}`}>{BASEMAP_LABELS[value]}</span>
                   </button>
                 ))}
               </div>
@@ -84,16 +106,17 @@ export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChang
               { label: '3D view', description: 'Tilt the map and show terrain relief', checked: mode === '3d', change: (checked: boolean) => onModeChange(checked ? '3d' : '2d') },
               ...(onSmoothingChange ? [{ label: 'Polygon smoothing', description: 'Round hazard edges and blend simulation colors; visual only', checked: smoothPolygons, change: onSmoothingChange }] : []),
               { label: 'Buildings', description: 'Show building footprints or 3D structures', checked: showBuildings, change: onBuildingsChange },
-              ...(onRoadsChange ? [{ label: 'Roads', description: 'Highlight the mapped road network over the basemap', checked: showRoads, change: onRoadsChange }] : []),
-              ...(onFocusRoadsChange ? [{ label: 'Focus roads', description: 'Show flood colors along roads; hover for names and depths', checked: focusRoads, change: onFocusRoadsChange }] : []),
+              ...(onRoadsChange || onFocusRoadsChange ? [{
+                label: 'Roads',
+                description: 'Highlight roads and show flood colors along them; hover for names and depths',
+                checked: showRoads || focusRoads,
+                change: (enabled: boolean) => {
+                  onRoadsChange?.(enabled);
+                  onFocusRoadsChange?.(enabled);
+                },
+              }] : []),
               ...(onBarangayBoundariesChange ? [{ label: 'Barangay boundaries', description: 'Show barangay borders and report summaries', checked: showBarangayBoundaries, change: onBarangayBoundariesChange }] : []),
-            ].map(setting => <div key={setting.label} className="flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-              <div><p className="text-xs font-semibold">{setting.label}</p><p className="mt-0.5 text-[10px] leading-4 text-slate-400">{setting.description}</p></div>
-              <button type="button" role="switch" aria-label={setting.label} aria-checked={setting.checked} onClick={() => setting.change(!setting.checked)}
-                className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 ${setting.checked ? 'bg-gakit-maroon' : 'bg-slate-300'}`}>
-                <span className={`h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${setting.checked ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
-              </button>
-            </div>)}
+            ].map(setting => <DisplaySettingRow key={setting.label} {...setting} />)}
           </fieldset>
           {disabled && <p className="mt-2 text-[10px] text-slate-400">Loading map…</p>}
         </div>

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import {
-  fetchHimawariFrame,
+  loadHimawariFrames,
   himawariFrameTimes,
   HIMAWARI_COORDINATES,
   HIMAWARI_IMAGE_BOUNDS,
@@ -44,6 +44,10 @@ export function useHimawariLayer(
   const [himawariOpacity, setHimawariOpacity] = useState(0.8);
   const [isLoading, setIsLoading] = useState(false);
   const [hasFrames, setHasFrames] = useState(false);
+  const [failureOpen, setFailureOpen] = useState(false);
+  const failureNotifiedRef = useRef(false);
+  const requestRef = useRef(0);
+  const loadingRef = useRef(false);
   const [loadProgress, setLoadProgress] = useState({ loaded: 0, total: HIMAWARI_FRAME_COUNT });
   const himawariTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const himawariRefreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -59,38 +63,53 @@ export function useHimawariLayer(
   // freshness-gated 404s) are simply dropped from the rotation instead of
   // flashing blank.
   const preloadHimawariFrames = useCallback(async () => {
+    if (loadingRef.current || !showHimawariIRRef.current) return;
+    const request = ++requestRef.current;
+    loadingRef.current = true;
     setIsLoading(true);
     setLoadProgress({ loaded: 0, total: HIMAWARI_FRAME_COUNT });
     try {
-      const candidates = himawariFrameTimes(HIMAWARI_CANDIDATE_COUNT);
-      let loadedCount = 0;
-      const loaded = await Promise.allSettled(
-        candidates.map(async (time) => {
-          const img = await fetchHimawariFrame(time);
-          loadedCount++;
-          setLoadProgress({
-            loaded: Math.min(loadedCount, HIMAWARI_FRAME_COUNT),
-            total: HIMAWARI_FRAME_COUNT,
-          });
-          return img;
-        })
-      );
-      // Candidates are chronological (oldest first); keep at most the newest
-      // FRAME_COUNT that actually loaded so the loop stays forward-in-time.
-      const kept: [string, HTMLImageElement][] = [];
-      candidates.forEach((time, i) => {
-        const result = loaded[i];
-        if (result.status === 'fulfilled') kept.push([time, result.value]);
+      const loaded = await loadHimawariFrames(himawariFrameTimes(HIMAWARI_CANDIDATE_COUNT), count => {
+        if (request === requestRef.current && showHimawariIRRef.current) {
+          setLoadProgress({ loaded: Math.min(count, HIMAWARI_FRAME_COUNT), total: HIMAWARI_FRAME_COUNT });
+        }
       });
-      const cache = new Map(kept.slice(-HIMAWARI_FRAME_COUNT));
-      if (cache.size > 0) {
-        himawariFramesRef.current = cache;
-        setHasFrames(true);
+      if (request !== requestRef.current || !showHimawariIRRef.current) return;
+      const cache = new Map([...loaded].slice(-HIMAWARI_FRAME_COUNT));
+      // Do not keep playing a previous batch when no fresh imagery is available.
+      himawariFramesRef.current = cache;
+      setHasFrames(cache.size > 0);
+      if (cache.size) {
+        failureNotifiedRef.current = false;
+        setFailureOpen(false);
+        if (mapRef.current?.getLayer('himawari-ir-layer')) mapRef.current.setLayoutProperty('himawari-ir-layer', 'visibility', 'visible');
+      } else {
+        if (mapRef.current?.getLayer('himawari-ir-layer')) mapRef.current.setLayoutProperty('himawari-ir-layer', 'visibility', 'none');
+        if (!failureNotifiedRef.current) {
+          failureNotifiedRef.current = true;
+          setFailureOpen(true);
+        }
       }
     } finally {
-      setIsLoading(false);
+      if (request === requestRef.current) {
+        loadingRef.current = false;
+        setIsLoading(false);
+      }
     }
+  }, [mapRef]);
+
+  useEffect(() => () => {
+    requestRef.current++;
+    loadingRef.current = false;
+    showHimawariIRRef.current = false;
   }, []);
+  const dismissFailure = useCallback(() => setFailureOpen(false), []);
+  const retry = useCallback(() => {
+    if (loadingRef.current) return;
+    failureNotifiedRef.current = false;
+    setFailureOpen(false);
+    void preloadHimawariFrames();
+  }, [preloadHimawariFrames]);
 
   // Pushes the current cached frame into the map's image source.
   const drawCurrentFrame = useCallback(() => {
@@ -119,7 +138,7 @@ export function useHimawariLayer(
         return;
       }
       void preloadHimawariFrames().then(() => {
-        if (document.hidden || himawariTimerRef.current) return;
+        if (!showHimawariIRRef.current || document.hidden || himawariTimerRef.current) return;
         drawCurrentFrame();
         himawariTimerRef.current = setInterval(drawCurrentFrame, HIMAWARI_FRAME_MS);
       });
@@ -183,6 +202,12 @@ export function useHimawariLayer(
   // Zoom out to fit the full Himawari swath (flat, top-down).
   const toggleHimawariIR = useCallback(
     (next: boolean) => {
+      showHimawariIRRef.current = next;
+      requestRef.current++;
+      loadingRef.current = false;
+      failureNotifiedRef.current = false;
+      setFailureOpen(false);
+      setIsLoading(false);
       setShowHimawariIR(next);
       const map = mapRef.current;
       if (!map) return;
@@ -202,6 +227,9 @@ export function useHimawariLayer(
     isLoading,
     loadProgress,
     hasFrames,
+    failureOpen,
+    dismissFailure,
+    retry,
     visibleRef: showHimawariIRRef,
   };
 }

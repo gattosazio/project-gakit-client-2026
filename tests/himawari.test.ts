@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { inflateSync } from 'node:zlib';
-import { isFrameFresh, HIMAWARI_PLACEHOLDER_DATA_URL } from '@/lib/map/himawari';
+import { isFrameFresh, HIMAWARI_PLACEHOLDER_DATA_URL, fetchHimawariFrame, loadHimawariFrames } from '@/lib/map/himawari';
 
 describe('HIMAWARI_PLACEHOLDER_DATA_URL', () => {
   it('is a valid, decodable 1x1 transparent PNG data URL', () => {
@@ -84,5 +84,44 @@ describe('isFrameFresh', () => {
   it('rejects missing or unparseable Last-Modified headers', () => {
     expect(isFrameFresh(null, '1100', now)).toBe(false);
     expect(isFrameFresh('not-a-date', '1100', now)).toBe(false);
+  });
+});
+
+
+describe('Himawari failure handling', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+  function images(fail: (time: string) => boolean) {
+    vi.stubGlobal('Image', class {
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(value: string) {
+        if (!value) return;
+        const time = new URL(value, 'https://gakit.test').searchParams.get('time')!;
+        queueMicrotask(() => { if (fail(time)) this.onerror?.(); else this.onload?.(); });
+      }
+    });
+  }
+
+  it('keeps available frames in timeline order when individual scans fail', async () => {
+    images(time => time === '1010');
+    const progress = vi.fn();
+    const frames = await loadHimawariFrames(['1000', '1010', '1020'], progress);
+    expect([...frames.keys()]).toEqual(['1000', '1020']);
+    expect(progress).toHaveBeenLastCalledWith(2);
+  });
+
+  it('returns an empty batch on a full upstream outage', async () => {
+    images(() => true);
+    expect((await loadHimawariFrames(['1000', '1010'])).size).toBe(0);
+  });
+
+  it('times out stalled images instead of leaving the loading overlay stuck', async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('Image', class { onload = null; onerror = null; src = ''; });
+    const result = expect(fetchHimawariFrame('1000')).rejects.toThrow('timed out');
+    await vi.advanceTimersByTimeAsync(15_000);
+    await result;
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

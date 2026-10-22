@@ -24,7 +24,7 @@ export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: b
   const [refresh, setRefresh] = useState(0);
   const raster = useRef(new LiveRasterController());
   useFloodDepthHover(mapRef, raster, 'simulation-flood-grid', enabled && !focusRoads);
-  useRoadFloodFocus(mapRef, raster, 'simulation-flood-grid', focusRoads);
+  useRoadFloodFocus(mapRef, raster, 'simulation-flood-grid', enabled && focusRoads);
   const imageRetries = useRef(new Set<string>());
   const refreshRef = useRef<() => void>(() => undefined);
 
@@ -147,6 +147,7 @@ export function useSimulatedFloodLayer(mapRef: MutableRefObject<any>, enabled: b
   );
   const telemetry: SimulatedFloodTelemetry | null = frame ? {
     horizonHours: frame.horizon_hours,
+    hourlyRainMm: frame.hourly_rain_mm,
     inundatedKm2: imageReady ? frame.inundated_km2 : null,
     maxDepthM: imageReady ? frame.max_depth_m : null,
     effectiveRainfallMm: frame.rainfall_24h_mm,

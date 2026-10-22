@@ -1,7 +1,8 @@
 'use client';
 
 import { formatFloodMetric, liveModelNotice } from '@/lib/map/liveFloodState';
-import React, { useState } from 'react';
+import { useScenarioDisplay } from '@/lib/map/scenarioDisplayStore';
+import React, { useId, useState } from 'react';
 import { CloudRain, Droplets, Waves, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import type { ScenarioFrame, ScenarioPresetType } from '@/types/scenario';
 
@@ -13,93 +14,109 @@ interface TelemetryHUDProps {
   modelNotice?: string;
   reportNotice?: string;
   presetType?: ScenarioPresetType;
+  onRetry?: () => void;
 }
 
-export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'historical', status, rasterState, modelNotice, reportNotice }: TelemetryHUDProps) {
-  const [mobileExpanded, setMobileExpanded] = useState(false);
+export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'historical', status, rasterState, modelNotice, reportNotice, onRetry }: TelemetryHUDProps) {
+  const [expanded, setExpanded] = useState<boolean | null>(null);
+  const contentId = useId();
+  const { focusRoads } = useScenarioDisplay();
+  const detailsClass = expanded === null ? 'hidden md:flex' : expanded ? 'flex' : 'hidden';
   if (!currentFrame) return null;
+  const updating = rasterState === 'Loading map' || rasterState === 'Loading flood image';
+  const rasterError = updating ? null : rasterState;
+  const displayStatus = currentFrame.live && currentFrame.live.availability !== 'ready' ? status : rasterError ?? status;
 
   return (
-    <div className="hud-card w-full p-2.5 sm:p-3 shadow-lg text-slate-800 pointer-events-auto">
-      {(status || rasterState) && <div role="status" className="mb-2 text-xs text-slate-600">{currentFrame.live && currentFrame.live.availability !== 'ready' ? status : rasterState ?? status}</div>}
-      {reportNotice && <p className="mb-2 text-[10px] leading-4 text-teal-800">{reportNotice}</p>}
+    <div className="hud-card w-full p-2.5 sm:p-3 text-xs leading-4 text-slate-800 pointer-events-auto">
+      <div className="mb-2 hidden items-center justify-between gap-2 border-b border-slate-200/60 pb-2 md:flex">
+        <div className="flex items-center gap-1.5 text-sm font-semibold"><Waves className="h-3.5 w-3.5 text-gakit-maroon" />Flood conditions</div>
+        <button type="button" aria-expanded={expanded !== false} aria-controls={contentId} aria-label={expanded === false ? 'Show flood details' : 'Hide flood details'}
+          onClick={() => setExpanded(value => value === null ? false : !value)}
+          className="-my-2 -mr-1 flex min-h-11 min-w-11 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon">
+          {expanded === false ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+        </button>
+      </div>
+      {expanded === false && <div className="hidden items-baseline justify-between gap-2 md:flex"><span className="text-xs text-slate-600">Flood area</span><span className="text-base leading-5 font-semibold tabular-nums">{formatFloodMetric(currentFrame.inundated_km2, 2)} <span className="text-xs font-normal text-slate-600">km²</span></span></div>}
+      {rasterError && expanded === false && <p className="mt-2 text-xs leading-4 text-amber-900">{rasterError}</p>}
       {/* Mobile Quick Strip (compact 1-row telemetry) */}
-      <div className="flex md:hidden items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-          <div className="flex items-center gap-1 text-indigo-700">
+        <div className="flex md:hidden items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-800">
+          <div className="flex items-center gap-1 text-gakit-maroon">
             <CloudRain className="h-3.5 w-3.5" />
             <span>
               {formatFloodMetric(currentFrame.hourly_rain_mm, 1)}{' '}
-              <span className="font-normal text-[11px] text-slate-500">mm/h</span>
+              <span className="font-normal text-xs text-slate-500">mm/h</span>
             </span>
           </div>
           <span className="text-slate-300">•</span>
           <div className="flex items-center gap-1 text-gakit-maroon">
             <Waves className="h-3.5 w-3.5" />
             <span>
-              {formatFloodMetric(rasterState ? null : currentFrame.inundated_km2, 2)}{' '}
-              <span className="font-normal text-[11px] text-slate-500">km²</span>
+              {formatFloodMetric(currentFrame.inundated_km2, 2)}{' '}
+              <span className="font-normal text-xs text-slate-500">km²</span>
             </span>
           </div>
         </div>
 
         <button
           type="button"
-          onClick={() => setMobileExpanded((prev) => !prev)}
-          className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 px-2 py-0.5 rounded-md transition"
+          onClick={() => setExpanded((prev) => !prev)}
+          aria-expanded={expanded === true}
+          aria-controls={contentId}
+          aria-label={expanded ? 'Hide flood details' : 'Show flood details'}
+          className="-my-1 flex min-h-11 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-gakit-maroon transition-colors hover:bg-maroon-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
         >
-          <span>{mobileExpanded ? 'Less' : 'More'}</span>
-          {mobileExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+          <span>{expanded ? 'Hide' : 'Details'}</span>
+          {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </button>
       </div>
 
-      {/* Key Metrics Section (always visible on md+, collapsible on mobile) */}
+      <div id={contentId} className={`${detailsClass} max-h-[clamp(5rem,calc(100dvh-var(--scenario-player-height,120px)-15rem),28rem)] flex-col overflow-y-auto overscroll-contain`}>
+      {displayStatus && <div className="mb-2 flex items-center justify-between gap-2 text-xs leading-4 text-slate-600"><p role="status">{displayStatus}</p>{onRetry && (rasterError || /unavailable/i.test(displayStatus)) && <button type="button" onClick={onRetry} className="min-h-8 shrink-0 rounded px-2 font-semibold text-gakit-maroon hover:bg-maroon-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon">Retry</button>}</div>}
+      {reportNotice && <p className="mb-2 text-xs leading-4 text-teal-900">{reportNotice}</p>}
+      {/* Key metrics */}
       <div
-        className={`${
-          mobileExpanded ? 'flex' : 'hidden md:flex'
-        } flex-col gap-2.5 ${mobileExpanded ? 'mt-2.5 pt-2.5 border-t border-slate-100' : ''}`}
+        className={`${detailsClass} flex-col gap-3 ${expanded ? 'mt-2 pt-2 border-t border-slate-100' : ''}`}
       >
-        {/* Inundated Area (Hero Metric) */}
-        <div className="rounded-xl border border-slate-200/70 bg-slate-50/90 p-2.5">
-          <div className="flex items-center justify-between mb-1">
+        {/* Flood area (Hero Metric) */}
+        <div className="flex items-center justify-between gap-3 rounded-lg bg-maroon-50/60 px-2.5 py-2">
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-gakit-maroon">
               <Waves className="h-3.5 w-3.5" />
-              <span>Inundated Area</span>
+              <span>Estimated flood area</span>
             </div>
-            <span className="text-[10px] text-slate-400 font-medium">
-              Estimated footprint
-            </span>
           </div>
-          <div className="text-2xl font-bold tracking-tight text-slate-900">
-            {formatFloodMetric(rasterState ? null : currentFrame.inundated_km2, 2)}{' '}
+          <div className="shrink-0 text-base leading-5 font-semibold tabular-nums text-gakit-maroon">
+            {formatFloodMetric(currentFrame.inundated_km2, 2)}{' '}
             <span className="text-xs font-normal text-slate-500">km²</span>
           </div>
         </div>
 
         {/* Rainfall 2-Column Row */}
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-2 gap-3">
           {/* Rain Rate */}
-          <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-700 mb-1">
+          <div className="min-w-0 px-1">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gakit-maroon mb-1">
               <CloudRain className="h-3.5 w-3.5" />
               <span>Hourly rain</span>
             </div>
-            <div className="text-lg font-bold text-slate-900">
+            <div className="text-base leading-5 font-semibold tabular-nums text-slate-900">
               {formatFloodMetric(currentFrame.hourly_rain_mm, 1)}{' '}
               <span className="text-xs font-normal text-slate-500">mm/h</span>
             </div>
           </div>
 
           {/* Cumulative Rain */}
-          <div className="rounded-xl border border-slate-200/70 bg-slate-50/80 p-2.5">
-            <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 mb-1">
+          <div className="min-w-0 px-1">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gakit-maroon mb-1">
               <Droplets className="h-3.5 w-3.5" />
-              <span>{presetType === 'live' ? 'Rainfall over 24h' : 'Accumulated'}</span>
+              <span>{presetType === 'live' ? '24-hour rain' : 'Rain so far'}</span>
             </div>
-            <div className="text-lg font-bold text-slate-900">
+            <div className="text-base leading-5 font-semibold tabular-nums text-slate-900">
               {formatFloodMetric(currentFrame.cum_rain_mm, 1)}{' '}
               {presetType !== 'live' && (
-                <span className="text-xs font-normal text-slate-500">/ {totalRainfallMm} mm</span>
+                <span className="text-xs font-normal text-slate-500">/ {formatFloodMetric(totalRainfallMm, 1)} mm</span>
               )}
               {presetType === 'live' && (
                 <span className="text-xs font-normal text-slate-500">mm</span>
@@ -111,16 +128,13 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
 
       {/* Depth Stratification Legend */}
       <div
-        className={`${
-          mobileExpanded ? 'flex' : 'hidden md:flex'
-        } flex-col gap-1.5 mt-2.5 pt-2 border-t border-slate-100`}
+        className={`${detailsClass} flex-col gap-2 mt-3 pt-2 border-t border-slate-100`}
       >
-        <div className="flex items-center justify-between text-[10px] font-semibold text-slate-500">
+        <div className="flex items-center text-xs font-semibold text-slate-600">
           <div className="flex items-center gap-1">
             <Layers className="h-3 w-3 text-gakit-maroon" />
-            <span>Inundation Depth</span>
+            <span>{focusRoads ? 'Estimated road depth' : 'Estimated depth'}</span>
           </div>
-          <span className="text-[9px] text-slate-400">NOAH-trained estimate</span>
         </div>
         <div className="grid grid-cols-3 gap-1.5 text-center">
           <div className="flex flex-col items-center rounded-lg bg-slate-50/80 p-1 border border-slate-200/60">
@@ -128,30 +142,37 @@ export function TelemetryHUD({ currentFrame, totalRainfallMm, presetType = 'hist
               className="h-1.5 w-full rounded-sm mb-1 shadow-sm"
               style={{ backgroundColor: '#EAB308' }}
             />
-            <span className="text-[10px] font-bold text-slate-800">&lt; 0.5 m</span>
-            <span className="text-[9px] text-slate-400 font-medium">Low</span>
+            <span className="text-xs font-semibold text-slate-800">&lt; 0.5 m</span>
+            <span className="text-xs text-slate-600 font-medium">Low</span>
           </div>
           <div className="flex flex-col items-center rounded-lg bg-slate-50/80 p-1 border border-slate-200/60">
             <span
               className="h-1.5 w-full rounded-sm mb-1 shadow-sm"
               style={{ backgroundColor: '#F97316' }}
             />
-            <span className="text-[10px] font-bold text-slate-800">0.5–1.5 m</span>
-            <span className="text-[9px] text-slate-400 font-medium">Medium</span>
+            <span className="text-xs font-semibold text-slate-800">0.5–1.5 m</span>
+            <span className="text-xs text-slate-600 font-medium">Medium</span>
           </div>
           <div className="flex flex-col items-center rounded-lg bg-slate-50/80 p-1 border border-slate-200/60">
             <span
               className="h-1.5 w-full rounded-sm mb-1 shadow-sm"
               style={{ backgroundColor: '#DC2626' }}
             />
-            <span className="text-[10px] font-bold text-slate-800">&gt; 1.5 m</span>
-            <span className="text-[9px] text-slate-400 font-medium">High</span>
+            <span className="text-xs font-semibold text-slate-800">&gt; 1.5 m</span>
+            <span className="text-xs text-slate-600 font-medium">High</span>
           </div>
         </div>
       </div>
-      <p className="mt-2 border-t border-slate-100 pt-2 text-[10px] leading-4 text-slate-500">
-        {currentFrame.live ? liveModelNotice(currentFrame.live) : modelNotice ?? 'Illustrative timing; flood arrival, recession and depths are unvalidated.'}
-      </p>
+      <details className="group mt-2 border-t border-slate-100 pt-2 text-xs leading-4 text-slate-600">
+        <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between gap-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon [&::-webkit-details-marker]:hidden">
+          <span>Depth &amp; timing unvalidated</span>
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <p className="pt-1 pb-1 [text-wrap:pretty]">
+          {currentFrame.live ? liveModelNotice(currentFrame.live) : modelNotice ?? 'Illustrative timing; flood arrival, recession and depths are unvalidated.'}
+        </p>
+      </details>
+      </div>
     </div>
   );
 }

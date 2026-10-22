@@ -22,25 +22,29 @@ interface ScenarioSelectorProps {
 const SCENARIO_GROUPS = [
   {
     type: 'live' as const,
-    title: 'Live Simulation (Rolling 24h)',
+    title: 'Live estimates · 24h',
+    description: 'Observed rainfall with available forecasts.',
     badge: 'LIVE',
     badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200/80',
   },
   {
     type: 'historical' as const,
-    title: 'Historical Rainfall Examples (24h)',
-    badge: 'Surrogate',
+    title: 'Historical rainfall · 24h',
+    description: 'Past storms replayed with estimated flooding.',
+    badge: 'Example',
     badgeClass: 'bg-maroon-50 text-gakit-maroon border-maroon-200/80',
   },
   {
     type: 'pagasa_alert' as const,
-    title: 'Rainfall Warning Examples (24h)',
-    badge: 'Surrogate',
+    title: 'Rainfall warning examples · 24h',
+    description: 'Hypothetical rainfall, not issued advisories.',
+    badge: 'Example',
     badgeClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
   },
   {
     type: 'design_storm' as const,
-    title: 'RIDF Design Storms (24h)',
+    title: 'Design storms · 24h',
+    description: 'Synthetic storms from rainfall intensity, duration and frequency (RIDF).',
     badge: 'RIDF',
     badgeClass: 'bg-sky-50 text-sky-800 border-sky-200/80',
   },
@@ -70,14 +74,35 @@ export function ScenarioSelector({
   onSelectPreset,
   isLoading,
 }: ScenarioSelectorProps) {
-  const [showDetails, setShowDetails] = useState(false);
+  const [showDetails, setShowDetails] = useState<boolean | null>(null);
   const [showModelInfo, setShowModelInfo] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const detailsId = React.useId();
+
+  const closeDropdown = () => {
+    setIsDropdownOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const handleOptionsKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const options = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="option"]'));
+    const current = options.indexOf(document.activeElement as HTMLButtonElement);
+    let next: number;
+    if (event.key === 'ArrowDown') next = (current + 1) % options.length;
+    else if (event.key === 'ArrowUp') next = (current - 1 + options.length) % options.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = options.length - 1;
+    else return;
+    event.preventDefault();
+    options[next]?.focus();
+  };
 
   // Close dropdown on outside click or Escape key
   useEffect(() => {
     if (!isDropdownOpen) return;
+    dropdownRef.current?.querySelector<HTMLButtonElement>('[aria-selected="true"]')?.focus();
 
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       if (
@@ -91,6 +116,7 @@ export function ScenarioSelector({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsDropdownOpen(false);
+        triggerRef.current?.focus();
       }
     };
 
@@ -106,54 +132,57 @@ export function ScenarioSelector({
   }, [isDropdownOpen]);
 
   return (
-    <div className="flex flex-col gap-2 w-full pointer-events-auto">
+    <div className="flex flex-col gap-2 w-full text-xs leading-4 pointer-events-auto">
       {/* Dropdown Container */}
       <div className="relative" ref={dropdownRef}>
-        <div className="hud-card flex items-center gap-2 p-1.5 pl-2 shadow-xl">
+        <div className="hud-card flex items-center gap-2 p-2 pl-2.5">
           {/* Custom Dropdown Trigger Button */}
           <button
+            ref={triggerRef}
             type="button"
             onClick={() => setIsDropdownOpen((prev) => !prev)}
-            className="flex-1 min-w-0 flex items-center gap-2 text-left p-1 -m-1 rounded-xl hover:bg-slate-100/70 active:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-400 group cursor-pointer"
+            onKeyDown={event => {
+              if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                event.preventDefault();
+                setIsDropdownOpen(true);
+              }
+            }}
+            className="flex-1 min-w-0 flex items-center gap-2 min-h-11 text-left p-1 -m-1 rounded-xl hover:bg-slate-100/70 active:bg-slate-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-maroon-400 group cursor-pointer"
             aria-haspopup="listbox"
             aria-expanded={isDropdownOpen}
-            aria-label={`Active Scenario: ${activePreset.name}. Click to change scenario.`}
+            aria-label={`Change scenario: ${activePreset.name}`}
           >
             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-maroon-50 text-gakit-maroon shrink-0 group-hover:scale-105 transition-transform">
               <Waves className="h-3.5 w-3.5" />
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="text-[9px] font-extrabold uppercase tracking-wider text-slate-500">
-                Active Scenario
+              <div className="mb-0.5 flex items-center gap-2 text-xs font-medium text-slate-500">
+                <span>Scenario</span>
+                <span className={`rounded px-1.5 py-0.5 text-xs leading-4 ${getAlertBadgeClass(activePreset.alertLevel, true)}`}>{activePreset.badge}</span>
               </div>
-              <div className="text-xs font-bold text-slate-900 truncate group-hover:text-gakit-maroon transition-colors">
+              <div className="text-sm font-semibold leading-5 text-slate-900 group-hover:text-gakit-maroon transition-colors [text-wrap:balance]">
                 {activePreset.name}
               </div>
             </div>
 
             <ChevronDown
-              className={`h-4 w-4 text-slate-400 shrink-0 transition-transform duration-200 group-hover:text-slate-700 ${
+              className={`h-4 w-4 text-slate-500 shrink-0 transition-transform duration-200 group-hover:text-slate-700 ${
                 isDropdownOpen ? 'rotate-180 text-gakit-maroon' : ''
               }`}
             />
           </button>
 
           {/* Alert Badge and Mobile Details Toggle */}
-          <div className="flex items-center gap-1.5 border-l border-slate-200 pl-2 pr-1 shrink-0">
-            <span
-              className={`rounded-md px-2 py-0.5 text-[11px] font-bold whitespace-nowrap border ${getAlertBadgeClass(
-                activePreset.alertLevel,
-                true
-              )}`}
-            >
-              {activePreset.badge}
-            </span>
+          <div className="flex items-center pl-1 shrink-0">
             <button
               type="button"
-              onClick={() => setShowDetails((p) => !p)}
-              title={showDetails ? 'Hide scenario details' : 'Show scenario details'}
-              className="md:hidden flex h-6 w-6 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition"
+              onClick={() => setShowDetails(value => !(value ?? window.matchMedia('(min-width: 768px)').matches))}
+              title="Scenario details"
+              aria-label="Toggle scenario details"
+              aria-expanded={showDetails ?? undefined}
+              aria-controls={detailsId}
+              className="flex min-h-11 min-w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-gakit-maroon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon transition-colors"
             >
               <Info className="h-3.5 w-3.5" />
             </button>
@@ -173,8 +202,9 @@ export function ScenarioSelector({
             {/* Menu Dropdown Container */}
             <div
               role="listbox"
-              aria-label="Active Scenario"
-              className="absolute left-0 right-0 top-full mt-1.5 z-[1300] max-h-[70vh] md:max-h-96 overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/95 p-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-slate-900/10 animate-in fade-in zoom-in-95 duration-100"
+              aria-label="Choose scenario"
+              onKeyDown={handleOptionsKeyDown}
+              className="absolute left-0 right-0 top-full mt-1.5 z-[1300] max-h-[min(60dvh,26rem)] overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/95 p-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-slate-900/10 animate-in fade-in zoom-in-95 duration-100"
             >
               {SCENARIO_GROUPS.map((group, groupIdx) => {
                 const presetsInGroup = SCENARIO_PRESETS.filter(
@@ -191,15 +221,16 @@ export function ScenarioSelector({
                   >
                     {/* Group Header */}
                     <div className="px-2 pt-1 pb-1 flex items-center justify-between">
-                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
+                      <span className="text-xs font-semibold text-slate-600">
                         {group.title}
                       </span>
                       <span
-                        className={`text-[8.5px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded border ${group.badgeClass}`}
+                        className={`text-xs font-semibold px-1.5 py-0.5 rounded border ${group.badgeClass}`}
                       >
                         {group.badge}
                       </span>
                     </div>
+                    <p className="px-2 pb-1 text-xs leading-4 text-slate-600">{group.description}</p>
 
                     {/* Group Preset Options */}
                     <div className="space-y-0.5 mt-0.5">
@@ -213,9 +244,9 @@ export function ScenarioSelector({
                             aria-selected={isSelected}
                             onClick={() => {
                               onSelectPreset(preset);
-                              setIsDropdownOpen(false);
+                              closeDropdown();
                             }}
-                            className={`w-full flex items-center justify-between gap-2.5 rounded-xl px-2.5 py-2 text-left transition-all duration-150 group cursor-pointer ${
+                            className={`w-full flex items-center justify-between gap-2.5 min-h-11 rounded-xl px-2.5 py-2 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-inset group cursor-pointer ${
                               isSelected
                                 ? 'bg-maroon-50/90 text-gakit-maroon ring-1 ring-maroon-200/90 shadow-xs'
                                 : 'text-slate-700 hover:bg-slate-100/70 hover:text-slate-900'
@@ -226,7 +257,7 @@ export function ScenarioSelector({
                                 className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors ${
                                   isSelected
                                     ? 'bg-maroon-700 text-white'
-                                    : 'bg-slate-100 text-slate-400 group-hover:bg-slate-200 group-hover:text-slate-600'
+                                    : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-600'
                                 }`}
                               >
                                 {isSelected ? (
@@ -238,15 +269,15 @@ export function ScenarioSelector({
 
                               <div className="min-w-0 flex-1">
                                 <div
-                                  className={`text-xs leading-tight truncate ${
+                                  className={`text-sm leading-5 [text-wrap:pretty] ${
                                     isSelected
-                                      ? 'font-bold text-gakit-maroon'
+                                      ? 'font-semibold text-gakit-maroon'
                                       : 'font-semibold text-slate-800 group-hover:text-slate-900'
                                   }`}
                                 >
                                   {preset.name}
                                 </div>
-                                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5 truncate">
+                                <div className="flex items-center gap-1.5 text-xs leading-4 text-slate-500 mt-0.5 truncate">
                                   <span className="truncate">{preset.dates}</span>
                                   <span>•</span>
                                   <span className="font-medium text-slate-500 shrink-0">
@@ -259,7 +290,7 @@ export function ScenarioSelector({
                             </div>
 
                             <span
-                              className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold whitespace-nowrap border ${
+                              className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap border ${
                                 preset.alertLevel
                                   ? getAlertBadgeClass(preset.alertLevel)
                                   : isSelected
@@ -283,13 +314,14 @@ export function ScenarioSelector({
 
       {/* Storm Summary & Metadata Card (always visible on md+, collapsible on mobile) */}
       <div
+        id={detailsId}
         className={`${
-          showDetails ? 'flex' : 'hidden md:flex'
-        } hud-card p-2.5 shadow-md flex-col gap-1.5`}
+          showDetails === null ? 'hidden md:flex' : showDetails ? 'flex' : 'hidden'
+        } hud-card max-h-[min(45dvh,24rem)] overflow-y-auto overscroll-contain p-3 flex-col gap-2`}
       >
         {/* Date and Time Header */}
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
-          <div className="flex items-center gap-1 font-bold text-slate-800">
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4">
+          <div className="flex items-center gap-1 font-semibold text-slate-800">
             <Calendar className="h-3 w-3 text-gakit-maroon shrink-0" />
             <span>{activePreset.dates}</span>
           </div>
@@ -297,19 +329,19 @@ export function ScenarioSelector({
           <span className="text-slate-300">•</span>
 
           <div className="flex items-center gap-1 font-medium text-slate-600">
-            <Clock className="h-3 w-3 text-sky-600 shrink-0" />
+            <Clock className="h-3 w-3 text-gakit-maroon shrink-0" />
             <span>{activePreset.timeWindow}</span>
           </div>
 
           {activePreset.peakTime && (
-            <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-900 border border-amber-200/80">
-              Peak Rainfall: {activePreset.peakTime}
+            <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-xs font-semibold text-amber-900 border border-amber-200/80">
+              Peak rain: {activePreset.peakTime}
             </span>
           )}
         </div>
 
         {/* Event Impact Narrative */}
-        <p className="text-[11px] text-slate-600 leading-snug border-t border-slate-100 pt-1.5">
+        <p className="text-xs text-slate-600 leading-4 [text-wrap:pretty] border-t border-slate-100 pt-2">
           {activePreset.description}
         </p>
 
@@ -319,13 +351,13 @@ export function ScenarioSelector({
             <button
               type="button"
               onClick={() => setShowModelInfo((prev) => !prev)}
-              className="w-full flex items-center justify-between text-left gap-1 group cursor-pointer"
+              className="flex min-h-9 w-full items-center justify-between gap-1 rounded text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon group cursor-pointer"
               aria-expanded={showModelInfo}
             >
-              <div className="flex items-center gap-1 text-[9px] font-bold text-amber-800 uppercase tracking-wider min-w-0">
+              <div className="flex items-center gap-1 text-xs font-semibold text-amber-800 min-w-0">
                 <AlertTriangle className="h-3 w-3 text-amber-600 shrink-0" />
                 <span className="truncate">
-                  Experimental PIML Surrogate Simulation
+                  Experimental flood model
                 </span>
               </div>
               <ChevronDown
@@ -335,12 +367,12 @@ export function ScenarioSelector({
               />
             </button>
             {showModelInfo && (
-              <p className="text-[9px] text-amber-700/90 leading-tight pt-1 border-t border-amber-200/50">
+              <p className="text-xs text-amber-800 leading-4 [text-wrap:pretty] pt-1 border-t border-amber-200/50">
                 {activePreset.type === 'live'
                   ? 'Independent spatial estimates from rolling 24-hour rainfall windows, using satellite observations and available forecast rainfall. The model has no previous water state and does not simulate flood arrival or drainage. Wet training cases use 110.4, 148.2 and 179.4 mm.'
                   : activePreset.type === 'pagasa_alert'
-                  ? 'Hypothetical rainfall patterns with warning-color themes. These are not issued PAGASA advisories. Flood progression uses a static NOAH-map emulator with illustrative timing, not routed river flow.'
-                  : 'Historical rainfall sequences drive a static emulator trained on three NOAH hazard maps. Station adjustments have not been independently verified; flood timing, discharge and exact depths are unvalidated.'}
+                  ? 'Hypothetical rainfall patterns with warning-color themes. These are not issued PAGASA advisories. Flood progression uses a simplified model trained on NOAH flood maps with illustrative timing, not routed river flow.'
+                  : 'Historical rainfall sequences drive a simplified model trained on three NOAH flood maps. Station adjustments have not been independently verified; flood timing, discharge and exact depths are unvalidated.'}
               </p>
             )}
           </div>
@@ -352,10 +384,10 @@ export function ScenarioSelector({
               className="w-full flex items-center justify-between text-left gap-1 group cursor-pointer"
               aria-expanded={showModelInfo}
             >
-              <div className="flex items-center gap-1 text-[9px] font-bold text-sky-900 uppercase tracking-wider min-w-0">
+              <div className="flex items-center gap-1 text-xs font-semibold text-sky-900 min-w-0">
                 <ShieldCheck className="h-3 w-3 text-sky-700 shrink-0" />
                 <span className="truncate">
-                  RIDF Design Storm · PIML Simulated
+                  Design storm model
                 </span>
               </div>
               <ChevronDown
@@ -365,8 +397,8 @@ export function ScenarioSelector({
               />
             </button>
             {showModelInfo && (
-              <p className="text-[9px] text-sky-800/90 leading-tight pt-1 border-t border-sky-200/50">
-                Synthetic hourly rainfall drives an emulator trained on NOAH design hazard classes. These are emulator outputs, not the original FLO-2D time series. Flood arrival, recession and exact depths have not been independently validated.
+              <p className="text-xs text-sky-900 leading-4 [text-wrap:pretty] pt-1 border-t border-sky-200/50">
+                RIDF means rainfall intensity, duration and frequency. These synthetic storms use a simplified model trained on NOAH flood maps, not the original water-flow simulation. Flood arrival, recession and exact depths have not been independently validated.
               </p>
             )}
           </div>

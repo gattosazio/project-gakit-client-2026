@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { isDaytimeInManila } from '@/lib/weather/weatherCodes';
+import { isDaytimeInManila, weatherRainIntensity } from '@/lib/weather/weatherCodes';
 import { weatherPlayback } from '@/lib/weather/animationPlayback';
 
 interface WeatherCanvasBackdropProps {
@@ -232,6 +232,8 @@ export function WeatherCanvasBackdrop({
     (conditionCode >= 51 && conditionCode <= 67) ||
     (conditionCode >= 80 && conditionCode <= 86);
   const isOvercast = conditionCode === 3;
+  const isFog = conditionCode === 45 || conditionCode === 48;
+  const rainIntensity = weatherRainIntensity(conditionCode);
   const isClearOrPartly =
     conditionCode === 0 || conditionCode === 1 || conditionCode === 2;
   const isPartly = conditionCode === 1 || conditionCode === 2;
@@ -353,13 +355,15 @@ export function WeatherCanvasBackdrop({
     );
 
     // 6. Rain Drops & Splashes
-    const raindrops: Raindrop[] = Array.from({ length: 50 }, (_, i) => {
-      const isFar = i < 28;
+    const dropCount = rainIntensity === 'light' ? 12 : rainIntensity === 'moderate' ? 28 : 50;
+    const rainSpeed = rainIntensity === 'light' ? 0.55 : rainIntensity === 'moderate' ? 0.8 : 1;
+    const raindrops: Raindrop[] = Array.from({ length: dropCount }, (_, i) => {
+      const isFar = i < Math.ceil(dropCount * 0.56);
       return {
         x: pseudoRandom(i * 19 + 1) * 800,
         y: pseudoRandom(i * 23 + 2) * 140 - 20,
-        length: isFar ? 12 + pseudoRandom(i * 7) * 6 : 24 + pseudoRandom(i * 11) * 14,
-        speed: isFar ? 260 + pseudoRandom(i * 13) * 60 : 420 + pseudoRandom(i * 17) * 100,
+        length: (isFar ? 12 + pseudoRandom(i * 7) * 6 : 24 + pseudoRandom(i * 11) * 14) * rainSpeed,
+        speed: (isFar ? 260 + pseudoRandom(i * 13) * 60 : 420 + pseudoRandom(i * 17) * 100) * rainSpeed,
         width: isFar ? 1.0 : 1.5,
         alpha: isFar ? 0.3 + pseudoRandom(i * 29) * 0.2 : 0.6 + pseudoRandom(i * 31) * 0.3,
         layer: isFar ? 'far' : 'near',
@@ -978,6 +982,22 @@ export function WeatherCanvasBackdrop({
         renderThunderstorm(totalTime, dt);
       } else if (isRain) {
         renderRain(dt);
+      } else if (isFog) {
+        const haze = ctx.createLinearGradient(0, 0, 0, height);
+        haze.addColorStop(0, 'rgba(148, 163, 184, 0.12)');
+        haze.addColorStop(1, 'rgba(148, 163, 184, 0.45)');
+        ctx.fillStyle = haze;
+        ctx.fillRect(0, 0, width, height);
+        ctx.strokeStyle = isDaytime ? 'rgba(100, 116, 139, 0.25)' : 'rgba(226, 232, 240, 0.25)';
+        ctx.lineWidth = 5;
+        ctx.lineCap = 'round';
+        for (let i = 0; i < 4; i++) {
+          const drift = Math.sin(totalTime * 0.25 + i) * 12;
+          ctx.beginPath();
+          ctx.moveTo(width * 0.1 + drift, height * (0.3 + i * 0.16));
+          ctx.lineTo(width * 0.9 + drift, height * (0.3 + i * 0.16));
+          ctx.stroke();
+        }
       } else if (isOvercast) {
         renderOvercast(dt);
       } else if (isClearOrPartly) {
@@ -990,7 +1010,7 @@ export function WeatherCanvasBackdrop({
     }
 
     playback = weatherPlayback(container, {
-      paused: () => pausedRef.current || !(isThunder || isRain || isOvercast || isClearOrPartly),
+      paused: () => pausedRef.current || !(isThunder || isRain || isOvercast || isFog || isClearOrPartly),
       reducedMotion: reduced => { prefersReducedMotion = reduced; },
       draw: dt => { totalTime += dt; drawFrame(dt); },
     });
@@ -1002,8 +1022,10 @@ export function WeatherCanvasBackdrop({
     };
   }, [
     isThunder,
+    rainIntensity,
     isRain,
     isOvercast,
+    isFog,
     isClearOrPartly,
     isPartly,
     isDaytime,

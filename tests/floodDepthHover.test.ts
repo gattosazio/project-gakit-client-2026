@@ -95,13 +95,14 @@ describe('frame-aligned flood depth hover', () => {
     vi.stubGlobal('requestAnimationFrame', (fn: () => void) => { callbacks.set(1, fn); return 1; });
     vi.stubGlobal('cancelAnimationFrame', (id: number) => callbacks.delete(id));
     const container = new Element(), canvas = new Element();
+    canvas.style.cursor = 'grab';
     const events = new Map<string, (event?: any) => void>();
     let visible = true;
     const map = { getContainer: () => container, getCanvas: () => canvas, isMoving: () => false,
       getLayer: () => ({ source: 'flood' }), getLayoutProperty: () => visible ? 'visible' : 'none',
       on: (name: string, callback: (event?: any) => void) => events.set(name, callback),
       off: (name: string) => events.delete(name) };
-    const sample = vi.fn(() => ({ value: '~45 cm', detail: 'Simulated depth' }));
+    const sample = vi.fn(() => ({ value: '~45 cm', detail: 'Estimated road depth', location: 'Test Street', time: 'Dec 17, 3:00 AM', depthM: .45 }));
     const detach = attachFloodDepthHover(map, 'flood-layer', sample);
     const move = events.get('mousemove')!;
     const flush = () => { const fn = callbacks.get(1)!; callbacks.clear(); fn(); };
@@ -111,13 +112,17 @@ describe('frame-aligned flood depth hover', () => {
     const tooltip = container.children[0];
     expect(sample).toHaveBeenCalledOnce();
     expect(sample).toHaveBeenCalledWith(125.5, 9);
-    expect(tooltip.style.left).toBe('312px');
-    expect(tooltip.style.top).toBe('322px');
+    expect(tooltip.style.left).toBe('292px');
+    expect(tooltip.style.top).toBe('302px');
     expect(tooltip.children[1].textContent).toBe('~45 cm');
+    expect(tooltip.children[2].textContent).toBe('Test Street');
+    expect(tooltip.children[3].textContent).toBe('Dec 17, 3:00 AM');
+    expect(canvas.style.cursor).toContain('data:image/svg+xml');
     events.get('sourcedata')!({ sourceId: 'buildings' });
     expect(tooltip.style.display).toBe('block');
     visible = false; events.get('render')!();
     expect(tooltip.style.display).toBe('none');
+    expect(canvas.style.cursor).toBe('grab');
     visible = true; move({ lngLat: { lng: 125, lat: 9 }, point: { x: 100, y: 100 } }); flush();
     canvas.listeners.get('mouseleave')!();
     expect(tooltip.style.display).toBe('none');

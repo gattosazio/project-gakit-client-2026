@@ -24,6 +24,7 @@ export function useTyphoonLayer(
 ) {
   const [showTyphoonTrack, setShowTyphoonTrack] = useState(false);
   const [typhoonData, setTyphoonData] = useState<TyphoonApiResponse | null>(null);
+  const [liveTyphoonData, setLiveTyphoonData] = useState<TyphoonApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [historicalStorms, setHistoricalStorms] = useState<HistoricalStormSummary[]>([]);
   const [selectedHistoricalStorm, setSelectedHistoricalStorm] = useState<string | null>(null);
@@ -35,6 +36,8 @@ export function useTyphoonLayer(
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const currentMarkersRef = useRef<any[]>([]);
   const onPointClickRef = useRef(onPointClick);
+  const requestIdRef = useRef(0);
+  const liveRequestIdRef = useRef(0);
 
   useEffect(() => {
     selectedHistoricalStormRef.current = selectedHistoricalStorm;
@@ -109,9 +112,21 @@ export function useTyphoonLayer(
   }, [mapRef]);
 
   const loadData = useCallback(async (stormName?: string | null) => {
+    const requestedStorm = stormName ?? null;
+    const requestId = ++requestIdRef.current;
+    if (!requestedStorm) liveRequestIdRef.current = requestId;
     try {
       setIsLoading(true);
       const data = await fetchTyphoonTrack(stormName);
+      // Historical responses deliberately have hasActiveTyphoon=false. They
+      // describe the selected track, never the current PAGASA storm status.
+      if (!requestedStorm && liveRequestIdRef.current === requestId) {
+        setLiveTyphoonData(data);
+      }
+      if (
+        requestId !== requestIdRef.current ||
+        requestedStorm !== selectedHistoricalStormRef.current
+      ) return null;
       typhoonDataRef.current = data;
       setTyphoonData(data);
       applyDataToMap(data);
@@ -120,7 +135,7 @@ export function useTyphoonLayer(
       console.error('Failed to load typhoon track data', error);
       return null;
     } finally {
-      setIsLoading(false);
+      if (requestId === requestIdRef.current) setIsLoading(false);
     }
   }, [applyDataToMap]);
 
@@ -242,6 +257,9 @@ export function useTyphoonLayer(
     (next: boolean) => {
       setShowTyphoonTrack(next);
       if (!next) {
+        selectedHistoricalStormRef.current = null;
+        ++requestIdRef.current;
+        setIsLoading(false);
         setSelectedHistoricalStorm(null);
       }
       const map = mapRef.current;
@@ -314,15 +332,17 @@ export function useTyphoonLayer(
 
   const selectHistoricalStorm = useCallback(
     async (stormName: string | null) => {
+      selectedHistoricalStormRef.current = stormName;
       setSelectedHistoricalStorm(stormName);
       const data = await loadData(stormName);
+      if (!data || selectedHistoricalStormRef.current !== stormName) return;
       const map = mapRef.current;
       if (!map) return;
 
       if (stormName && data?.track?.features?.length) {
         // Give map a moment to re-render features then focus bounds
         setTimeout(() => {
-          focusStorm(stormName);
+          if (selectedHistoricalStormRef.current === stormName) focusStorm(stormName);
         }, 80);
       } else {
         const camera = map.cameraForBounds(
@@ -355,6 +375,7 @@ export function useTyphoonLayer(
     setShowTyphoonTrack: toggleTyphoonTrack,
     toggleTyphoonTrack,
     typhoonData,
+    liveTyphoonData,
     isLoading,
     loadData,
     focusStorm,

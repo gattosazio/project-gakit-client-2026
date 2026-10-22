@@ -108,7 +108,7 @@ describe('setupOverlayLayers himawari source', () => {
     expect(darkLayers.some((l) => l.id === 'hillshade')).toBe(false);
   });
 
-  it('configures AWS Terrarium raster-dem source in 3D mode', async () => {
+  it('configures the Mapterhorn Terrarium raster-dem source in 3D mode', async () => {
     const { map, addedSources } = createMockMap();
     const maplibregl = { addProtocol: () => {} };
 
@@ -117,7 +117,7 @@ describe('setupOverlayLayers himawari source', () => {
     const terrain = addedSources.find((s) => s.id === 'terrain');
     expect(terrain).toBeDefined();
     expect(terrain!.spec.type).toBe('raster-dem');
-    expect(terrain!.spec.tiles[0]).toContain('s3.amazonaws.com/elevation-tiles-prod/terrarium');
+    expect(terrain!.spec.tiles[0]).toContain('tiles.mapterhorn.com');
     expect(terrain!.spec.encoding).toBe('terrarium');
   });
 

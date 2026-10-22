@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react';
-import { fetchActiveAlerts, fetchCurrentWeather } from '@/lib/weather/weather';
+import { fetchActiveAlerts, fetchCurrentWeather, usableCurrentWeather } from '@/lib/weather/weather';
 import type { CurrentWeather, WeatherAlert } from '@/types/weather';
 import { SharedResourcePoller } from '@/lib/backend/sharedPoller';
 
@@ -38,7 +38,7 @@ export function useWeatherFeeds() {
   );
   return {
     alerts: { ...alerts, checkedAt: alertsCheckedAt },
-    current: { ...current, checkedAt: weatherCheckedAt },
+    current: { ...current, data: usableCurrentWeather(current.data), checkedAt: weatherCheckedAt },
   };
 }
 
@@ -51,9 +51,10 @@ export function useActiveAlerts(): WeatherAlert[] | null {
 }
 
 export function useCurrentWeather(): CurrentWeather | null {
-  return useSyncExternalStore(
+  const current = useSyncExternalStore(
     currentWeatherResource.subscribe,
     currentWeatherResource.getSnapshot,
     currentWeatherResource.getServerSnapshot
   ).data;
+  return usableCurrentWeather(current);
 }

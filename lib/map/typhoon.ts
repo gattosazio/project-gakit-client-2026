@@ -1,3 +1,4 @@
+import { buildFullForecastCone } from '@/lib/map/forecastCone';
 import type {
   HistoricalStormSummary,
   TyphoonApiResponse,
@@ -372,6 +373,8 @@ export function enrichTyphoonTrackGeoJson(
 
   const enrichedPoints: any[] = [];
   const generatedLines: any[] = [];
+  const generatedCones: any[] = [];
+  const rebuiltConeNames = new Set<string>();
 
   for (const [, pts] of stormPointsMap.entries()) {
     let currentIdx = -1;
@@ -447,6 +450,22 @@ export function enrichTyphoonTrackGeoJson(
       });
     }
 
+    if (!isHistorical) {
+      const cone = buildFullForecastCone(pts.map((point) => ({
+        lat: Number(point.geometry.coordinates[1]),
+        lon: Number(point.geometry.coordinates[0]),
+        radius: Number(point.properties?.radius ?? 0),
+      })).filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon) && Number.isFinite(point.radius)));
+      if (cone.length > 0) {
+        rebuiltConeNames.add(stormTitle);
+        generatedCones.push({
+          type: 'Feature',
+          geometry: { type: 'MultiPolygon', coordinates: cone },
+          properties: { type: 'smoothed_hull', typhoon_name: stormTitle },
+        });
+      }
+    }
+
     // Build colored, solid-past / dashed-forecast lines for this storm
     const coloredLines = buildColoredTrackLines(pts, currentIdx, stormTitle, { isHistorical });
     generatedLines.push(...coloredLines);
@@ -457,7 +476,11 @@ export function enrichTyphoonTrackGeoJson(
   return {
     ...track,
     isHistorical,
-    features: [...otherFeatures, ...linesToInclude, ...enrichedPoints],
+    features: [
+      ...otherFeatures.filter((feature) => feature.properties?.type !== 'smoothed_hull'
+        || !rebuiltConeNames.has(feature.properties?.typhoon_name)),
+      ...generatedCones, ...linesToInclude, ...enrichedPoints,
+    ],
   };
 }
 
