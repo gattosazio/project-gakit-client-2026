@@ -135,12 +135,13 @@ export const ILIGAN_REPORT_BOUNDS = {
   limit: 500,
 };
 
-// Pan limits derived from the Himawari se2 swath, expanded by one full swath
-// width/height in every direction. MapLibre's maxBounds constrain keeps the
-// viewport edges inside these walls (so the imagery can never clip) and — on
-// wide viewports — caps zoom-out so the viewport width never exceeds the
-// bounds' width. The zoom-out floor itself is computed per-device from the
-// swath fit in PublicMap via cameraForBounds.
+// Pan limits derived from the Himawari imagery crop (105–150°E, −0.25–29.25°N;
+// served from CIRA SLIDER full-disk IR since the se2 migration), expanded by
+// one full crop width/height in every direction. MapLibre's maxBounds constrain
+// keeps the viewport edges inside these walls (so the imagery can never clip)
+// and — on wide viewports — caps zoom-out so the viewport width never exceeds
+// the bounds' width. The zoom-out floor itself is computed per-device from the
+// crop fit in PublicMap via cameraForBounds.
 const SWATH = HIMAWARI_IMAGE_BOUNDS;
 const LNG_SPAN = SWATH[1][0] - SWATH[0][0];
 const LAT_SPAN = SWATH[1][1] - SWATH[0][1];

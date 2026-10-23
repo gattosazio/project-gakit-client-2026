@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { inflateSync } from 'node:zlib';
-import { isFrameFresh, HIMAWARI_PLACEHOLDER_DATA_URL, fetchHimawariFrame, loadHimawariFrames } from '@/lib/map/himawari';
+import { HIMAWARI_PLACEHOLDER_DATA_URL, fetchHimawariFrame, fetchHimawariFrameTimes, loadHimawariFrames } from '@/lib/map/himawari';
 
 describe('HIMAWARI_PLACEHOLDER_DATA_URL', () => {
   it('is a valid, decodable 1x1 transparent PNG data URL', () => {
@@ -43,51 +43,6 @@ describe('HIMAWARI_PLACEHOLDER_DATA_URL', () => {
   });
 });
 
-describe('isFrameFresh', () => {
-  const now = new Date('2026-08-25T11:23:00Z');
-
-  it('accepts a frame published within the normal ~13 minute lag', () => {
-    // Real header observed for slot 1030 on a healthy day.
-    expect(isFrameFresh('Tue, 25 Aug 2026 10:43:30 GMT', '1030', now)).toBe(true);
-  });
-
-  it('rejects yesterday carry-over files served during a publish gap', () => {
-    // Real header observed while slot 1110 was pending on 2026-08-25.
-    expect(isFrameFresh('Mon, 24 Aug 2026 11:23:12 GMT', '1110', now)).toBe(false);
-  });
-
-  it('accepts frames published a few minutes before their slot', () => {
-    expect(isFrameFresh('Tue, 25 Aug 2026 10:52:00 GMT', '1100', now)).toBe(true);
-  });
-
-  it('rejects long-delayed publications beyond the freshness window', () => {
-    expect(isFrameFresh('Tue, 25 Aug 2026 11:40:00 GMT', '1100', now)).toBe(false);
-  });
-
-  it('handles the UTC midnight boundary', () => {
-    const justAfterMidnight = new Date('2026-08-26T00:05:00Z');
-    expect(
-      isFrameFresh('Tue, 25 Aug 2026 23:59:00 GMT', '2350', justAfterMidnight)
-    ).toBe(true);
-    expect(
-      isFrameFresh('Mon, 24 Aug 2026 23:55:00 GMT', '2350', justAfterMidnight)
-    ).toBe(false);
-  });
-
-  it('resolves slots in the future of the server clock to the previous day', () => {
-    const justBeforeMidnight = new Date('2026-08-25T23:58:00Z');
-    expect(
-      isFrameFresh('Tue, 25 Aug 2026 00:12:00 GMT', '0000', justBeforeMidnight)
-    ).toBe(true);
-  });
-
-  it('rejects missing or unparseable Last-Modified headers', () => {
-    expect(isFrameFresh(null, '1100', now)).toBe(false);
-    expect(isFrameFresh('not-a-date', '1100', now)).toBe(false);
-  });
-});
-
-
 describe('Himawari failure handling', () => {
   afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
@@ -103,12 +58,80 @@ describe('Himawari failure handling', () => {
     });
   }
 
+  it('uses published full timestamps even when the upstream is behind the clock', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ frames: ['20261023023000', '20261023022000', '20261023023000'] }));
+    vi.stubGlobal('fetch', fetchMock);
+    expect(await fetchHimawariFrameTimes()).toEqual(['20261023022000', '20261023023000']);
+    expect(fetchMock.mock.calls[0][0]).toBe('/api/himawari-proxy?manifest=1');
+  });
+
+  it('does not guess image slots when discovery fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ error: 'outage' }, { status: 503 })));
+    await expect(fetchHimawariFrameTimes()).rejects.toThrow('temporarily unavailable');
+  });
+
   it('keeps available frames in timeline order when individual scans fail', async () => {
     images(time => time === '1010');
     const progress = vi.fn();
     const frames = await loadHimawariFrames(['1000', '1010', '1020'], progress);
     expect([...frames.keys()]).toEqual(['1000', '1020']);
     expect(progress).toHaveBeenLastCalledWith(2);
+  });
+
+  it('requests six newest scans and only uses older candidates for gaps', async () => {
+    const requested: string[] = [];
+    images(time => { requested.push(time); return time === '1100'; });
+    const frames = await loadHimawariFrames(
+      ['1000', '1010', '1020', '1030', '1040', '1050', '1100', '1110'],
+      undefined,
+      { maxFrames: 6 },
+    );
+    expect(requested).toEqual(['1110', '1100', '1050', '1040', '1030', '1020', '1010']);
+    expect([...frames.keys()]).toEqual(['1010', '1020', '1030', '1040', '1050', '1110']);
+  });
+
+  it('reuses decoded frames without making image requests', async () => {
+    const cached = new Map([['1000', {} as HTMLImageElement], ['1010', {} as HTMLImageElement]]);
+    const imageConstructor = vi.fn();
+    vi.stubGlobal('Image', imageConstructor);
+    const onFrame = vi.fn();
+    const frames = await loadHimawariFrames(['1000', '1010'], undefined, { cachedFrames: cached, onFrame });
+    expect(imageConstructor).not.toHaveBeenCalled();
+    expect(frames).toEqual(cached);
+    expect(onFrame).toHaveBeenCalledTimes(2);
+  });
+
+  it('publishes the first frame while another frame is still loading', async () => {
+    const pending: Array<{ onload: (() => void) | null }> = [];
+    vi.stubGlobal('Image', class {
+      onload: (() => void) | null = null;
+      onerror = null;
+      set src(value: string) { if (value) pending.push(this); }
+    });
+    const onFrame = vi.fn();
+    let settled = false;
+    const batch = loadHimawariFrames(['1000', '1010'], undefined, { onFrame }).then(result => {
+      settled = true;
+      return result;
+    });
+    expect(pending).toHaveLength(2);
+    pending[0].onload?.();
+    await vi.waitFor(() => expect(onFrame).toHaveBeenCalledTimes(1));
+    expect(settled).toBe(false);
+    expect(onFrame).toHaveBeenCalledWith('1010', pending[0]);
+    pending[1].onload?.();
+    expect([...(await batch).keys()]).toEqual(['1000', '1010']);
+  });
+
+  it('stops publishing and requesting frames when a batch is cancelled', async () => {
+    let active = true;
+    images(() => { active = false; return false; });
+    const onFrame = vi.fn();
+    const frames = await loadHimawariFrames(['1000', '1010', '1020', '1030'], undefined, {
+      onFrame, shouldContinue: () => active,
+    });
+    expect(frames.size).toBe(0);
+    expect(onFrame).not.toHaveBeenCalled();
   });
 
   it('returns an empty batch on a full upstream outage', async () => {
@@ -120,7 +143,7 @@ describe('Himawari failure handling', () => {
     vi.useFakeTimers();
     vi.stubGlobal('Image', class { onload = null; onerror = null; src = ''; });
     const result = expect(fetchHimawariFrame('1000')).rejects.toThrow('timed out');
-    await vi.advanceTimersByTimeAsync(15_000);
+    await vi.advanceTimersByTimeAsync(55_000);
     await result;
     expect(vi.getTimerCount()).toBe(0);
   });

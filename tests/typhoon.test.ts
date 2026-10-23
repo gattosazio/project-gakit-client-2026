@@ -20,6 +20,14 @@ import {
   syncCurrentStormMarkers,
 } from '@/lib/map/typhoonMarker';
 
+describe('PAGASA popup icons', () => {
+  it.each(['STY', 'TY', 'STS', 'TS', 'TD', 'LPA', 'AA'])('uses the official icon for %s', code => {
+    const html = buildTyphoonPopupHtml({ typhoon_type: code, latitude: 15, longitude: 125 });
+    expect(html).toContain(`/icons/pagasa/${code === 'AA' ? 'LPA' : code}.png`);
+    expect(html).not.toContain('background-color:');
+  });
+});
+
 describe('typhoon utilities', () => {
   it('has valid PAR boundary GeoJSON', () => {
     expect(PAR_BOUNDARY_GEOJSON.type).toBe('FeatureCollection');

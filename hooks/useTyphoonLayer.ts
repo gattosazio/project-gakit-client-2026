@@ -87,9 +87,7 @@ export function useTyphoonLayer(
       'typhoon-track-line-glow',
       'typhoon-track-line',
       'typhoon-track-line-forecast',
-      'typhoon-track-point-halo',
       'typhoon-track-point-circle',
-      'typhoon-track-point-dot',
       'typhoon-track-point-label',
     ];
     layers.forEach((layerId) => {
@@ -174,9 +172,7 @@ export function useTyphoonLayer(
       'typhoon-track-line-glow',
       'typhoon-track-line',
       'typhoon-track-line-forecast',
-      'typhoon-track-point-halo',
       'typhoon-track-point-circle',
-      'typhoon-track-point-dot',
       'typhoon-track-point-label',
     ];
 

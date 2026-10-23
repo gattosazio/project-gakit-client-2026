@@ -1,5 +1,8 @@
 'use client';
 
+import Image from 'next/image';
+import { typhoonIconURL } from '@/lib/map/typhoonIcons';
+
 import { formatFloodMetric } from '@/lib/map/liveFloodState';
 import { DEPTH_RANK } from '@/lib/map/barangayStats';
 import { formatReportDepth, timeAgo } from '@/lib/reports/reportFormatting';
@@ -8,6 +11,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ChevronUp, History, Info, Layers, ListFilter, RotateCwFadingClock, Search, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { HeatIndexDetails, type HeatIndexControlState } from '@/components/map/HeatIndexDetails';
 import {
   BASEMAP_LABELS,
   REPORT_MARKER_COLORS,
@@ -474,6 +478,7 @@ export function ReportControls({
 /* ─── Data layer controls card ────────────────────────────────────────── */
 
 interface DataLayerControlsProps {
+  heatIndex?: HeatIndexControlState;
   open: boolean;
   onToggle: (open: boolean) => void;
   showFloodHazard: boolean;
@@ -860,6 +865,7 @@ function StormTrackSelector({
 }
 
 export function DataLayerControls({
+  heatIndex,
   open,
   onToggle,
   showFloodHazard,
@@ -1034,10 +1040,6 @@ export function DataLayerControls({
           checked={showSimulatedFlood}
           onChange={(checked) => onShowSimulatedFloodChange?.(checked)}
           loading={showSimulatedFlood && isLoadingSimulatedFlood}
-          credit={{
-            href: 'https://sharaku.eorc.jaxa.jp/GSMaP/',
-            label: 'JAXA GSMaP',
-          }}
         />
         {showSimulatedFlood && (
           <div className="ml-2 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 space-y-2.5">
@@ -1139,14 +1141,25 @@ export function DataLayerControls({
           </div>
         )}
 
+        {heatIndex && <>
+          <PillToggle
+            label="Heat index"
+            checked={heatIndex.visible}
+            onChange={heatIndex.setVisible}
+            loading={heatIndex.visible && heatIndex.loading}
+            credit={{ href: 'https://www.ecmwf.int/', label: 'ECMWF' }}
+          />
+          {heatIndex.visible && <HeatIndexDetails state={heatIndex} />}
+        </>}
+
         <PillToggle
           label="Satellite imagery"
           checked={showHimawariIR}
           onChange={onShowHimawariIRChange}
           loading={showHimawariIR && isLoadingHimawari}
           credit={{
-            href: 'https://www.data.jma.go.jp/mscweb/data/himawari/',
-            label: 'JMA Himawari-9',
+            href: 'https://rammb-slider.cira.colostate.edu/?sat=himawari&sec=full_disk&p[]=band_13',
+            label: 'Himawari-9',
           }}
         />
         {showHimawariIR && (
@@ -1221,11 +1234,11 @@ export function DataLayerControls({
                       key={code}
                       type="button"
                       onClick={() => setShowScaleModal(true)}
-                      className="inline-flex items-center justify-center w-6 h-4 rounded text-[8px] font-bold text-white shrink-0 shadow-xs hover:opacity-90 transition-opacity"
-                      style={{ backgroundColor: cfg.color }}
+                      className="inline-flex items-center justify-center w-6 h-6 rounded shrink-0 hover:opacity-80 transition-opacity focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+                      aria-label={`${cfg.name} (${code}) - View legend`}
                       title={`${cfg.name} · Click to view legend`}
                     >
-                      {code}
+                      <Image src={typhoonIconURL(code)} alt="" width={22} height={22} unoptimized />
                     </button>
                   );
                 })}

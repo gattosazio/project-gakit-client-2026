@@ -30,8 +30,10 @@ import {
   reverseGeocode,
   type GeoJsonCollection,
 } from '@/lib/map/geoUtils';
+import { containMapScroll } from '@/lib/map/containMapScroll';
+import { canAssessMapLocation } from '@/lib/map/assessmentLandMask';
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
-import { bboxChanged, polygonRepPoint, setSwathZoomFloor } from '@/lib/map/mapGeometry';
+import { bboxChanged, polygonRepPoint, setSwathZoomFloor, zoomToWeatherCoverage } from '@/lib/map/mapGeometry';
 import { queryFloodHazard, type FloodRiskLevel } from '@/lib/map/floodHazard';
 import {
   queryLandslide,
@@ -79,6 +81,7 @@ import { formatReportDepth, STATUS_META, timeAgo } from '@/lib/reports/reportFor
 // @ts-ignore
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useRainfallLayer } from '@/hooks/useRainfallLayer';
+import { useHeatIndexLayer } from '@/hooks/useHeatIndexLayer';
 import { useReportsLayer } from '@/hooks/useReportsLayer';
 import { FailureModal } from '@/components/ui/FailureModal';
 import { useHimawariLayer } from '@/hooks/useHimawariLayer';
@@ -353,6 +356,7 @@ export function PublicMap({
   }, []);
 
   const rainfall = useRainfallLayer(mapRef, showRainfall);
+  const heatIndex = useHeatIndexLayer(mapRef);
   const { loadRainfall, lookupPrecip, applyPreloaded, hoursRef } = rainfall;
 
   const handleRainfallHoursChange = useCallback(
@@ -454,18 +458,7 @@ export function PublicMap({
       if (map.getLayer('rainfall-grid')) {
         map.setLayoutProperty('rainfall-grid', 'visibility', checked ? 'visible' : 'none');
       }
-      if (checked) {
-        const camera = map.cameraForBounds(
-          [
-            [116.0, 4.5],
-            [127.5, 21.5],
-          ],
-          { padding: 24 }
-        );
-        if (camera) {
-          map.flyTo({ center: camera.center, zoom: camera.zoom, pitch: 0, duration: 1000 });
-        }
-      }
+      if (checked) zoomToWeatherCoverage(map);
     }
   }, []);
 
@@ -780,12 +773,14 @@ export function PublicMap({
         // Apply rainfall data that was fetched before the map finished loading.
         applyPreloaded(map);
         typhoon.applyPreloaded(map);
+        heatIndex.applyPreloaded(map);
       })();
 
       void loadMapReportsRef.current?.();
     },
     [
       attachLayerEvents,
+      heatIndex.applyPreloaded,
       applyReportData,
       applySelectedMarker,
       applyPreloaded,
@@ -970,6 +965,7 @@ export function PublicMap({
     setSwathZoomFloor(map);
 
     mapRef.current = map;
+    const releaseScrollContainment = containMapScroll(mapContainer.current.parentElement!);
 
     // Keep the map sized correctly when its container changes (e.g. when the
     // tab wrapper toggles display, or layout shifts). Prevents a stale/blank
@@ -1027,14 +1023,14 @@ export function PublicMap({
       setMapPitch(map.getPitch());
     });
 
-    map.on('click', (e: any) => {
-      // Click-to-report only fires on empty map space (pins and interactive features own their clicks).
+    let locationPick = 0;
+    map.on('click', async (e: any) => {
+      const pick = ++locationPick;
+      // Location selection only fires on land; interactive features own their clicks.
       const interactiveLayers = [
         'report-points',
         'report-clusters',
         'typhoon-track-point-circle',
-        'typhoon-track-point-dot',
-        'typhoon-track-point-halo',
         'typhoon-track-point-label',
       ].filter((id) => Boolean(map.getLayer(id)));
 
@@ -1042,8 +1038,17 @@ export function PublicMap({
         layers: interactiveLayers,
       });
       if (hit.length) return;
-      hideReportPopupRef.current?.();
-      handleLocationSelectRef.current(e.lngLat.lat, e.lngLat.lng);
+      try {
+        const isLand = await canAssessMapLocation(map, e.lngLat.lat, e.lngLat.lng);
+        if (!isLand || pick !== locationPick || mapRef.current !== map) return;
+        hideReportPopupRef.current?.();
+        handleLocationSelectRef.current(e.lngLat.lat, e.lngLat.lng);
+      } catch {
+        if (pick !== locationPick || mapRef.current !== map) return;
+        toast.error('Land boundaries could not load. Please try selecting the location again.', {
+          toastId: 'assessment-land-boundary',
+        });
+      }
     });
 
     map.on('moveend', () => {
@@ -1072,6 +1077,7 @@ export function PublicMap({
     return () => {
       if (moveendTimerRef.current) clearTimeout(moveendTimerRef.current);
       resizeObserver.disconnect();
+      releaseScrollContainment();
       selectedMarkerRef.current?.remove();
       selectedMarkerRef.current = null;
       stopClusterPulse(map);
@@ -1214,6 +1220,7 @@ export function PublicMap({
       {fullScreen && mapReady && <MapScaleRuler mapRef={mapRef} />}
 
       <MapSidebar
+        heatIndex={heatIndex}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={setIsSidebarCollapsed}
         controlsVisible={controlsVisible}

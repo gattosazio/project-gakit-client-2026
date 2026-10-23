@@ -7,6 +7,7 @@ import {
   RAINFALL_PLACEHOLDER_DATA_URL,
   rainfallCellCenterFor,
 } from '@/lib/map/rainfall';
+import { HIMAWARI_COORDINATES } from '@/lib/map/himawari';
 import type { RainfallResponse } from '@/types/rainfall';
 
 describe('rainfall grid and coordinates', () => {
@@ -17,20 +18,40 @@ describe('rainfall grid and coordinates', () => {
     expect(rainfallCellCenterFor(8.28)).toBe(8.25);
   });
 
-  it('defines Philippine bounding box covering full archipelago and surrounding waters', () => {
-    expect(RAINFALL_BOUNDS.west).toBe(116.5);
-    expect(RAINFALL_BOUNDS.east).toBe(127.0);
-    expect(RAINFALL_BOUNDS.south).toBe(4.5);
-    expect(RAINFALL_BOUNDS.north).toBe(21.5);
+  it('defines the satellite-matched rainfall window, 0.1-lattice aligned', () => {
+    expect(RAINFALL_BOUNDS.west).toBe(105.0);
+    expect(RAINFALL_BOUNDS.east).toBe(150.0);
+    expect(RAINFALL_BOUNDS.south).toBe(-0.2);
+    expect(RAINFALL_BOUNDS.north).toBe(29.2);
+    // Every edge must be an exact 0.1-multiple: the client paints rows with
+    // centers (north - 0.05) - row * 0.1, which must coincide with GSMaP's
+    // x.05-offset cell centers. x.05 edges (like the satellite's -0.25/29.25)
+    // would paint the whole raster half a row off its true latitudes.
+    // Integer 0.1-lattice math avoids float traps (JS x % 0.1 !== 0).
+    const tenths = (value: number) => Math.round(value * 10);
+    expect(Number.isInteger(tenths(RAINFALL_BOUNDS.west))).toBe(true);
+    expect(Number.isInteger(tenths(RAINFALL_BOUNDS.east))).toBe(true);
+    expect(Number.isInteger(tenths(RAINFALL_BOUNDS.south))).toBe(true);
+    expect(Number.isInteger(tenths(RAINFALL_BOUNDS.north))).toBe(true);
+  });
+
+  it('shares the satellite horizontal extent, N-S within half a row of it', () => {
+    // East/west match the Himawari overlay exactly; south/north may sit 0.05
+    // deg inside for the lattice alignment (see the bounds test above).
+    const tenths = (value: number) => Math.round(value * 10);
+    expect(tenths(RAINFALL_COORDINATES[0][0])).toBe(tenths(HIMAWARI_COORDINATES[0][0])); // west
+    expect(tenths(RAINFALL_COORDINATES[1][0])).toBe(tenths(HIMAWARI_COORDINATES[1][0])); // east
+    expect(Math.abs(tenths(RAINFALL_COORDINATES[0][1]) - tenths(HIMAWARI_COORDINATES[0][1]))).toBeLessThanOrEqual(1);
+    expect(Math.abs(tenths(RAINFALL_COORDINATES[3][1]) - tenths(HIMAWARI_COORDINATES[3][1]))).toBeLessThanOrEqual(1);
   });
 
   it('specifies 4 corners for MapLibre image source in correct winding order', () => {
     // Top-left, top-right, bottom-right, bottom-left
     expect(RAINFALL_COORDINATES).toEqual([
-      [116.5, 21.5],
-      [127.0, 21.5],
-      [127.0, 4.5],
-      [116.5, 4.5],
+      [105.0, 29.2],
+      [150.0, 29.2],
+      [150.0, -0.2],
+      [105.0, -0.2],
     ]);
   });
 

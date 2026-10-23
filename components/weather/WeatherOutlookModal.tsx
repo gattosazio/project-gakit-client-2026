@@ -29,7 +29,6 @@ export function WeatherOutlookModal({ alert, highlightDate, onClose }: { alert: 
   // Historical notifications remain inspectable, with their original dates.
   const days = upcoming.length && !available.some(day => day.date === highlightDate && !upcoming.includes(day)) ? upcoming : available.slice(0, 5);
   const day = days.find(value => value.date === selectedDate) ?? days[0];
-  const stale = !Number.isFinite(Date.parse(alert.validTo)) || Date.parse(alert.validTo) <= now || !upcoming.length;
   const scene = day ? outlookScene(day, now) : null;
   const condition = day ? getWeatherCondition(day.conditionCode, scene?.isDay) : null;
   const darkSummary = scene?.dark ?? false;
@@ -42,7 +41,6 @@ export function WeatherOutlookModal({ alert, highlightDate, onClose }: { alert: 
       <button type="button" onClick={onClose} aria-label="Close weather outlook" className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"><X className="h-4 w-4" /></button>
     </header>
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
-      {stale && <p role="status" className="rounded-lg bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">This forecast is out of date. Check the latest outlook for current weather information.</p>}
       {day ? <>
         <div className="grid grid-cols-5 gap-1" role="group" aria-label="Select forecast day">
           {days.map(value => {

@@ -1,6 +1,13 @@
 import type * as maplibregl from 'maplibre-gl';
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 
+/** Shared nationwide framing for rainfall and heat-index overlays. */
+export function zoomToWeatherCoverage(map: maplibregl.Map | null | undefined): void {
+  if (!map) return;
+  const camera = map.cameraForBounds([[116.0, 4.5], [127.5, 21.5]], { padding: 24 });
+  if (camera) map.flyTo({ center: camera.center, zoom: camera.zoom, pitch: 0, duration: 1000 });
+}
+
 /**
  * Zoom-out floor derived from the Himawari swath: the camera can never go
  * below the zoom at which the full swath fits the current container, so the

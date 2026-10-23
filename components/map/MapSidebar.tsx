@@ -10,6 +10,7 @@ import {
   ListFilter,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import type { HeatIndexControlState } from '@/components/map/HeatIndexDetails';
 import { WeatherChip } from '@/components/map/WeatherChip';
 import { DataLayerControls, ReportControls } from '@/components/map/MapControls';
 import { usePointOutlook } from '@/hooks/usePointOutlook';
@@ -23,6 +24,7 @@ import type { SimulatedFloodHorizon, SimulatedFloodTelemetry } from '@/lib/map/s
 import type { ScenarioFrame } from '@/types/scenario';
 
 export interface MapSidebarProps {
+  heatIndex?: HeatIndexControlState;
   isCollapsed: boolean;
   onToggleCollapse: (collapsed: boolean) => void;
   controlsVisible?: boolean;
@@ -104,6 +106,7 @@ export interface MapSidebarProps {
 }
 
 export function MapSidebar({
+  heatIndex,
   isCollapsed,
   onToggleCollapse,
   controlsVisible = true,
@@ -220,6 +223,7 @@ export function MapSidebar({
     showFloodHazard,
     showSimulatedFlood,
     showRainfall,
+    heatIndex?.visible,
     showHimawariIR,
     showTyphoonTrack,
     showLandslide,
@@ -469,6 +473,7 @@ export function MapSidebar({
             {/* Map Layers Card */}
             <div ref={layersCardRef} className="w-full">
               <DataLayerControls
+                heatIndex={heatIndex}
                 open={layersOpen}
                 onToggle={handleToggleLayers}
                 isSidebarItem

@@ -4,19 +4,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MutableRefObject } from 'react';
 import {
   loadHimawariFrames,
-  himawariFrameTimes,
+  fetchHimawariFrameTimes,
   HIMAWARI_COORDINATES,
   HIMAWARI_IMAGE_BOUNDS,
 } from '@/lib/map/himawari';
 
 /**
  * Owns the Himawari IR satellite overlay: the frame animation loop, raster
- * opacity, and the toggle camera choreography (zoom out to the full se2 swath
- * when enabled, back to Iligan when disabled). The returned `visibleRef` lets
- * stable style-load handlers read current visibility without resubscribing.
+ * opacity, and the toggle camera choreography (zoom out to the full satellite
+ * crop when enabled, back to Iligan when disabled). The returned `visibleRef`
+ * lets stable style-load handlers read current visibility without resubscribing.
  *
- * Animation: all 6 frames (the last hour at Himawari's native 10-minute
- * cadence) are preloaded into an in-memory cache before playback, then the
+ * Animation: the six newest published scans are loaded progressively
+ * into an in-memory cache, then the
  * loop just calls `updateImage` with cached images — no network work inside
  * the tick. Frames re-preload every 5 minutes while enabled.
  *
@@ -30,11 +30,9 @@ const HIMAWARI_FRAME_COUNT = 6;
 // PAGASA PANaHON-style fast loop: the whole hour cycles in ~1 second
 // (1000 ms / 6 frames), so cloud drift reads as a rapid pulse.
 const HIMAWARI_FRAME_MS = Math.round(1000 / HIMAWARI_FRAME_COUNT);
-// Two spare candidate stamps absorb JMA publish gaps — delayed slots are
-// rejected by the proxy's freshness gate, so requesting extras keeps the
-// rotation covering the full hour instead of shrinking with every gap.
-const HIMAWARI_CANDIDATE_COUNT = HIMAWARI_FRAME_COUNT + 2;
 const HIMAWARI_REFRESH_MS = 5 * 60 * 1000;
+const HIMAWARI_RETRY_MS = 30_000;
+const KEEP_LAST_BATCH_MS = 15 * 60_000;
 
 export function useHimawariLayer(
   mapRef: MutableRefObject<any>,
@@ -59,44 +57,91 @@ export function useHimawariLayer(
     showHimawariIRRef.current = showHimawariIR;
   }, [showHimawariIR]);
 
-  // Preload every frame before playback; frames that fail to load (JMA lag,
-  // freshness-gated 404s) are simply dropped from the rotation instead of
-  // flashing blank.
+  const lastLoadedAtRef = useRef(0);
+  const nextRefreshAtRef = useRef(0);
+
+  // Pushes the current cached frame into the map's image source.
+  const drawCurrentFrame = useCallback(() => {
+    const map = mapRef.current;
+    const frames = himawariFramesRef.current;
+    if (!map || frames.size === 0) return;
+    const images = [...frames.values()];
+    const img = images[himawariFrameIndexRef.current % images.length];
+    himawariFrameIndexRef.current++;
+    const src = map.getSource('himawari-ir') as any;
+    src?.updateImage({ image: img, coordinates: HIMAWARI_COORDINATES });
+  }, [mapRef]);
+
+  // Show successful scans immediately while the rest of the loop loads.
   const preloadHimawariFrames = useCallback(async () => {
     if (loadingRef.current || !showHimawariIRRef.current) return;
     const request = ++requestRef.current;
     loadingRef.current = true;
     setIsLoading(true);
     setLoadProgress({ loaded: 0, total: HIMAWARI_FRAME_COUNT });
+    const isCurrent = () => request === requestRef.current && showHimawariIRRef.current;
+    const handleUnavailable = () => {
+      nextRefreshAtRef.current = Date.now() + HIMAWARI_RETRY_MS;
+      // Preserve the most recently loaded batch briefly through network outages.
+      // Failures never extend this grace period.
+      if (himawariFramesRef.current.size && Date.now() - lastLoadedAtRef.current < KEEP_LAST_BATCH_MS) return;
+      himawariFramesRef.current = new Map();
+      setHasFrames(false);
+      const map = mapRef.current;
+      if (map?.getLayer('himawari-ir-layer')) map.setLayoutProperty('himawari-ir-layer', 'visibility', 'none');
+      if (!failureNotifiedRef.current) {
+        failureNotifiedRef.current = true;
+        setFailureOpen(true);
+      }
+    };
     try {
-      const loaded = await loadHimawariFrames(himawariFrameTimes(HIMAWARI_CANDIDATE_COUNT), count => {
-        if (request === requestRef.current && showHimawariIRRef.current) {
-          setLoadProgress({ loaded: Math.min(count, HIMAWARI_FRAME_COUNT), total: HIMAWARI_FRAME_COUNT });
+      const times = await fetchHimawariFrameTimes();
+      if (!isCurrent()) return;
+      const progressive = new Map<string, HTMLImageElement>();
+      const loaded = await loadHimawariFrames(times, count => {
+        if (isCurrent()) {
+          setLoadProgress({ loaded: count, total: HIMAWARI_FRAME_COUNT });
         }
+      }, {
+        maxFrames: HIMAWARI_FRAME_COUNT,
+        // Full date stamps are immutable and cannot collide across UTC days.
+        cachedFrames: himawariFramesRef.current,
+        shouldContinue: isCurrent,
+        onFrame: (time, image) => {
+          progressive.set(time, image);
+          himawariFramesRef.current = new Map(times.flatMap(t => progressive.has(t) ? [[t, progressive.get(t)!] as const] : []));
+          setHasFrames(true);
+          setFailureOpen(false);
+          const map = mapRef.current;
+          if (map?.getLayer('himawari-ir-layer')) map.setLayoutProperty('himawari-ir-layer', 'visibility', 'visible');
+          if (!document.hidden && !himawariTimerRef.current) {
+            drawCurrentFrame();
+            himawariTimerRef.current = setInterval(drawCurrentFrame, HIMAWARI_FRAME_MS);
+          }
+        },
       });
       if (request !== requestRef.current || !showHimawariIRRef.current) return;
       const cache = new Map([...loaded].slice(-HIMAWARI_FRAME_COUNT));
-      // Do not keep playing a previous batch when no fresh imagery is available.
-      himawariFramesRef.current = cache;
-      setHasFrames(cache.size > 0);
-      if (cache.size) {
-        failureNotifiedRef.current = false;
-        setFailureOpen(false);
-        if (mapRef.current?.getLayer('himawari-ir-layer')) mapRef.current.setLayoutProperty('himawari-ir-layer', 'visibility', 'visible');
-      } else {
-        if (mapRef.current?.getLayer('himawari-ir-layer')) mapRef.current.setLayoutProperty('himawari-ir-layer', 'visibility', 'none');
-        if (!failureNotifiedRef.current) {
-          failureNotifiedRef.current = true;
-          setFailureOpen(true);
-        }
+      if (!cache.size) {
+        handleUnavailable();
+        return;
       }
+      himawariFramesRef.current = cache;
+      lastLoadedAtRef.current = Date.now();
+      nextRefreshAtRef.current = Date.now() + (cache.size < HIMAWARI_FRAME_COUNT ? HIMAWARI_RETRY_MS : HIMAWARI_REFRESH_MS);
+      setHasFrames(true);
+      failureNotifiedRef.current = false;
+      setFailureOpen(false);
+      if (mapRef.current?.getLayer('himawari-ir-layer')) mapRef.current.setLayoutProperty('himawari-ir-layer', 'visibility', 'visible');
+    } catch {
+      if (isCurrent()) handleUnavailable();
     } finally {
       if (request === requestRef.current) {
         loadingRef.current = false;
         setIsLoading(false);
       }
     }
-  }, [mapRef]);
+  }, [mapRef, drawCurrentFrame]);
 
   useEffect(() => () => {
     requestRef.current++;
@@ -110,18 +155,6 @@ export function useHimawariLayer(
     setFailureOpen(false);
     void preloadHimawariFrames();
   }, [preloadHimawariFrames]);
-
-  // Pushes the current cached frame into the map's image source.
-  const drawCurrentFrame = useCallback(() => {
-    const map = mapRef.current;
-    const frames = himawariFramesRef.current;
-    if (!map || frames.size === 0) return;
-    const images = [...frames.values()];
-    const img = images[himawariFrameIndexRef.current % images.length];
-    himawariFrameIndexRef.current++;
-    const src = map.getSource('himawari-ir') as any;
-    src?.updateImage({ image: img, coordinates: HIMAWARI_COORDINATES });
-  }, [mapRef]);
 
   // Playback pauses while the tab is hidden and resumes with a fresh preload,
   // so returning to the tab never replays stale frames or burns cycles in the
@@ -174,9 +207,9 @@ export function useHimawariLayer(
     })();
 
     himawariRefreshTimerRef.current = setInterval(() => {
-      if (document.visibilityState !== 'visible') return;
+      if (document.visibilityState !== 'visible' || Date.now() < nextRefreshAtRef.current) return;
       void preloadHimawariFrames();
-    }, HIMAWARI_REFRESH_MS);
+    }, HIMAWARI_RETRY_MS);
 
     return () => {
       cancelled = true;

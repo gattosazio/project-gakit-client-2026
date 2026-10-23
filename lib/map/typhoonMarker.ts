@@ -56,7 +56,7 @@ export function createCurrentStormMarkerElement(
   label.className = 'gakit-typhoon-date-label';
   label.setAttribute(
     'style',
-    'position: absolute; left: 12px; top: -14px; font-family: var(--font-inter), system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 600; color: #475569; cursor: pointer; pointer-events: auto; white-space: nowrap; user-select: none; font-variant-numeric: tabular-nums; text-shadow: 0 0 3px #ffffff, 0 0 4px #ffffff, 0 1px 2px rgba(255, 255, 255, 0.9); transition: color 0.15s ease;'
+    'position: absolute; left: 18px; top: -22px; font-family: var(--font-inter), system-ui, -apple-system, sans-serif; font-size: 11px; font-weight: 600; color: #475569; cursor: pointer; pointer-events: auto; white-space: nowrap; user-select: none; font-variant-numeric: tabular-nums; text-shadow: 0 0 3px #ffffff, 0 0 4px #ffffff, 0 1px 2px rgba(255, 255, 255, 0.9); transition: color 0.15s ease;'
   );
   label.textContent = dateLabel;
 
