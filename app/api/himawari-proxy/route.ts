@@ -1,46 +1,46 @@
 import { NextResponse } from 'next/server';
-import { isFrameFresh } from '@/lib/map/himawari';
+import { getHimawariAvailableStamps, getHimawariSliderPng } from '@/lib/server/himawariSlider';
 
-const JMA_BASE = 'https://www.data.jma.go.jp/mscweb/data/himawari/img';
+export const runtime = 'nodejs';
+
+const unavailable = () => NextResponse.json(
+  { error: 'satellite imagery temporarily unavailable' },
+  { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '30' } },
+);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const area = searchParams.get('area') || 'se2';
-  const band = searchParams.get('band') || 'b13';
-  const time = searchParams.get('time');
-
-  if (!time || !/^\d{4}$/.test(time)) {
-    return NextResponse.json({ error: 'time (HHMM) required' }, { status: 400 });
+  if (searchParams.get('manifest') === '1') {
+    try {
+      const frames = await getHimawariAvailableStamps();
+      if (!frames.length) return unavailable();
+      return NextResponse.json({ frames: frames.map(String) }, { headers: { 'Cache-Control': 'no-store' } });
+    } catch {
+      return unavailable();
+    }
   }
 
-  const url = `${JMA_BASE}/${area}/${area}_${band}_${time}.jpg`;
-
+  const time = searchParams.get('time');
+  if (!time || !/^(?:([01]\d|2[0-3])[0-5]\d|\d{14})$/.test(time)) {
+    return NextResponse.json({ error: 'time (UTC stamp or HHMM) required' }, { status: 400 });
+  }
   try {
-    // no-store on purpose: slots are overwritten in place when JMA publishes
-    // late, and Next's data cache would otherwise keep serving the stale (or
-    // 404) bytes for up to 10 minutes after JMA has already fixed the slot.
-    // Published frames are immutable, so only gap windows need fresh checks.
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) {
-      return NextResponse.json({ error: 'not found' }, { status: 404 });
+    const frame = await getHimawariSliderPng(time);
+    if (!frame) {
+      return NextResponse.json({ error: 'satellite frame not published' }, {
+        status: 404, headers: { 'Cache-Control': 'no-store' },
+      });
     }
-
-    // Until a delayed scan lands, JMA serves yesterday's file with HTTP 200.
-    // Gate on Last-Modified so a publish gap reads as "frame missing" instead
-    // of replaying day-old weather inside the loop.
-    if (!isFrameFresh(res.headers.get('last-modified'), time)) {
-      return NextResponse.json({ error: 'frame not yet published' }, { status: 404 });
-    }
-
-    const body = await res.arrayBuffer();
-    return new NextResponse(body, {
+    return new NextResponse(new Uint8Array(frame.png), {
       headers: {
-        'Content-Type': 'image/jpeg',
-        'Cache-Control': 'public, max-age=600',
+        'Content-Type': 'image/png',
+        'Content-Length': String(frame.png.byteLength),
+        'Last-Modified': frame.lastModified,
+        'Cache-Control': time.length === 14 ? 'public, max-age=86400, immutable' : 'public, max-age=540',
         'Access-Control-Allow-Origin': '*',
       },
     });
   } catch {
-    return NextResponse.json({ error: 'fetch failed' }, { status: 502 });
+    return unavailable();
   }
 }

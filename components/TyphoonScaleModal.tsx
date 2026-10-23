@@ -1,5 +1,8 @@
 'use client';
 
+import Image from 'next/image';
+import { typhoonIconURL } from '@/lib/map/typhoonIcons';
+
 import { useEffect, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { ShieldAlert, X, Wind } from 'lucide-react';
@@ -96,13 +99,14 @@ export function TyphoonScaleModal({ isOpen, onClose }: TyphoonScaleModalProps) {
                 key={code}
                 className="pt-3 first:pt-0 flex items-start gap-3.5 group"
               >
-                {/* Category Badge */}
-                <div
-                  className="inline-flex items-center justify-center w-10 h-7 rounded-lg text-xs font-bold text-white shrink-0 shadow-xs mt-0.5 tracking-wide"
-                  style={{ backgroundColor: cfg.color }}
-                >
-                  {code}
-                </div>
+                <Image
+                  src={typhoonIconURL(code)}
+                  alt={code}
+                  width={36}
+                  height={36}
+                  unoptimized
+                  className="h-9 w-9 shrink-0 mt-0.5 object-contain"
+                />
 
                 {/* Info Block */}
                 <div className="flex-1 min-w-0">

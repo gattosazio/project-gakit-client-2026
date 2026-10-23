@@ -538,7 +538,7 @@ export function PublicHeader({
             className="flex w-full flex-col items-center justify-center"
           />
 
-          {/* 5. Apps (Rightmost) */}
+          {/* 5. Menu (Rightmost) */}
           {showBentoMenu ? (
             <BentoMenu
               items={bentoTiles}

@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from 'react';
 import { AlertTriangle, CloudRain, Droplets, Info, MapPin, MountainSnow, RefreshCw, Shield, Waves, X } from 'lucide-react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
+import { HeatIndexAssessment } from '@/components/HeatIndexAssessment';
 import type { LocationRiskInfo } from '@/components/PublicMap';
 import { isRawCoordinateString, reverseGeocode } from '@/lib/map/geoUtils';
 
@@ -101,26 +102,26 @@ export function HazardAssessmentModal({
   return (
     <Dialog isOpen={isOpen} onClose={onClose} ariaLabelledBy={titleId}
       maxWidthClass="max-w-lg" panelClassName="flex max-h-[90dvh] flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center gap-3 border-b border-slate-100 px-5 py-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+      <header className="flex shrink-0 items-center gap-3 bg-gakit-maroon px-5 py-5 sm:px-6">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-amber-200">
           <Shield className="h-5 w-5" aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
-          <h2 id={titleId} className="font-heading text-lg font-bold tracking-tight text-slate-900">Hazard assessment</h2>
-          <p className="text-xs text-slate-500">Hazards and rainfall at your selected location</p>
+          <h2 id={titleId} className="font-heading text-xl font-bold tracking-tight text-white">Hazard assessment</h2>
+          <p className="mt-1 text-xs text-rose-100">Mapped hazards & weather outlook</p>
         </div>
         <button type="button" onClick={onClose} aria-label="Close hazard assessment"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900">
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-rose-100 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
           <X className="h-4 w-4" />
         </button>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-        <section className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3" aria-label="Selected location">
-          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" />
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 selection:bg-maroon-100 selection:text-maroon-900 sm:px-6">
+        <section className="flex items-start gap-2.5 border-b border-slate-200 pb-4" aria-label="Selected location">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gakit-maroon" aria-hidden="true" />
           <div className="min-w-0">
-            <p className="text-sm font-semibold leading-snug text-slate-900">{displayAddress || selectedLocation?.address || 'Select a location on the map'}</p>
-            {selectedLocation && <p className="mt-1 font-mono text-[11px] tabular-nums text-slate-500">{selectedLocation.lat.toFixed(5)}, {selectedLocation.lng.toFixed(5)}</p>}
+            <p className="text-base font-semibold leading-snug text-slate-900 break-words">{displayAddress || selectedLocation?.address || 'Select a location on the map'}</p>
+            {selectedLocation && <p className="mt-1 text-xs tabular-nums text-slate-500">{selectedLocation.lat.toFixed(5)}, {selectedLocation.lng.toFixed(5)}</p>}
           </div>
         </section>
 
@@ -134,13 +135,13 @@ export function HazardAssessmentModal({
         {selectedLocation && <>
           <section aria-labelledby={`${titleId}-hazards`} aria-busy={isCheckingLocation}>
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h3 id={`${titleId}-hazards`} className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Mapped hazards</h3>
+              <h3 id={`${titleId}-hazards`} className="text-sm font-semibold text-slate-900">Mapped hazards</h3>
               {isCheckingLocation && <span role="status" className="flex items-center gap-1.5 text-xs text-slate-500"><Spinner size="xs" />Checking…</span>}
             </div>
-            <div className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
+            <div className="divide-y divide-slate-100">
               {hazards.map(({ name, icon: Icon, level, detail, color }) => {
                 const meta = level ? levelStyles[level] : null;
-                return <div key={name} className="flex items-center justify-between gap-2 px-3.5 py-3">
+                return <div key={name} className="flex items-center justify-between gap-2 py-3">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>
                     <div className="min-w-0"><p className="text-sm font-semibold text-slate-900">{name}</p><p className="mt-0.5 text-[11px] leading-snug text-slate-500">{detail}</p></div>
@@ -155,15 +156,20 @@ export function HazardAssessmentModal({
             </div>
           </section>
 
-          <section className="flex items-center justify-between gap-3 rounded-xl border border-sky-100 bg-sky-50/60 px-3.5 py-3" aria-label="Rainfall">
-            <div className="flex items-center gap-2.5">
-              <CloudRain className="h-5 w-5 shrink-0 text-sky-600" aria-hidden="true" />
-              <div><h3 className="text-sm font-semibold text-slate-900">Rainfall</h3><p className="text-[11px] text-slate-500">{rainfallPeriod === 1 ? '1-hour rate' : `${rainfallPeriod}-hour total`}</p></div>
-            </div>
-            <div className="shrink-0 text-right">
-              {isCheckingLocation ? <Spinner size="sm" /> : hasResult && rainfall != null && Number.isFinite(rainfall)
-                ? <p className="text-xl font-bold tabular-nums tracking-tight text-slate-900">{rainfall.toFixed(1)} <span className="text-xs font-medium text-slate-500">{rainfallPeriod === 1 ? 'mm/hr' : 'mm'}</span></p>
-                : <span className="text-xs font-medium text-slate-500">Unavailable</span>}
+          <section aria-labelledby={`${titleId}-weather`}>
+            <h3 id={`${titleId}-weather`} className="mb-3 text-sm font-semibold text-slate-900">Weather outlook</h3>
+            <div className="grid grid-cols-2 overflow-hidden rounded-xl">
+              <section className="min-w-0 bg-sky-50 p-4 sm:p-5" aria-label="Rainfall">
+                <div className="mb-3 flex items-center gap-2 text-sky-900">
+                  <CloudRain className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <h3 className="text-sm font-semibold">Rainfall</h3>
+                </div>
+                {isCheckingLocation ? <div className="flex h-9 items-center"><Spinner size="sm" /></div> : hasResult && rainfall != null && Number.isFinite(rainfall)
+                  ? <p className="text-3xl font-bold tabular-nums tracking-tight text-sky-950">{rainfall.toFixed(1)} <span className="text-xs font-medium text-sky-800">{rainfallPeriod === 1 ? 'mm/hr' : 'mm'}</span></p>
+                  : <p className="flex h-9 items-center text-sm font-medium text-sky-900">Unavailable</p>}
+                <p className="mt-1 text-xs text-sky-900">{rainfallPeriod === 1 ? '1-hour rate' : `${rainfallPeriod}-hour total`}</p>
+              </section>
+              {isOpen && <HeatIndexAssessment key={`${selectedLocation.lat},${selectedLocation.lng}`} lat={selectedLocation.lat} lng={selectedLocation.lng} />}
             </div>
           </section>
 
@@ -179,7 +185,7 @@ export function HazardAssessmentModal({
       </div>
 
       <footer className="flex shrink-0 items-center justify-end border-t border-slate-100 bg-slate-50/60 px-5 py-3">
-        <button type="button" onClick={onClose} className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-slate-700">Back to map</button>
+        <button type="button" onClick={onClose} className="min-h-10 rounded-lg bg-gakit-maroon px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-maroon-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2">Back to map</button>
       </footer>
     </Dialog>
   );

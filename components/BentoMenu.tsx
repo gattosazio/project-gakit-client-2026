@@ -267,7 +267,7 @@ export function BentoMenu({
     >
       <button
         type="button"
-        aria-label="Open apps menu"
+        aria-label="Open menu"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
         className={
@@ -296,7 +296,7 @@ export function BentoMenu({
           }
         />
         {isMobileNav && (
-          <span className="text-[10px] font-semibold">Apps</span>
+          <span className="text-[10px] font-semibold">Menu</span>
         )}
         {!isMobileNav && <span>Menu</span>}
       </button>

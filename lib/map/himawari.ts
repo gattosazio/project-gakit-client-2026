@@ -1,22 +1,19 @@
 const PROXY_BASE = '/api/himawari-proxy';
 
-export const HIMAWARI_AREA = 'se2';
-export const HIMAWARI_BAND = 'snd';
-
 // 1x1 transparent PNG used to seed the MapLibre image source so it never fires
-// an AJAX at a JMA slot that may 404 (publish gaps / stale frames). Real frames
+// an AJAX at a slot that may 404 (publish gaps / stale frames). Real frames
 // are swapped in via updateImage once preloaded by useHimawariLayer.
 export const HIMAWARI_PLACEHOLDER_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=';
 
 export const HIMAWARI_COORDINATES: [number, number][] = [
   [105, 29.25],
-  [140, 29.25],
-  [140, -0.25],
+  [150, 29.25],
+  [150, -0.25],
   [105, -0.25],
 ];
 
-// South-west / north-east corners of the se2 image swath, derived from the
+// South-west / north-east corners of the satellite crop, derived from the
 // placement coordinates.
 export const HIMAWARI_IMAGE_BOUNDS: [[number, number], [number, number]] = [
   [HIMAWARI_COORDINATES[0][0], HIMAWARI_COORDINATES[3][1]],
@@ -24,24 +21,22 @@ export const HIMAWARI_IMAGE_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 export function himawariFrameURL(time: string): string {
-  return `${PROXY_BASE}?area=${HIMAWARI_AREA}&band=${HIMAWARI_BAND}&time=${time}`;
+  // The proxy renders CIRA SLIDER band-13 IR (2 km full disk, regridded)
+  // into exactly these bounds, keyed by the manifest's full UTC timestamp.
+  return `${PROXY_BASE}?time=${time}`;
 }
 
-export function himawariFrameTimes(frames = 6): string[] {
-  // JMA publishes with ~13-15 min latency; offset by 10 minutes so candidate slots
-  // are already published rather than waiting on unreleased slots that 404.
-  const now = new Date(Date.now() - 10 * 60 * 1000);
-  now.setUTCMinutes(Math.floor(now.getUTCMinutes() / 10) * 10, 0, 0);
-  const times: string[] = [];
-  // Oldest frame first so the loop plays forward in time.
-  const oldest = new Date(now.getTime() - (frames - 1) * 10 * 60 * 1000);
-  for (let i = 0; i < frames; i++) {
-    const t = new Date(oldest.getTime() + i * 10 * 60 * 1000);
-    times.push(
-      `${String(t.getUTCHours()).padStart(2, '0')}${String(t.getUTCMinutes()).padStart(2, '0')}`
-    );
-  }
-  return times;
+/** Ask the server for published scans rather than guessing slots from local time. */
+export async function fetchHimawariFrameTimes(): Promise<string[]> {
+  const response = await fetch(`${PROXY_BASE}?manifest=1`, {
+    cache: 'no-store', signal: AbortSignal.timeout(20_000),
+  });
+  if (!response.ok) throw new Error('Satellite frame list is temporarily unavailable');
+  const body = await response.json() as { frames?: unknown };
+  if (!Array.isArray(body.frames)) throw new Error('Invalid satellite frame list');
+  const frames = [...new Set(body.frames.filter((time): time is string => typeof time === 'string' && /^\d{14}$/.test(time)))];
+  if (!frames.length) throw new Error('No published satellite frames available');
+  return frames.sort().slice(-8);
 }
 
 export async function fetchHimawariFrame(time: string): Promise<HTMLImageElement> {
@@ -56,7 +51,9 @@ export async function fetchHimawariFrame(time: string): Promise<HTMLImageElement
         reject(error);
       } else resolve(img);
     };
-    const timer = setTimeout(() => finish(new Error('Satellite imagery request timed out')), 15_000);
+    // The server may take 45 seconds to render a cold frame. Leave time for
+    // response transfer too, so the browser does not abandon successful work.
+    const timer = setTimeout(() => finish(new Error('Satellite imagery request timed out')), 55_000);
     img.crossOrigin = 'anonymous';
     img.onload = () => finish();
     img.onerror = () => finish(new Error(`Failed to load Himawari frame ${time}`));
@@ -64,38 +61,35 @@ export async function fetchHimawariFrame(time: string): Promise<HTMLImageElement
   });
 }
 
-/** One missing scan is normal; only an empty batch means imagery is unavailable. */
-export async function loadHimawariFrames(times: string[], onProgress?: (loaded: number) => void): Promise<Map<string, HTMLImageElement>> {
-  let count = 0;
-  const results = await Promise.allSettled(times.map(async time => {
-    const image = await fetchHimawariFrame(time);
-    onProgress?.(++count);
-    return image;
-  }));
-  return new Map(results.flatMap((result, index) => result.status === 'fulfilled' ? [[times[index], result.value] as const] : []));
-}
+type FrameLoadOptions = {
+  maxFrames?: number;
+  cachedFrames?: ReadonlyMap<string, HTMLImageElement>;
+  onFrame?: (time: string, image: HTMLImageElement) => void;
+  shouldContinue?: () => boolean;
+};
 
-// JMA overwrites each dateless slot URL in place and leaves yesterday's file
-// served (HTTP 200) until a delayed scan publishes, so a 200 alone does not
-// mean the bytes match the requested slot. A frame counts as fresh only when
-// its Last-Modified sits within ±20 minutes of the slot's most recent
-// occurrence — normal publish lag is ~13 minutes, while a stale carry-over
-// from the previous day lands ~24 hours off.
-const HIMAWARI_FRESH_WINDOW_MS = 20 * 60 * 1000;
-
-export function isFrameFresh(lastModified: string | null, slotHHMM: string, now = new Date()): boolean {
-  if (!lastModified) return false;
-  const modified = new Date(lastModified).getTime();
-  if (Number.isNaN(modified)) return false;
-
-  const hh = Number(slotHHMM.slice(0, 2));
-  const mm = Number(slotHHMM.slice(2));
-  if (Number.isNaN(hh) || Number.isNaN(mm)) return false;
-
-  // Most recent occurrence of HHMM relative to `now`, so slots requested just
-  // after a UTC midnight rollover compare against yesterday's publication.
-  let slot = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), hh, mm);
-  if (slot > now.getTime()) slot -= 24 * 60 * 60 * 1000;
-
-  return Math.abs(modified - slot) <= HIMAWARI_FRESH_WINDOW_MS;
+/** Load newest scans first, using older candidates only to replace missing scans. */
+export async function loadHimawariFrames(
+  times: string[],
+  onProgress?: (loaded: number) => void,
+  options: FrameLoadOptions = {},
+): Promise<Map<string, HTMLImageElement>> {
+  const frames = new Map<string, HTMLImageElement>();
+  const limit = options.maxFrames ?? times.length;
+  const candidates = [...new Set(times)].reverse();
+  const accept = (time: string, image: HTMLImageElement) => {
+    frames.set(time, image);
+    options.onFrame?.(time, image);
+    onProgress?.(frames.size);
+  };
+  // Two frames at a time keep each server render's 16 tiles from queuing
+  // behind a whole animation's worth of work. Publish each success immediately.
+  while (candidates.length && frames.size < limit && (options.shouldContinue?.() ?? true)) {
+    const batch = candidates.splice(0, Math.min(2, limit - frames.size));
+    await Promise.allSettled(batch.map(async time => {
+      const image = options.cachedFrames?.get(time) ?? await fetchHimawariFrame(time);
+      if (options.shouldContinue?.() ?? true) accept(time, image);
+    }));
+  }
+  return new Map(times.flatMap(time => frames.has(time) ? [[time, frames.get(time)!] as const] : []));
 }

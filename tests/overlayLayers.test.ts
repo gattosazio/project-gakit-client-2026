@@ -18,12 +18,18 @@ vi.mock('@/lib/map/reportMarkers', () => ({
   }),
 }));
 
+vi.mock('@/lib/map/heatLandMask', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/map/heatLandMask')>(),
+  loadHeatLandMask: vi.fn().mockResolvedValue([]),
+}));
+
 import { setupOverlayLayers } from '@/lib/map/overlayLayers';
 import { HIMAWARI_PLACEHOLDER_DATA_URL } from '@/lib/map/himawari';
 
 function createMockMap() {
   const addedSources: { id: string; spec: any }[] = [];
   const target: any = {
+    loadImage: vi.fn().mockResolvedValue({ data: { width: 600, height: 600 } }),
     addSource: (id: string, spec: any) => {
       addedSources.push({ id, spec });
     },
@@ -64,6 +70,23 @@ describe('setupOverlayLayers himawari source', () => {
     expect(himawari!.spec.url).toBe(HIMAWARI_PLACEHOLDER_DATA_URL);
     expect(himawari!.spec.url).not.toContain('/api/himawari-proxy');
     expect(himawari!.spec.coordinates).toBeDefined();
+  });
+
+  it('loads the six PAGASA icons and uses symbols for clickable storm positions', async () => {
+    const { map } = createMockMap();
+    const layers: any[] = [];
+    map.addLayer = (layer: any) => layers.push(layer);
+    map.addImage = vi.fn();
+    await setupOverlayLayers(map, { addProtocol: () => {} }, { ...baseState });
+    expect(map.loadImage.mock.calls.map(([url]: [string]) => url).sort()).toEqual(
+      ['LPA', 'STS', 'STY', 'TD', 'TS', 'TY'].map(code => `/icons/pagasa/${code}.png`),
+    );
+    expect(map.addImage.mock.calls.filter(([id]: [string]) => id.startsWith('pagasa-cyclone-'))).toHaveLength(6);
+    const points = layers.find(layer => layer.id === 'typhoon-track-point-circle');
+    expect(points.type).toBe('symbol');
+    expect(points.layout['icon-allow-overlap']).toBe(true);
+    expect(points.layout['icon-image']).toContain('pagasa-cyclone-STY');
+    expect(layers.some(layer => layer.id === 'typhoon-track-point-dot')).toBe(false);
   });
 
   it('adds iligan-buildings pmtiles vector source for city footprints', async () => {

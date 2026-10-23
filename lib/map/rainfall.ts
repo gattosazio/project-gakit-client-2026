@@ -85,18 +85,26 @@ export function fetchRainfall(
 // GSMaP cells are 0.1 degrees on a side.
 const CELL_DEG = 0.1;
 
+// Crop window of the rainfall raster. Matches the Himawari-9 satellite
+// overlay footprint (105-150E, 0.25S-29.25N; west/east exactly as
+// HIMAWARI_COORDINATES) so cloud shading and measured rain bands cover the
+// same storm-approach area east of PAR. South/north snap to 0.1-multiples
+// (lattice-aligned with the GSMaP x.05 cell centers) so painted rows land on
+// their true latitudes; the raster edge sits half a cell (0.05 deg) inside
+// the satellite footprint at the fringes. The GSMaP feed only reports cells
+// >= 0.1 mm, so clear regions add no payload.
 export const RAINFALL_BOUNDS = {
-  west: 116.5,
-  east: 127.0,
-  south: 4.5,
-  north: 21.5,
+  west: 105.0,
+  east: 150.0,
+  south: -0.2,
+  north: 29.2,
 } as const;
 
 export const RAINFALL_COORDINATES: [number, number][] = [
-  [RAINFALL_BOUNDS.west, RAINFALL_BOUNDS.north], // [116.5, 21.5]
-  [RAINFALL_BOUNDS.east, RAINFALL_BOUNDS.north], // [127.0, 21.5]
-  [RAINFALL_BOUNDS.east, RAINFALL_BOUNDS.south], // [127.0, 4.5]
-  [RAINFALL_BOUNDS.west, RAINFALL_BOUNDS.south], // [116.5, 4.5]
+  [RAINFALL_BOUNDS.west, RAINFALL_BOUNDS.north], // [105.0, 29.2]
+  [RAINFALL_BOUNDS.east, RAINFALL_BOUNDS.north], // [150.0, 29.2]
+  [RAINFALL_BOUNDS.east, RAINFALL_BOUNDS.south], // [150.0, -0.2]
+  [RAINFALL_BOUNDS.west, RAINFALL_BOUNDS.south], // [105.0, -0.2]
 ];
 
 export const RAINFALL_PLACEHOLDER_DATA_URL =

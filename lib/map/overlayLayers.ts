@@ -1,3 +1,5 @@
+import { ensureAssessmentLandMask } from './assessmentLandMask';
+import { registerTyphoonIcons, typhoonIconId } from './typhoonIcons';
 import { applyOverlaySmoothing } from './overlaySmoothing';
 import { registerHazardSmoothingProtocol } from './hazardSmoothingProtocol';
 export { applyOverlaySmoothing } from './overlaySmoothing';
@@ -256,6 +258,7 @@ export const setupOverlayLayers = async (
 ) => {
   try {
     await registerPmtilesProtocol(maplibregl);
+    ensureAssessmentLandMask(map);
 
     // --- Flood hazard vector tile layer (PMTiles) ---
     if (!map.getSource('flood-hazard')) {
@@ -445,7 +448,7 @@ export const setupOverlayLayers = async (
       data: { type: 'FeatureCollection', features: [] },
     });
 
-    // 1. Official Forecast Cone (subtle shaded envelope)
+    // 1. Forecast cone: translucent gray with a continuous frosted edge.
     map.addLayer({
       id: 'typhoon-forecast-cone-fill',
       type: 'fill',
@@ -453,8 +456,8 @@ export const setupOverlayLayers = async (
       before: 'report-clusters',
       filter: ['==', ['get', 'type'], 'smoothed_hull'],
       paint: {
-        'fill-color': 'rgba(244, 63, 94, 0.09)',
-        'fill-opacity': 1,
+        'fill-color': '#9ca3af',
+        'fill-opacity': 0.38,
       },
     });
 
@@ -466,10 +469,9 @@ export const setupOverlayLayers = async (
       before: 'report-clusters',
       filter: ['==', ['get', 'type'], 'smoothed_hull'],
       paint: {
-        'line-color': '#f43f5e',
-        'line-width': 1.1,
-        'line-dasharray': [4, 3],
-        'line-opacity': 0.5,
+        'line-color': '#d1d5db',
+        'line-width': 1.25,
+        'line-opacity': 0.85,
       },
     });
 
@@ -551,7 +553,8 @@ export const setupOverlayLayers = async (
       },
     });
 
-    // 3. Track Milestone Nodes (Prominent radar milestone discs, uniform size across all points)
+    // 3. Official PAGASA category symbols for observed and forecast positions.
+    await registerTyphoonIcons(map);
     // Renders nodes for official classifications ('STY', 'TY', 'STS', 'TS', 'TD', 'LPA' + agency aliases like 'AA', 'LOW')
     const officialCategoryFilter = [
       'all',
@@ -564,87 +567,30 @@ export const setupOverlayLayers = async (
     ];
 
     map.addLayer({
-      id: 'typhoon-track-point-halo',
-      type: 'circle',
-      source: 'typhoon-track',
-      before: 'report-clusters',
-      filter: officialCategoryFilter,
-      paint: {
-        'circle-radius': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          3, 9,
-          6, 12.5,
-          9, 16,
-        ],
-        'circle-color': [
-          'match',
-          ['upcase', ['coalesce', ['get', 'typhoon_type'], 'TY']],
-          'STY', TYPHOON_CATEGORY_CONFIG.STY.color,
-          'TY', TYPHOON_CATEGORY_CONFIG.TY.color,
-          'STS', TYPHOON_CATEGORY_CONFIG.STS.color,
-          'TS', TYPHOON_CATEGORY_CONFIG.TS.color,
-          'TD', TYPHOON_CATEGORY_CONFIG.TD.color,
-          'LPA', TYPHOON_CATEGORY_CONFIG.LPA.color,
-          'AA', TYPHOON_CATEGORY_CONFIG.LPA.color,
-          'LOW', TYPHOON_CATEGORY_CONFIG.LPA.color,
-          DEFAULT_TYPHOON_COLOR,
-        ],
-        'circle-opacity': 0.32,
-        'circle-blur': 0.5,
-      },
-    });
-
-    map.addLayer({
+      // Retain the point layer ID used by popup and visibility handlers.
       id: 'typhoon-track-point-circle',
-      type: 'circle',
+      type: 'symbol',
       source: 'typhoon-track',
       before: 'report-clusters',
       filter: officialCategoryFilter,
-      paint: {
-        'circle-radius': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          3, 6,
-          6, 7.5,
-          9, 9.5,
-        ],
-        'circle-color': [
+      layout: {
+        'icon-image': [
           'match',
-          ['upcase', ['coalesce', ['get', 'typhoon_type'], 'TY']],
-          'STY', TYPHOON_CATEGORY_CONFIG.STY.color,
-          'TY', TYPHOON_CATEGORY_CONFIG.TY.color,
-          'STS', TYPHOON_CATEGORY_CONFIG.STS.color,
-          'TS', TYPHOON_CATEGORY_CONFIG.TS.color,
-          'TD', TYPHOON_CATEGORY_CONFIG.TD.color,
-          'LPA', TYPHOON_CATEGORY_CONFIG.LPA.color,
-          'AA', TYPHOON_CATEGORY_CONFIG.LPA.color,
-          'LOW', TYPHOON_CATEGORY_CONFIG.LPA.color,
-          DEFAULT_TYPHOON_COLOR,
+          ['upcase', ['coalesce', ['get', 'typhoon_type'], 'LPA']],
+          'STY', typhoonIconId('STY'),
+          'TY', typhoonIconId('TY'),
+          'STS', typhoonIconId('STS'),
+          'TS', typhoonIconId('TS'),
+          'TD', typhoonIconId('TD'),
+          typhoonIconId('LPA'),
         ],
-        'circle-stroke-width': 1.5,
-        'circle-stroke-color': 'rgba(255, 255, 255, 0.95)',
-      },
-    });
-
-    map.addLayer({
-      id: 'typhoon-track-point-dot',
-      type: 'circle',
-      source: 'typhoon-track',
-      before: 'report-clusters',
-      filter: officialCategoryFilter,
-      paint: {
-        'circle-radius': [
-          'interpolate',
-          ['linear'],
-          ['zoom'],
-          3, 2,
-          6, 2.5,
-          9, 3.2,
-        ],
-        'circle-color': '#ffffff',
+        // Icons register at 30 CSS px; scale down for wider map views.
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 3, 0.6, 6, 0.8, 9, 1],
+        'icon-anchor': 'center',
+        'icon-allow-overlap': true,
+        'icon-ignore-placement': true,
+        'icon-pitch-alignment': 'viewport',
+        'icon-rotation-alignment': 'viewport',
       },
     });
 
@@ -675,7 +621,7 @@ export const setupOverlayLayers = async (
           9, 12.5,
         ],
         'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-        'text-offset': [0, 1.4],
+        'text-offset': [0, 1.7],
         'text-anchor': 'top',
         'text-allow-overlap': false,
       },
@@ -702,9 +648,7 @@ export const setupOverlayLayers = async (
     ['typhoon-track-line-glow', typhoonVis],
     ['typhoon-track-line', typhoonVis],
     ['typhoon-track-line-forecast', typhoonVis],
-    ['typhoon-track-point-halo', typhoonVis],
     ['typhoon-track-point-circle', typhoonVis],
-    ['typhoon-track-point-dot', typhoonVis],
     ['typhoon-track-point-label', typhoonVis],
     ['flood-hazard-fill', state.showFloodHazard],
     ['simulation-flood-grid', state.showSimulatedFlood ?? false],
@@ -1008,9 +952,9 @@ export const setupOverlayLayers = async (
     map.setLayoutProperty('barangay-label', 'visibility', 'none');
   }
 
-  // --- Himawari IR satellite imagery (JMA) ---
+  // --- Himawari IR satellite imagery (JMA Himawari-9 via NOAA CIRA SLIDER) ---
   if (!map.getSource('himawari-ir')) {
-    // Seed with a transparent 1x1 so MapLibre never fires an AJAX at a JMA
+    // Seed with a transparent 1x1 so MapLibre never fires an AJAX at an image
     // slot that may 404 (publish gaps / stale frames). The animation loop in
     // useHimawariLayer swaps in real frames via updateImage once preloaded.
     map.addSource('himawari-ir', {
@@ -1126,9 +1070,7 @@ export const setupOverlayLayers = async (
     'typhoon-track-line-glow',
     'typhoon-track-line',
     'typhoon-track-line-forecast',
-    'typhoon-track-point-halo',
     'typhoon-track-point-circle',
-    'typhoon-track-point-dot',
     'typhoon-track-point-label',
   ];
 

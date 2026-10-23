@@ -4,7 +4,7 @@ Public-facing flood hazard reporting client for Project GAKIT. Built with Next.j
 
 ## Requirements
 
-- Node.js 18 or newer
+- Node.js 20.9 or newer
 - npm
 
 ## Setup
