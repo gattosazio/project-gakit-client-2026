@@ -72,9 +72,22 @@ export function useHimawariLayer(
     src?.updateImage({ image: img, coordinates: HIMAWARI_COORDINATES });
   }, [mapRef]);
 
+  const resumeCachedFrames = useCallback(() => {
+    if (!himawariFramesRef.current.size || Date.now() - lastLoadedAtRef.current >= KEEP_LAST_BATCH_MS) return false;
+    const map = mapRef.current;
+    if (map?.getLayer('himawari-ir-layer')) map.setLayoutProperty('himawari-ir-layer', 'visibility', 'visible');
+    setHasFrames(true);
+    if (!document.hidden && !himawariTimerRef.current) {
+      drawCurrentFrame();
+      himawariTimerRef.current = setInterval(drawCurrentFrame, HIMAWARI_FRAME_MS);
+    }
+    return true;
+  }, [mapRef, drawCurrentFrame]);
+
   // Show successful scans immediately while the rest of the loop loads.
-  const preloadHimawariFrames = useCallback(async () => {
+  const preloadHimawariFrames = useCallback(async (force = false) => {
     if (loadingRef.current || !showHimawariIRRef.current) return;
+    if (!force && Date.now() < nextRefreshAtRef.current && resumeCachedFrames()) return;
     const request = ++requestRef.current;
     loadingRef.current = true;
     setIsLoading(true);
@@ -97,6 +110,8 @@ export function useHimawariLayer(
     try {
       const times = await fetchHimawariFrameTimes();
       if (!isCurrent()) return;
+      const previousFrames = himawariFramesRef.current;
+      const keepPrevious = previousFrames.size > 0 && Date.now() - lastLoadedAtRef.current < KEEP_LAST_BATCH_MS;
       const progressive = new Map<string, HTMLImageElement>();
       const loaded = await loadHimawariFrames(times, count => {
         if (isCurrent()) {
@@ -105,11 +120,15 @@ export function useHimawariLayer(
       }, {
         maxFrames: HIMAWARI_FRAME_COUNT,
         // Full date stamps are immutable and cannot collide across UTC days.
-        cachedFrames: himawariFramesRef.current,
+        cachedFrames: previousFrames,
         shouldContinue: isCurrent,
         onFrame: (time, image) => {
           progressive.set(time, image);
-          himawariFramesRef.current = new Map(times.flatMap(t => progressive.has(t) ? [[t, progressive.get(t)!] as const] : []));
+          // Keep a usable animation intact until its replacement has loaded.
+          // Initial loads still display each successful scan immediately.
+          if (!keepPrevious) {
+            himawariFramesRef.current = new Map(times.flatMap(t => progressive.has(t) ? [[t, progressive.get(t)!] as const] : []));
+          }
           setHasFrames(true);
           setFailureOpen(false);
           const map = mapRef.current;
@@ -141,7 +160,7 @@ export function useHimawariLayer(
         setIsLoading(false);
       }
     }
-  }, [mapRef, drawCurrentFrame]);
+  }, [mapRef, drawCurrentFrame, resumeCachedFrames]);
 
   useEffect(() => () => {
     requestRef.current++;
@@ -153,7 +172,7 @@ export function useHimawariLayer(
     if (loadingRef.current) return;
     failureNotifiedRef.current = false;
     setFailureOpen(false);
-    void preloadHimawariFrames();
+    void preloadHimawariFrames(true);
   }, [preloadHimawariFrames]);
 
   // Playback pauses while the tab is hidden and resumes with a fresh preload,
@@ -170,6 +189,7 @@ export function useHimawariLayer(
         }
         return;
       }
+      resumeCachedFrames();
       void preloadHimawariFrames().then(() => {
         if (!showHimawariIRRef.current || document.hidden || himawariTimerRef.current) return;
         drawCurrentFrame();
@@ -181,7 +201,7 @@ export function useHimawariLayer(
     return () => {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [showHimawariIR, preloadHimawariFrames, drawCurrentFrame]);
+  }, [showHimawariIR, preloadHimawariFrames, drawCurrentFrame, resumeCachedFrames]);
 
   // Himawari IR satellite loop — preloads once, then flips cached frames.
   useEffect(() => {
@@ -198,6 +218,7 @@ export function useHimawariLayer(
     }
 
     let cancelled = false;
+    resumeCachedFrames();
 
     void (async () => {
       await preloadHimawariFrames();
@@ -222,7 +243,7 @@ export function useHimawariLayer(
         himawariRefreshTimerRef.current = null;
       }
     };
-  }, [showHimawariIR, preloadHimawariFrames, drawCurrentFrame]);
+  }, [showHimawariIR, preloadHimawariFrames, drawCurrentFrame, resumeCachedFrames]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -241,6 +262,7 @@ export function useHimawariLayer(
       failureNotifiedRef.current = false;
       setFailureOpen(false);
       setIsLoading(false);
+      if (next && Date.now() - lastLoadedAtRef.current >= KEEP_LAST_BATCH_MS) setHasFrames(false);
       setShowHimawariIR(next);
       const map = mapRef.current;
       if (!map) return;

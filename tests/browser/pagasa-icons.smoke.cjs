@@ -21,7 +21,6 @@ const fixture = {
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
       await page.addInitScript(() => {
-        localStorage.setItem('gakit:first-visit-seen', 'true');
         sessionStorage.setItem('gakit:onboarding-auto-located', 'true');
       });
       await page.route('**/api/typhoon-track**', route => route.fulfill({ json:

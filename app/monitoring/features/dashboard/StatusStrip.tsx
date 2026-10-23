@@ -178,7 +178,7 @@ export function StatusStrip({ current, alerts, alertsCheckedAt, alertsError = fa
                     <span className={isDarkAtmosphere ? 'text-slate-600' : 'text-slate-400'}>·</span>
                     <span>Rain: <strong className={`font-semibold tabular-nums ${
                       isDarkAtmosphere ? 'text-slate-200' : 'text-slate-900'
-                    }`}>{current.precipitation == null ? 'Unavailable' : `${current.precipitation.toFixed(1)} mm (model interval)`}</strong></span>
+                    }`}>{current.precipitation == null ? 'Unavailable' : `${current.precipitation.toFixed(1)} mm (ECMWF prediction)`}</strong></span>
                   </span>
                 </div>
               </div>

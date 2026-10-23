@@ -9,10 +9,10 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Loader2, Locate } from 'lucide-react';
+import { Loader2, Locate, MapPinPlus } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { PageLoader } from '@/components/ui/LoadingState';
 import { FloodSimulationTimeline } from '@/components/map/FloodSimulationTimeline';
-import { LoadingOverlay } from '@/components/ui/LoadingState';
 import { toast } from 'react-toastify';
 
 import * as maplibregl from 'maplibre-gl';
@@ -75,6 +75,7 @@ import { MapSidebar } from '@/components/map/MapSidebar';
 import { MapScaleRuler } from '@/components/map/MapScaleRuler';
 import { createSelectedPinElement } from '@/lib/map/selectedPinElement';
 import { useMapGeolocation } from '@/hooks/useMapGeolocation';
+import { useMapDisplayLoading } from '@/hooks/useMapDisplayLoading';
 import { useMapPopups } from '@/hooks/useMapPopups';
 import { BarangayMetricsCard } from '@/components/map/BarangayMetricsCard';
 import { formatReportDepth, STATUS_META, timeAgo } from '@/lib/reports/reportFormatting';
@@ -147,12 +148,10 @@ interface PublicMapProps {
   onReady?: () => void;
   onLoadingChange?: (loading: boolean) => void;
   onReportClick?: (reportId: string) => void;
-  /** Pages rendered with the fixed mobile bottom navbar (e.g. monitoring) hide
-   *  the floating layer/report controls when they slide behind it. */
-  hasBottomNav?: boolean;
   /** Full-viewport maps (e.g. the public landing page) anchor the floating
    *  controls higher on mobile so phone/browser bottom UI never covers them. */
   fullScreen?: boolean;
+  hasBottomNav?: boolean;
   /** Hides the administrative "Barangay Boundaries" toggle. Citizen-facing maps
    *  should not expose it; staff/admin deployments keep it. */
   hideBarangayBoundariesToggle?: boolean;
@@ -237,8 +236,8 @@ export function PublicMap({
   onLoadingChange,
   onReportClick,
   onRainfallHoursChange,
-  hasBottomNav = false,
   fullScreen = false,
+  hasBottomNav = false,
   hideBarangayBoundariesToggle = false,
   defaultBasemap = 'light',
   hideBuildingsOnSatellite = false,
@@ -284,6 +283,7 @@ export function PublicMap({
   const showLandslideRef = useRef(false);
   const showStormSurgeRef = useRef(false);
   const stormSurgeAdvisoryRef = useRef<1 | 2 | 3 | 4>(4);
+  const hasBottomAction = hasBottomNav || Boolean(onStartReport);
   const [mapReady, setMapReady] = useState(false);
   const [mapBearing, setMapBearing] = useState(0);
   const [mapPitch, setMapPitch] = useState(0);
@@ -331,6 +331,7 @@ export function PublicMap({
   const [focusRoads, setFocusRoads] = useState(false);
   const showRoadsRef = useRef(false);
   const layersReadyRef = useRef(false);
+  const { loading: displayLoading, run: updateDisplay } = useMapDisplayLoading(mapRef, layersReadyRef);
   const onReadyFiredRef = useRef(false);
 
   const reportsLayer = useReportsLayer(reportFilters);
@@ -374,6 +375,20 @@ export function PublicMap({
   const typhoon = useTyphoonLayer(mapRef, layersReadyRef, handleTyphoonPointClick);
   const typhoonPopupRef = useRef<any>(null);
   const simulatedFlood = useSimulatedFloodLayer(mapRef, showSimulatedFlood, smoothPolygons, focusRoads);
+  const layerDataPending = (showRainfall && rainfall.isLoading)
+    || (heatIndex.visible && heatIndex.loading)
+    || (himawari.showHimawariIR && himawari.isLoading && !himawari.hasFrames)
+    || (typhoon.showTyphoonTrack && typhoon.isLoading)
+    || (showSimulatedFlood && simulatedFlood.isPreparing);
+  const layerDataPendingRef = useRef(false);
+  useLayoutEffect(() => {
+    layerDataPendingRef.current = layerDataPending;
+    // Wake the readiness check when a fetch settles, even if the map was idle.
+    mapRef.current?.triggerRepaint();
+  }, [layerDataPending]);
+  const updateLayer = useCallback((apply: () => void | Promise<void>) => {
+    updateDisplay('layers', apply, () => layerDataPendingRef.current);
+  }, [updateDisplay]);
 
   useEffect(() => {
     loadTyphoonRef.current = typhoon.loadData;
@@ -392,23 +407,24 @@ export function PublicMap({
     const collapsedOnStart =
       defaultSidebarCollapsed ?? (!fullScreen || (typeof window !== 'undefined' && window.innerWidth < 768));
     if (collapsedOnStart) return false;
-    return weatherExpandedByDefault ?? true;
+    return fullScreen || weatherExpandedByDefault;
   });
-  const [layersOpen, setLayersOpen] = useState(() => Boolean(hideWeather));
+  const [layersOpen, setLayersOpen] = useState(() => Boolean(hideWeather) || (fullScreen && !isSidebarCollapsed));
   const [reportsOpen, setReportsOpen] = useState(false);
   const wasTourActiveRef = useRef(false);
 
   // Keep the sidebar in sync with the tour step. While a step has no panel, the
   // sidebar collapses so the highlighted map/search controls stay reachable.
-  // Once the tour ends, close the demo panels so the map is unobstructed.
+  // Once the tour ends, restore desktop defaults or the compact mobile rail.
   /* eslint-disable react-hooks/set-state-in-effect -- externally driven tour state */
   useEffect(() => {
     if (!tourActive) {
       if (!wasTourActiveRef.current) return;
       wasTourActiveRef.current = false;
-      setIsSidebarCollapsed(true);
-      setWeatherOpen(false);
-      setLayersOpen(false);
+      const expandDesktop = fullScreen && defaultSidebarCollapsed !== true && window.innerWidth >= 768;
+      setIsSidebarCollapsed(!expandDesktop);
+      setWeatherOpen(expandDesktop && !hideWeather);
+      setLayersOpen(expandDesktop);
       setReportsOpen(false);
       return;
     }
@@ -425,7 +441,7 @@ export function PublicMap({
     setWeatherOpen(tourPanel === 'weather');
     setLayersOpen(tourPanel === 'layers');
     setReportsOpen(tourPanel === 'reports');
-  }, [tourActive, tourPanel]);
+  }, [tourActive, tourPanel, fullScreen, defaultSidebarCollapsed, hideWeather]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // ─── Sub-layer toggle handlers ─────────────────────────────────────────────
@@ -479,9 +495,7 @@ export function PublicMap({
   const handleShowBarangayBoundariesChange = useCallback((checked: boolean) => {
     setShowBarangayBoundaries(checked);
     showBarangayBoundariesRef.current = checked;
-    if (mapRef.current) {
-      applyBarangayBoundariesVisibility(mapRef.current, checked);
-    }
+    if (mapRef.current) applyBarangayBoundariesVisibility(mapRef.current, checked);
   }, []);
 
   const handleShowLandslideChange = useCallback((checked: boolean) => {
@@ -754,6 +768,7 @@ export function PublicMap({
 
         layersReadyRef.current = true;
         setMapReady(true);
+        map.triggerRepaint();
 
         attachLayerEvents(map);
         applyReportData(map);
@@ -825,46 +840,42 @@ export function PublicMap({
     } catch {
       /* terrain not yet initialised; nothing to clear */
     }
-    map.setStyle(BASEMAP_STYLES[nextBasemap], { diff: false });
-  }, []);
+    updateDisplay('basemap', () => { map.setStyle(BASEMAP_STYLES[nextBasemap], { diff: false }); });
+  }, [updateDisplay]);
 
   const handleModeChange = useCallback((nextMode: MapMode) => {
     if (nextMode === mapModeRef.current) return;
     const map = mapRef.current;
     if (!map) return;
 
-    if (nextMode === '3d') {
-      map.easeTo({ pitch: 45, duration: 800 });
-    } else {
-      map.easeTo({ pitch: 0, duration: 800 });
-    }
-
     setMapMode(nextMode);
     mapModeRef.current = nextMode;
 
     // Style restoration reads the updated mode when the new basemap is ready.
-    if (!layersReadyRef.current) return;
-
-    void setupOverlayLayers(map, maplibregl, {
-      showFloodHazard: showFloodHazardRef.current,
-      showSimulatedFlood: showSimulatedFloodRef.current,
-      showRainfall: showRainfallRef.current,
-      showHimawariIR: himawari.visibleRef.current,
-      showTyphoonTrack: typhoon.visibleRef.current,
-      showBarangayBoundaries: showBarangayBoundariesRef.current,
-      visibleRiskLevels: { high: true, medium: true, low: true },
-      showLandslide: showLandslideRef.current,
-      visibleLandslideLevels: { high: true, medium: true, low: true },
-      showStormSurge: showStormSurgeRef.current,
-      stormSurgeAdvisory: stormSurgeAdvisoryRef.current,
-      mapMode: nextMode,
-      rainfallHours: hoursRef.current,
-      basemap: basemapRef.current,
-      smoothPolygons: smoothPolygonsRef.current,
-      showBuildings: showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
-      showRoads: showRoadsRef.current,
+    updateDisplay('mode', async () => {
+      map.easeTo({ pitch: nextMode === '3d' ? 45 : 0, duration: 800 });
+      if (!layersReadyRef.current) return;
+      await setupOverlayLayers(map, maplibregl, {
+        showFloodHazard: showFloodHazardRef.current,
+        showSimulatedFlood: showSimulatedFloodRef.current,
+        showRainfall: showRainfallRef.current,
+        showHimawariIR: himawari.visibleRef.current,
+        showTyphoonTrack: typhoon.visibleRef.current,
+        showBarangayBoundaries: showBarangayBoundariesRef.current,
+        visibleRiskLevels: { high: true, medium: true, low: true },
+        showLandslide: showLandslideRef.current,
+        visibleLandslideLevels: { high: true, medium: true, low: true },
+        showStormSurge: showStormSurgeRef.current,
+        stormSurgeAdvisory: stormSurgeAdvisoryRef.current,
+        mapMode: nextMode,
+        rainfallHours: hoursRef.current,
+        basemap: basemapRef.current,
+        smoothPolygons: smoothPolygonsRef.current,
+        showBuildings: showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
+        showRoads: showRoadsRef.current,
+      });
     });
-  }, [himawari.visibleRef, typhoon, hoursRef, hideBuildingsOnSatellite]);
+  }, [himawari.visibleRef, typhoon, hoursRef, hideBuildingsOnSatellite, updateDisplay]);
 
   const handleSmoothingChange = useCallback((smooth: boolean) => {
     smoothPolygonsRef.current = smooth;
@@ -881,8 +892,8 @@ export function PublicMap({
     buildingsBasePreferenceRef.current = nextBuildings.basePreference;
     showBuildingsRef.current = visible;
     setShowBuildings(visible);
-    if (mapRef.current) applyBuildingsVisibility(mapRef.current, mapModeRef.current, visible && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'));
-  }, [hideBuildingsOnSatellite]);
+    updateDisplay('buildings', () => applyBuildingsVisibility(mapRef.current, mapModeRef.current, visible && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite')));
+  }, [hideBuildingsOnSatellite, updateDisplay]);
 
   const handleRoadsChange = useCallback((visible: boolean) => {
     showRoadsRef.current = visible;
@@ -1088,7 +1099,7 @@ export function PublicMap({
   }, []);
 
   // Hide the layer/share controls when they would sit behind the bottom
-  // navbar (e.g. a short map card on a small phone), while keeping them
+  // action (e.g. a short map card on a small phone), while keeping them
   // anchored to the map so they never float over other content. Uses an
   // IntersectionObserver on a sentinel at the controls' bottom edge so the
   // check happens asynchronously without forced layout reads on scroll.
@@ -1100,7 +1111,7 @@ export function PublicMap({
     const el = controlsSentinelRef.current;
     if (!el) return;
 
-    const clearances = { mobile: hasBottomNav ? 96 : 0, desktop: 0 };
+    const clearances = { mobile: hasBottomAction ? 96 : 0, desktop: 0 };
     let clearance = window.innerWidth < 768 ? clearances.mobile : clearances.desktop;
     let observer: IntersectionObserver | null = null;
 
@@ -1127,7 +1138,7 @@ export function PublicMap({
       observer?.disconnect();
       window.removeEventListener('resize', onResize);
     };
-  }, [hasBottomNav]);
+  }, [hasBottomAction]);
 
   // Apply layer visibility + risk-level filters when toggles change
   useEffect(() => {
@@ -1184,9 +1195,18 @@ export function PublicMap({
   return (
     <div className="relative w-full h-full bg-canvas-grey">
       <div ref={mapContainer} className="w-full h-full touch-none select-none" />
-      {showSimulatedFlood && simulatedFlood.isPreparing && !simulatedFlood.hasRenderedImage && (
-        <LoadingOverlay message="Preparing flood simulation…" zIndex="z-[950]" className="pointer-events-none" />
-      )}
+      <PageLoader isLoading={Object.values(displayLoading).some(Boolean)} />
+      {onStartReport && <button
+        type="button"
+        onClick={onStartReport}
+        data-tour="report"
+        aria-label="Report flooding"
+        className="absolute bottom-[max(1rem,env(safe-area-inset-bottom,0px))] left-1/2 z-[1010] hidden h-11 -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-slate-200/80 bg-white/95 px-5 md:flex text-sm font-semibold text-gakit-maroon shadow-[0_4px_14px_rgba(15,23,42,0.12)] backdrop-blur-md transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
+        style={showSimulatedFlood ? { bottom: 'var(--flood-player-clearance, 12rem)' } : undefined}
+      >
+        <MapPinPlus className="h-5 w-5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
+        Report Flooding
+      </button>}
 
       {showBarangayBoundaries &&
         hoveredBarangay &&
@@ -1220,24 +1240,27 @@ export function PublicMap({
       {fullScreen && mapReady && <MapScaleRuler mapRef={mapRef} />}
 
       <MapSidebar
-        heatIndex={heatIndex}
+        heatIndex={{ ...heatIndex,
+          setVisible: checked => updateLayer(() => heatIndex.setVisible(checked)),
+          setHour: hour => updateLayer(() => heatIndex.setHour(hour)),
+          retry: () => updateLayer(heatIndex.retry),
+        }}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={setIsSidebarCollapsed}
         controlsVisible={controlsVisible}
         hideWeather={hideWeather}
         fullScreen={fullScreen}
-        hasBottomNav={hasBottomNav}
-        onStartReport={onStartReport}
+        hasBottomAction={hasBottomAction}
         weatherOpen={weatherOpen}
         onToggleWeather={setWeatherOpen}
         weatherExpandedByDefault={weatherExpandedByDefault}
         layersOpen={layersOpen}
         onToggleLayers={setLayersOpen}
         showFloodHazard={showFloodHazard}
-        onShowFloodHazardChange={handleShowFloodHazardChange}
+        onShowFloodHazardChange={checked => updateLayer(() => handleShowFloodHazardChange(checked))}
         showSimulatedFlood={showSimulatedFlood}
-        onShowSimulatedFloodChange={handleShowSimulatedFloodChange}
-        isLoadingSimulatedFlood={simulatedFlood.isLoading}
+        onShowSimulatedFloodChange={checked => updateLayer(() => handleShowSimulatedFloodChange(checked))}
+        isLoadingSimulatedFlood={simulatedFlood.isPreparing}
         simulatedFloodHorizon={simulatedFlood.displayHorizon}
         onSimulatedFloodHorizonChange={simulatedFlood.selectHorizon}
         simulatedFloodTelemetry={simulatedFlood.telemetry}
@@ -1248,19 +1271,19 @@ export function PublicMap({
         simulatedFloodReplayIndex={simulatedFlood.replayIndex}
         onSimulatedFloodReplayChange={simulatedFlood.selectReplayFrame}
         showRainfall={showRainfall}
-        onShowRainfallChange={handleShowRainfallChange}
+        onShowRainfallChange={checked => updateLayer(() => handleShowRainfallChange(checked))}
         isLoadingRainfall={rainfall.isLoading}
         rainfallObservedAt={rainfall.rainfallObservedAt}
         rainfallSource={rainfall.rainfallSource}
         rainfallHours={rainfall.rainfallHours}
-        onRainfallHoursChange={handleRainfallHoursChange}
+        onRainfallHoursChange={hours => updateLayer(() => handleRainfallHoursChange(hours))}
         showHimawariIR={himawari.showHimawariIR}
-        onShowHimawariIRChange={handleShowHimawariIRChange}
+        onShowHimawariIRChange={checked => updateLayer(() => handleShowHimawariIRChange(checked))}
         isLoadingHimawari={himawari.isLoading}
         himawariOpacity={himawari.opacity}
         onHimawariOpacityChange={himawari.setOpacity}
         showTyphoonTrack={typhoon.showTyphoonTrack}
-        onShowTyphoonTrackChange={handleShowTyphoonTrackChange}
+        onShowTyphoonTrackChange={checked => updateLayer(() => handleShowTyphoonTrackChange(checked))}
         isLoadingTyphoon={typhoon.isLoading}
         activeTyphoonName={typhoon.liveTyphoonData?.stormName}
         typhoonObservedAt={typhoon.liveTyphoonData?.latestPosition?.datetime || typhoon.liveTyphoonData?.fetchedAt}
@@ -1269,16 +1292,16 @@ export function PublicMap({
         onFocusStorm={typhoon.focusStorm}
         historicalStorms={typhoon.historicalStorms}
         selectedHistoricalStorm={typhoon.selectedHistoricalStorm}
-        onSelectHistoricalStorm={typhoon.selectHistoricalStorm}
+        onSelectHistoricalStorm={storm => updateLayer(() => typhoon.selectHistoricalStorm(storm))}
         isLoadingHistory={typhoon.isLoadingHistory}
         showBarangayBoundaries={showBarangayBoundaries}
-        onShowBarangayBoundariesChange={handleShowBarangayBoundariesChange}
+        onShowBarangayBoundariesChange={checked => updateLayer(() => handleShowBarangayBoundariesChange(checked))}
         showBarangayBoundariesToggle={!hideBarangayBoundariesToggle}
         showLandslide={showLandslide}
-        onShowLandslideChange={handleShowLandslideChange}
+        onShowLandslideChange={checked => updateLayer(() => handleShowLandslideChange(checked))}
         showStormSurge={showStormSurge}
         stormSurgeAdvisory={stormSurgeAdvisory}
-        onStormSurgeAdvisoryChange={handleStormSurgeAdvisoryChange}
+        onStormSurgeAdvisoryChange={advisory => updateLayer(() => handleStormSurgeAdvisoryChange(advisory))}
         reportsOpen={reportsOpen}
         onToggleReports={setReportsOpen}
         visibleReportStatuses={visibleReportStatuses}
@@ -1312,9 +1335,9 @@ export function PublicMap({
       <div
         className={`absolute ${
           fullScreen
-            ? (hasBottomNav ? 'bottom-24 md:bottom-10' : 'bottom-6 md:bottom-10')
-            : (hasBottomNav ? 'bottom-20 md:bottom-6' : 'bottom-3 md:bottom-4')
-        } right-3 md:right-4 z-[1000] flex flex-col items-center gap-2`}
+            ? (hasBottomAction ? 'bottom-24 md:bottom-10' : 'bottom-6 md:bottom-10')
+            : (hasBottomAction ? 'bottom-20 md:bottom-6' : 'bottom-3 md:bottom-4')
+        } right-3 md:right-4 z-[1000] flex flex-col items-center gap-2 ${showSimulatedFlood ? 'flood-player-clearance' : ''}`}
       >
         {!hideShareLocation && (
           <button
@@ -1436,16 +1459,9 @@ export function PublicMap({
         title="Satellite imagery temporarily down"
         message="Himawari satellite imagery is temporarily unavailable. Please try again later."
         onClose={himawari.dismissFailure}
-        onRetry={himawari.retry}
+        onRetry={() => updateLayer(himawari.retry)}
       />
 
-      {/* Himawari Satellite Loading Overlay */}
-      {himawari.showHimawariIR && himawari.isLoading && !himawari.hasFrames && (
-        <LoadingOverlay
-          message="Loading Himawari Satellite..."
-          zIndex="z-[1100]"
-        />
-      )}
     </div>
   );
 }

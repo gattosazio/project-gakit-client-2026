@@ -55,23 +55,30 @@
     }
   }
 
-  /* Sleek translucent sidebar scrollbar */
+  /* Keep the sidebar's overflow easy to discover and drag. */
   .sidebar-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgba(203, 213, 225, 0.7) transparent;
+    scrollbar-color: #64748b rgba(226, 232, 240, 0.65);
+  }
+  @supports selector(::-webkit-scrollbar) {
+    .sidebar-scroll {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
   }
   .sidebar-scroll::-webkit-scrollbar {
-    width: 5px;
+    width: 8px;
   }
   .sidebar-scroll::-webkit-scrollbar-track {
-    background: transparent;
+    background: rgba(226, 232, 240, 0.65);
+    border-radius: 9999px;
   }
   .sidebar-scroll::-webkit-scrollbar-thumb {
-    background: rgba(203, 213, 225, 0.7);
+    background: #64748b;
     border-radius: 9999px;
   }
   .sidebar-scroll::-webkit-scrollbar-thumb:hover {
-    background: rgba(148, 163, 184, 0.9);
+    background: #475569;
   }
 
   /* Sleek icon-rail hover label expansion — strictly desktop hover devices (pointer: fine) */
@@ -257,6 +264,120 @@ body {
   .gakit-skeleton {
     animation: none;
   }
+}
+
+/* Page transition: a moving water surface over a muted terrain tile. */
+[data-route-snapshot]:empty {
+  display: none;
+}
+
+@keyframes floodLoaderTide {
+  0%, 100% { transform: translateY(8px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes floodLoaderWave {
+  from { transform: translateX(0); }
+  to { transform: translateX(-64px); }
+}
+
+.flood-loader-tide {
+  animation: floodLoaderTide 3.6s ease-in-out infinite;
+}
+
+.flood-loader-wave-front {
+  animation: floodLoaderWave 2.8s linear infinite;
+}
+
+.flood-loader-wave-back {
+  animation: floodLoaderWave 4s linear infinite reverse;
+}
+
+.flood-loader[data-active='false'] * {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flood-loader-tide,
+  .flood-loader-wave-front,
+  .flood-loader-wave-back {
+    animation: none;
+    transform: none;
+  }
+}
+
+/* Flood timeline: generous input target with a compact, consistent rail. */
+@media (max-width: 767px) {
+  .flood-player-clearance {
+    bottom: var(--flood-player-clearance, 18rem);
+  }
+
+  .flood-sidebar-clearance {
+    max-height: calc(100% - var(--flood-player-clearance, 18rem) - 6rem);
+  }
+
+  .mobile-map-sidebar {
+    top: var(--map-mobile-controls-top, 104px);
+    bottom: auto;
+    left: 6px;
+    right: 6px;
+    gap: 6px;
+    max-height: calc(100dvh - var(--map-mobile-controls-top, 104px) - max(4.5rem, var(--flood-player-clearance, 0px)) - 6px);
+    transition-property: opacity;
+    transition-duration: 150ms;
+  }
+
+  .mobile-map-sidebar > .mobile-map-panel {
+    width: 100%;
+    max-width: 384px;
+    max-height: calc(100dvh - var(--map-mobile-controls-top, 104px) - max(4.5rem, var(--flood-player-clearance, 0px)) - 6px);
+    transition: none;
+  }
+
+  .mobile-map-sidebar .sidebar-scroll {
+    padding: 0;
+    scrollbar-gutter: auto;
+  }
+
+  .mobile-map-sidebar .map-card-body {
+    transition: none;
+  }
+
+  .mobile-map-sidebar .sidebar-scroll > *,
+  .mobile-map-sidebar .sidebar-scroll > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+}
+
+.flood-timeline-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--flood-timeline-track, #cbd5e1);
+}
+
+.flood-timeline-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 9999px;
+  background: var(--flood-timeline-track, #cbd5e1);
+}
+
+.flood-timeline-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 3px solid #7a0019;
+  border-radius: 50%;
+  background: white;
+}
+
+.flood-timeline-slider::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  border: 3px solid #7a0019;
+  border-radius: 50%;
+  background: white;
 }
 
 /* Loading dots (jumping) */

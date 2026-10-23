@@ -1,6 +1,9 @@
 'use client';
 
+import { useContext, useEffect } from 'react';
+import { RouteLoaderContext } from '@/components/RouteLoadingContext';
 import { Spinner } from './Spinner';
+import { FloodLoader } from './FloodLoader';
 
 export function LoadingState({
   size = 'md',
@@ -18,12 +21,31 @@ export function LoadingState({
 
 export function PageLoader({
   className = '',
+  isLoading = true,
+  standalone = false,
 }: {
   className?: string;
+  isLoading?: boolean;
+  standalone?: boolean;
 }) {
+  const route = useContext(RouteLoaderContext);
+  const registerFallback = route?.registerFallback;
+  useEffect(() => {
+    if (!standalone && isLoading && registerFallback) return registerFallback();
+  }, [standalone, isLoading, registerFallback]);
+
+  // Next's route fallbacks signal the shared loader instead of stacking one.
+  if (route && !standalone) return null;
+
   return (
-    <div className={`fixed inset-0 z-[2000] flex items-center justify-center bg-white/70 backdrop-blur-sm ${className}`}>
-      <Spinner size="lg" />
+    <div
+      aria-hidden={!isLoading}
+      role="status"
+      aria-label="Loading page"
+      aria-live="polite"
+      className={`fixed inset-0 z-[2000] flex items-center justify-center bg-transparent backdrop-blur-md backdrop-brightness-[0.45] transition-opacity duration-200 ease-out motion-reduce:transition-none ${isLoading ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} ${className}`}
+    >
+      <FloodLoader active={isLoading} />
     </div>
   );
 }
@@ -49,12 +71,11 @@ export function LoadingOverlay({
 }) {
   return (
     <div
-      className={`absolute inset-0 ${zIndex} flex flex-col items-center justify-center bg-white/80 backdrop-blur-sm text-slate-800 ${className}`}
+      className={`absolute inset-0 ${zIndex} flex items-center justify-center bg-transparent backdrop-blur-md backdrop-brightness-[0.45] ${className}`}
       role="status"
       aria-live="polite"
     >
-      <Spinner className="h-8 w-8 text-gakit-maroon mb-2" />
-      <span className="text-sm font-bold tracking-wide">{message}</span>
+      <FloodLoader label={message} />
     </div>
   );
 }

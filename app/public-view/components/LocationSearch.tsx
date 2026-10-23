@@ -192,7 +192,7 @@ export function LocationSearch({
             setSearchError(null);
             setIsFocused(true);
           }}
-          placeholder={isMobile && isCompact ? 'Search location' : placeholder}
+          placeholder={isMobile && isCompact ? 'Search address or barangay to assess' : placeholder}
           aria-label="Search for a location in Iligan City"
           className={`min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 truncate ${isCompact ? 'text-center md:text-left' : ''}`}
         />
@@ -224,7 +224,7 @@ export function LocationSearch({
 
       {showDropdown && (
         <div className={`z-50 overflow-hidden hud-card ${
-          isCompact ? 'fixed inset-x-4 top-[4.5rem] mx-auto max-h-[calc(100dvh-11rem-env(safe-area-inset-bottom,0px))] max-w-[380px] overflow-y-auto overscroll-contain md:absolute md:inset-x-auto md:left-1/2 md:top-full md:mt-2 md:w-96 md:max-w-none md:-translate-x-1/2 md:max-h-[70dvh]' : 'absolute left-1/2 top-full mt-2 w-full -translate-x-1/2'
+          isCompact ? 'fixed inset-x-1.5 top-[calc(max(0.375rem,env(safe-area-inset-top,0px))+3.5rem)] mx-auto max-h-[calc(100dvh-11rem-env(safe-area-inset-bottom,0px))] max-w-[380px] overflow-y-auto overscroll-contain md:absolute md:inset-x-auto md:left-1/2 md:top-full md:mt-2 md:w-96 md:max-w-none md:-translate-x-1/2 md:max-h-[70dvh]' : 'absolute left-1/2 top-full mt-2 w-full -translate-x-1/2'
         }`}>
           {searchError && (
             <p
@@ -241,7 +241,7 @@ export function LocationSearch({
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleLocateClick}
               disabled={activeLocating}
-              className="flex w-full items-center gap-2.5 px-3.5 py-3 text-left font-medium transition-colors hover:bg-maroon-50/70 border-b border-slate-100/80 group"
+              className={`flex w-full items-center gap-2.5 px-3.5 ${isCompact ? 'py-2 md:py-3' : 'py-3'} text-left font-medium transition-colors hover:bg-maroon-50/70 border-b border-slate-100/80 group`}
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-maroon-50 text-gakit-maroon group-hover:bg-maroon-100">
                 {activeLocating ? (

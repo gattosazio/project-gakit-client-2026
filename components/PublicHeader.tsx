@@ -1,10 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { AlertTriangle, ChevronLeft, BookOpen, Info, MapPinned, UserRound, Waves } from 'lucide-react';
+import { ChevronLeft, Info, MapPinPlus, MapPinned, Waves } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getDisplayName, getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
@@ -19,7 +18,6 @@ import type { NotificationItem } from './NotificationBell';
 import { WeatherAlertModal } from './WeatherAlertModal';
 import { LocationSearch, type SearchedLocation } from '@/app/public-view/components/LocationSearch';
 import { HowToReportPopover } from '@/components/header/HowToReportPopover';
-import { UserNavMenu } from '@/components/header/UserNavMenu';
 import { ValidationModeBadge } from '@/components/header/ValidationModeBadge';
 import { BentoMenu } from './BentoMenu';
 import { getBentoTilesForRole } from '@/lib/navigation/bentoMenu';
@@ -33,8 +31,8 @@ export function PublicHeader({
   showBentoMenu = false,
   showSectionNav = true,
   showBottomNav = true,
-  extraAction,
   onStartReport,
+  extraAction,
   onStartTour,
 }: {
   activeSection?: 'hazard-map' | 'about';
@@ -42,9 +40,9 @@ export function PublicHeader({
   onNavigateSection?: (id: 'hazard-map' | 'about') => void;
   onSearchSelect?: (location: SearchedLocation) => void;
   onLocate?: () => void | Promise<void>;
-  /** Starts the flood-reporting flow. When provided, a raised primary action
-   *  button is centred in the mobile bottom nav. */
+  /** Starts reporting from the mobile navigation bar. */
   onStartReport?: () => void;
+  showBottomNav?: boolean;
   /** Replays the guided map tour from the Platform Guide. */
   onStartTour?: () => void;
   /** Adds the bento portals launcher left of the bell. */
@@ -52,9 +50,6 @@ export function PublicHeader({
   /** Hides the About button and the account pill. For pages with no About
    *  section, where the bento home row is the way back to the portal. */
   showSectionNav?: boolean;
-  /** Hides the mobile bottom bar. The bell moves into the top cluster when
-   *  this is false, since the bottom bar is otherwise its only mobile home. */
-  showBottomNav?: boolean;
   /** Extra action slot rendered in the actions cluster (e.g. Map Display Settings). */
   extraAction?: React.ReactNode;
 }) {
@@ -73,20 +68,12 @@ export function PublicHeader({
 
   const infoRef = useRef<HTMLDivElement>(null);
   const mobileInfoRef = useRef<HTMLDivElement>(null);
-  const userMenuRef = useRef<HTMLDivElement>(null);
-  const mobileUserMenuRef = useRef<HTMLDivElement>(null);
-
+  const headerRef = useRef<HTMLElement>(null);
+  const toolbarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!isMenuOpen && !isInfoOpen) return;
     const handleClick = (e: MouseEvent | TouchEvent) => {
       const target = e.target as Node;
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(target) &&
-        (!mobileUserMenuRef.current || !mobileUserMenuRef.current.contains(target))
-      ) {
-        setIsMenuOpen(false);
-      }
       if (
         infoRef.current &&
         !infoRef.current.contains(target) &&
@@ -224,7 +211,8 @@ export function PublicHeader({
   }
 
   const home = role ? homePathForRole(role) : null;
-  const bentoTiles = useMemo(() => getBentoTilesForRole(role), [role]);
+  const bentoTiles = useMemo(() => getBentoTilesForRole(role)
+    .filter(tile => !showSectionNav || tile.id !== 'public-hazard-map'), [role, showSectionNav]);
   usePrefetchRoute(home ?? '/login');
 
   // Prefetch all portal routes during idle time for fast switching
@@ -233,23 +221,33 @@ export function PublicHeader({
       router.prefetch(tile.href);
     });
   }, [bentoTiles, router]);
-  const accountLabel =
-    home === '/admin' ? 'Admin' : home === '/monitoring' ? 'Monitoring' : 'Login';
+  const requestSignOut = !isChecking && (name || email || role) ? () => {
+    setIsInfoOpen(false);
+    setShowSignOutConfirm(true);
+  } : undefined;
 
-  // Once signed in the bento launcher is the way back into a portal, so it
-  // takes over from the pill. Anonymous visitors keep the pill, because it is
-  // the only sign-in CTA in this header.
-  const accountPillVisible = !showBentoMenu || !home;
-
-  const handleAccountClick = () => {
-    navigate(home ?? '/login');
-  };
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    const toolbar = toolbarRef.current;
+    const shell = header?.closest<HTMLElement>('[data-map-shell]');
+    if (!header || !toolbar || !shell) return;
+    const measure = () => {
+      const top = Math.ceil(header.getBoundingClientRect().bottom + 6);
+      toolbar.style.top = `${top}px`;
+      shell.style.setProperty('--map-mobile-controls-top', `${top + 42}px`);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    window.addEventListener('resize', measure);
+    measure();
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure); shell.style.removeProperty('--map-mobile-controls-top'); };
+  }, []);
 
   const scrollToSection = (id: 'hazard-map' | 'about') => {
     if (onNavigateSection) {
       onNavigateSection(id);
     } else {
-      router.push('/');
+      navigate('/');
     }
   };
 
@@ -261,17 +259,17 @@ export function PublicHeader({
         const activeTag = document.activeElement?.tagName.toLowerCase();
         if (activeTag === 'input' || activeTag === 'textarea' || activeTag === 'select') return;
         if (!isMenuOpen && !isInfoOpen && !showSignOutConfirm) {
-          router.push('/');
+          navigate('/');
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showSectionNav, isMenuOpen, isInfoOpen, showSignOutConfirm, router]);
+  }, [showSectionNav, isMenuOpen, isInfoOpen, showSignOutConfirm, navigate]);
 
   return (
     <>
-    <header className="fixed top-3 inset-x-3 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-6xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
+    <header ref={headerRef} data-map-header className="fixed top-[max(0.375rem,env(safe-area-inset-top,0px))] inset-x-1.5 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-6xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
       <div className="flex h-12 md:h-14 items-center justify-between px-2 md:px-5">
         <ValidationModeBadge />
         {/* Left: Brand Logo & Title */}
@@ -279,7 +277,7 @@ export function PublicHeader({
           {!showSectionNav && (
             <button
               type="button"
-              onClick={() => router.push('/')}
+              onClick={() => navigate('/')}
               aria-label="Back to Hazard Map"
               title="Back to Hazard Map"
               className="flex h-10 min-w-10 shrink-0 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-gakit-maroon md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px]"
@@ -302,24 +300,33 @@ export function PublicHeader({
 
           <button
             type="button"
-            onClick={() => (showSectionNav ? scrollToSection('hazard-map') : router.push('/'))}
+            onClick={() => (showSectionNav ? scrollToSection('hazard-map') : navigate('/'))}
             className={`group items-center rounded-lg transition-transform duration-200 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 ${
               !showSectionNav ? 'hidden md:flex' : 'flex'
             }`}
             aria-label="Go to the GAKIT hazard map"
             title={showSectionNav ? undefined : 'Return to public map'}
           >
-            <div className="flex h-8 md:h-9 items-center justify-center">
+            <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden md:h-9 md:w-auto md:overflow-visible">
+              <Image
+                src="/images/logo-compact.png"
+                alt="GAKIT logo"
+                width={48}
+                height={48}
+                sizes="48px"
+                priority
+                className="absolute h-12 w-12 max-w-none object-contain md:hidden"
+              />
               <Image
                 src="/images/gakit_logo_adobe.svg"
                 alt="GAKIT logo"
                 width={140}
                 height={40}
                 priority
-                className="h-7 md:h-8 w-auto object-contain"
+                className="hidden h-8 w-auto object-contain md:block"
               />
             </div>
-            <div className="hidden h-9 pl-2 flex-col justify-center text-left font-heading text-xs font-semibold uppercase tracking-wide leading-4 text-slate-600 2xl:flex">
+            <div className="hidden h-9 pl-2 flex-col justify-center text-left font-heading text-[10px] font-bold uppercase tracking-wide leading-3 text-slate-600 2xl:flex">
               <div>Geohazard Assessment &amp;</div>
               <div>Knowledge Integration Tool</div>
             </div>
@@ -353,25 +360,16 @@ export function PublicHeader({
 
         {/* Desktop Navigation & Actions */}
         <div className="hidden items-center justify-end gap-1.5 md:flex shrink-0">
-          {showSectionNav && !isChecking && accountPillVisible && (
-            <button
-              onClick={handleAccountClick}
-              className="group relative inline-flex items-center justify-center rounded-full bg-gradient-to-r from-gakit-maroon to-maroon-800 px-3.5 py-1.5 font-heading text-xs font-bold text-white shadow-[0_2px_8px_rgba(123,17,19,0.28)] transition-all duration-150 hover:from-maroon-800 hover:to-maroon-900 hover:shadow-[0_4px_12px_rgba(123,17,19,0.35)] active:scale-95"
-            >
-              <span className="tracking-wide">{accountLabel}</span>
-            </button>
-          )}
-
           {/* Right cluster: info, notifications, account */}
           <div className="flex items-center gap-0.5">
+            {showSectionNav && <button type="button"
+              onClick={() => scrollToSection(activeSection === 'about' ? 'hazard-map' : 'about')}
+              title={activeSection === 'about' ? 'Back to hazard map' : 'About GAKIT'}
+              className="flex h-9 items-center justify-center gap-1.5 rounded-full px-2.5 text-[11px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-gakit-maroon">
+              {activeSection === 'about' ? <MapPinned className="h-4 w-4" aria-hidden="true" /> : <Info className="h-4 w-4" aria-hidden="true" />}
+              {activeSection === 'about' ? 'Map' : 'About'}
+            </button>}
             {extraAction}
-            {showBentoMenu && (
-              <BentoMenu
-                items={bentoTiles}
-                onNavigateSection={scrollToSection}
-                activeSection={activeSection}
-              />
-            )}
             <HowToReportPopover
               isOpen={isInfoOpen}
               onToggle={() => {
@@ -388,42 +386,30 @@ export function PublicHeader({
               onMarkRead={markAlertRead}
               variant="header"
             />
-            <UserNavMenu
-              name={name}
-              email={email}
-              isOpen={isMenuOpen}
-              onToggle={() => {
-                setIsMenuOpen((isOpen) => !isOpen);
-                setIsInfoOpen(false);
-              }}
-              onSignOutClick={() => {
-                setIsMenuOpen(false);
-                setShowSignOutConfirm(true);
-              }}
-              isSigningOut={isSigningOut}
-              containerRef={userMenuRef}
-            />
+            {showBentoMenu && (
+              <BentoMenu
+                items={bentoTiles}
+                onOpenChange={setIsMenuOpen}
+                onSignOut={requestSignOut}
+                isSigningOut={isSigningOut}
+                onNavigateSection={scrollToSection}
+                activeSection={activeSection}
+              />
+            )}
           </div>
         </div>
 
         {/* Mobile top-right cluster */}
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1 md:hidden [&>button]:h-8 [&>button]:min-w-8 [&>div>button]:h-8 [&>div>button]:min-w-8">
           {extraAction}
-          {/* Show bento menu in top header only when bottom nav is absent (e.g. on /flood-scenarios) */}
           {showBentoMenu && !showBottomNav && (
             <BentoMenu
               items={bentoTiles}
+              onOpenChange={setIsMenuOpen}
+              onSignOut={requestSignOut}
+              isSigningOut={isSigningOut}
               onNavigateSection={scrollToSection}
               activeSection={activeSection}
-            />
-          )}
-          {/* Without the bottom bar the bell has no mobile home, so it moves up here. */}
-          {!showBottomNav && (
-            <NotificationBell
-              notifications={weatherNotifications}
-              onSelectAlert={setSelectedAlert}
-              onMarkRead={markAlertRead}
-              variant="header"
             />
           )}
           <HowToReportPopover
@@ -436,122 +422,36 @@ export function PublicHeader({
             onStartTour={onStartTour}
             containerRef={mobileInfoRef}
           />
-          {!isChecking && (
-            email || name ? (
-              <UserNavMenu
-                name={name}
-                email={email}
-                isOpen={isMenuOpen}
-                variant="header"
-                onToggle={() => {
-                  setIsMenuOpen((isOpen) => !isOpen);
-                  setIsInfoOpen(false);
-                }}
-                onSignOutClick={() => {
-                  setIsMenuOpen(false);
-                  setShowSignOutConfirm(true);
-                }}
-                isSigningOut={isSigningOut}
-                containerRef={mobileUserMenuRef}
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={handleAccountClick}
-                className="flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-gakit-maroon md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px]"
-                title="Login"
-                aria-label="Login"
-              >
-                <UserRound className="h-4 w-4" />
-                <span>Login</span>
-              </button>
-            )
-          )}
+
         </div>
       </div>
     </header>
 
-    {showBottomNav && (
-      <nav className="pointer-events-none fixed bottom-0 left-0 right-0 z-[1200] px-3 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] md:hidden">
-        <div className="pointer-events-auto mx-auto grid max-w-sm grid-cols-5 items-end gap-1 rounded-full border-0 bg-white/95 px-1.5 py-1 shadow-[0_6px_24px_-6px_rgba(15,23,42,0.18)] backdrop-blur-md">
-          {/* 1. Map */}
-          <button
-            onClick={() => scrollToSection('hazard-map')}
-            className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1 transition-all duration-150 active:scale-95 ${
-              activeSection === 'hazard-map'
-                ? 'bg-slate-200 text-slate-900 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
-            }`}
-          >
-            <MapPinned className={`h-5 w-5 ${activeSection === 'hazard-map' ? 'text-gakit-maroon' : ''}`} />
-            <span className="text-[10px] font-semibold">Map</span>
-          </button>
-
-          {/* 2. About */}
-          <button
-            onClick={() => scrollToSection('about')}
-            className={`flex w-full flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1 transition-all duration-150 active:scale-95 ${
-              activeSection === 'about'
-                ? 'bg-slate-200 text-slate-900 font-bold'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
-            }`}
-          >
-            <Info className={`h-5 w-5 ${activeSection === 'about' ? 'text-gakit-maroon' : ''}`} />
-            <span className="text-[10px] font-semibold">About</span>
-          </button>
-
-          {/* 3. Report flooding — raised centre FAB overlapping the pill's top edge */}
-          {onStartReport ? (
-            <button
-              type="button"
-              onClick={onStartReport}
-              aria-label="Report flooding"
-              title="Report flooding"
-              data-tour="report"
-              className="flex w-full flex-col items-center justify-center gap-1 active:scale-95"
-            >
-              <span className="-mt-7 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white shadow-[0_8px_20px_-4px_rgba(15,23,42,0.28)] ring-1 ring-slate-200/70">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white">
-                  <Image
-                    src="/assets/report-logo.svg"
-                    alt="Report flooding"
-                    width={32}
-                    height={32}
-                    className="h-8 w-8 object-contain"
-                  />
-                </span>
-              </span>
-              <span className="text-[10px] font-bold leading-none text-gakit-maroon">
-                Report
-              </span>
-            </button>
-          ) : (
-            <div />
-          )}
-
-          {/* 4. Alerts */}
-          <NotificationBell
-            notifications={weatherNotifications}
-            onSelectAlert={setSelectedAlert}
-            onMarkRead={markAlertRead}
-            variant="mobile-nav"
-            className="flex w-full flex-col items-center justify-center"
-          />
-
-          {/* 5. Menu (Rightmost) */}
-          {showBentoMenu ? (
-            <BentoMenu
-              items={bentoTiles}
-              variant="mobile-nav"
-              onNavigateSection={scrollToSection}
-              activeSection={activeSection}
-            />
-          ) : (
-            <div />
-          )}
-        </div>
-      </nav>
-    )}
+    <div ref={toolbarRef} aria-label="Map toolbar"
+      className={`fixed inset-x-1.5 top-[calc(max(0.375rem,env(safe-area-inset-top,0px))+3.5rem)] z-[1150] ${activeSection === 'about' ? 'hidden' : 'flex'} h-9 items-start gap-1.5 pr-1 md:hidden`}>
+      <div data-map-mobile-controls-slot className="min-w-0 empty:hidden" />
+      <NotificationBell notifications={weatherNotifications} onSelectAlert={setSelectedAlert}
+        onMarkRead={markAlertRead} variant="toolbar" className="shrink-0" />
+    </div>
+    {showBottomNav && <nav aria-label="Map navigation" className="pointer-events-none fixed bottom-0 inset-x-0 z-[1200] px-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom,0px))] md:hidden">
+      <div className="pointer-events-auto mx-auto grid max-w-[240px] grid-cols-3 items-center gap-1.5 rounded-full border border-slate-200/80 bg-white/95 p-1 shadow-lg backdrop-blur-md">
+        <button type="button" onClick={() => scrollToSection(activeSection === 'about' ? 'hazard-map' : 'about')}
+          className="flex h-10 flex-col items-center justify-center gap-0.5 rounded-full text-slate-600 transition-colors hover:bg-slate-100">
+          {activeSection === 'about' ? <MapPinned className="h-4 w-4" aria-hidden="true" /> : <Info className="h-4 w-4" aria-hidden="true" />}
+          <span className="text-[10px] font-semibold">{activeSection === 'about' ? 'Map' : 'About'}</span>
+        </button>
+        <button type="button" onClick={onStartReport} data-tour="report" aria-label="Report flooding"
+          className="group relative flex h-10 items-end justify-center rounded-full text-gakit-maroon transition-transform active:scale-95 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon">
+          <span className="absolute -top-5 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200/80 bg-white shadow-[0_3px_12px_rgba(15,23,42,0.12)] transition-colors group-hover:bg-maroon-50">
+            <MapPinPlus className="h-6 w-6" strokeWidth={1.8} aria-hidden="true" />
+          </span>
+          <span className="whitespace-nowrap pb-0.5 text-[10px] font-semibold leading-3">Report flood</span>
+        </button>
+        {showBentoMenu && <BentoMenu items={bentoTiles} variant="mobile-nav"
+          onOpenChange={setIsMenuOpen} onSignOut={requestSignOut} isSigningOut={isSigningOut}
+          onNavigateSection={scrollToSection} activeSection={activeSection} />}
+      </div>
+    </nav>}
     <SignOutConfirmDialog
       isOpen={showSignOutConfirm}
       isSigningOut={isSigningOut}

@@ -123,6 +123,53 @@ describe('Himawari failure handling', () => {
     expect([...(await batch).keys()]).toEqual(['1000', '1010']);
   });
 
+  it('keeps the second worker moving while the newest scan is stalled', async () => {
+    const pending = new Map<string, { onload: (() => void) | null }>();
+    vi.stubGlobal('Image', class {
+      onload: (() => void) | null = null;
+      onerror = null;
+      set src(value: string) {
+        if (value) pending.set(new URL(value, 'https://gakit.test').searchParams.get('time')!, this);
+      }
+    });
+    const batch = loadHimawariFrames(['1000', '1010', '1020', '1030'], undefined, { maxFrames: 3 });
+    expect([...pending.keys()]).toEqual(['1030', '1020']);
+    pending.get('1020')!.onload?.();
+    await vi.waitFor(() => expect(pending.has('1010')).toBe(true));
+    pending.get('1010')!.onload?.();
+    await Promise.resolve();
+    expect(pending.has('1000')).toBe(false);
+    pending.get('1030')!.onload?.();
+    expect([...(await batch).keys()]).toEqual(['1010', '1020', '1030']);
+  });
+
+  it('publishes all cached target scans before starting missing image requests', async () => {
+    const cached = new Map(['1000', '1010', '1020'].map(time => [time, {} as HTMLImageElement]));
+    const onFrame = vi.fn();
+    const requested: string[] = [];
+    images(time => {
+      requested.push(time);
+      expect(onFrame).toHaveBeenCalledTimes(2);
+      return false;
+    });
+    const result = await loadHimawariFrames(['1000', '1010', '1020', '1030'], undefined, {
+      maxFrames: 3, cachedFrames: cached, onFrame,
+    });
+    expect(requested).toEqual(['1030']);
+    expect([...result.keys()]).toEqual(['1010', '1020', '1030']);
+  });
+
+  it('uses an older cached scan only after a newer target fails', async () => {
+    const cached = new Map(['1000', '1010', '1020'].map(time => [time, {} as HTMLImageElement]));
+    const requested: string[] = [];
+    images(time => { requested.push(time); return true; });
+    const result = await loadHimawariFrames(['1000', '1010', '1020', '1030'], undefined, {
+      maxFrames: 3, cachedFrames: cached,
+    });
+    expect(requested).toEqual(['1030']);
+    expect([...result.keys()]).toEqual(['1000', '1010', '1020']);
+  });
+
   it('stops publishing and requesting frames when a batch is cancelled', async () => {
     let active = true;
     images(() => { active = false; return false; });
@@ -146,5 +193,25 @@ describe('Himawari failure handling', () => {
     await vi.advanceTimersByTimeAsync(55_000);
     await result;
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('shares an in-flight scan across repeated requests and releases it after completion', async () => {
+    const pending: Array<{ onload: (() => void) | null }> = [];
+    vi.stubGlobal('Image', class {
+      onload: (() => void) | null = null;
+      onerror = null;
+      set src(value: string) { if (value) pending.push(this); }
+    });
+    const first = fetchHimawariFrame('shared-scan');
+    const second = fetchHimawariFrame('shared-scan');
+    expect(second).toBe(first);
+    expect(pending).toHaveLength(1);
+    pending[0].onload?.();
+    expect(await second).toBe(await first);
+    const next = fetchHimawariFrame('shared-scan');
+    expect(next).not.toBe(first);
+    expect(pending).toHaveLength(2);
+    pending[1].onload?.();
+    await next;
   });
 });

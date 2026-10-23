@@ -14,7 +14,9 @@ export async function GET(request: Request) {
     try {
       const frames = await getHimawariAvailableStamps();
       if (!frames.length) return unavailable();
-      return NextResponse.json({ frames: frames.map(String) }, { headers: { 'Cache-Control': 'no-store' } });
+      return NextResponse.json({ frames: frames.map(String) }, {
+        headers: { 'Cache-Control': 'public, max-age=0, s-maxage=30' },
+      });
     } catch {
       return unavailable();
     }
@@ -22,7 +24,9 @@ export async function GET(request: Request) {
 
   const time = searchParams.get('time');
   if (!time || !/^(?:([01]\d|2[0-3])[0-5]\d|\d{14})$/.test(time)) {
-    return NextResponse.json({ error: 'time (UTC stamp or HHMM) required' }, { status: 400 });
+    return NextResponse.json({ error: 'time (UTC stamp or HHMM) required' }, {
+      status: 400, headers: { 'Cache-Control': 'no-store' },
+    });
   }
   try {
     const frame = await getHimawariSliderPng(time);
@@ -36,7 +40,9 @@ export async function GET(request: Request) {
         'Content-Type': 'image/png',
         'Content-Length': String(frame.png.byteLength),
         'Last-Modified': frame.lastModified,
-        'Cache-Control': time.length === 14 ? 'public, max-age=86400, immutable' : 'public, max-age=540',
+        'Cache-Control': time.length === 14
+          ? 'public, max-age=86400, s-maxage=86400, immutable'
+          : 'public, max-age=540, s-maxage=60',
         'Access-Control-Allow-Origin': '*',
       },
     });

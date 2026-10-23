@@ -1,15 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
+import { createPortal } from 'react-dom';
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   CloudSun,
   Layers,
-  ListFilter,
+  MapPin,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { FloodLoader } from '@/components/ui/FloodLoader';
 import type { HeatIndexControlState } from '@/components/map/HeatIndexDetails';
 import { WeatherChip } from '@/components/map/WeatherChip';
 import { DataLayerControls, ReportControls } from '@/components/map/MapControls';
@@ -30,10 +32,7 @@ export interface MapSidebarProps {
   controlsVisible?: boolean;
   hideWeather?: boolean;
   fullScreen?: boolean;
-  hasBottomNav?: boolean;
-
-  // Report Flooding Action
-  onStartReport?: () => void;
+  hasBottomAction?: boolean;
 
   // Weather Outlook
   weatherOpen: boolean;
@@ -112,8 +111,7 @@ export function MapSidebar({
   controlsVisible = true,
   hideWeather = false,
   fullScreen = false,
-  hasBottomNav = false,
-  onStartReport,
+  hasBottomAction = false,
   weatherOpen,
   onToggleWeather,
   weatherExpandedByDefault,
@@ -182,6 +180,39 @@ export function MapSidebar({
   const layersCardRef = useRef<HTMLDivElement>(null);
   const reportsCardRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [mobileControlsHost, setMobileControlsHost] = useState<HTMLElement | null>(null);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const [headerClear, setHeaderClear] = useState(false);
+
+  useEffect(() => {
+    if (!fullScreen) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setMobileControlsHost(document.querySelector<HTMLElement>('[data-map-mobile-controls-slot]'));
+    });
+    return () => { cancelled = true; };
+  }, [fullScreen]);
+
+  useEffect(() => {
+    const sidebar = sidebarRef.current;
+    if (!fullScreen || !sidebar) return;
+    const headers = [...document.querySelectorAll<HTMLElement>('[data-map-header]')];
+    const measure = () => {
+      const bounds = sidebar.getBoundingClientRect();
+      // Include the expanded panel's protruding collapse handle and a gap.
+      const right = bounds.right + (isCollapsed ? 0 : 36) + 12;
+      setHeaderClear(window.innerWidth >= 768 && headers.every(header => {
+        const headerBounds = header.getBoundingClientRect();
+        return !headerBounds.width || right <= headerBounds.left || bounds.left - 12 >= headerBounds.right;
+      }));
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(sidebar);
+    headers.forEach(header => observer.observe(header));
+    window.addEventListener('resize', measure);
+    measure();
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure); };
+  }, [fullScreen, isCollapsed]);
 
   const selectedOutlook = usePointOutlook();
   const currentWeather = usableCurrentWeather(selectedOutlook.data?.current ?? null);
@@ -246,6 +277,7 @@ export function MapSidebar({
       onToggleWeather(false);
       onToggleLayers(false);
     }
+    if (fullScreen && window.innerWidth < 768) return;
     setTimeout(() => {
       const container = scrollContainerRef.current;
       const targetEl =
@@ -269,6 +301,20 @@ export function MapSidebar({
     onToggleReports(false);
   }, [onToggleCollapse, onToggleWeather, onToggleLayers, onToggleReports]);
 
+  useEffect(() => {
+    if (!fullScreen || isCollapsed || window.innerWidth >= 768) return;
+    const outside = (event: PointerEvent) => {
+      if (!sidebarRef.current?.contains(event.target as Node)
+        && !mobileControlsHost?.contains(event.target as Node)) handleCollapseSidebar();
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') handleCollapseSidebar();
+    };
+    document.addEventListener('pointerdown', outside);
+    window.addEventListener('keydown', escape);
+    return () => { document.removeEventListener('pointerdown', outside); window.removeEventListener('keydown', escape); };
+  }, [fullScreen, isCollapsed, handleCollapseSidebar, mobileControlsHost]);
+
   // Automatically minimize sidebar to the sleek icon rail when all cards are collapsed
   useEffect(() => {
     if (!isCollapsed && !weatherOpen && !layersOpen && !reportsOpen) {
@@ -278,10 +324,10 @@ export function MapSidebar({
 
   const handleToggleWeather = (open: boolean) => {
     onToggleWeather(open);
-    if (open) {
+    if (open && window.innerWidth < 768) {
       onToggleLayers(false);
       onToggleReports(false);
-    } else {
+    } else if (!open) {
       (document.activeElement as HTMLElement)?.blur();
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
       if (isMobile || (!layersOpen && !reportsOpen)) {
@@ -292,10 +338,10 @@ export function MapSidebar({
 
   const handleToggleLayers = (open: boolean) => {
     onToggleLayers(open);
-    if (open) {
+    if (open && window.innerWidth < 768) {
       onToggleWeather(false);
       onToggleReports(false);
-    } else {
+    } else if (!open) {
       (document.activeElement as HTMLElement)?.blur();
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
       if (isMobile || (!weatherOpen && !reportsOpen)) {
@@ -306,10 +352,10 @@ export function MapSidebar({
 
   const handleToggleReports = (open: boolean) => {
     onToggleReports(open);
-    if (open) {
+    if (open && window.innerWidth < 768) {
       onToggleWeather(false);
       onToggleLayers(false);
-    } else {
+    } else if (!open) {
       (document.activeElement as HTMLElement)?.blur();
       const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
       if (isMobile || (!weatherOpen && !layersOpen)) {
@@ -322,24 +368,38 @@ export function MapSidebar({
 
   const positionClass = isEmbedded
     ? 'bottom-4 top-auto'
-    : `${hasBottomNav ? 'bottom-24' : 'bottom-6'} top-auto md:top-1/2 md:-translate-y-1/2 md:bottom-auto`;
+    : `${hasBottomAction ? 'bottom-24' : 'bottom-6'} top-auto md:top-1/2 md:-translate-y-1/2 md:bottom-auto`;
 
   const maxHeightClass = isEmbedded
     ? 'max-h-[calc(100%-2rem)]'
-    : hasBottomNav
-      ? 'max-h-[calc(100dvh-12rem)] md:max-h-[calc(100dvh-10.5rem)]'
-      : 'max-h-[calc(100dvh-7.5rem)] md:max-h-[calc(100dvh-10.5rem)]';
+    : `${hasBottomAction ? 'max-h-[calc(100dvh-12rem)]' : 'max-h-[calc(100dvh-7.5rem)]'} ${headerClear ? 'md:max-h-[calc(100dvh-2rem)]' : 'md:max-h-[calc(100dvh-10.5rem)]'}`;
 
   return (
     <aside
+      ref={sidebarRef}
       aria-label="Map Controls Sidebar"
-      className={`absolute left-3 md:left-4 z-[1000] pointer-events-none transition-all duration-300 ease-in-out flex flex-col ${positionClass} ${maxHeightClass} ${
+      className={`absolute left-3 md:left-4 z-[1000] pointer-events-none transition-all duration-300 ease-in-out flex flex-col ${fullScreen ? 'mobile-map-sidebar' : ''} ${positionClass} ${maxHeightClass} ${showSimulatedFlood ? 'flood-player-clearance flood-sidebar-clearance' : ''} ${
         controlsVisible ? 'opacity-100' : 'opacity-0'
       }`}
     >
+      {fullScreen && mobileControlsHost && createPortal(<div aria-label="Map controls" className="pointer-events-auto flex min-w-0 items-center gap-1.5 pb-1 md:hidden">
+        {[
+          ...(!hideWeather ? [{ id: 'weather' as const, label: 'Weather', text: liveCondition?.label ?? 'Weather', icon: WeatherIcon, open: weatherOpen, value: currentTemp, loading: selectedOutlook.status === 'loading' }] : []),
+          { id: 'layers' as const, label: 'Layers', text: null, icon: Layers, open: layersOpen, value: activeLayersCount, loading: isLoadingSimulatedFlood || isLoadingRainfall || isLoadingHimawari || isLoadingTyphoon || Boolean(heatIndex?.loading) },
+          { id: 'reports' as const, label: 'Reports', text: null, icon: MapPin, open: reportsOpen, value: visibleReportsCount ?? totalReportsCount ?? 0, loading: isLoadingReports },
+        ].map(({ id, label, text, icon: Icon, open, value, loading }) => <button key={id} type="button"
+          aria-label={label} aria-expanded={!isCollapsed && open}
+          aria-busy={loading || undefined}
+          onClick={() => !isCollapsed && open ? handleCollapseSidebar() : handleExpandTo(id)}
+          className={`relative flex h-8 ${id === 'weather' ? 'min-w-0' : 'shrink-0'} items-center justify-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold shadow-sm transition-[background-color,border-color,color,transform] duration-150 active:scale-95 motion-reduce:transition-none ${!isCollapsed && open ? 'border-maroon-200 bg-maroon-50 text-gakit-maroon' : 'border-slate-200/80 bg-white/95 text-slate-600'}`}>
+          <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">{loading ? <FloodLoader compact label={`Loading ${label}`} /> : <Icon className="h-3.5 w-3.5" aria-hidden="true" />}</span>{text && <span className="min-w-0 max-w-[130px] truncate">{text}</span>}
+          {value != null && (id === 'weather' || Number(value) > 0) && <span className="absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold tabular-nums text-white shadow-xs">{value}</span>}
+          <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${!isCollapsed && open ? 'rotate-180' : ''}`} aria-hidden="true" />
+        </button>)}
+      </div>, mobileControlsHost)}
       {isCollapsed ? (
         /* ─── Collapsed State: Sleek Vertical Icon Rail ─────────────────── */
-        <div className={`pointer-events-auto flex flex-col items-start gap-2 select-none ${maxHeightClass}`}>
+        <div className={`pointer-events-auto ${fullScreen ? 'hidden md:flex' : 'flex'} flex-col items-start gap-2 select-none ${maxHeightClass}`}>
           {/* Weather Pill Button */}
           {!hideWeather && (
             <button
@@ -393,7 +453,7 @@ export function MapSidebar({
             aria-label="Citizen Flood Reports"
           >
             <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
-              <ListFilter className="h-5 w-5 text-gakit-maroon transition-transform group-hover:scale-110" />
+              <MapPin className="h-5 w-5 text-gakit-maroon transition-transform group-hover:scale-110" />
               {typeof visibleReportsCount === 'number' && visibleReportsCount > 0 && (
                 <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold text-white shadow-xs">
                   {visibleReportsCount}
@@ -411,36 +471,15 @@ export function MapSidebar({
               </span>
           </button>
 
-          {/* Report Flooding (desktop only — mobile uses the bottom-nav FAB) */}
-          {onStartReport && (
-            <button
-              type="button"
-              onClick={onStartReport}
-              className="hidden md:flex h-10 md:h-11 items-center hud-pill hover:bg-white hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer text-slate-700 hover:text-gakit-maroon shrink-0"
-              title="Report flooding"
-              aria-label="Report flooding"
-            >
-              <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
-                <Image
-                  src="/assets/report-logo.svg"
-                  alt="Report flooding"
-                  width={20}
-                  height={20}
-                  className="h-5 w-5 shrink-0 object-contain transition-transform group-hover:scale-110"
-                />
-              </div>
-              <span className={railLabelClass()}>Report Flooding</span>
-            </button>
-          )}
         </div>
       ) : (
         /* ─── Expanded State: Unified Scrollable Card Sidebar ────────────── */
-        <div className={`relative pointer-events-auto flex flex-col min-h-0 max-h-full ${isEmbedded ? '' : maxHeightClass} w-[calc(100vw-4.5rem)] max-w-72 sm:w-72 transition-all duration-300 ease-in-out`}>
+        <div className={`relative pointer-events-auto flex flex-col min-h-0 max-h-full ${fullScreen ? 'mobile-map-panel' : ''} ${isEmbedded ? '' : maxHeightClass} w-[calc(100vw-4.5rem)] max-w-72 sm:w-72 md:w-[304px] md:max-w-[304px] transition-all duration-300 ease-in-out`}>
           {/* Docked Drawer Handle Tab */}
           <button
             type="button"
             onClick={handleCollapseSidebar}
-            className="hud-pill group absolute -right-1 top-1/2 z-[1010] flex h-16 w-8 -translate-y-1/2 translate-x-full cursor-pointer flex-col items-center justify-center gap-2 !rounded-full text-slate-400 transition-[width,color,box-shadow] duration-200 ease-out hover:w-9 hover:text-slate-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 motion-reduce:transition-none"
+            className={`hud-pill group absolute -right-1 top-1/2 z-[1010] ${fullScreen ? 'hidden md:flex' : 'flex'} h-16 w-8 -translate-y-1/2 translate-x-full cursor-pointer flex-col items-center justify-center gap-2 !rounded-full text-slate-400 transition-[width,color,box-shadow] duration-200 ease-out hover:w-9 hover:text-slate-700 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 motion-reduce:transition-none`}
             title="Minimize sidebar"
             aria-label="Minimize sidebar"
             aria-expanded="true"
@@ -460,7 +499,7 @@ export function MapSidebar({
           >
             {/* Weather Outlook Card */}
             {!hideWeather && (
-              <div ref={weatherCardRef} data-tour="weather" className="w-full scroll-mt-2">
+              <div ref={weatherCardRef} data-tour="weather" className={`${fullScreen && !weatherOpen ? 'hidden md:block' : ''} w-full scroll-mt-2`}>
                 <WeatherChip
                   open={weatherOpen}
                   onToggle={handleToggleWeather}
@@ -471,7 +510,7 @@ export function MapSidebar({
             )}
 
             {/* Map Layers Card */}
-            <div ref={layersCardRef} className="w-full">
+            <div ref={layersCardRef} className={`${fullScreen && !layersOpen ? 'hidden md:block' : ''} w-full`}>
               <DataLayerControls
                 heatIndex={heatIndex}
                 open={layersOpen}
@@ -528,7 +567,7 @@ export function MapSidebar({
             </div>
 
             {/* Citizen Flood Reports Card */}
-            <div ref={reportsCardRef} data-tour="reports" className="w-full scroll-mt-2">
+            <div ref={reportsCardRef} data-tour="reports" className={`${fullScreen && !reportsOpen ? 'hidden md:block' : ''} w-full scroll-mt-2`}>
               <ReportControls
                 open={reportsOpen}
                 onToggle={handleToggleReports}
@@ -546,27 +585,6 @@ export function MapSidebar({
             </div>
           </div>
 
-          {/* Primary Action Row: Report Flooding (mobile uses the bottom-nav FAB) */}
-          {onStartReport && (
-            <div data-tour="report" className="mt-1.5 hidden shrink-0 md:block">
-              <button
-                type="button"
-                onClick={onStartReport}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 hud-pill hover:bg-white hover:shadow-lg transition-all duration-150 active:scale-95 group select-none cursor-pointer"
-                aria-label="Report flooding"
-                title="Report flooding"
-              >
-                <span
-                  role="img"
-                  aria-label="Report flooding"
-                  className="h-5 w-5 shrink-0 bg-gakit-maroon transition-transform group-hover:scale-110 [mask-image:url(/assets/report-logo.svg)] [mask-position:center] [mask-repeat:no-repeat] [mask-size:contain] [-webkit-mask-image:url(/assets/report-logo.svg)] [-webkit-mask-position:center] [-webkit-mask-repeat:no-repeat] [-webkit-mask-size:contain]"
-                />
-                <span className="text-sm font-bold text-gakit-maroon group-hover:text-maroon-900 transition-colors">
-                  Report Flooding
-                </span>
-              </button>
-            </div>
-          )}
         </div>
       )}
     </aside>

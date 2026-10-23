@@ -65,6 +65,7 @@ export default proxy;
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|vendor/|data/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|pmtiles|mjs|css|map)$).*)',
+    // Satellite imagery is public and identical for guests and signed-in users.
+    '/((?!api/himawari-proxy(?:/|$)|_next/static|_next/image|favicon.ico|vendor/|data/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|pmtiles|mjs|css|map)$).*)',
   ],
 };
