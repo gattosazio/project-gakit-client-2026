@@ -126,7 +126,7 @@ export function DataPrivacySection() {
               </a>
               <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 font-heading text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">Weather</span>
             </div>
-            <p className="mt-2 text-[13px] leading-6 text-slate-600">The shared Iligan City weather outlook uses ECMWF IFS HRES forecasts provided through Open-Meteo for temperature, wind, and rainfall. Selecting a map pin does not change the weather location. The nationwide heat-index layer calculates an interpolated outlook from temperature and humidity at 250 fixed sample points, refreshed every three hours. Open-Meteo also supplies forecast rainfall to fill gaps when JAXA nowcast intervals are unavailable.</p>
+            <p className="mt-2 text-[13px] leading-6 text-slate-600">ECMWF IFS HRES forecasts provided through Open-Meteo power the shared Iligan City weather outlook for temperature, wind, and rainfall. The same forecasts support the nationwide heat-index layer.</p>
           </div>
           <div className="border-b border-slate-100 p-6 sm:border-r lg:border-r-0 lg:p-7">
             <Image src="/images/noah_logo.png" alt="Project NOAH logo" width={96} height={64} className="mb-3 h-10 w-20 object-contain object-left" />

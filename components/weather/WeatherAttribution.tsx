@@ -10,7 +10,7 @@ interface WeatherAttributionProps {
 /**
  * Data attribution link:
  * - DOST-PAGASA MINPRSD for official regional advisories / warnings
- * - Open-Meteo for numerical forecast data and daily digest
+ * - ECMWF IFS HRES forecast data through Open-Meteo for the outlook and daily digest
  */
 export function WeatherAttribution({ source, className = '', compact = false }: WeatherAttributionProps) {
   const isPagasa = source === 'DOST-PAGASA MINPRSD' || source === 'DOST-PAGASA';
@@ -37,7 +37,7 @@ export function WeatherAttribution({ source, className = '', compact = false }: 
       className={`inline-block text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline ${className}`}
       title="ECMWF IFS HRES forecast data provided through Open-Meteo"
     >
-      {compact ? 'Open-Meteo' : 'ECMWF IFS HRES · Open-Meteo'}
+      {compact ? 'ECMWF' : 'ECMWF via Open-Meteo'}
     </a>
   );
 }

@@ -330,6 +330,7 @@ body {
   .mobile-map-sidebar > .mobile-map-panel {
     width: 100%;
     max-width: 384px;
+    margin-inline: auto;
     max-height: calc(100dvh - var(--map-mobile-controls-top, 104px) - max(4.5rem, var(--flood-player-clearance, 0px)) - 6px);
     transition: none;
   }
