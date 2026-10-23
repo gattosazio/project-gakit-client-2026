@@ -12,7 +12,6 @@ fs.mkdirSync(output, { recursive: true });
       const errors = [];
       page.on('pageerror', error => errors.push(error.message));
       await page.addInitScript(() => {
-        localStorage.setItem('gakit:first-visit-seen', 'true');
         sessionStorage.setItem('gakit:onboarding-auto-located', 'true');
       });
       await page.goto(process.env.GAKIT_BASE_URL || 'http://localhost:3000', { waitUntil: 'domcontentloaded' });

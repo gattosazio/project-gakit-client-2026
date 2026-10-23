@@ -40,7 +40,6 @@ const raster = moduleUrl(compile('lib/map/heatIndex.ts')
     }, { raster, land });
     assert.deepEqual(unit, { ocean: 0, land: 255, hole: 0, lake: 0, outside: null });
 
-    await page.addInitScript(() => { localStorage.setItem('gakit:first-visit-seen', 'true'); sessionStorage.setItem('gakit:onboarding-auto-located', 'true'); });
     await page.route('**/api/v1/heat-index/grid?*', (route) => route.fulfill({ json: {
       source: 'fixture', unit: '°C', validAt: new Date().toISOString(), fetchedAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 3600000).toISOString(), stale: false,

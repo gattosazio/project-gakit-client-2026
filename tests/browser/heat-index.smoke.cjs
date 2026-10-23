@@ -34,7 +34,6 @@ function fixture(hour, stale = false) {
         if (message.type() === 'error' && /heat-index/.test(message.text())) errors.push(message.text());
       });
       await page.addInitScript(() => {
-        localStorage.setItem('gakit:first-visit-seen', 'true');
         sessionStorage.setItem('gakit:onboarding-auto-located', 'true');
       });
       const requests = [];

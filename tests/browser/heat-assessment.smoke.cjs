@@ -25,7 +25,6 @@ function fixture(mode) {
       page.on('pageerror', (error) => errors.push(error.message));
       let mode = 'ready'; let calls = 0; let delay = 0;
       await page.addInitScript(() => {
-        localStorage.setItem('gakit:first-visit-seen', 'true');
         sessionStorage.setItem('gakit:onboarding-auto-located', 'true');
       });
       await page.route('**/api/v1/heat-index/grid?*', async (route) => {
