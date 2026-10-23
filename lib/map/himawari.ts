@@ -29,7 +29,7 @@ export function himawariFrameURL(time: string): string {
 /** Ask the server for published scans rather than guessing slots from local time. */
 export async function fetchHimawariFrameTimes(): Promise<string[]> {
   const response = await fetch(`${PROXY_BASE}?manifest=1`, {
-    cache: 'no-store', signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(20_000),
   });
   if (!response.ok) throw new Error('Satellite frame list is temporarily unavailable');
   const body = await response.json() as { frames?: unknown };
@@ -39,8 +39,13 @@ export async function fetchHimawariFrameTimes(): Promise<string[]> {
   return frames.sort().slice(-8);
 }
 
-export async function fetchHimawariFrame(time: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
+// Rapid off/on switches share downloads already being rendered by the proxy.
+// Decoded frames stay in the hook's bounded cache, not this in-flight map.
+const pendingFrames = new Map<string, Promise<HTMLImageElement>>();
+export function fetchHimawariFrame(time: string): Promise<HTMLImageElement> {
+  const existing = pendingFrames.get(time);
+  if (existing) return existing;
+  const pending = new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     const finish = (error?: Error) => {
       clearTimeout(timer);
@@ -58,7 +63,9 @@ export async function fetchHimawariFrame(time: string): Promise<HTMLImageElement
     img.onload = () => finish();
     img.onerror = () => finish(new Error(`Failed to load Himawari frame ${time}`));
     img.src = himawariFrameURL(time);
-  });
+  }).finally(() => { pendingFrames.delete(time); });
+  pendingFrames.set(time, pending);
+  return pending;
 }
 
 type FrameLoadOptions = {
@@ -76,20 +83,39 @@ export async function loadHimawariFrames(
 ): Promise<Map<string, HTMLImageElement>> {
   const frames = new Map<string, HTMLImageElement>();
   const limit = options.maxFrames ?? times.length;
-  const candidates = [...new Set(times)].reverse();
+  const newestFirst = [...new Set(times)].sort().reverse();
+  const shouldContinue = () => options.shouldContinue?.() ?? true;
   const accept = (time: string, image: HTMLImageElement) => {
     frames.set(time, image);
     options.onFrame?.(time, image);
     onProgress?.(frames.size);
   };
-  // Two frames at a time keep each server render's 16 tiles from queuing
-  // behind a whole animation's worth of work. Publish each success immediately.
-  while (candidates.length && frames.size < limit && (options.shouldContinue?.() ?? true)) {
-    const batch = candidates.splice(0, Math.min(2, limit - frames.size));
-    await Promise.allSettled(batch.map(async time => {
-      const image = options.cachedFrames?.get(time) ?? await fetchHimawariFrame(time);
-      if (options.shouldContinue?.() ?? true) accept(time, image);
-    }));
+  // Publish reusable scans in the target window before any network work.
+  // Older cached scans remain fallbacks so they cannot displace newer imagery.
+  for (const time of newestFirst.slice(0, limit)) {
+    const image = options.cachedFrames?.get(time);
+    if (!shouldContinue()) break;
+    if (image) accept(time, image);
   }
-  return new Map(times.flatMap(time => frames.has(time) ? [[time, frames.get(time)!] as const] : []));
+  const candidates = newestFirst.filter(time => !frames.has(time));
+  let inFlight = 0;
+  const worker = async () => {
+    // Reserve remaining places before fetching. A slow scan must neither block
+    // the other worker nor cause speculative downloads beyond the frame limit.
+    while (candidates.length && frames.size + inFlight < limit && shouldContinue()) {
+      const time = candidates.shift()!;
+      inFlight++;
+      let image: HTMLImageElement | undefined;
+      try {
+        image = options.cachedFrames?.get(time) ?? await fetchHimawariFrame(time);
+      } catch {
+        // Try an older published scan if this one could not be loaded.
+      } finally {
+        inFlight--;
+      }
+      if (image && shouldContinue()) accept(time, image);
+    }
+  };
+  await Promise.all([worker(), worker()]);
+  return new Map([...frames].sort(([a], [b]) => a.localeCompare(b)));
 }
