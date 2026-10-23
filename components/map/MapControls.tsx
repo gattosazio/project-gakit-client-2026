@@ -9,8 +9,9 @@ import { formatReportDepth, timeAgo } from '@/lib/reports/reportFormatting';
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, ChevronUp, History, Info, Layers, ListFilter, RotateCwFadingClock, Search, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, History, Info, Layers, MapPin, RotateCwFadingClock, Search, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { FloodLoader } from '@/components/ui/FloodLoader';
 import { HeatIndexDetails, type HeatIndexControlState } from '@/components/map/HeatIndexDetails';
 import {
   BASEMAP_LABELS,
@@ -113,61 +114,63 @@ function PillToggle({
   count?: number;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 select-none group w-full">
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className="flex items-center gap-2 cursor-pointer select-none text-left min-w-0 flex-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon rounded"
-      >
-        {/* Pill track */}
-        <span
-          className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/70 transition-colors duration-200"
-          style={{ backgroundColor: checked ? color : '#E2E8F0' }}
+    <div className="w-full">
+      <div className="flex items-center justify-between gap-2 select-none group w-full">
+        <button
+          type="button"
+          role="switch"
+          aria-label={label}
+          aria-checked={checked}
+          onClick={() => onChange(!checked)}
+          className="flex items-center gap-2 cursor-pointer select-none text-left min-w-0 flex-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon rounded"
         >
-          {/* Circle thumb */}
+          {/* Pill track */}
           <span
-            className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-xs ring-1 ring-black/5 transition-transform duration-200 ${
-              checked ? 'translate-x-[15px]' : 'translate-x-[2px]'
-            }`}
-          />
-        </span>
-        <span className={`flex items-center gap-1.5 min-w-0 text-xs transition-colors ${
-          checked ? 'font-semibold text-slate-800 group-hover:text-slate-950' : 'font-normal text-slate-400'
-        }`}>
-          {indicatorDot && (
+            className="relative inline-flex h-[18px] w-[32px] shrink-0 items-center rounded-full ring-1 ring-slate-300/70 transition-colors duration-200"
+            style={{ backgroundColor: checked ? color : '#E2E8F0' }}
+          >
+            {/* Circle thumb */}
             <span
-              className="w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10"
-              style={{ backgroundColor: indicatorDot }}
+              className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow-xs ring-1 ring-black/5 transition-transform duration-200 ${
+                checked ? 'translate-x-[15px]' : 'translate-x-[2px]'
+              }`}
             />
-          )}
-          <span className="truncate leading-none">{label}</span>
-          {beta && <sup className="relative -top-1 shrink-0 select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase leading-none tracking-wider text-amber-800 shadow-xs ring-1 ring-inset ring-amber-200/70">Beta</sup>}
-          {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
-          {loading && (
-            <Spinner size="xs" iconClassName="bg-slate-400" />
-          )}
-        </span>
-      </button>
-      {typeof count === 'number' && (
-        <span className={`text-[10px] font-bold tabular-nums shrink-0 px-1.5 py-0.5 rounded-full ${
-          checked ? 'text-slate-600 bg-slate-100' : 'text-slate-300 bg-slate-50'
-        }`}>
-          {count}
-        </span>
-      )}
-      {credit && (
-        <a
-          href={credit.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[10px] text-slate-400 hover:text-slate-900 hover:underline shrink-0"
-          title={`Data source: ${credit.label}`}
-        >
-          © {credit.label}
-        </a>
-      )}
+          </span>
+          <span className={`flex items-center gap-1.5 min-w-0 text-xs transition-colors ${
+            checked ? 'font-semibold text-slate-800 group-hover:text-slate-950' : 'font-normal text-slate-400'
+          }`}>
+            {indicatorDot && (
+              <span
+                className="w-2 h-2 rounded-full shrink-0 ring-1 ring-black/10"
+                style={{ backgroundColor: indicatorDot }}
+              />
+            )}
+            <span className="truncate leading-none">{label}</span>
+            {beta && <sup className="relative -top-1 shrink-0 select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase leading-none tracking-wider text-amber-800 shadow-xs ring-1 ring-inset ring-amber-200/70">Beta</sup>}
+            {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
+            {loading && <FloodLoader compact label={`Loading ${label}`} />}
+          </span>
+        </button>
+        {typeof count === 'number' && (
+          <span className={`text-[10px] font-bold tabular-nums shrink-0 px-1.5 py-0.5 rounded-full ${
+            checked ? 'text-slate-600 bg-slate-100' : 'text-slate-300 bg-slate-50'
+          }`}>
+            {count}
+          </span>
+        )}
+        {credit && (
+          <a
+            href={credit.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[10px] text-slate-400 hover:text-slate-900 hover:underline shrink-0"
+            title={`Data source: ${credit.label}`}
+          >
+            © {credit.label}
+          </a>
+        )}
+      </div>
+      <span role="status" aria-label={loading ? `Loading ${label}` : undefined} className="sr-only">{loading ? `Loading ${label}` : ''}</span>
     </div>
   );
 }
@@ -217,7 +220,7 @@ function Card({
         </div>
         <div
           aria-hidden={!open}
-          className={`grid transition-[grid-template-rows] duration-200 ease-out ${
+          className={`map-card-body grid transition-[grid-template-rows] duration-200 ease-out ${
             open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
           }`}
         >
@@ -420,7 +423,7 @@ export function ReportControls({
     <Card
       open={open}
       onToggle={onToggle}
-      icon={ListFilter}
+      icon={MapPin}
       title="Flood Reports"
       isSidebarItem={isSidebarItem}
       badge={

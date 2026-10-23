@@ -9,6 +9,7 @@ import { HazardAssessmentModal } from '@/components/HazardAssessmentModal';
 import { ReportModal } from '@/components/ReportModal';
 import { MapPin, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
+import { PageLoader } from '@/components/ui/LoadingState';
 import { toast } from 'react-toastify';
 import { createReport, pingHealth, uploadReportPhoto } from './actions/publicView';
 import type { PreparedPhoto } from '@/lib/reports/photoUpload';
@@ -17,8 +18,8 @@ import type { PublicMapHandle } from '@/components/PublicMap';
 import { MapDisplayPopover, type MapDisplaySettings } from '@/components/header/MapDisplayPopover';
 import type { CreateReportInput, DepthCategory, FloodReference, Report, ReportStatus } from '@/types/report';
 import type { AuthSnapshot } from '@/lib/auth/roles';
-import { SectionJumpControls } from './components/SectionJumpControls';
 import { AboutSection } from './components/AboutSection';
+import { SectionJumpControls } from './components/SectionJumpControls';
 import { DataPrivacySection } from './components/DataPrivacySection';
 import {
   LocationPromptModal,
@@ -50,11 +51,7 @@ import {
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center bg-white">
-      <Spinner size="lg" />
-    </div>
-  ),
+  loading: () => <PageLoader />,
   ssr: false,
 });
 
@@ -92,7 +89,6 @@ export function PublicViewPage({
   );
   const [lastSubmittedReport, setLastSubmittedReport] = useState<SubmittedReport | null>(null);
   const [isLoadingReports, setIsLoadingReports] = useState(false);
-  const [loadingMessage, setLoadingMessage] = useState('Fetching reports…');
   const [rainfallHours, setRainfallHours] = useState(1);
   const [isMapReady, setIsMapReady] = useState(false);
   const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('closed');
@@ -113,18 +109,6 @@ export function PublicViewPage({
     onboardingStageRef.current = stage;
     setOnboardingStage(stage);
   }, []);
-
-  useEffect(() => {
-    if (!isLoadingReports) return;
-    const timer = setTimeout(() => setLoadingMessage('Server is starting…'), 5000);
-    return () => clearTimeout(timer);
-  }, [isLoadingReports]);
-
-  // Reset the loading message whenever reports are not loading (guarded so it
-  // only adjusts state during render when the value actually differs).
-  if (!isLoadingReports && loadingMessage !== 'Fetching reports…') {
-    setLoadingMessage('Fetching reports…');
-  }
 
   const smoothScrollTo = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -894,7 +878,7 @@ export function PublicViewPage({
   };
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-canvas-grey">
+    <div data-map-shell className="relative h-[100dvh] w-full overflow-hidden bg-canvas-grey">
       <PublicHeader
         extraAction={<MapDisplayPopover {...mapDisplay} disabled={!mapDisplay.ready}
           onBasemapChange={value => mapRef.current?.setBasemap(value)}
@@ -915,10 +899,11 @@ export function PublicViewPage({
       />
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
-        showDown={activeSection !== 'about'}
+        showDown={false}
         onMoveUp={() => scrollToSection('hazard-map')}
         onMoveDown={() => scrollToSection('about')}
       />
+
 
       <div
         ref={scrollContainerRef}
@@ -928,12 +913,7 @@ export function PublicViewPage({
           <section id="hazard-map" className="min-h-[100dvh] snap-start">
             <div className="flex h-[100dvh] overflow-hidden bg-white">
               <div className="relative isolate flex-1 w-full h-full min-h-0">
-                {isLoadingReports && (
-                  <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[1000] hud-pill px-4 py-2 flex items-center gap-2">
-                    <Spinner size="sm" iconClassName="bg-slate-500" />
-                    <span className="text-sm font-medium text-slate-700">{loadingMessage}</span>
-                  </div>
-                )}
+                <PageLoader isLoading={isLoadingReports} />
                 <PublicMap
                   hideDisplayControls
                   onDisplaySettingsChange={setMapDisplay}

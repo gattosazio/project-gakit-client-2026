@@ -1,7 +1,6 @@
 'use client';
 
 import React, {
-  createContext,
   useCallback,
   useContext,
   useEffect,
@@ -10,17 +9,9 @@ import React, {
   Suspense,
 } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Spinner } from '@/components/ui/Spinner';
-
-interface RouteLoaderContextValue {
-  isLoading: boolean;
-  navigate: (href: string, options?: { replace?: boolean }) => void;
-  showLoader: () => void;
-  hideLoader: () => void;
-  loadingOverlay: React.ReactNode;
-}
-
-const RouteLoaderContext = createContext<RouteLoaderContextValue | null>(null);
+import { PageLoader } from '@/components/ui/LoadingState';
+import { RouteLoaderContext, type RouteLoaderContextValue } from '@/components/RouteLoadingContext';
+import { captureRouteSnapshot } from '@/lib/navigation/routeSnapshot';
 
 /**
  * Isolated component to watch for Next.js route & query changes.
@@ -38,18 +29,7 @@ function RouteChangeWatcher({ onRouteChange }: { onRouteChange: () => void }) {
 }
 
 export function RouteLoadingOverlay({ isLoading }: { isLoading: boolean }) {
-  return (
-    <div
-      aria-hidden={!isLoading}
-      role="status"
-      aria-label="Loading page"
-      className={`fixed inset-0 z-[2000] flex items-center justify-center bg-white/70 backdrop-blur-sm transition-opacity duration-200 ease-out ${
-        isLoading ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
-      }`}
-    >
-      <Spinner size="lg" />
-    </div>
-  );
+  return <PageLoader isLoading={isLoading} standalone />;
 }
 
 const MIN_DISPLAY_TIME_MS = 150;
@@ -59,34 +39,76 @@ export function RouteLoaderProvider({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const startTimeRef = useRef<number>(0);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const snapshotRef = useRef<HTMLDivElement>(null);
+  const fallbackCountRef = useRef(0);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastPathRef = useRef<string | null>(null);
 
   const showLoader = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (contentRef.current && snapshotRef.current && !snapshotRef.current.hasChildNodes()) {
+      try {
+        captureRouteSnapshot(contentRef.current, snapshotRef.current);
+      } catch {
+        // A presentation snapshot must never prevent navigation.
+        snapshotRef.current.replaceChildren();
+      }
+    }
     startTimeRef.current = Date.now();
     setIsLoading(true);
   }, []);
 
   const hideLoader = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (fallbackCountRef.current > 0) return;
     const elapsed = Date.now() - startTimeRef.current;
     const remaining = Math.max(0, MIN_DISPLAY_TIME_MS - elapsed);
-    if (remaining > 0) {
-      const timer = setTimeout(() => {
-        setIsLoading(false);
-      }, remaining);
-      return () => clearTimeout(timer);
-    } else {
+    const finish = () => {
+      if (fallbackCountRef.current > 0) return;
       setIsLoading(false);
-    }
+      snapshotRef.current?.replaceChildren();
+      hideTimerRef.current = null;
+    };
+    // Let a replacement Suspense fallback register before dismissing this one.
+    hideTimerRef.current = setTimeout(finish, remaining);
+  }, []);
+
+  const registerFallback = useCallback(() => {
+    fallbackCountRef.current++;
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    setIsLoading(true);
+    return () => {
+      fallbackCountRef.current--;
+      if (fallbackCountRef.current === 0) hideLoader();
+    };
+  }, [hideLoader]);
+
+  useEffect(() => () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
   }, []);
 
   const handleRouteChange = useCallback(() => {
+    lastPathRef.current = window.location.pathname;
     hideLoader();
   }, [hideLoader]);
+
+  useEffect(() => {
+    const onHistoryNavigation = () => {
+      if (lastPathRef.current && lastPathRef.current !== window.location.pathname) showLoader();
+    };
+    // Capture the outgoing view before the router handles browser Back/Forward.
+    window.addEventListener('popstate', onHistoryNavigation, true);
+    return () => window.removeEventListener('popstate', onHistoryNavigation, true);
+  }, [showLoader]);
 
   // Safety fallback: if navigation stalls or is cancelled, auto-dismiss
   useEffect(() => {
     if (!isLoading) return;
     const timer = setTimeout(() => {
+      if (fallbackCountRef.current > 0) return;
       setIsLoading(false);
+      snapshotRef.current?.replaceChildren();
     }, SAFETY_TIMEOUT_MS);
     return () => clearTimeout(timer);
   }, [isLoading]);
@@ -178,6 +200,7 @@ export function RouteLoaderProvider({ children }: { children: React.ReactNode })
     showLoader,
     hideLoader,
     loadingOverlay: null, // Root overlay is permanently mounted below
+    registerFallback,
   };
 
   return (
@@ -185,7 +208,9 @@ export function RouteLoaderProvider({ children }: { children: React.ReactNode })
       <Suspense fallback={null}>
         <RouteChangeWatcher onRouteChange={handleRouteChange} />
       </Suspense>
-      {children}
+      <div ref={contentRef} className="contents" data-route-content>{children}</div>
+      <div ref={snapshotRef} aria-hidden="true" inert data-route-snapshot
+        className="fixed inset-0 z-[1999] overflow-hidden bg-white pointer-events-none select-none" />
       <RouteLoadingOverlay isLoading={isLoading} />
     </RouteLoaderContext.Provider>
   );
