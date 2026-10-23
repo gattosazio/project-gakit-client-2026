@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { TimelinePlayer } from '@/app/flood-scenarios/components/TimelinePlayer';
 import type { ScenarioFrame } from '@/types/scenario';
 
@@ -10,14 +10,34 @@ export function FloodSimulationTimeline({ frames, selectedIndex, onSelect, statu
   onSelect: (index: number | null) => void;
   status: string | null;
   loading: boolean;
-  hasBottomNav: boolean;
   fullScreen: boolean;
+  hasBottomNav: boolean;
 }) {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
+  const playerRef = useRef<HTMLDivElement>(null);
   const latestIndex = frames.findIndex(frame => frame.live?.kind === 'latest');
   const currentIndex = latestIndex >= 0 ? latestIndex : frames.reduce((last, frame, index) => frame.is_forecast ? last : index, 0);
   const index = Math.max(0, Math.min(selectedIndex ?? currentIndex, frames.length - 1));
+
+  // Reserve the actual player footprint for the mobile sidebar and compass.
+  // Loading text, narrower screens and browser text sizing can change it.
+  useLayoutEffect(() => {
+    const player = playerRef.current;
+    const container = player?.parentElement;
+    if (!player || !container) return;
+    const measure = () => {
+      const bottom = parseFloat(getComputedStyle(player).bottom) || 0;
+      container.style.setProperty('--flood-player-clearance', `${Math.ceil(player.getBoundingClientRect().height + bottom + 12)}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(player);
+    return () => {
+      observer.disconnect();
+      container.style.removeProperty('--flood-player-clearance');
+    };
+  }, []);
 
   useEffect(() => {
     if (!playing || loading || frames.length < 2 || document.visibilityState !== 'visible') return;
@@ -25,7 +45,7 @@ export function FloodSimulationTimeline({ frames, selectedIndex, onSelect, statu
     return () => clearTimeout(timer);
   }, [playing, loading, frames.length, index, speed, onSelect]);
 
-  return <TimelinePlayer frames={frames} currentIndex={index} isPlaying={playing} playbackSpeed={speed}
+  return <TimelinePlayer containerRef={playerRef} frames={frames} currentIndex={index} isPlaying={playing} playbackSpeed={speed}
     showPeakJump={false}
     loading={loading}
     onIndexChange={next => { setPlaying(false); onSelect(next === latestIndex ? null : next); }}
@@ -38,6 +58,6 @@ export function FloodSimulationTimeline({ frames, selectedIndex, onSelect, statu
     onReset={() => { setPlaying(false); onSelect(null); }}
     resetLabel="Return to live and follow updates"
     resetText={selectedIndex === null && !playing ? 'Following live' : 'Go live'}
-    status={loading ? 'Loading selected estimate…' : status ?? undefined}
-    className={`absolute left-16 right-14 z-[990] md:left-1/2 md:right-auto md:w-[42rem] md:max-w-[calc(100%-8rem)] md:-translate-x-1/2 ${hasBottomNav ? 'bottom-24' : 'bottom-6'} ${fullScreen ? 'md:bottom-6' : 'md:bottom-3'}`} />;
+    status={status ?? undefined}
+    className={`absolute left-3 right-3 z-[990] md:left-1/2 md:right-auto md:w-[42rem] md:max-w-[calc(100%-8rem)] md:-translate-x-1/2 ${hasBottomNav ? 'bottom-24' : 'bottom-[max(1.5rem,env(safe-area-inset-bottom,0px))]'} ${fullScreen ? 'md:bottom-6' : 'md:bottom-3'}`} />;
 }
