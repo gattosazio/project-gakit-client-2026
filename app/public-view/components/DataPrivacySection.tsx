@@ -121,7 +121,7 @@ export function DataPrivacySection() {
             <Image src="/images/open-meteo-logo.png" alt="Open-Meteo logo" width={96} height={64} className="mb-3 h-10 w-20 object-contain object-left" />
             <div className="flex items-center justify-between gap-2">
               <a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener noreferrer" className="group/link inline-flex items-center gap-1.5 font-heading text-[13.5px] font-bold text-slate-900 hover:text-gakit-maroon">
-                ECMWF IFS HRES · Open-Meteo
+                Open-Meteo
                 <ExternalLink className="h-3 w-3 text-slate-400 group-hover/link:text-gakit-maroon" />
               </a>
               <span className="shrink-0 rounded-full bg-slate-50 px-2 py-0.5 font-heading text-[10px] font-semibold text-slate-600 ring-1 ring-slate-200">Weather</span>
