@@ -10,6 +10,7 @@ function formatHour(hour: number): string {
 }
 
 interface RainStripProps {
+  compact?: boolean;
   /** Hourly precipitation (mm). */
   hours?: (number | null)[];
   /** Hourly precipitation probability (0-100%). */
@@ -22,7 +23,7 @@ interface RainStripProps {
  * Features expanded full-height touch targets and pointer/scrubbing support
  * for mobile and desktop.
  */
-export function RainStrip({ hours: rawHours, probabilities: rawProbabilities }: RainStripProps) {
+export function RainStrip({ hours: rawHours, probabilities: rawProbabilities, compact = false }: RainStripProps) {
   const hours = hourlyRainSeries({ hours: rawHours }, 'amount');
   const probabilities = hourlyRainSeries({ hourlyProbabilities: rawProbabilities }, 'chance');
   const [hovered, setHovered] = useState<number | null>(null);
@@ -67,10 +68,10 @@ export function RainStrip({ hours: rawHours, probabilities: rawProbabilities }: 
   const maxMm = hasHours ? Math.max(...hours.map(value => value ?? 0)) : 0;
 
   return (
-    <div className="relative pt-4" onMouseLeave={() => setHovered(null)}>
+    <div className={`relative ${compact ? 'mt-1' : 'pt-4'}`} onMouseLeave={() => setHovered(null)}>
       {hovered !== null && (
         <span
-          className="pointer-events-none absolute top-0 z-10 max-w-full -translate-x-1/2 rounded-md bg-slate-800 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white shadow-sm"
+          className={`pointer-events-none absolute ${compact ? 'bottom-full mb-1' : 'top-0'} z-10 max-w-full -translate-x-1/2 rounded-md bg-slate-800 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white shadow-sm`}
           style={{ left: `${labelLeft}%` }}
         >
           {renderHoverLabel()}
@@ -79,7 +80,7 @@ export function RainStrip({ hours: rawHours, probabilities: rawProbabilities }: 
       {/* Interactive track with generous height for easy touch & hover */}
       <div
         ref={trackRef}
-        className="flex h-6 items-end gap-[2px] cursor-pointer touch-none select-none py-0.5"
+        className={`flex ${compact ? 'h-8' : 'h-6'} items-end gap-[2px] cursor-pointer touch-none select-none py-0.5`}
         role="img"
         aria-label={hasProbabilities ? 'Rain probability for one-hour intervals ending at the labelled Philippine times' : 'Rainfall in millimetres for one-hour intervals ending at the labelled Philippine times'}
         onPointerDown={(e) => {
@@ -141,13 +142,14 @@ export function RainStrip({ hours: rawHours, probabilities: rawProbabilities }: 
         })}
       </div>
       {/* Quarter-day ticks; invisible spacers keep each label aligned to its bar. */}
-      <div className="mt-0.5 flex gap-[2px]" aria-hidden>
+      <div className={compact ? 'mt-1 grid grid-cols-4' : 'mt-0.5 flex gap-[2px]'} aria-hidden>
         {hoursList.map((hour) => {
           const showTick = hour % 6 === 0;
+          if (compact && !showTick) return null;
           return (
             <span
               key={hour}
-              className={`min-w-[2px] flex-1 text-center text-[9px] font-medium leading-none ${
+              className={`${compact ? 'text-left' : 'min-w-[2px] flex-1 text-center'} text-[9px] font-medium leading-none ${
                 hovered === hour
                   ? 'text-slate-600'
                   : showTick
