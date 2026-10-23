@@ -167,7 +167,7 @@ export function NotificationBell({
           aria-label={isToolbar ? 'Advisories' : undefined}
           className={`z-[1300] overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-2xl backdrop-blur-xl ring-1 ring-slate-900/10 ${
             isToolbar
-              ? 'fixed inset-x-1.5 top-[var(--map-mobile-controls-top,104px)] max-w-96'
+              ? 'fixed inset-x-1.5 top-[var(--map-mobile-controls-top,104px)] mx-auto max-w-96'
               : variant === 'header'
               ? 'fixed inset-x-3.5 top-16 shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-2.5 md:w-80 animate-in fade-in zoom-in-95 duration-100'
               : variant === 'mobile-nav'
