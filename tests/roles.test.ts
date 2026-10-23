@@ -115,6 +115,14 @@ describe('getDisplayName', () => {
 });
 
 describe('getBentoTilesForRole', () => {
+  it('replaces Monitoring with Login for guests without changing signed-in menus', () => {
+    const guest = getBentoTilesForRole(null);
+    expect(guest).toContainEqual({ id: 'login', label: 'Login', href: '/login' });
+    expect(guest.some(tile => tile.id === 'monitoring-portal')).toBe(false);
+    expect(getBentoTilesForRole('staff').some(tile => tile.id === 'monitoring-portal')).toBe(true);
+    expect(getBentoTilesForRole('admin').some(tile => tile.id === 'login')).toBe(false);
+  });
+
   it('offers the Administration tile only to administrators', () => {
     const adminTiles = getBentoTilesForRole('admin');
     expect(adminTiles).toContainEqual(administrationBentoTile);

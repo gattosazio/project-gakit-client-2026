@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bell, ChevronRight, CloudRain, MapPin, X } from 'lucide-react';
+import { Bell, ChevronDown, ChevronRight, CloudRain, MapPin, X } from 'lucide-react';
 import type { WeatherAlert, AlertSeverity, AlertType, WeatherAlertData } from '@/types/weather';
 import { ALERT_ICONS, ALERT_TYPE_LABELS } from '@/lib/weather/alertLabels';
 
@@ -32,7 +32,7 @@ interface NotificationBellProps {
   onSelectAlert?: (alert: WeatherAlert) => void;
   onMarkRead?: (id: string) => void;
   className?: string;
-  variant?: 'header' | 'map' | 'mobile-nav';
+  variant?: 'header' | 'map' | 'mobile-nav' | 'toolbar';
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
@@ -83,15 +83,31 @@ export function NotificationBell({
     };
   }, [open, setOpen]);
 
+  useEffect(() => {
+    if (!open) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', escape, true);
+    return () => window.removeEventListener('keydown', escape, true);
+  }, [open, setOpen]);
+
+  const isToolbar = variant === 'toolbar';
   const total = notifications.length;
   const unreadCount = notifications.filter((n) => !n.read).length;
-  const count = unreadCount;
+  const count = isToolbar ? total : unreadCount;
   const unreadNotifications = notifications.filter((n) => !n.read);
   const readNotifications = notifications.filter((n) => n.read);
-  const activeList = tab === 'unread' ? unreadNotifications : readNotifications;
+  const activeList = isToolbar ? notifications : tab === 'unread' ? unreadNotifications : readNotifications;
 
   const buttonClassName =
-    variant === 'header'
+    isToolbar
+      ? `relative flex h-8 items-center justify-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold shadow-sm ${open ? 'border-maroon-200 bg-maroon-50 text-gakit-maroon' : 'border-slate-200/80 bg-white/95 text-slate-600'}`
+      : variant === 'header'
       ? `relative flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px] ${
           open
             ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80 font-bold'
@@ -112,20 +128,23 @@ export function NotificationBell({
     <div className={`relative ${className}`}>
       <button
         ref={buttonRef}
+        type="button"
         onClick={() => {
           const next = !open;
           setOpen(next);
           if (next) setTab(unreadCount > 0 ? 'unread' : 'read');
         }}
         className={buttonClassName}
-        title={`${count} notification${count !== 1 ? 's' : ''}`}
-        aria-label="Notifications"
+        title={isToolbar ? `${total} active advisories` : `${count} notification${count !== 1 ? 's' : ''}`}
+        aria-label={isToolbar ? 'Advisories' : 'Notifications'}
+        aria-expanded={open}
       >
         <Bell className={`${iconClassName} ${open ? 'text-gakit-maroon' : variant === 'header' ? 'text-slate-600' : 'text-slate-500'}`} />
         {variant === 'header' && <span>Alerts</span>}
+        {isToolbar && <ChevronDown className={`h-3 w-3 ${open ? 'rotate-180' : ''}`} aria-hidden="true" />}
         {count > 0 && (
           <span
-            className={`absolute flex h-3.5 min-w-[14px] md:h-4 md:min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 md:px-1 text-[9px] md:text-[10px] font-bold text-white shadow-sm ${
+            className={isToolbar ? 'absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold text-white shadow-xs' : `absolute flex h-3.5 min-w-[14px] md:h-4 md:min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 md:px-1 text-[9px] md:text-[10px] font-bold text-white shadow-sm ${
               variant === 'header'
                 ? '-right-0.5 -top-0.5 md:-right-1 md:-top-1'
                 : variant === 'mobile-nav'
@@ -144,8 +163,12 @@ export function NotificationBell({
       {open && (
         <div
           ref={panelRef}
+          role={isToolbar ? 'region' : undefined}
+          aria-label={isToolbar ? 'Advisories' : undefined}
           className={`z-[1300] overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-2xl backdrop-blur-xl ring-1 ring-slate-900/10 ${
-            variant === 'header'
+            isToolbar
+              ? 'fixed inset-x-1.5 top-[var(--map-mobile-controls-top,104px)] max-w-96'
+              : variant === 'header'
               ? 'fixed inset-x-3.5 top-16 shadow-xl md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-2.5 md:w-80 animate-in fade-in zoom-in-95 duration-100'
               : variant === 'mobile-nav'
                 ? 'fixed inset-x-4 bottom-20 w-auto md:hidden animate-in fade-in slide-in-from-bottom-2 duration-150'
@@ -155,7 +178,7 @@ export function NotificationBell({
           {/* Header */}
           <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
             <div className="flex items-center gap-2">
-              <p className="text-xs font-bold text-slate-900">Alerts</p>
+              <p className="text-xs font-bold text-slate-900">{isToolbar ? 'Advisories' : 'Alerts'}</p>
               <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
                 {total} active
               </span>
@@ -170,7 +193,7 @@ export function NotificationBell({
           </div>
 
           {/* Tabs */}
-          {total > 0 && (
+          {total > 0 && !isToolbar && (
             <div className="flex border-b border-slate-100">
               <button
                 type="button"
@@ -202,7 +225,7 @@ export function NotificationBell({
           {/* List */}
           {total === 0 ? (
             <div className="px-3 py-5 text-center text-xs text-slate-500">
-              No notifications
+              {isToolbar ? 'No active advisories' : 'No notifications'}
             </div>
           ) : activeList.length === 0 ? (
             <div className="px-3 py-5 text-center text-xs text-slate-500">
@@ -214,7 +237,8 @@ export function NotificationBell({
                 const config = SEVERITY_CONFIG[item.severity];
                 const Icon = item.alertType ? (ALERT_ICONS[item.alertType] ?? CloudRain) : Bell;
                 const typeLabel = item.alertType ? ALERT_TYPE_LABELS[item.alertType] : '';
-                const issued = new Date(item.sentAt);
+                const issuedAt = item.data?.issuedAt || item.sentAt;
+                const issued = new Date(issuedAt);
                 const timestamp = Number.isNaN(issued.getTime()) ? '' : issued.toLocaleString('en-PH', {
                   timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
                 });
@@ -264,7 +288,7 @@ export function NotificationBell({
                       )}
                       <span className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-400">
                         <span className="truncate">{item.data?.source || 'Weather advisory'}</span>
-                        <time dateTime={Number.isNaN(issued.getTime()) ? undefined : item.sentAt} className="shrink-0">{timestamp}</time>
+                        <time dateTime={Number.isNaN(issued.getTime()) ? undefined : issuedAt} className="shrink-0">{isToolbar && timestamp ? `Issued ${timestamp} PHT` : timestamp}</time>
                       </span>
                     </span>
                     <ChevronRight className="mt-5 h-3.5 w-3.5 shrink-0 text-slate-300 transition-colors group-hover:text-gakit-maroon" />
