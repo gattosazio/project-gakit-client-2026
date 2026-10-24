@@ -135,6 +135,29 @@ body {
   flex-direction: column;
 }
 
+/* Header menus share a baseline and clear the mobile toolbar. */
+@media (min-width: 768px) {
+  [data-map-header] .map-header-dropdown {
+    top: calc(100% + var(--map-header-menu-gap, 19px)) !important;
+    margin-top: 0 !important;
+  }
+}
+@media (max-width: 767px) {
+  [data-map-shell] .map-header-dropdown {
+    position: fixed !important;
+    top: var(--map-mobile-controls-top, 104px) !important;
+    left: 6px !important;
+    right: 6px !important;
+    width: auto !important;
+    max-width: 384px !important;
+    max-height: calc(100dvh - var(--map-mobile-controls-top, 104px) - 5rem) !important;
+    margin: 0 auto !important;
+    transform: none !important;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+
 /* MapLibre popup — matches map control styling */
 .maplibregl-popup {
   background: transparent !important;
@@ -197,6 +220,31 @@ body {
 .maplibregl-popup-tip {
   display: none;
 }
+
+.maplibregl-popup.gakit-report-popup,
+.maplibregl-popup.gakit-report-hover {
+  z-index: 1010;
+}
+.maplibregl-popup.gakit-report-popup .maplibregl-popup-content {
+  padding: 14px !important;
+  border-radius: 16px !important;
+}
+.report-pin-card { width: 230px; max-width: calc(100vw - 4rem); color: #0f172a; }
+.report-pin-header { display: flex; align-items: center; gap: 8px; padding-right: 24px; }
+.report-pin-heading { margin: 0; font-size: 11px; font-weight: 700; }
+.report-pin-status { display: inline-flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 999px; padding: 2px 6px; color: #64748b; background: #f8fafc; font-size: 10px; line-height: 1.4; font-weight: 600; }
+.report-pin-status[data-status="VERIFIED"] { color: #1d4ed8; border-color: #bfdbfe; background: #eff6ff; }
+.report-pin-status[data-status="ANOMALY"] { color: #6d28d9; border-color: #ddd6fe; background: #f5f3ff; }
+.report-pin-label { margin: 12px 0 2px; color: #64748b; font-size: 10px; }
+.report-pin-depth { margin: 0; color: #7a0019; font-size: 17px; line-height: 1.35; font-weight: 700; letter-spacing: -0.025em; }
+.report-pin-location { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 8px 0 0; color: #475569; font-size: 11px; line-height: 1.5; }
+.report-pin-time { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid #f1f5f9; color: #64748b; font-size: 10px; }
+.maplibregl-popup.gakit-report-hover .maplibregl-popup-content {
+  pointer-events: none !important;
+  padding: 9px 11px !important;
+}
+.report-pin-preview-depth { margin: 0; color: #0f172a; font-size: 12px; line-height: 1.4; font-weight: 700; }
+.report-pin-preview-meta { display: flex; align-items: center; gap: 8px; margin: 5px 0 0; color: #64748b; font-size: 10px; }
 
 /* Barangay hover popup — subtle label, no card chrome */
 .maplibregl-popup.barangay-popup .maplibregl-popup-content {

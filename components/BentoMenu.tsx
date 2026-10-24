@@ -274,10 +274,11 @@ export function BentoMenu({
   const popup = isOpen ? (
         <div
           ref={popupRef}
+          data-header-dropdown={!isMobileNav || undefined}
           className={
             isMobileNav
               ? 'fixed inset-x-1.5 bottom-[calc(max(0.375rem,env(safe-area-inset-bottom,0px))+3.75rem)] z-[1300] mx-auto max-h-[calc(100dvh-6rem-env(safe-area-inset-bottom,0px))] max-w-[280px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-2xl backdrop-blur-xl ring-1 ring-slate-900/10 md:hidden animate-in fade-in slide-in-from-bottom-2 duration-150'
-              : 'fixed inset-x-1.5 top-16 z-[1300] mx-auto max-h-[calc(100dvh-5rem)] max-w-[280px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-xl backdrop-blur-xl ring-1 ring-slate-900/10 md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-2 md:w-72 md:max-w-none animate-in fade-in zoom-in-95 duration-100'
+              : 'map-header-dropdown fixed inset-x-1.5 top-16 z-[1300] mx-auto max-h-[calc(100dvh-5rem)] max-w-[280px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200/90 bg-white/95 p-3 shadow-xl backdrop-blur-xl ring-1 ring-slate-900/10 md:absolute md:inset-x-auto md:right-0 md:top-auto md:mt-2 md:w-72 md:max-w-none animate-in fade-in zoom-in-95 duration-100'
           }
         >
           {/* Bento Header */}

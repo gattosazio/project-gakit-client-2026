@@ -6,6 +6,8 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { PublicHeader } from '@/components/PublicHeader';
 import { HazardAssessmentModal } from '@/components/HazardAssessmentModal';
+import { CampusFocusPrompt } from '@/components/map/CampusFocusPrompt';
+import { isIitSearchLocation } from '@/lib/map/campusFocus';
 import { ReportModal } from '@/components/ReportModal';
 import { MapPin, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
@@ -72,6 +74,7 @@ export function PublicViewPage({
   initialAuth?: AuthSnapshot;
 } = {}) {
   const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
+  const [campusFocusLocation, setCampusFocusLocation] = useState<SelectedLocation | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
   const [isMobileLocationPromptOpen, setIsMobileLocationPromptOpen] = useState(false);
@@ -635,6 +638,7 @@ export function PublicViewPage({
   const handleSearchedLocationSelect = useCallback(
     (location: SelectedLocation) => {
       if (onboardingStageRef.current === 'picking') {
+        if (isIitSearchLocation(location)) setCampusFocusLocation(location);
         lastOnboardingPickRef.current = {
           key: `${location.lat.toFixed(5)},${location.lng.toFixed(5)}`,
           at: Date.now(),
@@ -651,6 +655,12 @@ export function PublicViewPage({
       }
       if (isAssessmentOpen || isReportModalOpen) return;
       setIsLocationPromptOpen(false);
+      if (locationPromptMode !== 'report' && isIitSearchLocation(location)) {
+        setIsManualLocationMode(false);
+        setLocationPromptMode('assessment');
+        setCampusFocusLocation(location);
+        return;
+      }
       mapRef.current?.focusLocation(location);
       const mode = locationPromptMode;
       setLocationPromptMode('assessment');
@@ -945,6 +955,27 @@ export function PublicViewPage({
           <Spinner size="sm" />
         </div>
       )}
+
+      <CampusFocusPrompt
+        isOpen={campusFocusLocation !== null && onboardingStage === 'closed'}
+        onEnable={() => {
+          setCampusFocusLocation(null);
+          setSelectedLocation(null);
+          setWelcomePinnedLocation(null);
+          mapRef.current?.setCampusFocus(true);
+        }}
+        onAssess={() => {
+          const location = campusFocusLocation;
+          setCampusFocusLocation(null);
+          if (!location) return;
+          mapRef.current?.focusLocation(location);
+          void openLocationModalFor(location, 'assessment');
+        }}
+        onClose={() => {
+          if (campusFocusLocation) mapRef.current?.focusLocation(campusFocusLocation);
+          setCampusFocusLocation(null);
+        }}
+      />
 
       <HazardAssessmentModal
         isOpen={isAssessmentOpen}

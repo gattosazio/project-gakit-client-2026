@@ -213,41 +213,6 @@ export const applyRainfallPaint = (map: any, hours: number) => {
   // When rainfall-grid is a raster layer, colors are rendered directly onto the raster image.
 };
 
-// Animated pulse on the individual-pin halos, driven by one rAF loop per map.
-// Transitions are disabled on the layers (above) so each frame applies
-// instantly; the default 300ms transition would smear pings into a double
-// pulse. Keyed by map in a WeakMap so a style reload can't start a second loop.
-// Aggregated (cluster) pins are intentionally static — a pulsing ring under the
-// count bubble adds clutter and fights a busy map, so only lone pins ping.
-const pulseHandles = new WeakMap<object, number>();
-const PING_PERIOD = 2000; // ms per sonar ping
-
-export const startClusterPulse = (map: any) => {
-  if (typeof window === 'undefined' || !map || pulseHandles.has(map)) return;
-  const loop = (t: number) => {
-    try {
-      // Sawtooth 0..1: ring expands then resets (opacity ~0 at the wrap, so the
-      // jump back to the start is invisible — no dead gap).
-      const p = (t % PING_PERIOD) / PING_PERIOD;
-      if (map.getLayer('report-point-halo')) {
-        map.setPaintProperty('report-point-halo', 'circle-radius', 11 + p * 10);
-        map.setPaintProperty('report-point-halo', 'circle-opacity', 0.5 * (1 - p * p * p));
-      }
-    } catch {
-      pulseHandles.delete(map);
-      return;
-    }
-    pulseHandles.set(map, requestAnimationFrame(loop));
-  };
-  pulseHandles.set(map, requestAnimationFrame(loop));
-};
-
-export const stopClusterPulse = (map: any) => {
-  const id = pulseHandles.get(map);
-  if (id != null) cancelAnimationFrame(id);
-  pulseHandles.delete(map);
-};
-
 // Adds the project sources/layers (flood hazard, rainfall, reports,
 // selected-location, 3D terrain) idempotently. Runs on the initial style load
 // and again after every basemap switch (2D <-> 3D).
@@ -1126,13 +1091,6 @@ export const setupOverlayLayers = async (
     if (map.getLayer('hillshade')) map.removeLayer('hillshade');
   }
 
-  // Pulse only in 2D. In 3D the halo layers are draped on terrain, so
-  // animating them every frame would force a constant re-drape — a steady 3D
-  // perf tax. Stop it in 3D (and on every style reload, idempotently).
-  if (state.mapMode === '3d') {
-    stopClusterPulse(map);
-  } else {
-    startClusterPulse(map);
-  }
+  // Report halos stay static so an otherwise idle map does not redraw continuously.
   applyOverlaySmoothing(map, state.smoothPolygons !== false);
 };

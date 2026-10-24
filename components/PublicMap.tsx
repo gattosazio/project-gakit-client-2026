@@ -9,7 +9,9 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Locate, MapPinPlus } from 'lucide-react';
+import { Focus, Locate, MapPinPlus, X } from 'lucide-react';
+import { IIT_BOUNDS, isInsideIit, syncCampusFocus } from '@/lib/map/campusFocus';
+import { ensureCampusSatelliteProtocol } from '@/lib/map/campusSatellite';
 import { FloodLoader } from '@/components/ui/FloodLoader';
 import { Spinner } from '@/components/ui/Spinner';
 import { PageLoader } from '@/components/ui/LoadingState';
@@ -52,7 +54,6 @@ import {
   riskLevelFilter,
   landslideFilter,
   setupOverlayLayers,
-  stopClusterPulse,
   type MapMode,
 } from '@/lib/map/overlayLayers';
 import {
@@ -111,6 +112,7 @@ export interface MapReportToShow {
 }
 
 export interface PublicMapHandle {
+  setCampusFocus: (enabled: boolean) => void;
   setBasemap: (basemap: BasemapId) => void;
   setMapMode: (mode: MapMode) => void;
   setBuildingsVisible: (visible: boolean) => void;
@@ -268,6 +270,9 @@ export function PublicMap({
   };
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
+  const [campusFocus, setCampusFocus] = useState(false);
+  const campusFocusRef = useRef(false);
+  const campusPreviousView = useRef<{ center: [number, number]; zoom: number; bearing: number; pitch: number } | null>(null);
   const controlsSentinelRef = useRef<HTMLDivElement | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
   const visibleReportStatusesRef = useRef<Record<ReportStatus, boolean>>(
@@ -349,6 +354,9 @@ export function PublicMap({
 
   const reportsLayer = useReportsLayer(reportFilters);
   const { backendReports, isLoadingReports, reportsRef, loadMapReports } = reportsLayer;
+  const campusReports = useMemo(() => campusFocus
+    ? backendReports.filter(report => isInsideIit(...report.geometry.coordinates))
+    : backendReports, [backendReports, campusFocus]);
 
   // Barangay hover metrics: the boundary geojson drives a client-side spatial
   // join (report coordinate -> containing polygon) so we can show per-barangay
@@ -575,13 +583,6 @@ export function PublicMap({
     [lookupPrecip, stormSurgeAdvisory]
   );
 
-  const focusLocation = useCallback((location: { lat: number; lng: number }) => {
-    mapRef.current?.flyTo({
-      center: [location.lng, location.lat],
-      zoom: 16,
-    });
-  }, []);
-
   const {
     showReport,
     showReportPopup,
@@ -599,6 +600,44 @@ export function PublicMap({
   });
   const hideReportPopupRef = useRef(hideReportPopup);
 
+  const setCampusFocusEnabled = useCallback((enabled: boolean) => {
+    const map = mapRef.current;
+    if (!map || campusFocusRef.current === enabled) return;
+    hideReportPopupRef.current();
+    campusFocusRef.current = enabled;
+    setCampusFocus(enabled);
+    const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 700;
+    if (enabled) {
+      const center = map.getCenter();
+      campusPreviousView.current = { center: [center.lng, center.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
+      map.fitBounds(IIT_BOUNDS, { padding: { top: 150, bottom: 110, left: 45, right: 45 }, maxZoom: 16.8, duration });
+    } else if (campusPreviousView.current) {
+      map.easeTo({ ...campusPreviousView.current, duration });
+      campusPreviousView.current = null;
+    }
+  }, []);
+
+  const focusLocation = useCallback((location: { lat: number; lng: number }) => {
+    if (campusFocusRef.current && !isInsideIit(location.lng, location.lat)) setCampusFocusEnabled(false);
+    mapRef.current?.flyTo({ center: [location.lng, location.lat], zoom: 16 });
+  }, [setCampusFocusEnabled]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!mapReady || !map) return;
+    const applyFocus = () => {
+      // isStyleLoaded() is also false while report data is updating. The
+      // project-layer flag distinguishes that from an actual style switch.
+      if (!layersReadyRef.current) return;
+      syncCampusFocus(map, campusFocusRef.current);
+      applyBuildingsVisibility(map, mapModeRef.current, !campusFocusRef.current
+        && showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'));
+    };
+    applyFocus();
+    map.once('idle', applyFocus);
+    return () => map.off('idle', applyFocus);
+  }, [campusFocus, mapMode, mapReady, hideBuildingsOnSatellite]);
+
   useEffect(() => {
     typhoonPointClickHandlerRef.current = showTyphoonPopup;
   }, [showTyphoonPopup]);
@@ -608,8 +647,8 @@ export function PublicMap({
   // its polygon, respecting the legend's visibility toggles. Both the hover
   // card and the boundary fill read from one source of truth.
   const reportsForStats = useMemo(
-    () => backendReports.filter((feature) => visibleReportStatuses[feature.properties.status]),
-    [backendReports, visibleReportStatuses]
+    () => campusReports.filter((feature) => visibleReportStatuses[feature.properties.status]),
+    [campusReports, visibleReportStatuses]
   );
 
   const statusCounts = useMemo(() => {
@@ -619,14 +658,14 @@ export function PublicMap({
       ANOMALY: 0,
       REJECTED: 0,
     };
-    backendReports.forEach((r) => {
+    campusReports.forEach((r) => {
       const s = r?.properties?.status as ReportStatus | undefined;
       if (s && counts[s] !== undefined) {
         counts[s]++;
       }
     });
     return counts;
-  }, [backendReports]);
+  }, [campusReports]);
 
   const barangayStats = useMemo<Map<string, BarangayStats>>(
     () => aggregateBarangayStats(reportsForStats, barangayGeojson),
@@ -711,7 +750,7 @@ export function PublicMap({
     if (reportsSource) {
       reportsSource.setData(
         buildReportsGeoJson(
-          reportsRef.current,
+          campusFocusRef.current ? reportsRef.current.filter(report => isInsideIit(...report.geometry.coordinates)) : reportsRef.current,
           visibleReportStatusesRef.current
         )
       );
@@ -774,7 +813,7 @@ export function PublicMap({
           rainfallHours: hoursRef.current,
           basemap: basemapRef.current,
           smoothPolygons: smoothPolygonsRef.current,
-          showBuildings: showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
+          showBuildings: !campusFocusRef.current && showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
           showRoads: showRoadsRef.current,
         });
 
@@ -784,6 +823,7 @@ export function PublicMap({
 
         attachLayerEvents(map);
         applyReportData(map);
+        syncCampusFocus(map, campusFocusRef.current);
         applySelectedMarker(map);
         if (severityDataRef.current) {
           applyBarangaySeverityData(map, severityDataRef.current);
@@ -883,9 +923,10 @@ export function PublicMap({
         rainfallHours: hoursRef.current,
         basemap: basemapRef.current,
         smoothPolygons: smoothPolygonsRef.current,
-        showBuildings: showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
+        showBuildings: !campusFocusRef.current && showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
         showRoads: showRoadsRef.current,
       });
+      syncCampusFocus(map, campusFocusRef.current);
     }, undefined, `Switching to ${nextMode.toUpperCase()} view…`);
   }, [himawari.visibleRef, typhoon, hoursRef, hideBuildingsOnSatellite, updateDisplay]);
 
@@ -904,7 +945,7 @@ export function PublicMap({
     buildingsBasePreferenceRef.current = nextBuildings.basePreference;
     showBuildingsRef.current = visible;
     setShowBuildings(visible);
-    updateDisplay('buildings', () => applyBuildingsVisibility(mapRef.current, mapModeRef.current, visible && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite')));
+    updateDisplay('buildings', () => applyBuildingsVisibility(mapRef.current, mapModeRef.current, !campusFocusRef.current && visible && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite')));
   }, [hideBuildingsOnSatellite, updateDisplay]);
 
   const handleRoadsChange = useCallback((visible: boolean) => {
@@ -925,6 +966,7 @@ export function PublicMap({
         setBarangayBoundariesVisible: handleShowBarangayBoundariesChange,
         checkLocation,
         focusLocation,
+        setCampusFocus: setCampusFocusEnabled,
         showReport,
         getRainfallHours: () => rainfall.rainfallHours,
         refreshReports: reportsLayer.invalidateAndReload,
@@ -937,7 +979,7 @@ export function PublicMap({
         mapApiRef.current = null;
       };
     }
-  }, [handleBasemapChange, handleModeChange, handleBuildingsChange, handleRoadsChange, handleSmoothingChange, handleShowBarangayBoundariesChange, mapApiRef, checkLocation, focusLocation, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload, handleShareLocation]);
+  }, [handleBasemapChange, handleModeChange, handleBuildingsChange, handleRoadsChange, handleSmoothingChange, handleShowBarangayBoundariesChange, mapApiRef, checkLocation, focusLocation, setCampusFocusEnabled, showReport, rainfall.rainfallHours, reportsLayer.invalidateAndReload, handleShareLocation]);
 
   useEffect(() => {
     onDisplaySettingsChange?.({ basemap, mode: mapMode, showBuildings, showBarangayBoundaries, smoothPolygons, showRoads, focusRoads, ready: mapReady });
@@ -949,6 +991,7 @@ export function PublicMap({
     }
   }, [
     backendReports,
+    campusFocus,
     visibleReportStatuses,
     applyReportData,
   ]);
@@ -969,6 +1012,7 @@ export function PublicMap({
     // copy in /public/vendor/maplibre-gl (kept in sync via
     // scripts/sync-maplibre-worker.mjs, run on postinstall).
     maplibregl.setWorkerUrl('/vendor/maplibre-gl/maplibre-gl-worker.mjs');
+    ensureCampusSatelliteProtocol(maplibregl);
 
     // Start with the configured default basemap (OpenFreeMap Positron by default, or satellite).
     const map = new maplibregl.Map({
@@ -1049,6 +1093,7 @@ export function PublicMap({
     let locationPick = 0;
     map.on('click', async (e: any) => {
       const pick = ++locationPick;
+      if (campusFocusRef.current && !isInsideIit(e.lngLat.lng, e.lngLat.lat)) return;
       // Location selection only fires on land; interactive features own their clicks.
       const interactiveLayers = [
         'report-points',
@@ -1103,7 +1148,6 @@ export function PublicMap({
       releaseScrollContainment();
       selectedMarkerRef.current?.remove();
       selectedMarkerRef.current = null;
-      stopClusterPulse(map);
       setMapReady(false);
       map.remove();
       mapRef.current = null;
@@ -1176,7 +1220,7 @@ export function PublicMap({
       });
 
       applyOverlaySmoothing(map, smoothPolygons);
-      applyBuildingsVisibility(map, mapMode, showBuildings && !(hideBuildingsOnSatellite && basemap === 'satellite'));
+      applyBuildingsVisibility(map, mapMode, !campusFocus && showBuildings && !(hideBuildingsOnSatellite && basemap === 'satellite'));
       applyRoadsVisibility(map, showRoads);
 
       if (map.getLayer('flood-hazard-fill')) {
@@ -1202,11 +1246,21 @@ export function PublicMap({
     showRoads,
     smoothPolygons,
     hideBuildingsOnSatellite,
+    campusFocus,
   ]);
 
   return (
     <div className="relative w-full h-full bg-canvas-grey">
       <div ref={mapContainer} className="w-full h-full touch-none select-none" />
+      {campusFocus && (
+        <div role="region" aria-label="Campus focus" className="absolute bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] left-1/2 z-[1010] flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/80 bg-white/95 px-3 py-2 shadow-lg backdrop-blur-md md:bottom-auto md:top-24">
+          <Focus className="h-5 w-5 shrink-0 text-gakit-maroon" aria-hidden="true" />
+          <p className="min-w-0 text-xs font-bold text-slate-900">MSU-IIT focus</p>
+          <button type="button" onClick={() => setCampusFocusEnabled(false)} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-slate-100 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon" aria-label="Exit campus focus">
+            <X className="h-3.5 w-3.5" aria-hidden="true" />Exit
+          </button>
+        </div>
+      )}
       {mapReady && selectedLocation && selectedLocationActions && (
         <PinnedLocationActions
           key={`${selectedLocation.lat},${selectedLocation.lng}`}
@@ -1332,9 +1386,9 @@ export function PublicMap({
         reportWindowHours={reportFilters?.createdAfterHours}
         isLoadingReports={isLoadingReports}
         visibleReportsCount={reportsForStats.length}
-        totalReportsCount={backendReports.length}
+        totalReportsCount={campusReports.length}
         statusCounts={statusCounts}
-        reportFeatures={backendReports}
+        reportFeatures={campusReports}
         onOpenReport={(feature) => {
           setVisibleReportStatuses(previous => ({ ...previous, [feature.properties.status]: true }));
           if (onReportClick) { onReportClick(feature.properties.id); return; }

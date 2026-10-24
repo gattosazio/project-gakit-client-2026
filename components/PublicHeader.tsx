@@ -18,7 +18,6 @@ import type { NotificationItem } from './NotificationBell';
 import { WeatherAlertModal } from './WeatherAlertModal';
 import { LocationSearch, type SearchedLocation } from '@/app/public-view/components/LocationSearch';
 import { HowToReportPopover } from '@/components/header/HowToReportPopover';
-import { ValidationModeBadge } from '@/components/header/ValidationModeBadge';
 import { BentoMenu } from './BentoMenu';
 import { getBentoTilesForRole } from '@/lib/navigation/bentoMenu';
 
@@ -241,13 +240,14 @@ export function PublicHeader({
       const top = Math.ceil(header.getBoundingClientRect().bottom + 6);
       toolbar.style.top = `${top}px`;
       shell.style.setProperty('--map-header-bottom', `${Math.ceil(header.getBoundingClientRect().bottom)}px`);
-      shell.style.setProperty('--map-mobile-controls-top', `${top + 42}px`);
+      shell.style.setProperty('--map-mobile-controls-top', `${top + toolbar.offsetHeight + 6}px`);
+      header.style.setProperty('--map-header-menu-gap', `${(header.getBoundingClientRect().height - 36) / 2 + 8}px`);
     };
     const observer = new ResizeObserver(measure);
     observer.observe(header);
     window.addEventListener('resize', measure);
     measure();
-    return () => { observer.disconnect(); window.removeEventListener('resize', measure); shell.style.removeProperty('--map-mobile-controls-top'); shell.style.removeProperty('--map-header-bottom'); };
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure); shell.style.removeProperty('--map-mobile-controls-top'); shell.style.removeProperty('--map-header-bottom'); header.style.removeProperty('--map-header-menu-gap'); };
   }, []);
 
   const scrollToSection = (id: 'hazard-map' | 'about') => {
@@ -278,7 +278,6 @@ export function PublicHeader({
     <>
     <header ref={headerRef} data-map-header data-scenario-header={guideVariant === 'scenarios' || undefined} className={`fixed top-[max(0.375rem,env(safe-area-inset-top,0px))] inset-x-1.5 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-6xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]`}>
       <div className={`flex h-12 md:h-14 items-center justify-between px-2 md:px-5`}>
-        <ValidationModeBadge />
         {/* Left: Brand Logo & Title */}
         <div className={`flex items-center min-w-0 md:gap-3 ${showSectionNav ? 'shrink-0 gap-2' : 'flex-1 gap-1 md:flex-none md:shrink-0'}`}>
           {!showSectionNav && (

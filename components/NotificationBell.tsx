@@ -165,7 +165,8 @@ export function NotificationBell({
           ref={panelRef}
           role={isToolbar ? 'region' : undefined}
           aria-label={isToolbar ? 'Advisories' : undefined}
-          className={`z-[1300] overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-2xl backdrop-blur-xl ring-1 ring-slate-900/10 ${
+          data-header-dropdown={variant === 'header' || isToolbar || undefined}
+          className={`${variant === 'header' || isToolbar ? 'map-header-dropdown' : ''} z-[1300] overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-2xl backdrop-blur-xl ring-1 ring-slate-900/10 ${
             isToolbar
               ? 'fixed inset-x-1.5 top-[var(--map-mobile-controls-top,104px)] mx-auto max-w-96'
               : variant === 'header'

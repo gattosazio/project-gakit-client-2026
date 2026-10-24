@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildReportPopupHtml,
+  buildReportHoverHtml,
+  buildReportClusterHoverHtml,
   buildReportsGeoJson,
   buildSelectedGeoJson,
   formatDepth,
@@ -99,7 +101,7 @@ describe('buildReportPopupHtml', () => {
     expect(html).toContain('124.2601');
   });
 
-  it('renders report rows only for present fields', () => {
+  it('shows the reported depth and location without the former assessment rows', () => {
     const html = buildReportPopupHtml({
       properties: {
         kind: 'report',
@@ -107,12 +109,32 @@ describe('buildReportPopupHtml', () => {
         depthLabel: 'Knee deep',
         statusLabel: 'Pending validation',
         createdAt: 'Aug 22',
+        demoAutoValidated: true,
+        validationScore: 4,
+        verificationScope: 'flood_presence',
       },
       geometry: { coordinates: [124.26, 8.22] },
     });
-    expect(html).toContain('Depth');
-    expect(html).toContain('Status');
+    expect(html).toContain('Reported depth');
+    expect(html).toContain('Knee deep');
+    expect(html).toContain('Pending validation');
+    expect(html).not.toContain('Origin');
+    expect(html).not.toContain('evidence checks skipped');
+    expect(html).not.toContain('Verification');
+    expect(html).not.toContain('Score');
     expect(html).not.toContain('Elevation');
+  });
+
+  it('keeps hover to depth, status and age, with escaped user content', () => {
+    const html = buildReportHoverHtml({ properties: {
+      depthLabel: '<img src=x>', status: 'VERIFIED', address: 'Long address omitted',
+      createdAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+    } });
+    expect(html).toContain('&lt;img src=x&gt;');
+    expect(html).toContain('Verified');
+    expect(html).toContain('5m ago');
+    expect(html).not.toContain('Long address omitted');
+    expect(html).not.toContain('<img');
   });
 
   it('escapes HTML in user-controlled values', () => {
@@ -125,6 +147,16 @@ describe('buildReportPopupHtml', () => {
     });
     expect(html).not.toContain('<script>');
     expect(html).toContain('&lt;script&gt;');
+  });
+});
+
+describe('buildReportClusterHoverHtml', () => {
+  it('shows the cluster count and expansion action without individual report details', () => {
+    const html = buildReportClusterHoverHtml({ properties: { point_count: 12, address: 'Not in the preview' } });
+    expect(html).toContain('12 reports');
+    expect(html).toContain('Click to expand');
+    expect(html).not.toContain('Not in the preview');
+    expect(buildReportClusterHoverHtml({ properties: { point_count: '<script>' } })).not.toContain('<script>');
   });
 });
 

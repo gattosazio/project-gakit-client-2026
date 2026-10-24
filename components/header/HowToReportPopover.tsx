@@ -83,8 +83,8 @@ export function HowToReportPopover({
             aria-hidden="true"
           />
 
-          <div id={panelId} role="region" aria-label={title}
-            className="hud-card fixed inset-x-4 top-16 z-[1300] mx-auto max-h-[calc(100dvh-5rem)] max-w-80 overflow-y-auto overscroll-contain md:absolute md:inset-x-auto md:right-0 md:top-12 md:w-80 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150">
+          <div id={panelId} role="region" aria-label={title} data-header-dropdown
+            className="map-header-dropdown hud-card fixed inset-x-4 top-16 z-[1300] mx-auto max-h-[calc(100dvh-5rem)] max-w-80 overflow-y-auto overscroll-contain md:absolute md:inset-x-auto md:right-0 md:top-12 md:w-80 motion-safe:animate-in motion-safe:fade-in motion-safe:duration-150">
             <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-3.5 py-3">
               <div>
                 <h3 className="text-xs font-bold text-slate-900">{title}</h3>

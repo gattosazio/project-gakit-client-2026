@@ -2,6 +2,8 @@ import type { LightSpecification, StyleSpecification } from 'maplibre-gl';
 import { ILIGAN_BOUNDS } from '@/lib/map/geoUtils';
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 import type { ReportStatus } from '@/types/report';
+import { SATELLITE_IMAGERY_SOURCE } from '@/lib/map/satelliteImagery';
+export { satelliteTileUrl } from '@/lib/map/satelliteImagery';
 
 // 2D & 3D basemaps — OpenFreeMap styles (vector, no API key needed).
 export const OPENFREEMAP_STYLE = 'https://tiles.openfreemap.org/styles/positron';
@@ -21,25 +23,10 @@ export const BASEMAP_LABELS: Record<BasemapId, string> = {
   satellite: 'Satellite',
 };
 
-const ESRI_IMAGERY_TILE_TEMPLATE =
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-
-// Single-tile URL for the satellite basemap above. The report thumbnail reads
-// the same tiles directly, so it can never drift from what the live map shows.
-export const satelliteTileUrl = (z: number, x: number, y: number): string =>
-  ESRI_IMAGERY_TILE_TEMPLATE.replace('{z}', String(z))
-    .replace('{y}', String(y))
-    .replace('{x}', String(x));
-
 const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
   sources: {
-    'esri-imagery': {
-      type: 'raster',
-      tiles: [ESRI_IMAGERY_TILE_TEMPLATE],
-      tileSize: 256,
-      attribution: 'Imagery © Esri, Maxar, Earthstar Geographics',
-    },
+    'esri-imagery': SATELLITE_IMAGERY_SOURCE,
   },
   layers: [{ id: 'esri-imagery', type: 'raster', source: 'esri-imagery' }],
 };

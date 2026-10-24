@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import * as maplibregl from 'maplibre-gl';
 import { polygonRepPoint } from '@/lib/map/mapGeometry';
-import { buildReportPopupHtml } from '@/lib/map/reportMarkers';
+import { buildReportClusterHoverHtml, buildReportHoverHtml, buildReportPopupHtml } from '@/lib/map/reportMarkers';
 import { buildTyphoonPopupHtml } from '@/lib/map/typhoon';
 import type { MapReportToShow } from '@/types/report';
 
@@ -29,6 +29,10 @@ export function useMapPopups({
   onReportClickRef,
 }: UseMapPopupsOptions) {
   const reportPopupRef = useRef<any>(null);
+  const reportHoverPopupRef = useRef<maplibregl.Popup | null>(null);
+  const reportHoverTargetRef = useRef<string | null>(null);
+  const clusterExpandRequestRef = useRef(0);
+  const detachLayerEventsRef = useRef<(() => void) | null>(null);
   const typhoonPopupRef = useRef<any>(null);
   const typhoonHoverPopupRef = useRef<any>(null);
   const hoveredBarangayIdRef = useRef<string | number | null>(null);
@@ -41,13 +45,17 @@ export function useMapPopups({
     (feature: Record<string, any>, lngLat: any) => {
       const map = mapRef.current;
       if (!maplibregl || !map) return;
+      clusterExpandRequestRef.current++;
+      reportHoverPopupRef.current?.remove();
+      reportHoverTargetRef.current = null;
       if (!reportPopupRef.current) {
         reportPopupRef.current = new maplibregl.Popup({
           closeButton: true,
           closeOnClick: false,
           anchor: 'bottom',
           offset: 20,
-          maxWidth: '260px',
+          maxWidth: '280px',
+          className: 'gakit-report-popup',
         });
       }
 
@@ -67,7 +75,10 @@ export function useMapPopups({
   );
 
   const hideReportPopup = useCallback(() => {
+    clusterExpandRequestRef.current++;
     reportPopupRef.current?.remove();
+    reportHoverPopupRef.current?.remove();
+    reportHoverTargetRef.current = null;
   }, []);
 
   const showTyphoonPopup = useCallback(
@@ -86,6 +97,8 @@ export function useMapPopups({
 
       // Close report popup and hover tooltip if open to prevent overlapping overlays
       reportPopupRef.current?.remove();
+      reportHoverPopupRef.current?.remove();
+      reportHoverTargetRef.current = null;
       typhoonHoverPopupRef.current?.remove();
 
       typhoonPopupRef.current
@@ -229,6 +242,9 @@ export function useMapPopups({
 
   const handleReportPointsClick = useCallback(
     (e: any) => {
+      clusterExpandRequestRef.current++;
+      reportHoverPopupRef.current?.remove();
+      reportHoverTargetRef.current = null;
       if (e.features?.length) {
         // When a details modal consumes the click (incident map) it supersedes
         // the popup, so don't stack both. Without a consumer (public map) the
@@ -243,31 +259,55 @@ export function useMapPopups({
     [showReportPopup, onReportClickRef]
   );
 
-  const handleReportPointsMouseEnter = useCallback(() => {
+  const handleReportPointsMouseEnter = useCallback((event: any) => {
     const map = mapRef.current;
     if (map) map.getCanvas().style.cursor = 'pointer';
+    if (!map || !window.matchMedia('(min-width: 768px) and (hover: hover) and (pointer: fine)').matches
+      || reportPopupRef.current?.isOpen()) return;
+    const feature = event.features?.[0];
+    const isCluster = feature?.properties?.cluster_id != null && Number(feature.properties.point_count) > 0;
+    if (!isCluster && feature?.properties?.kind !== 'report') return;
+    const target = isCluster ? `cluster:${feature.properties.cluster_id}` : `report:${feature.properties.id}`;
+    if (reportHoverTargetRef.current === target) return;
+    reportHoverTargetRef.current = target;
+    if (!reportHoverPopupRef.current) {
+      reportHoverPopupRef.current = new maplibregl.Popup({
+        closeButton: false, closeOnClick: false, focusAfterOpen: false,
+        anchor: 'bottom', offset: 18, maxWidth: '240px', className: 'gakit-report-hover',
+      });
+    }
+    reportHoverPopupRef.current.setLngLat(feature.geometry.coordinates)
+      .setHTML(isCluster ? buildReportClusterHoverHtml(feature) : buildReportHoverHtml(feature)).addTo(map);
   }, [mapRef]);
 
   const handleReportPointsCursorLeave = useCallback(() => {
     const map = mapRef.current;
     if (map) map.getCanvas().style.cursor = '';
+    reportHoverPopupRef.current?.remove();
+    reportHoverTargetRef.current = null;
   }, [mapRef]);
 
   const handleReportClustersClick = useCallback(
-    (e: any) => {
+    async (e: any) => {
       const map = mapRef.current;
       if (!map) return;
-      const features = map.queryRenderedFeatures(e.point, { layers: ['report-clusters'] });
+      const features = e.features?.length ? e.features : map.queryRenderedFeatures(e.point, { layers: ['report-clusters'] });
       if (!features.length) return;
       const clusterId = features[0].properties.cluster_id;
-      const source = map.getSource('reports');
-      if (!source) return;
-      source.getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
-        if (err) return;
-        map.easeTo({ center: features[0].geometry.coordinates, zoom });
-      });
+      const source = map.getSource('reports') as maplibregl.GeoJSONSource | undefined;
+      if (!source || clusterId == null) return;
+      hideReportPopup();
+      const request = ++clusterExpandRequestRef.current;
+      try {
+        const zoom = await source.getClusterExpansionZoom(Number(clusterId));
+        if (request !== clusterExpandRequestRef.current || map !== mapRef.current || source !== map.getSource('reports')) return;
+        map.easeTo({ center: features[0].geometry.coordinates, zoom: Math.min(zoom, map.getMaxZoom()),
+          duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500 });
+      } catch {
+        // A refresh can replace a cluster while its expansion is being queried.
+      }
     },
-    [mapRef]
+    [mapRef, hideReportPopup]
   );
 
   const handleBarangayMouseMove = useCallback(
@@ -383,12 +423,15 @@ export function useMapPopups({
 
   const attachLayerEvents = useCallback(
     (map: any) => {
+      detachLayerEventsRef.current?.();
       const layerListeners: Array<{ event: string; layer: string; handler: (e: any) => void }> = [
         { event: 'click', layer: 'report-points', handler: handleReportPointsClick },
         { event: 'mouseenter', layer: 'report-points', handler: handleReportPointsMouseEnter },
+        { event: 'mousemove', layer: 'report-points', handler: handleReportPointsMouseEnter },
         { event: 'mouseleave', layer: 'report-points', handler: handleReportPointsCursorLeave },
         { event: 'click', layer: 'report-clusters', handler: handleReportClustersClick },
         { event: 'mouseenter', layer: 'report-clusters', handler: handleReportPointsMouseEnter },
+        { event: 'mousemove', layer: 'report-clusters', handler: handleReportPointsMouseEnter },
         { event: 'mouseleave', layer: 'report-clusters', handler: handleReportPointsCursorLeave },
         { event: 'mousemove', layer: 'barangay-fill', handler: handleBarangayMouseMove },
         { event: 'mouseleave', layer: 'barangay-fill', handler: handleBarangayMouseLeave },
@@ -408,14 +451,23 @@ export function useMapPopups({
 
       // Tapping anywhere outside a barangay polygon dismisses a pinned
       // selection (e.g. on mobile where there is no persistent hover).
-      map.on('click', (e: any) => {
+      const handleMapClick = (e: any) => {
+        if (!map.getLayer('barangay-fill')) return;
         const features = map.queryRenderedFeatures(e.point, {
           layers: ['barangay-fill'],
         });
         if (!features.length && pinnedBarangayIdRef.current !== null) {
           clearBarangayHover();
         }
-      });
+      };
+      map.on('click', handleMapClick);
+      detachLayerEventsRef.current = () => {
+        clusterExpandRequestRef.current++;
+        layerListeners.forEach(({ event, layer, handler }) => map.off(event, layer, handler));
+        map.off('click', handleMapClick);
+        reportHoverPopupRef.current?.remove();
+        reportHoverTargetRef.current = null;
+      };
     },
     [
       handleReportPointsClick,
@@ -431,6 +483,14 @@ export function useMapPopups({
       handleTyphoonPointMouseLeave,
     ]
   );
+
+  useEffect(() => () => {
+    detachLayerEventsRef.current?.();
+    reportPopupRef.current?.remove();
+    reportHoverPopupRef.current?.remove();
+    typhoonPopupRef.current?.remove();
+    typhoonHoverPopupRef.current?.remove();
+  }, []);
 
   return {
     showReport,

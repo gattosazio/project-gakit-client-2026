@@ -60,7 +60,7 @@ export function useMapDisplayLoading(mapRef: MutableRefObject<any>, layersReady:
           const check = () => {
             if (!isPending() && layersReady.current && map.isStyleLoaded() && map.areTilesLoaded() && !map.isMoving()) finish();
           };
-          // Render is needed as animated report markers can prevent map idle.
+          // Animated weather layers can keep the map from reaching idle.
           map.on('render', check);
           map.on('idle', check);
           map.on('remove', finish);

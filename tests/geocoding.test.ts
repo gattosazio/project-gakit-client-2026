@@ -35,6 +35,12 @@ global.fetch = vi.fn().mockImplementation((url: string) => {
 });
 
 describe('Local Point-in-Polygon & Overture Geocoding', () => {
+  it.each(['Mindanao State University', 'MSU-IIT', 'IIT'])('ranks the canonical campus first for %s', async query => {
+    const results = await searchLocations(query);
+    expect(results[0]).toMatchObject({ category: 'Campus', lat: 8.2416, lng: 124.2435 });
+    expect(results[0].displayName).toContain('Iligan Institute of Technology');
+    expect(results.filter(result => /Mindanao State University.*Iligan Institute of Technology/i.test(result.displayName))).toHaveLength(1);
+  });
   it('reverse geocodes coordinates (8.2340, 124.2511) to Barangay Palao and DPWH landmark', async () => {
     // Exact user-reported coordinate
     const addr = await reverseGeocode(8.2340, 124.2511);

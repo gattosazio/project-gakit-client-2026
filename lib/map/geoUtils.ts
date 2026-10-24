@@ -1,4 +1,5 @@
 import { getLocalRoads } from './roadGeocoding';
+import { IIT_CENTER, IIT_NAME, matchesIitSearch } from './campusFocus';
 
 const GEOCODE_CACHE_MAX = 64;
 const geocodeCache = new Map<string, string>();
@@ -341,5 +342,10 @@ export async function searchLocations(
     }
   }
 
+  if (matchesIitSearch(trimmedQuery)) {
+    return [{ ...IIT_CENTER, displayName: `${IIT_NAME}, Iligan City`, category: 'Campus' },
+      ...localResults.filter(result => !result.displayName.toLowerCase().replace(/[^a-z0-9]/g, '')
+        .startsWith('mindanaostateuniversityiliganinstituteoftechnology'))].slice(0, 6);
+  }
   return localResults;
 }

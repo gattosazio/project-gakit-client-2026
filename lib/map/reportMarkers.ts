@@ -1,5 +1,5 @@
 import { REPORT_STATUS_LABELS } from '@/constants/publicMap';
-import { getReportScoreDisplay } from '@/lib/reports/reportFormatting';
+import { formatDateTime, getReportScoreDisplay, STATUS_META, timeAgo } from '@/lib/reports/reportFormatting';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 
 // A simple white water-wave glyph — two short strokes read as "flood" at a
@@ -115,7 +115,7 @@ export const buildReportsGeoJson = (
         decisionSource: props.decisionSource,
         verificationScope: props.validationSummary?.verificationScope,
         demoAutoValidated: props.validationSummary?.demoAutoValidated,
-        createdAt: new Date(props.createdAt).toLocaleString(),
+        createdAt: props.createdAt,
       },
     });
   });
@@ -147,37 +147,47 @@ export const buildReportPopupHtml = (feature: Record<string, any>): string => {
   const props = feature.properties ?? {};
   const coordinates = feature.geometry?.coordinates ?? [0, 0];
   const [lng, lat] = coordinates;
-  const tooltipStyle = 'font-family: var(--font-inter), system-ui, sans-serif;';
-  const row = (label: string, value: string) => `
-    <div style="display: flex; justify-content: space-between; gap: 10px; font-size: 11px; line-height: 1.5;">
-      <span style="color: #64748b;">${escapeHtml(label)}</span>
-      <span style="color: #0f172a; font-weight: 600;">${escapeHtml(value)}</span>
-    </div>`;
-
   if (props.kind === 'selected') {
-    return `
-      <div class="gakit-tooltip" style="${tooltipStyle}padding-right: 36px;">
-        <div style="font-weight: 700; font-size: 12px; color: #0f172a; margin-bottom: 2px;">
-          Selected location
-        </div>
-        ${row('Coordinates', `${lat.toFixed(4)}, ${lng.toFixed(4)}`)}
-      </div>`;
+    return `<div class="report-pin-card"><p class="report-pin-heading">Selected location</p>
+      <p class="report-pin-location">${escapeHtml(`${lat.toFixed(4)}, ${lng.toFixed(4)}`)}</p></div>`;
   }
+  const display = reportPopupDisplay(props);
+  return `<article class="report-pin-card" aria-label="Flood report">
+    <header class="report-pin-header"><span class="report-pin-heading">Flood report</span>
+      ${display.status ? `<span class="report-pin-status" data-status="${display.statusCode}">${escapeHtml(display.status)}</span>` : ''}</header>
+    ${props.depthLabel ? `<p class="report-pin-label">Reported depth</p><p class="report-pin-depth">${escapeHtml(String(props.depthLabel))}</p>` : ''}
+    ${props.address ? `<p class="report-pin-location" title="${escapeHtml(String(props.address))}">${escapeHtml(String(props.address))}</p>` : ''}
+    ${display.age ? `<p class="report-pin-time" title="${escapeHtml(display.fullTime)}">Reported ${escapeHtml(display.age)}</p>` : ''}
+  </article>`;
+};
 
-  return `
-    <div class="gakit-tooltip" style="${tooltipStyle}padding-right: 36px;">
-      ${props.address
-        ? `<div style="font-weight: 700; font-size: 12px; color: #0f172a; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(props.address)}">
-             ${escapeHtml(props.address)}
-           </div>`
-        : ''}
-      ${props.depthLabel ? row('Depth', props.depthLabel) : ''}
-      ${props.statusLabel ? row('Status', props.statusLabel) : ''}
-      ${props.demoAutoValidated === true || props.demoAutoValidated === 'true' ? row('Origin', 'Demo submission; evidence checks skipped') : ''}
-      ${props.verificationScope === 'flood_presence' ? row('Verification', 'Flood presence; depth as reported') : ''}
-      ${props.verificationScope === 'physical_consistency' ? row('Assessment', 'Physical support; depth as reported') : ''}
-      ${props.validationScore != null ? row(props.validationScoreLabel ?? (props.decisionSource === 'automated' ? 'Evidence points' : 'Score'), props.validationScoreLabel || props.decisionSource === 'automated' ? `${props.validationScore}` : `${props.validationScore}/100`) : ''}
-      ${props.elevation != null ? row('Elevation', `${Number(props.elevation).toFixed(1)} m`) : ''}
-      ${props.createdAt ? row('Reported', props.createdAt) : ''}
-    </div>`;
+function reportPopupDisplay(props: Record<string, any>) {
+  const statusCode = Object.prototype.hasOwnProperty.call(STATUS_META, props.status) ? props.status as ReportStatus : undefined;
+  const hasDate = typeof props.createdAt === 'string' && Number.isFinite(Date.parse(props.createdAt));
+  return {
+    statusCode: statusCode ?? 'UNVERIFIED',
+    status: statusCode ? STATUS_META[statusCode].label : String(props.statusLabel ?? ''),
+    age: hasDate ? timeAgo(props.createdAt) : String(props.createdAt ?? ''),
+    fullTime: hasDate ? formatDateTime(props.createdAt) : String(props.createdAt ?? ''),
+  };
+}
+
+/** Desktop hover shows only the essentials; location details stay in the click card. */
+export const buildReportHoverHtml = (feature: Record<string, any>): string => {
+  const props = feature.properties ?? {};
+  const display = reportPopupDisplay(props);
+  return `<div class="report-pin-preview" role="tooltip">
+    <p class="report-pin-preview-depth">${escapeHtml(String(props.depthLabel ?? 'Flood report'))}</p>
+    <p class="report-pin-preview-meta">${display.status ? `<span class="report-pin-status" data-status="${display.statusCode}">${escapeHtml(display.status)}</span>` : ''}
+      ${display.age ? `<span>${escapeHtml(display.age)}</span>` : ''}</p>
+  </div>`;
+};
+
+export const buildReportClusterHoverHtml = (feature: Record<string, any>): string => {
+  const value = Number(feature.properties?.point_count);
+  const count = Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+  return `<div class="report-pin-preview" role="tooltip">
+    <p class="report-pin-preview-depth">${count.toLocaleString()} ${count === 1 ? 'report' : 'reports'}</p>
+    <p class="report-pin-preview-meta">Click to expand</p>
+  </div>`;
 };

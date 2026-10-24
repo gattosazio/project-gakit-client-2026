@@ -79,8 +79,8 @@ export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChang
       </button>
       {open && <>
         <div className="fixed inset-0 z-[1290] bg-black/20 md:hidden" onClick={close} aria-hidden="true" />
-        <div id={id} role="region" aria-label="Map display settings"
-          className={`fixed inset-x-4 top-16 z-[1300] mx-auto max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom,0px))] max-w-[320px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 text-slate-800 shadow-xl backdrop-blur-xl md:absolute md:inset-x-auto md:right-0 md:w-72 md:max-h-[calc(100dvh-5rem)] ${placement === 'above' ? 'md:top-auto md:bottom-full md:mb-2' : 'md:top-12'}`}>
+        <div id={id} role="region" aria-label="Map display settings" data-header-dropdown={placement === 'below' || undefined}
+          className={`${placement === 'below' ? 'map-header-dropdown' : ''} fixed inset-x-4 top-16 z-[1300] mx-auto max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom,0px))] max-w-[320px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 text-slate-800 shadow-xl backdrop-blur-xl md:absolute md:inset-x-auto md:right-0 md:w-72 md:max-h-[calc(100dvh-5rem)] ${placement === 'above' ? 'md:top-auto md:bottom-full md:mb-2' : 'md:top-12'}`}>
           <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-1.5">
             <h3 className="text-xs font-bold">Map display settings</h3>
             <button type="button" onClick={close} aria-label="Close display settings" className="rounded p-1 text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button>
