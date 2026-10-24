@@ -45,19 +45,25 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
       const focus = page.getByRole('region', { name: 'Campus focus', exact: true });
       await focus.waitFor();
       assert(!(await focus.innerText()).includes('Satellite view'));
+      assert.equal(await page.locator('[data-map-header]').isVisible(), width < 768);
       if (width >= 768) {
+        await page.getByRole('button', { name: 'Citizen Flood Reports', exact: true }).waitFor();
+        await page.getByRole('button', { name: 'Citizen Flood Reports', exact: true }).click();
         const reports = page.locator('[data-tour="reports"]');
         await reports.getByText('Campus report fixture', { exact: true }).waitFor();
         assert(!(await reports.innerText()).includes('Outside campus report fixture'));
+        await page.getByRole('button', { name: 'Minimize sidebar', exact: true }).click();
       }
       await page.waitForTimeout(1500);
       const exit = focus.getByRole('button', { name: 'Exit campus focus', exact: true });
       const bounds = await exit.boundingBox();
       assert(bounds && bounds.x >= 0 && bounds.y >= 0 && bounds.x + bounds.width <= width && bounds.y + bounds.height <= height);
+      const orientation = await page.getByRole('button', { name: 'Reset orientation and view to Iligan City', exact: true }).locator('svg g').getAttribute('transform');
+      assert.equal(orientation, width >= 768 ? 'rotate(90 16 16)' : 'rotate(0 16 16)', 'Desktop faces sideways; mobile stays north-up');
       if (width < 768) {
         const region = await focus.boundingBox();
         assert(Math.abs(region.x + region.width / 2 - width / 2) < 2, 'Focus control is centered');
-        assert(region.y > height / 2 && region.y + region.height < height - 55, 'Focus control clears header badges and bottom navigation');
+        assert(region.y > height/2 && region.y + region.height <= height-110, 'Mobile focus control clears the header and sits above navigation');
       }
       await page.screenshot({ path: path.join(os.tmpdir(), `gakit-campus-focus-${width}.png`) });
       await page.mouse.move(width / 2, height / 2);
@@ -66,6 +72,7 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
       assert(imageryZooms.length > 0 && imageryZooms.every(zoom => zoom <= 18), `Zooming keeps valid imagery instead of requesting unavailable tiles: ${imageryZooms}`);
       await exit.click();
       await focus.waitFor({ state: 'detached' });
+      assert.equal(await page.locator('[data-map-header]').isVisible(), true);
       if (width >= 768) await page.locator('[data-tour="reports"]').getByText('Outside campus report fixture', { exact: true }).waitFor();
       assert.deepEqual(errors, []);
       console.log(`${width}x${height}: campus prompt, satellite focus, report scope and exit passed`);

@@ -76,8 +76,34 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
         body: '<html><head>' + styles.map(url => '<link rel="stylesheet" href="' + url + '">').join('') + '</head><body><div id="fixture"></div></body></html>' }));
       await page.goto(`${base}/__report-popup/page`);
       await page.addStyleTag({ content: fs.readFileSync(path.join(root,'node_modules/maplibre-gl/dist/maplibre-gl.css'),'utf8') });
+      await page.addStyleTag({ content: fs.readFileSync(path.join(root,'app/globals.css'),'utf8') });
       await page.addScriptTag({ content: bundle });
       await page.waitForFunction(() => window.fixtureMap?.getLayer('report-points') && window.fixtureMap.isStyleLoaded());
+      await page.evaluate(() => {
+        const map = window.fixtureMap;
+        const query = map.queryRenderedFeatures.bind(map);
+        window.dragHitTests = 0;
+        window.measureDrag = false;
+        map.queryRenderedFeatures = (...args) => {
+          if (window.measureDrag) window.dragHitTests++;
+          return query(...args);
+        };
+      });
+      await page.mouse.move(width/2-100,height*0.8);
+      await page.evaluate(() => {window.dragHitTests=0;window.measureDrag=true;});
+      await page.mouse.move(width/2+100,height*0.8,{steps:30});
+      const pointerHitTests = await page.evaluate(() => {window.measureDrag=false;return window.dragHitTests;});
+      console.log(`${width}px pointer movement: ${pointerHitTests} hover hit tests`);
+      if (process.env.GAKIT_PROFILE_ONLY !== '1') assert(pointerHitTests<=32,'Report hover should use one hit test per pointer move');
+      await page.mouse.move(width/2,height*0.7);
+      await page.mouse.down();
+      await page.evaluate(() => {window.dragHitTests=0;window.measureDrag=true;});
+      await page.mouse.move(width/2+100,height*0.7-50,{steps:30});
+      const hitTests = await page.evaluate(() => {window.measureDrag=false;return window.dragHitTests;});
+      await page.mouse.up();
+      console.log(`${width}px drag: ${hitTests} hover hit tests`);
+      if (process.env.GAKIT_PROFILE_ONLY !== '1') assert.equal(hitTests,0,'Dragging must skip report hover hit testing');
+      await page.evaluate(() => window.fixtureMap.jumpTo({center:[124.26,8.22],zoom:16}));
       const point = await page.evaluate(() => window.fixtureMap.project([124.26,8.22]));
       await page.mouse.move(point.x, point.y);
       if (width >= 768) {
@@ -87,6 +113,17 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
         assert((await hover.innerText()).includes('Verified'));
         assert(!(await hover.innerText()).includes('Quezon Avenue'));
         await page.screenshot({path:path.join(os.tmpdir(),'gakit-report-hover.png')});
+        const backdrop = await hover.evaluate(element => getComputedStyle(element.closest('.maplibregl-popup-content')).backdropFilter);
+        await page.mouse.wheel(0,-800);
+        await page.waitForFunction(() => window.fixtureMap.isZooming());
+        const persistsDuringZoom = await hover.count() > 0;
+        console.log(`Report hover while zooming: ${persistsDuringZoom}; backdrop: ${backdrop}`);
+        if (process.env.GAKIT_PROFILE_ONLY !== '1') {
+          assert.equal(persistsDuringZoom,false,'Zooming must dismiss the report hover preview');
+          assert.equal(backdrop,'none','Report hover must not blur the moving WebGL canvas');
+        }
+        await page.waitForFunction(() => !window.fixtureMap.isMoving());
+        await page.evaluate(() => window.fixtureMap.jumpTo({center:[124.26,8.22],zoom:16}));
         await page.mouse.move(10,10);
         await hover.waitFor({state:'detached'});
       } else assert.equal(await page.getByRole('tooltip').count(),0);

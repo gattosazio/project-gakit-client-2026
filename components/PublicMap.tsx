@@ -132,6 +132,7 @@ export interface PublicMapHandle {
 }
 
 interface PublicMapProps {
+  onCampusFocusChange?: (enabled: boolean) => void;
   onDisplaySettingsChange?: (settings: { basemap: BasemapId; mode: MapMode; showBuildings: boolean; showBarangayBoundaries: boolean; smoothPolygons: boolean; showRoads: boolean; focusRoads: boolean; ready: boolean }) => void;
   hideDisplayControls?: boolean;
   onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
@@ -234,6 +235,7 @@ function MinimalCompass({
 }
 
 export function PublicMap({
+  onCampusFocusChange,
   onLocationSelect,
   selectedLocation,
   selectedLocationActions,
@@ -273,6 +275,7 @@ export function PublicMap({
   const [campusFocus, setCampusFocus] = useState(false);
   const campusFocusRef = useRef(false);
   const campusPreviousView = useRef<{ center: [number, number]; zoom: number; bearing: number; pitch: number } | null>(null);
+  const campusPreviousSidebar = useRef<{ collapsed: boolean; weather: boolean; layers: boolean; reports: boolean } | null>(null);
   const controlsSentinelRef = useRef<HTMLDivElement | null>(null);
   const [controlsVisible, setControlsVisible] = useState(true);
   const visibleReportStatusesRef = useRef<Record<ReportStatus, boolean>>(
@@ -606,16 +609,33 @@ export function PublicMap({
     hideReportPopupRef.current();
     campusFocusRef.current = enabled;
     setCampusFocus(enabled);
+    onCampusFocusChange?.(enabled);
     const duration = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 700;
     if (enabled) {
       const center = map.getCenter();
       campusPreviousView.current = { center: [center.lng, center.lat], zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch() };
-      map.fitBounds(IIT_BOUNDS, { padding: { top: 150, bottom: 110, left: 45, right: 45 }, maxZoom: 16.8, duration });
+      campusPreviousSidebar.current = { collapsed: isSidebarCollapsed, weather: weatherOpen, layers: layersOpen, reports: reportsOpen };
+      setIsSidebarCollapsed(true);
+      const desktop = window.matchMedia('(min-width: 768px)').matches;
+      const camera = map.cameraForBounds(IIT_BOUNDS, {
+        bearing: desktop ? -90 : 0,
+        padding: desktop ? 32 : { top: 130, bottom: 150, left: 24, right: 24 },
+        maxZoom: desktop ? 17.8 : 16.8,
+      });
+      if (camera) map.easeTo({ ...camera, pitch: 0, duration });
     } else if (campusPreviousView.current) {
       map.easeTo({ ...campusPreviousView.current, duration });
       campusPreviousView.current = null;
+      const sidebar = campusPreviousSidebar.current;
+      if (sidebar) {
+        setIsSidebarCollapsed(sidebar.collapsed);
+        setWeatherOpen(sidebar.weather);
+        setLayersOpen(sidebar.layers);
+        setReportsOpen(sidebar.reports);
+        campusPreviousSidebar.current = null;
+      }
     }
-  }, []);
+  }, [isSidebarCollapsed, weatherOpen, layersOpen, reportsOpen, onCampusFocusChange]);
 
   const focusLocation = useCallback((location: { lat: number; lng: number }) => {
     if (campusFocusRef.current && !isInsideIit(location.lng, location.lat)) setCampusFocusEnabled(false);
@@ -1253,7 +1273,7 @@ export function PublicMap({
     <div className="relative w-full h-full bg-canvas-grey">
       <div ref={mapContainer} className="w-full h-full touch-none select-none" />
       {campusFocus && (
-        <div role="region" aria-label="Campus focus" className="absolute bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] left-1/2 z-[1010] flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/80 bg-white/95 px-3 py-2 shadow-lg backdrop-blur-md md:bottom-auto md:top-24">
+        <div role="region" aria-label="Campus focus" className="absolute bottom-[calc(env(safe-area-inset-bottom,0px)+7rem)] left-1/2 z-[1010] flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/80 bg-white px-3 py-2 shadow-lg md:bottom-auto md:top-5">
           <Focus className="h-5 w-5 shrink-0 text-gakit-maroon" aria-hidden="true" />
           <p className="min-w-0 text-xs font-bold text-slate-900">MSU-IIT focus</p>
           <button type="button" onClick={() => setCampusFocusEnabled(false)} className="flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-slate-100 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon" aria-label="Exit campus focus">
@@ -1270,7 +1290,7 @@ export function PublicMap({
         />
       )}
       <PageLoader isLoading={displayLoadingLabel !== null} label={displayLoadingLabel ?? 'Loading map layers…'} />
-      {onStartReport && <button
+      {onStartReport && !campusFocus && <button
         type="button"
         onClick={onStartReport}
         data-tour="report"

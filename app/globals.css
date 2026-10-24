@@ -226,6 +226,9 @@ body {
   z-index: 1010;
 }
 .maplibregl-popup.gakit-report-popup .maplibregl-popup-content {
+  background: #fff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   padding: 14px !important;
   border-radius: 16px !important;
 }
@@ -240,6 +243,9 @@ body {
 .report-pin-location { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 8px 0 0; color: #475569; font-size: 11px; line-height: 1.5; }
 .report-pin-time { margin: 10px 0 0; padding-top: 8px; border-top: 1px solid #f1f5f9; color: #64748b; font-size: 10px; }
 .maplibregl-popup.gakit-report-hover .maplibregl-popup-content {
+  background: #fff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
   pointer-events: none !important;
   padding: 9px 11px !important;
 }

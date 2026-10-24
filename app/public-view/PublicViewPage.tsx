@@ -74,6 +74,7 @@ export function PublicViewPage({
   initialAuth?: AuthSnapshot;
 } = {}) {
   const [isAssessmentOpen, setIsAssessmentOpen] = useState(false);
+  const [isCampusFocus, setIsCampusFocus] = useState(false);
   const [campusFocusLocation, setCampusFocusLocation] = useState<SelectedLocation | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isLocationPromptOpen, setIsLocationPromptOpen] = useState(false);
@@ -792,6 +793,7 @@ export function PublicViewPage({
 
   return (
     <div data-map-shell className="relative h-[100dvh] w-full overflow-hidden bg-canvas-grey">
+      <div className={isCampusFocus ? 'contents md:hidden' : 'contents'}>
       <PublicHeader
         extraAction={<MapDisplayPopover {...mapDisplay} disabled={!mapDisplay.ready}
           onBasemapChange={value => mapRef.current?.setBasemap(value)}
@@ -810,6 +812,7 @@ export function PublicViewPage({
         onStartReport={handleStartReport}
         onStartTour={startMapTour}
       />
+      </div>
       <SectionJumpControls
         showUp={activeSection !== 'hazard-map'}
         showDown={false}
@@ -828,6 +831,7 @@ export function PublicViewPage({
               <div className="relative isolate flex-1 w-full h-full min-h-0">
                 <PageLoader isLoading={isLoadingReports} label="Loading flood reports…" />
                 <PublicMap
+                  onCampusFocusChange={setIsCampusFocus}
                   hideDisplayControls
                   onDisplaySettingsChange={setMapDisplay}
                   mapApiRef={mapRef}

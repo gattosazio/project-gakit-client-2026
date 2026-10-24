@@ -81,7 +81,7 @@ export function syncCampusFocus(map: Map, enabled: boolean): void {
   const satelliteBefore = map.getStyle().layers.find(layer => overlayIds.has(layer.id))?.id;
   const layers: Parameters<Map['addLayer']>[0][] = [
     { id: layerIds[0], type: 'raster', source: 'iit-focus-satellite', paint: { 'raster-fade-duration': 0 } },
-    { id: layerIds[1], type: 'fill', source: 'iit-focus-mask', paint: { 'fill-color': '#0f172a', 'fill-opacity': 0.78 } },
+    { id: layerIds[1], type: 'fill', source: 'iit-focus-mask', paint: { 'fill-color': '#000000', 'fill-opacity': 0.88 } },
     { id: layerIds[2], type: 'line', source: 'iit-focus-boundary', paint: { 'line-color': '#f8fafc', 'line-opacity': 0.8, 'line-width': 1.5 } },
   ];
   for (const layer of layers) {

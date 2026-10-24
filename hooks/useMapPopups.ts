@@ -31,6 +31,8 @@ export function useMapPopups({
   const reportPopupRef = useRef<any>(null);
   const reportHoverPopupRef = useRef<maplibregl.Popup | null>(null);
   const reportHoverTargetRef = useRef<string | null>(null);
+  const reportHoverQueryRef = useRef<MediaQueryList | null>(null);
+  const reportCursorActiveRef = useRef(false);
   const clusterExpandRequestRef = useRef(0);
   const detachLayerEventsRef = useRef<(() => void) | null>(null);
   const typhoonPopupRef = useRef<any>(null);
@@ -41,13 +43,22 @@ export function useMapPopups({
   const inspectTargetRef = useRef<MapReportToShow | null>(null);
   const [hoveredBarangay, setHoveredBarangay] = useState<HoveredBarangay | null>(null);
 
+  const clearReportHover = useCallback(() => {
+    reportHoverPopupRef.current?.remove();
+    reportHoverTargetRef.current = null;
+    if (reportCursorActiveRef.current) {
+      const map = mapRef.current;
+      if (map) map.getCanvas().style.cursor = '';
+      reportCursorActiveRef.current = false;
+    }
+  }, [mapRef]);
+
   const showReportPopup = useCallback(
     (feature: Record<string, any>, lngLat: any) => {
       const map = mapRef.current;
       if (!maplibregl || !map) return;
       clusterExpandRequestRef.current++;
-      reportHoverPopupRef.current?.remove();
-      reportHoverTargetRef.current = null;
+      clearReportHover();
       if (!reportPopupRef.current) {
         reportPopupRef.current = new maplibregl.Popup({
           closeButton: true,
@@ -71,15 +82,14 @@ export function useMapPopups({
 
       render();
     },
-    [mapRef]
+    [mapRef, clearReportHover]
   );
 
   const hideReportPopup = useCallback(() => {
     clusterExpandRequestRef.current++;
     reportPopupRef.current?.remove();
-    reportHoverPopupRef.current?.remove();
-    reportHoverTargetRef.current = null;
-  }, []);
+    clearReportHover();
+  }, [clearReportHover]);
 
   const showTyphoonPopup = useCallback(
     (feature: Record<string, any>, lngLat: any) => {
@@ -97,8 +107,7 @@ export function useMapPopups({
 
       // Close report popup and hover tooltip if open to prevent overlapping overlays
       reportPopupRef.current?.remove();
-      reportHoverPopupRef.current?.remove();
-      reportHoverTargetRef.current = null;
+      clearReportHover();
       typhoonHoverPopupRef.current?.remove();
 
       typhoonPopupRef.current
@@ -106,7 +115,7 @@ export function useMapPopups({
         .setHTML(buildTyphoonPopupHtml(feature.properties || {}))
         .addTo(map);
     },
-    [mapRef]
+    [mapRef, clearReportHover]
   );
 
   const selectBarangay = useCallback(
@@ -243,8 +252,7 @@ export function useMapPopups({
   const handleReportPointsClick = useCallback(
     (e: any) => {
       clusterExpandRequestRef.current++;
-      reportHoverPopupRef.current?.remove();
-      reportHoverTargetRef.current = null;
+      clearReportHover();
       if (e.features?.length) {
         // When a details modal consumes the click (incident map) it supersedes
         // the popup, so don't stack both. Without a consumer (public map) the
@@ -256,17 +264,30 @@ export function useMapPopups({
         if (reportId) onReportClickRef.current?.(reportId);
       }
     },
-    [showReportPopup, onReportClickRef]
+    [showReportPopup, onReportClickRef, clearReportHover]
   );
 
-  const handleReportPointsMouseEnter = useCallback((event: any) => {
+  const handleReportHover = useCallback((event: any) => {
     const map = mapRef.current;
-    if (map) map.getCanvas().style.cursor = 'pointer';
-    if (!map || !window.matchMedia('(min-width: 768px) and (hover: hover) and (pointer: fine)').matches
-      || reportPopupRef.current?.isOpen()) return;
-    const feature = event.features?.[0];
+    if (!map) return;
+    reportHoverQueryRef.current ??= window.matchMedia('(min-width: 768px) and (hover: hover) and (pointer: fine)');
+    // Avoid geometry queries and popup work during pan/zoom, including wheel
+    // zoom with a stationary pointer directly over a report pin.
+    if (!reportHoverQueryRef.current.matches || map.isMoving() || event.originalEvent?.buttons
+      || reportPopupRef.current?.isOpen()) {
+      clearReportHover();
+      return;
+    }
+    const layers = ['report-points', 'report-clusters'].filter(id => map.getLayer(id));
+    if (!layers.length) return;
+    const feature = map.queryRenderedFeatures(event.point, { layers })[0];
     const isCluster = feature?.properties?.cluster_id != null && Number(feature.properties.point_count) > 0;
-    if (!isCluster && feature?.properties?.kind !== 'report') return;
+    if (!isCluster && feature?.properties?.kind !== 'report') {
+      clearReportHover();
+      return;
+    }
+    map.getCanvas().style.cursor = 'pointer';
+    reportCursorActiveRef.current = true;
     const target = isCluster ? `cluster:${feature.properties.cluster_id}` : `report:${feature.properties.id}`;
     if (reportHoverTargetRef.current === target) return;
     reportHoverTargetRef.current = target;
@@ -278,14 +299,7 @@ export function useMapPopups({
     }
     reportHoverPopupRef.current.setLngLat(feature.geometry.coordinates)
       .setHTML(isCluster ? buildReportClusterHoverHtml(feature) : buildReportHoverHtml(feature)).addTo(map);
-  }, [mapRef]);
-
-  const handleReportPointsCursorLeave = useCallback(() => {
-    const map = mapRef.current;
-    if (map) map.getCanvas().style.cursor = '';
-    reportHoverPopupRef.current?.remove();
-    reportHoverTargetRef.current = null;
-  }, [mapRef]);
+  }, [mapRef, clearReportHover]);
 
   const handleReportClustersClick = useCallback(
     async (e: any) => {
@@ -426,13 +440,7 @@ export function useMapPopups({
       detachLayerEventsRef.current?.();
       const layerListeners: Array<{ event: string; layer: string; handler: (e: any) => void }> = [
         { event: 'click', layer: 'report-points', handler: handleReportPointsClick },
-        { event: 'mouseenter', layer: 'report-points', handler: handleReportPointsMouseEnter },
-        { event: 'mousemove', layer: 'report-points', handler: handleReportPointsMouseEnter },
-        { event: 'mouseleave', layer: 'report-points', handler: handleReportPointsCursorLeave },
         { event: 'click', layer: 'report-clusters', handler: handleReportClustersClick },
-        { event: 'mouseenter', layer: 'report-clusters', handler: handleReportPointsMouseEnter },
-        { event: 'mousemove', layer: 'report-clusters', handler: handleReportPointsMouseEnter },
-        { event: 'mouseleave', layer: 'report-clusters', handler: handleReportPointsCursorLeave },
         { event: 'mousemove', layer: 'barangay-fill', handler: handleBarangayMouseMove },
         { event: 'mouseleave', layer: 'barangay-fill', handler: handleBarangayMouseLeave },
         { event: 'click', layer: 'barangay-fill', handler: handleBarangayClick },
@@ -461,18 +469,24 @@ export function useMapPopups({
         }
       };
       map.on('click', handleMapClick);
+      map.on('mousemove', handleReportHover);
+      map.on('movestart', clearReportHover);
+      const canvas = map.getCanvas();
+      canvas.addEventListener('mouseleave', clearReportHover);
       detachLayerEventsRef.current = () => {
         clusterExpandRequestRef.current++;
         layerListeners.forEach(({ event, layer, handler }) => map.off(event, layer, handler));
         map.off('click', handleMapClick);
-        reportHoverPopupRef.current?.remove();
-        reportHoverTargetRef.current = null;
+        map.off('mousemove', handleReportHover);
+        map.off('movestart', clearReportHover);
+        canvas.removeEventListener('mouseleave', clearReportHover);
+        clearReportHover();
       };
     },
     [
       handleReportPointsClick,
-      handleReportPointsMouseEnter,
-      handleReportPointsCursorLeave,
+      handleReportHover,
+      clearReportHover,
       handleReportClustersClick,
       handleBarangayMouseMove,
       handleBarangayMouseLeave,
