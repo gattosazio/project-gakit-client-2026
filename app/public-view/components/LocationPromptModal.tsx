@@ -5,11 +5,7 @@ import { MapPin, Locate, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { LocationSearch, type SearchedLocation } from './LocationSearch';
 
-export interface SelectedLocation {
-  lat: number;
-  lng: number;
-  address: string;
-}
+export type { SelectedLocation } from '@/types/report';
 
 export function LocationPromptModal({
   isOpen,
@@ -93,7 +89,7 @@ export function LocationPromptModal({
             <div className="flex items-center gap-3">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white shadow-xs text-gakit-maroon">
                 {isLocating ? (
-                  <Spinner size="sm" iconClassName="bg-gakit-maroon" />
+                  <Spinner size="sm" />
                 ) : (
                   <Locate className="w-5 h-5 text-gakit-maroon" />
                 )}

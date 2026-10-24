@@ -19,7 +19,7 @@ export const monitoringBentoTiles: BentoTile[] = [
   },
   {
     id: 'flood-scenarios',
-    label: 'Flood Scenarios',
+    label: 'Flood Scenario Explorer',
     href: '/flood-scenarios',
     badge: 'BETA',
   },

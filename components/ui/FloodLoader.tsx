@@ -2,18 +2,28 @@
 
 import { useId } from 'react';
 
+const COMPACT_SIZES = {
+  xs: 'h-4 w-4',
+  sm: 'h-[18px] w-[18px]',
+  md: 'h-6 w-6',
+  lg: 'h-8 w-8',
+} as const;
+
+export type FloodLoaderSize = keyof typeof COMPACT_SIZES;
+
 /** Indeterminate water motion; the water level does not represent progress. */
-export function FloodLoader({ active = true, label = 'Loading', compact = false }: {
+export function FloodLoader({ active = true, label = 'Loading', compact = false, size = 'sm' }: {
   active?: boolean;
   label?: string;
   compact?: boolean;
+  size?: FloodLoaderSize;
 }) {
   const clipId = useId();
 
   return (
-    <span className={compact ? 'inline-flex h-[18px] w-[18px] shrink-0 items-center' : 'flex flex-col items-center gap-4'}
+    <span className={compact ? `inline-flex shrink-0 items-center ${COMPACT_SIZES[size]}` : 'flex flex-col items-center gap-4'}
       aria-hidden={compact ? true : undefined} title={compact ? label : undefined}>
-      <svg className={`flood-loader ${compact ? 'h-[18px] w-[18px]' : 'h-20 w-20'}`} data-active={active} viewBox="0 0 80 80" fill="none" aria-hidden="true">
+      <svg className={`flood-loader ${compact ? COMPACT_SIZES[size] : 'h-20 w-20'}`} data-active={active} viewBox="0 0 80 80" fill="none" aria-hidden="true">
         <defs>
           <clipPath id={clipId}>
             <rect x="8" y="8" width="64" height="64" rx="15" />

@@ -34,6 +34,7 @@ export function Dialog({
   ariaLabelledBy,
   maxWidthClass = 'max-w-md',
   panelClassName = DEFAULT_PANEL_CLASS,
+  suspended = false,
   children,
 }: {
   isOpen: boolean;
@@ -42,14 +43,16 @@ export function Dialog({
   ariaLabelledBy?: string;
   maxWidthClass?: string;
   panelClassName?: string;
+  /** Hide without unmounting form state while a child dialog is open. */
+  suspended?: boolean;
   children: ReactNode;
 }) {
   const mounted = useMounted();
   const active = isOpen && mounted;
-  const panelRef = useModalA11y<HTMLDivElement>({ enabled: active });
+  const panelRef = useModalA11y<HTMLDivElement>({ enabled: active && !suspended });
 
   useEffect(() => {
-    if (!active) return;
+    if (!active || suspended) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.stopPropagation();
@@ -58,12 +61,13 @@ export function Dialog({
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [active, onClose]);
+  }, [active, suspended, onClose]);
 
   if (!active) return null;
 
   return createPortal(
     <div
+      style={suspended ? { display: 'none' } : undefined}
       className="fixed inset-0 z-[2100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onClick={onClose}
       role="presentation"

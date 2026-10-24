@@ -8,50 +8,52 @@ import { LayoutGrid, LogOut } from 'lucide-react';
 import type { BentoTile } from '@/lib/navigation/bentoMenu';
 import { useRouteLoader } from './RouteLoader';
 
+// Flat geometric artwork: a shared square grid, rounded corners, distinct colors.
 const MENU_ICON_ART: Record<string, React.ReactNode> = {
   'public-hazard-map': <>
-    <path d="M3 8L11 4L21 8L29 4V25L21 29L11 25L3 29Z" fill="#ecfdf5" stroke="#409277" />
-    <path d="M11 4V25L21 29V8Z" fill="#c3e6d4" />
-    <path d="M5 21C9 17 12 22 16 18S24 19 27 15" stroke="#38a3c5" strokeWidth="2" />
-    <path d="M26 10C26 14 21 18 21 18S16 14 16 10A5 5 0 0 1 26 10Z" fill="#9b1c31" stroke="#7a0019" />
-    <circle cx="21" cy="10" r="1.7" fill="white" />
+    <rect x="3" y="3" width="26" height="26" rx="4" fill="#e1eee5" />
+    <path d="M3 13H12V4M12 13V28M12 21H29M21 21V12" stroke="#86ad96" strokeWidth="1.6" />
+    <path d="M4 23L9 18L14 18L19 12L27 12" stroke="#4993ae" strokeWidth="2.2" />
+    <path d="M25 8V11L20 17L15 11V8A5 5 0 0 1 25 8Z" fill="#8e2940" />
+    <rect x="18.3" y="6.8" width="3.4" height="3.4" rx="1" fill="#fff" />
   </>,
   'flood-scenarios': <>
-    <path d="M8 13L16 6L24 13V24H8Z" fill="#e0f2fe" stroke="#7db4cf" />
-    <path d="M5 14L16 4L27 14" stroke="#164e63" strokeWidth="2.5" />
-    <rect x="13" y="12" width="6" height="6" rx="1" fill="#164e63" />
-    <path d="M3 21C7 18 11 24 16 21S25 18 29 21V28H3Z" fill="#0284c7" />
-    <path d="M5 25C9 22 12 28 17 25S25 23 27 24" stroke="#bae6fd" strokeWidth="1.8" />
+    <rect x="3" y="3" width="26" height="26" rx="4" fill="#e0edf3" />
+    <path d="M3 10H13M10 3V18M5 15H16" stroke="#a5c6d3" strokeWidth="1.5" />
+    <path d="M3 19C7 16 10 22 14 19S22 16 29 19V25A4 4 0 0 1 25 29H7A4 4 0 0 1 3 25Z" fill="#318cba" />
+    <path d="M7 24C10 22 12 26 16 24S22 22 25 24" stroke="#bfe6f5" strokeWidth="1.6" />
+    <circle cx="20.5" cy="10.5" r="4.2" fill="#f5fafc" stroke="#315c70" strokeWidth="2.2" />
+    <path d="M23.5 13.5L27 17" stroke="#315c70" strokeWidth="2.8" />
   </>,
   'monitoring-portal': <>
-    <rect x="3" y="4" width="26" height="23" rx="5" fill="#173b49" />
-    <path d="M3 11H29" stroke="#34616f" />
-    <circle cx="7" cy="7.5" r="1" fill="#6ee7b7" />
-    <path d="M7 20H11L14 14L18 23L21 17H25" stroke="#6ee7b7" strokeWidth="2" />
-    <path d="M12 30H20" stroke="#173b49" strokeWidth="2" />
+    <rect x="3" y="3" width="26" height="26" rx="4" fill="#284e5b" />
+    <path d="M3 11H29" stroke="#557883" strokeWidth="1.4" />
+    <rect x="7" y="7" width="3" height="1.5" rx=".5" fill="#b4dfcf" />
+    <path d="M7 23V19H11V15H16V20H21V16H25" stroke="#a2ddc4" strokeWidth="2.2" />
   </>,
   login: <>
-    <rect x="9" y="3" width="19" height="26" rx="4" fill="#e0e7ff" stroke="#818cf8" />
-    <path d="M16 7L25 5V27L16 25Z" fill="#6366f1" />
-    <circle cx="22" cy="16" r="1" fill="white" />
-    <path d="M3 16H16M11 11L16 16L11 21" stroke="#3730a3" strokeWidth="2.3" />
+    <rect x="3" y="3" width="26" height="26" rx="4" fill="#dedcf0" />
+    <path d="M15 8H23V25H15" stroke="#7769a2" strokeWidth="2" />
+    <rect x="19.5" y="15" width="2" height="2" rx=".5" fill="#7769a2" />
+    <path d="M7 16H18M13 11L18 16L13 21" stroke="#65548f" strokeWidth="2.5" />
   </>,
   administration: <>
-    <path d="M16 2L27 7V16C27 23 21 28 16 30C11 28 5 23 5 16V7Z" fill="#7a0019" />
-    <path d="M16 6L23 9V16C23 21 19 25 16 26C13 25 9 21 9 16V9Z" fill="#a9314d" />
-    <path d="M11 16L15 20L22 12" stroke="#fde68a" strokeWidth="2.4" />
+    <rect x="3" y="3" width="26" height="26" rx="4" fill="#8e2940" />
+    <path d="M9 7H23V17L20 21L16 24L12 21L9 17Z" fill="#af5266" />
+    <path d="M10 16L14 20L22 12" stroke="#f6dc9b" strokeWidth="2.5" />
   </>,
   about: <>
-    <path d="M16 7C12 4 7 4 3 6V26C7 24 12 24 16 27C20 24 25 24 29 26V6C25 4 20 4 16 7Z" fill="#fff7ed" stroke="#c2823d" />
-    <path d="M16 7V27M7 11L12 12M7 16L12 17M20 12L25 11M20 17L25 16" stroke="#c2823d" />
+    <rect x="3" y="3" width="26" height="26" rx="4" fill="#eee2ce" />
+    <path d="M16 4V28" stroke="#b89663" strokeWidth="1.6" />
+    <path d="M7 11H12M7 16H12M7 21H12M20 11H25M20 16H25M20 21H25" stroke="#b89663" strokeWidth="1.6" />
   </>,
 };
 
-function getTileIcon(id: string) {
+function getTileIcon(id: string, large = false) {
   const art = MENU_ICON_ART[id];
   return art
-    ? <svg className="h-6 w-6" viewBox="0 0 32 32" fill="none" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{art}</svg>
-    : <LayoutGrid className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />;
+    ? <svg className={large ? 'h-10 w-10' : 'h-6 w-6'} viewBox="0 0 32 32" fill="none" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{art}</svg>
+    : <LayoutGrid className={large ? 'h-10 w-10' : 'h-6 w-6'} strokeWidth={1.75} aria-hidden="true" />;
 }
 
 export interface BentoMenuProps {
@@ -250,8 +252,8 @@ export function BentoMenu({
               }`}
             >
               <div className="relative">
-                <div className="flex h-8 w-8 items-center justify-center ">
-                  {getTileIcon(tile.id)}
+                <div className="flex h-12 w-12 items-center justify-center">
+                  {getTileIcon(tile.id, true)}
                 </div>
                 {tile.badge && (
                   <sup className="absolute -top-1 -right-2 select-none rounded bg-amber-100/90 px-1 py-0.5 text-[6.5px] font-extrabold uppercase tracking-wider text-amber-800 ring-1 ring-inset ring-amber-200/70 leading-none shadow-xs">
@@ -259,7 +261,7 @@ export function BentoMenu({
                   </sup>
                 )}
               </div>
-              <span className="mt-1 font-heading text-[10px] font-bold leading-tight transition-colors line-clamp-1 text-slate-700 group-hover:text-gakit-maroon">
+              <span className="mt-1 font-heading text-[10px] font-bold leading-tight transition-colors line-clamp-2 text-slate-700 group-hover:text-gakit-maroon">
                 {tile.label}
               </span>
             </Link>
@@ -295,15 +297,15 @@ export function BentoMenu({
                   href={tile.href}
                   onClick={(e) => handleTileClick(e, tile, isCurrent)}
                   title={tile.badge ? `${tile.label} (${tile.badge})` : tile.label}
-                  className={`group relative flex min-h-[88px] flex-col items-center justify-center gap-1.5 rounded-xl border px-2 py-3 text-center transition-colors duration-150 ${
+                  className={`group relative flex aspect-square min-h-[108px] flex-col items-center justify-center gap-2 rounded-lg border px-2 py-3 text-center transition-colors duration-150 ${
                     isCurrent
                       ? 'bg-slate-200 border-slate-300 text-slate-900 shadow-xs cursor-default font-bold'
                       : 'bg-white/80 border-slate-200/80 text-slate-600 hover:bg-white hover:border-slate-300 hover:text-gakit-maroon'
                   }`}
                 >
                   <div className="relative">
-                    <div className="flex h-9 w-9 items-center justify-center ">
-                      {getTileIcon(tile.id)}
+                    <div className="flex h-14 w-14 items-center justify-center transition-transform duration-150 group-hover:-translate-y-0.5 motion-reduce:transform-none">
+                      {getTileIcon(tile.id, true)}
                     </div>
                     {tile.badge && (
                       <sup className="absolute -top-1 -right-2 select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase tracking-wider text-amber-800 ring-1 ring-inset ring-amber-200/70 leading-none shadow-xs">
@@ -312,7 +314,7 @@ export function BentoMenu({
                     )}
                   </div>
 
-                  <span className="font-heading text-[11px] font-bold leading-tight transition-colors line-clamp-1 text-slate-800 group-hover:text-gakit-maroon">
+                  <span className="font-heading text-[11px] font-bold leading-tight transition-colors line-clamp-2 text-slate-800 group-hover:text-gakit-maroon">
                     {tile.label}
                   </span>
                 </Link>

@@ -9,10 +9,12 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Loader2, Locate, MapPinPlus } from 'lucide-react';
+import { Locate, MapPinPlus } from 'lucide-react';
+import { FloodLoader } from '@/components/ui/FloodLoader';
 import { Spinner } from '@/components/ui/Spinner';
 import { PageLoader } from '@/components/ui/LoadingState';
 import { FloodSimulationTimeline } from '@/components/map/FloodSimulationTimeline';
+import { PinnedLocationActions, type PinActions } from '@/components/map/PinnedLocationActions';
 import { toast } from 'react-toastify';
 
 import * as maplibregl from 'maplibre-gl';
@@ -132,6 +134,7 @@ interface PublicMapProps {
   hideDisplayControls?: boolean;
   onLocationSelect: (location: { lat: number; lng: number; address: string }) => void;
   selectedLocation: { lat: number; lng: number } | null;
+  selectedLocationActions?: PinActions | null;
   mapApiRef?: MutableRefObject<PublicMapHandle | null>;
   hideShareLocation?: boolean;
   hideWeather?: boolean;
@@ -191,29 +194,38 @@ function MinimalCompass({
 }) {
   return (
     <svg
-      viewBox="0 0 24 24"
+      viewBox="0 0 32 32"
       className={className}
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      <g
-        style={{
-          transform: `rotate(${-bearing}deg)`,
-          transformOrigin: '12px 12px',
-        }}
-      >
-        {/* Up Arrow (North - turns Maroon when active, slate when inactive) */}
+      <circle
+        cx="16"
+        cy="16"
+        r="12.25"
+        stroke={isActive ? '#64748B' : '#94A3B8'}
+        strokeWidth="1.25"
+      />
+      <g transform={`rotate(${-bearing} 16 16)`}>
+        {/* A small N and dial ticks keep the direction readable at HUD size. */}
         <path
-          d="M12 3 L16.5 11 H7.5 Z"
-          fill={isActive ? '#7A0019' : '#64748B'}
+          d="M14.25 9V5.75L17.75 9V5.75"
+          stroke="#475569"
+          strokeWidth="1.15"
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
-
-        {/* Down Arrow (South - Slate) */}
         <path
-          d="M12 21 L7.5 13 H16.5 Z"
-          fill={isActive ? '#7A0019' : '#94A3B8'}
+          d="M5.75 16H7.5M24.5 16H26.25M16 24.5V26.25"
+          stroke="#94A3B8"
+          strokeWidth="1.25"
+          strokeLinecap="round"
         />
+        {/* Two halves of one needle, with a persistent maroon north tip. */}
+        <path d="M16 10.5L19.25 17L16 16L12.75 17Z" fill="#7A0019" />
+        <path d="M16 23L12.75 17L16 18L19.25 17Z" fill="#64748B" />
+        <circle cx="16" cy="17" r="1.25" fill="white" stroke="#475569" strokeWidth="0.8" />
       </g>
     </svg>
   );
@@ -222,6 +234,7 @@ function MinimalCompass({
 export function PublicMap({
   onLocationSelect,
   selectedLocation,
+  selectedLocationActions,
   mapApiRef,
   hideShareLocation = true,
   hideWeather = false,
@@ -648,7 +661,6 @@ export function PublicMap({
   const {
     isShareLocating,
     setIsShareLocating,
-    panToSelectedLocation,
     handleLocationSelect,
     handleShareLocation,
     clearPendingGeocoding,
@@ -727,8 +739,8 @@ export function PublicMap({
           .addTo(map);
 
         const markerElement = marker.getElement();
-        markerElement.setAttribute('aria-label', 'Selected report location');
-        markerElement.setAttribute('title', 'Selected report location');
+        markerElement.setAttribute('aria-label', 'Selected location');
+        markerElement.setAttribute('title', 'Selected location');
         selectedMarkerRef.current = marker;
       }
 
@@ -1195,6 +1207,14 @@ export function PublicMap({
   return (
     <div className="relative w-full h-full bg-canvas-grey">
       <div ref={mapContainer} className="w-full h-full touch-none select-none" />
+      {mapReady && selectedLocation && selectedLocationActions && (
+        <PinnedLocationActions
+          key={`${selectedLocation.lat},${selectedLocation.lng}`}
+          mapRef={mapRef}
+          location={selectedLocation}
+          {...selectedLocationActions}
+        />
+      )}
       <PageLoader isLoading={displayLoadingLabel !== null} label={displayLoadingLabel ?? 'Loading map layers…'} />
       {onStartReport && <button
         type="button"
@@ -1349,17 +1369,17 @@ export function PublicMap({
             disabled={isShareLocating}
             title="Locate my position"
             aria-label="Locate my position"
-            className="flex h-9 w-9 items-center justify-center text-slate-700 hud-pill hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94] disabled:cursor-not-allowed"
+            className="flex h-9 w-9 items-center justify-center text-slate-700 hud-pill hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94] disabled:cursor-not-allowed md:hidden"
           >
             {isShareLocating ? (
-              <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
+              <FloodLoader compact label="Locating your position" />
             ) : (
               <Locate className="h-4 w-4" strokeWidth={2.5} />
             )}
           </button>
         )}
 
-        {/* Standalone Minimal Compass Button */}
+        {/* Compass dial rotates with the map; tap to reset the view. */}
         {(() => {
           const isOffNorth =
             Math.abs(mapBearing) > 0.5 ||
@@ -1374,7 +1394,7 @@ export function PublicMap({
                   ? `Facing ${Math.round((360 - mapBearing) % 360)}° · Click to reset North`
                   : 'Facing North · Click to center Iligan City view'
               }
-              className="flex h-9 w-9 items-center justify-center text-slate-700 hud-pill hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94]"
+              className="flex h-9 w-9 items-center justify-center text-slate-700 hud-pill hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
             >
               <MinimalCompass
                 bearing={mapBearing}

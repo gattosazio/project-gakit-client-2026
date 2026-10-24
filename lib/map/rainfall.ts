@@ -82,6 +82,23 @@ export function fetchRainfall(
   });
 }
 
+/** Read the validity-aware point sample; map features omit dry cells. */
+export function fetchRainfallAt(lat: number, lng: number, hours: RainfallAccumulationHours = 1): Promise<number | null> {
+  const latitude = rainfallCellCenterFor(lat).toFixed(2);
+  const longitude = rainfallCellCenterFor(lng).toFixed(2);
+  const url = `/api/v1/rainfall/gsmap/point?latitude=${latitude}&longitude=${longitude}&hours=${hours}`;
+  return cachedGet<number | null>(url, RAINFALL_TTL_MS, async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), RAINFALL_REQUEST_TIMEOUT_MS);
+    try {
+      const sample = await request<{ precipMm: number | null }>(url, controller.signal);
+      return sample.precipMm != null && Number.isFinite(sample.precipMm) && sample.precipMm >= 0 ? sample.precipMm : null;
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+}
+
 // GSMaP cells are 0.1 degrees on a side.
 const CELL_DEG = 0.1;
 

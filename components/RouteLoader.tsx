@@ -37,7 +37,7 @@ const SAFETY_TIMEOUT_MS = 8000;
 
 function routeLabel(href: string) {
   const path = new URL(href, window.location.href).pathname;
-  if (path.startsWith('/flood-scenarios')) return 'Loading flood scenarios…';
+  if (path.startsWith('/flood-scenarios')) return 'Loading Flood Scenario Explorer…';
   if (path.startsWith('/monitoring')) return 'Loading monitoring…';
   if (path.startsWith('/settings')) return 'Loading settings…';
   if (path.startsWith('/admin')) return 'Loading administration…';

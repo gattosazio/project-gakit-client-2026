@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useId, useState } from 'react';
-import { AlertTriangle, CloudRain, Droplets, Info, MapPin, MountainSnow, RefreshCw, Shield, Waves, X } from 'lucide-react';
-import { Dialog } from '@/components/ui/Dialog';
+import { AlertTriangle, CloudRain, Droplets, Info, MountainSnow, RefreshCw, Shield, Waves } from 'lucide-react';
+import { LocationDialog, LocationSummary, LOCATION_DIALOG_PRIMARY_BUTTON } from '@/components/map/LocationDialog';
 import { Spinner } from '@/components/ui/Spinner';
 import { HeatIndexAssessment } from '@/components/HeatIndexAssessment';
 import type { LocationRiskInfo } from '@/components/PublicMap';
@@ -98,32 +98,13 @@ export function HazardAssessmentModal({
   const hasResult = Boolean(locationRisk) && !checkFailed;
   const rainfallPeriod = rainfallHours && rainfallHours > 1 ? rainfallHours : 1;
   const rainfall = locationRisk?.precipMm;
+  const hasRainfall = hasResult && rainfall != null && Number.isFinite(rainfall) && rainfall >= 0;
 
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} ariaLabelledBy={titleId}
-      maxWidthClass="max-w-lg" panelClassName="flex max-h-[90dvh] flex-col overflow-hidden">
-      <header className="flex shrink-0 items-center gap-3 bg-gakit-maroon px-5 py-5 sm:px-6">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10 text-amber-200">
-          <Shield className="h-5 w-5" aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 id={titleId} className="font-heading text-xl font-bold tracking-tight text-white">Hazard assessment</h2>
-          <p className="mt-1 text-xs text-rose-100">Mapped hazards & weather outlook</p>
-        </div>
-        <button type="button" onClick={onClose} aria-label="Close hazard assessment"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-rose-100 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
-          <X className="h-4 w-4" />
-        </button>
-      </header>
-
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5 selection:bg-maroon-100 selection:text-maroon-900 sm:px-6">
-        <section className="flex items-start gap-2.5 border-b border-slate-200 pb-4" aria-label="Selected location">
-          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gakit-maroon" aria-hidden="true" />
-          <div className="min-w-0">
-            <p className="text-base font-semibold leading-snug text-slate-900 break-words">{displayAddress || selectedLocation?.address || 'Select a location on the map'}</p>
-            {selectedLocation && <p className="mt-1 text-xs tabular-nums text-slate-500">{selectedLocation.lat.toFixed(5)}, {selectedLocation.lng.toFixed(5)}</p>}
-          </div>
-        </section>
+    <LocationDialog isOpen={isOpen} onClose={onClose} title="Hazard assessment"
+      subtitle="Mapped hazards & weather outlook" icon={Shield} closeLabel="Close hazard assessment"
+      footer={<button type="button" onClick={onClose} className={LOCATION_DIALOG_PRIMARY_BUTTON}>Back to map</button>}>
+        <LocationSummary location={selectedLocation} address={displayAddress} />
 
         {withinCity === false && (
           <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2.5 text-xs leading-relaxed text-amber-900">
@@ -141,7 +122,7 @@ export function HazardAssessmentModal({
             <div className="divide-y divide-slate-100">
               {hazards.map(({ name, icon: Icon, level, detail, color }) => {
                 const meta = level ? levelStyles[level] : null;
-                return <div key={name} className="flex items-center justify-between gap-2 py-3">
+                return <div key={name} className="flex items-center justify-between gap-2 py-2">
                   <div className="flex min-w-0 items-center gap-2.5">
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${color}`}><Icon className="h-4 w-4" aria-hidden="true" /></span>
                     <div className="min-w-0"><p className="text-sm font-semibold text-slate-900">{name}</p><p className="mt-0.5 text-[11px] leading-snug text-slate-500">{detail}</p></div>
@@ -157,17 +138,18 @@ export function HazardAssessmentModal({
           </section>
 
           <section aria-labelledby={`${titleId}-weather`}>
-            <h3 id={`${titleId}-weather`} className="mb-3 text-sm font-semibold text-slate-900">Weather outlook</h3>
+            <h3 id={`${titleId}-weather`} className="mb-2 text-sm font-semibold text-slate-900">Weather outlook</h3>
             <div className="grid grid-cols-2 overflow-hidden rounded-xl">
-              <section className="min-w-0 bg-sky-50 p-4 sm:p-5" aria-label="Rainfall">
-                <div className="mb-3 flex items-center gap-2 text-sky-900">
+              <section className="min-w-0 bg-sky-50 p-3" aria-label="Rainfall">
+                <div className="mb-2 flex items-center gap-2 text-sky-900">
                   <CloudRain className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <h3 className="text-sm font-semibold">Rainfall</h3>
                 </div>
-                {isCheckingLocation ? <div className="flex h-9 items-center"><Spinner size="sm" /></div> : hasResult && rainfall != null && Number.isFinite(rainfall)
-                  ? <p className="text-3xl font-bold tabular-nums tracking-tight text-sky-950">{rainfall.toFixed(1)} <span className="text-xs font-medium text-sky-800">{rainfallPeriod === 1 ? 'mm/hr' : 'mm'}</span></p>
+                {isCheckingLocation ? <div className="flex h-9 items-center"><Spinner size="sm" /></div> : hasRainfall
+                  ? <p className="text-2xl font-bold tabular-nums tracking-tight text-sky-950">{rainfall.toFixed(1)} <span className="text-xs font-medium text-sky-800">{rainfallPeriod === 1 ? 'mm/hr' : 'mm'}</span></p>
                   : <p className="flex h-9 items-center text-sm font-medium text-sky-900">Unavailable</p>}
                 <p className="mt-1 text-xs text-sky-900">{rainfallPeriod === 1 ? '1-hour rate' : `${rainfallPeriod}-hour total`}</p>
+                {!isCheckingLocation && hasRainfall && rainfall === 0 && <p className="mt-0.5 text-[10px] text-sky-900/75">No rainfall recorded</p>}
               </section>
               {isOpen && <HeatIndexAssessment key={`${selectedLocation.lat},${selectedLocation.lng}`} lat={selectedLocation.lat} lng={selectedLocation.lng} />}
             </div>
@@ -182,11 +164,6 @@ export function HazardAssessmentModal({
             <p>Hazard maps show susceptibility, not current conditions. “None mapped” does not guarantee safety. Follow official advisories for current warnings.</p>
           </div>
         </>}
-      </div>
-
-      <footer className="flex shrink-0 items-center justify-end border-t border-slate-100 bg-slate-50/60 px-5 py-3">
-        <button type="button" onClick={onClose} className="min-h-10 rounded-lg bg-gakit-maroon px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-maroon-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2">Back to map</button>
-      </footer>
-    </Dialog>
+    </LocationDialog>
   );
 }

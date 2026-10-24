@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useRef } from 'react';
 import {
   SCENARIO_PRESETS,
   type ScenarioPreset,
@@ -37,7 +37,35 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
   const frameRef = useRef<ScenarioFrame | undefined>(undefined);
   const followLatest = useRef(true);
   const playerRef = useRef<HTMLDivElement>(null);
+  const controlsRef = useRef<HTMLDivElement>(null);
   const [playerHeight, setPlayerHeight] = useState(120);
+
+  useLayoutEffect(() => {
+    const panel = controlsRef.current;
+    const header = panel?.closest('[data-map-shell]')?.querySelector<HTMLElement>('[data-map-header]');
+    if (!panel || !header) return;
+    const measure = () => {
+      if (window.innerWidth < 768) {
+        panel.style.removeProperty('--scenario-panel-top');
+        return;
+      }
+      const headerBounds = header.getBoundingClientRect();
+      const panelBounds = panel.getBoundingClientRect();
+      const besideHeader = panelBounds.left >= headerBounds.right + 12;
+      const top = besideHeader ? headerBounds.top : headerBounds.bottom + 12;
+      panel.style.setProperty('--scenario-panel-top', `${Math.ceil(top)}px`);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    observer.observe(panel);
+    window.addEventListener('resize', measure);
+    measure();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+      panel.style.removeProperty('--scenario-panel-top');
+    };
+  }, []);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -231,18 +259,16 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
           reportObservations={scenarioData?.live?.report_observations} scenarioId={activePreset.id} currentFrame={currentFrame} bounds={scenarioData?.bounds} onRasterStateChange={handleRasterStateChange} />
         ) : null}
 
-        {/* Wide screens place cards beside the header; smaller screens keep
-            them below it so the three panels never overlap. */}
+        {/* Desktop groups the scenario and conditions; mobile keeps its two anchors. */}
         <div className="absolute inset-0 z-10 pointer-events-none">
-          <div className="pointer-events-auto absolute left-3 right-3 top-[calc(max(0.375rem,env(safe-area-inset-top,0px))+3.5rem)] sm:right-auto sm:w-80 md:left-4 md:top-20 min-[1856px]:top-4">
+          <div ref={controlsRef} data-scenario-controls className="scenario-control-panel pointer-events-auto absolute left-3 right-3 top-[calc(max(0.375rem,env(safe-area-inset-top,0px))+3.5rem)] sm:right-auto sm:w-80 md:rounded-2xl md:border md:border-slate-200/90 md:bg-white/95 md:shadow-lg">
             <ScenarioSelector
               activePreset={activePreset}
               onSelectPreset={preset => { setReadyScenario(null); setActivePreset(preset); setScenarioData(null); setLoadError(null); setRasterState(null); setCurrentIndex(0); }}
               isLoading={isLoading}
             />
-          </div>
 
-          <div className="pointer-events-auto absolute bottom-[calc(var(--scenario-player-height)+2rem)] left-3 right-3 sm:bottom-[calc(var(--scenario-player-height)+2.5rem)] md:bottom-auto md:left-auto md:right-4 md:top-20 md:w-80 min-[1856px]:top-4">
+          <div className="pointer-events-auto fixed bottom-[calc(var(--scenario-player-height)+2rem)] left-3 right-3 sm:bottom-[calc(var(--scenario-player-height)+2.5rem)] md:static md:mx-3 md:border-t md:border-slate-100">
             {status && !currentFrame && <div className="hud-card flex items-center justify-between gap-3 p-3 text-xs text-slate-600"><p role="status">{status}</p>{loadError !== 'Preparing live estimates' && <button type="button" onClick={retryScenario} className="min-h-9 rounded-lg px-2 font-semibold text-gakit-maroon hover:bg-maroon-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon">Retry</button>}</div>}
             <TelemetryHUD
               onRetry={retryScenario}
@@ -255,11 +281,13 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
               modelNotice={scenarioData?.model_notice}
             />
           </div>
+          </div>
         </div>
 
         {/* Bottom Center: Timeline Scrubber & Controls */}
         {scenarioData && visibleFrames.length > 0 && (
           <TimelinePlayer
+            compactDesktop
             containerRef={playerRef}
             frames={visibleFrames}
             currentIndex={safeIndex}

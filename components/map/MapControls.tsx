@@ -428,7 +428,7 @@ export function ReportControls({
       isSidebarItem={isSidebarItem}
       badge={
         isLoading ? (
-          <Spinner size="xs" iconClassName="bg-slate-400" />
+          <Spinner size="xs" />
         ) : typeof summaryCount === 'number' ? (
           <span className="rounded-full bg-gakit-maroon/10 px-1.5 py-0.5 text-[10px] font-bold text-gakit-maroon tabular-nums">
             {summaryCount}

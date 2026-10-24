@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useId, useState } from 'react';
-import { ChevronDown, ChevronRight, ChevronUp, CloudSun, Droplet, Loader2, Umbrella } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, CloudSun, Droplet, Umbrella } from 'lucide-react';
+import { FloodLoader } from '@/components/ui/FloodLoader';
 import { usableCurrentWeather } from '@/lib/weather/weather';
 import { usePointOutlook } from '@/hooks/usePointOutlook';
 import { getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
@@ -55,7 +56,7 @@ function WeatherForecastContent({ current, days, now, loading, delayed, onSelect
         className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium tabular-nums text-sky-700">
         <Droplet className="h-3.5 w-3.5" aria-hidden="true" />{currentRainLabel === 'Unavailable' ? '—' : currentRainLabel}
       </p>}
-    </div> : <p role="status" className="flex items-center gap-2 py-2 text-xs text-slate-500">{loading && <Loader2 className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />}{loading ? 'Loading weather…' : 'Weather is temporarily unavailable.'}</p>}
+    </div> : <p role="status" className="flex items-center gap-2 py-2 text-xs text-slate-500">{loading && <FloodLoader compact size="xs" label="Loading weather" />}{loading ? 'Loading weather…' : 'Weather is temporarily unavailable.'}</p>}
 
     {first && rainMetric ? <>
       <section className="border-t border-slate-100 py-2" aria-label={`${outlookDayLabel(first.date, now)} rain outlook`}>

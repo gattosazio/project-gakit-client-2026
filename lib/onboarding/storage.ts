@@ -1,6 +1,5 @@
 export const ONBOARDING_STORAGE_KEY = 'gakit:onboarding-v1';
 export const LEGACY_FIRST_VISIT_KEY = 'gakit:first-visit-seen';
-export const ONBOARDING_AUTO_LOCATE_SESSION_KEY = 'gakit:onboarding-auto-located';
 
 export type OnboardingLocationChoice = 'gps' | 'map' | 'skipped';
 
@@ -82,22 +81,4 @@ export function saveOnboardingChoice(
     /* storage unavailable (private mode); onboarding simply repeats next visit */
   }
   return record;
-}
-
-export function wasAutoLocatedThisSession(): boolean {
-  if (typeof window === 'undefined') return true;
-  try {
-    return window.sessionStorage.getItem(ONBOARDING_AUTO_LOCATE_SESSION_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function markAutoLocatedThisSession(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.sessionStorage.setItem(ONBOARDING_AUTO_LOCATE_SESSION_KEY, 'true');
-  } catch {
-    /* storage unavailable; the in-memory guard still applies for this render */
-  }
 }

@@ -229,7 +229,7 @@ export function InviteUserModal({
                 disabled={!canSubmit}
                 className="inline-flex items-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {submitting && <Spinner size="sm" iconClassName="bg-white" />}
+                {submitting && <Spinner size="sm" />}
                 {submitting ? 'Sending…' : 'Send invitation'}
               </button>
             </div>

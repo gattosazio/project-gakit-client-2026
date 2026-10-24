@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Camera, ImagePlus, Loader2, Trash2 } from 'lucide-react';
+import { Camera, ImagePlus, Trash2 } from 'lucide-react';
+import { FloodLoader } from '@/components/ui/FloodLoader';
 import {
   ACCEPTED_IMAGE_TYPES,
   formatPhotoSize,
@@ -14,6 +15,7 @@ interface PhotoCaptureProps {
   photo: PreparedPhoto | null;
   onChange: (photo: PreparedPhoto | null) => void;
   disabled?: boolean;
+  compact?: boolean;
 }
 
 /**
@@ -21,7 +23,7 @@ interface PhotoCaptureProps {
  * on mobile (`capture="environment"`) and falls back to the file picker on
  * desktop. The image is downscaled in the browser before it is ever uploaded.
  */
-export function PhotoCapture({ photo, onChange, disabled = false }: PhotoCaptureProps) {
+export function PhotoCapture({ photo, onChange, disabled = false, compact = false }: PhotoCaptureProps) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +64,27 @@ export function PhotoCapture({ photo, onChange, disabled = false }: PhotoCapture
     if (inputRef.current) inputRef.current.value = '';
   }
 
+  if (compact) {
+    return <div>
+      {photo ? <div className="flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2">
+        {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
+        <img src={photo.previewUrl} alt="Selected flood evidence preview" className="h-7 w-7 shrink-0 rounded object-cover" />
+        <span className="min-w-0 flex-1 truncate text-xs text-slate-700">Photo added</span>
+        <button type="button" onClick={clearPhoto} disabled={disabled} aria-label="Remove photo"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-slate-500 hover:bg-white hover:text-red-600 disabled:opacity-50">
+          <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </div> : <button type="button" onClick={() => inputRef.current?.click()} disabled={disabled || isProcessing}
+        className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 bg-slate-50 text-xs font-semibold text-gakit-maroon hover:bg-maroon-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon disabled:opacity-50">
+        {isProcessing ? <FloodLoader compact size="xs" label="Preparing photo" /> : <Camera className="h-3.5 w-3.5" aria-hidden="true" />}
+        {isProcessing ? 'Preparing…' : 'Add photo'}<span className="text-[10px] font-normal text-slate-500">(optional)</span>
+      </button>}
+      <input ref={inputRef} type="file" accept={ACCEPTED_IMAGE_TYPES} capture="environment" className="sr-only"
+        onChange={event => void handleFile(event.target.files?.[0])} />
+      {error && <p role="alert" className="mt-1 text-[11px] text-red-600">{error}</p>}
+    </div>;
+  }
+
   if (photo) {
     return (
       <div className="rounded-xl border border-slate-200/90 bg-slate-50/80 p-3">
@@ -88,9 +111,6 @@ export function PhotoCapture({ photo, onChange, disabled = false }: PhotoCapture
             </button>
           </div>
         </div>
-        <p className="mt-2 text-[10px] leading-4 text-slate-400">
-          Optional, but a clear photo of the water helps staff verify your report faster.
-        </p>
       </div>
     );
   }
@@ -100,7 +120,7 @@ export function PhotoCapture({ photo, onChange, disabled = false }: PhotoCapture
       <div className="flex items-start gap-2.5">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-gakit-maroon ring-1 ring-slate-900/5">
           {isProcessing ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <FloodLoader compact label="Preparing photo" />
           ) : (
             <Camera className="h-4 w-4" />
           )}
@@ -110,7 +130,7 @@ export function PhotoCapture({ photo, onChange, disabled = false }: PhotoCapture
             Add a photo <span className="font-normal text-slate-400">(optional)</span>
           </p>
           <p className="mt-0.5 text-[11px] leading-4 text-slate-500">
-            A photo of the water helps staff confirm your report.
+            Show the water level.
           </p>
         </div>
       </div>

@@ -6,9 +6,9 @@ import { applyRainfallPaint } from '@/lib/map/overlayLayers';
 import {
   buildRainfallGrid,
   fetchRainfall,
+  fetchRainfallAt,
   generateRainfallDataUrl,
   RAINFALL_COORDINATES,
-  rainfallCellCenterFor,
   type RainfallAccumulationHours,
 } from '@/lib/map/rainfall';
 import type { RainfallGrid, RainfallResponse } from '@/types/rainfall';
@@ -20,9 +20,8 @@ const RAINFALL_REFRESH_MS = RAINFALL_TTL_MS;
 /**
  * Owns the near real-time GSMaP rainfall layer: fetching (with cache +
  * staleness guards), the 10-minute refresh loop while the layer is visible,
- * and the in-memory cell index used by hazard checks. Also exposes
- * `lookupPrecip` for report-modal checks — it lazily loads the grid on first
- * use even if the layer was never enabled.
+ * and exposes validity-aware point samples for hazard checks, even when the
+ * rainfall layer has never been enabled.
  */
 export function useRainfallLayer(
   mapRef: MutableRefObject<any>,
@@ -36,7 +35,6 @@ export function useRainfallLayer(
   const rainfallHoursRef = useRef<RainfallAccumulationHours>(1);
   const rainfallSourceRef = useRef<RainfallResponse | RainfallGrid | null>(null);
   const rainfallDataUrlRef = useRef<string | null>(null);
-  const rainfallCellsRef = useRef<Map<string, number>>(new Map());
   const rainfallTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const showRainfallRef = useRef(showRainfall);
 
@@ -56,16 +54,6 @@ export function useRainfallLayer(
       // Drop stale responses if the user switched windows mid-request.
       if (window !== rainfallHoursRef.current) return;
 
-      // Index cells by their exact 0.1-degree center so checkLocation can do an
-      // O(1) lookup instead of scanning every grid feature.
-      const cells = new Map<string, number>();
-      for (const feature of rainfall.features) {
-        const [lng, lat] = feature.geometry.coordinates;
-        const cellLng = Math.round(lng * 100) / 100;
-        const cellLat = Math.round(lat * 100) / 100;
-        cells.set(`${cellLng},${cellLat}`, feature.properties.precip_mm);
-      }
-      rainfallCellsRef.current = cells;
       rainfallSourceRef.current = rainfall;
 
       const dataUrl = generateRainfallDataUrl(rainfall, window);
@@ -134,27 +122,17 @@ export function useRainfallLayer(
     };
   }, [showRainfall, rainfallHours, loadRainfall, mapRef]);
 
-  // Looks up precipitation (mm over the current accumulation window) at a
-  // coordinate from the in-memory grid. Lazily loads the grid on demand — e.g.
-  // when a report modal checks hazard before the rainfall layer was enabled.
+  // The map's sparse feature feed excludes dry cells. Read the underlying
+  // validity-aware sample so a confirmed zero remains distinct from no data.
   const lookupPrecip = useCallback(
     async (lat: number, lng: number): Promise<number | null> => {
-      let cells = rainfallCellsRef.current;
-      if (cells.size === 0) {
-        await loadRainfall();
-        cells = rainfallCellsRef.current;
+      try {
+        return await fetchRainfallAt(lat, lng, rainfallHoursRef.current);
+      } catch {
+        return null;
       }
-      if (cells.size === 0) return null;
-
-      // Cells sit on a regular 0.1-degree grid centered at *.05 offsets, so
-      // the cell containing the point is found by rounding to its center.
-      // Report only that cell's value so the modal always matches what is
-      // painted on the map (dry cells are absent and show "No data").
-      const cellLng = Math.round(rainfallCellCenterFor(lng) * 100) / 100;
-      const cellLat = Math.round(rainfallCellCenterFor(lat) * 100) / 100;
-      return cells.get(`${cellLng},${cellLat}`) ?? null;
     },
-    [loadRainfall]
+    []
   );
 
   // Re-applies data fetched before the style finished loading; called from the

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
-import { Loader2, Locate, MapPin, Search, X } from 'lucide-react';
+import { Locate, MapPin, Search, X } from 'lucide-react';
+import { FloodLoader } from '@/components/ui/FloodLoader';
 import { searchLocations } from '@/lib/map/geoUtils';
 import type { LocationSearchResult } from '@/lib/map/geoUtils';
 
@@ -177,7 +178,7 @@ export function LocationSearch({
             } ${activeLocating ? 'text-gakit-maroon' : ''}`}
           >
             {activeLocating ? (
-              <Loader2 className="h-3.5 w-3.5 md:h-4 md:w-4 animate-spin text-gakit-maroon" />
+              <FloodLoader compact label="Locating your position" />
             ) : (
               <Locate className="h-3.5 w-3.5 md:h-4 md:w-4" strokeWidth={2.2} />
             )}
@@ -215,7 +216,7 @@ export function LocationSearch({
           }`}
         >
           {isSearching ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+            <FloodLoader compact size="xs" label="Searching locations" />
           ) : (
             <Search className="h-3.5 w-3.5" strokeWidth={2.5} />
           )}
@@ -245,7 +246,7 @@ export function LocationSearch({
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-maroon-50 text-gakit-maroon group-hover:bg-maroon-100">
                 {activeLocating ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-gakit-maroon" />
+                  <FloodLoader compact label="Locating your position" />
                 ) : (
                   <Locate className="h-4 w-4 text-gakit-maroon" strokeWidth={2.5} />
                 )}

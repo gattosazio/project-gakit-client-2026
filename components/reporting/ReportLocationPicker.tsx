@@ -113,7 +113,7 @@ export function ReportLocationPicker({ initialLocation, onClose, onConfirm }: {
     </div>
     <div className="flex shrink-0 justify-end gap-2 border-t border-slate-100 px-4 py-3">
       <button type="button" onClick={onClose} disabled={saving} className="h-9 rounded-lg border border-slate-200 px-3 text-xs font-semibold text-slate-600">Cancel</button>
-      <button type="button" onClick={() => void confirm()} disabled={!ready || moving || saving || locating} className="inline-flex h-9 items-center gap-2 rounded-lg bg-gakit-maroon px-3 text-xs font-semibold text-white hover:bg-maroon-800 disabled:opacity-50">{saving && <Spinner size="xs" iconClassName="bg-white" />}{saving ? 'Checking location…' : 'Confirm location'}</button>
+      <button type="button" onClick={() => void confirm()} disabled={!ready || moving || saving || locating} className="inline-flex h-9 items-center gap-2 rounded-lg bg-gakit-maroon px-3 text-xs font-semibold text-white hover:bg-maroon-800 disabled:opacity-50">{saving && <Spinner size="xs" />}{saving ? 'Checking location…' : 'Confirm location'}</button>
     </div>
   </Dialog>;
 }

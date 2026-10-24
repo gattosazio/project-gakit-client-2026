@@ -115,6 +115,8 @@ export function ScenarioSelector({
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
         setIsDropdownOpen(false);
         triggerRef.current?.focus();
       }
@@ -122,12 +124,12 @@ export function ScenarioSelector({
 
     document.addEventListener('mousedown', handlePointerDown);
     document.addEventListener('touchstart', handlePointerDown);
-    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('touchstart', handlePointerDown);
-      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [isDropdownOpen]);
 
@@ -135,7 +137,7 @@ export function ScenarioSelector({
     <div className="flex flex-col gap-2 w-full text-xs leading-4 pointer-events-auto">
       {/* Dropdown Container */}
       <div className="relative" ref={dropdownRef}>
-        <div className="hud-card flex items-center gap-1.5 px-2.5 py-1.5 md:h-20 md:gap-2 md:p-2 md:pl-2.5">
+        <div className="hud-card flex items-center gap-1.5 px-2.5 py-1.5 md:gap-2 md:p-3">
           {/* Custom Dropdown Trigger Button */}
           <button
             ref={triggerRef}
@@ -161,7 +163,7 @@ export function ScenarioSelector({
                 <span>Scenario</span>
                 <span className={`rounded px-1 py-0 text-[10px] leading-4 md:px-1.5 md:py-0.5 md:text-xs ${getAlertBadgeClass(activePreset.alertLevel, true)}`}>{activePreset.badge}</span>
               </div>
-              <div title={activePreset.name} className="truncate text-xs font-semibold leading-5 text-slate-900 group-hover:text-gakit-maroon transition-colors">
+              <div title={activePreset.name} className="truncate text-xs font-semibold leading-5 text-slate-900 group-hover:text-gakit-maroon transition-colors md:whitespace-normal md:text-sm md:leading-5">
                 {activePreset.name}
               </div>
             </div>
@@ -316,7 +318,7 @@ export function ScenarioSelector({
         id={detailsId}
         className={`${
           showDetails ? 'flex' : 'hidden'
-        } hud-card max-h-[min(45dvh,24rem)] overflow-y-auto overscroll-contain p-3 flex-col gap-2`}
+        } hud-card max-h-[min(45dvh,24rem)] md:max-h-[max(2rem,calc((100dvh-var(--scenario-player-height,100px)-22rem)/2))] overflow-y-auto overscroll-contain p-3 flex-col gap-2`}
       >
         {/* Date and Time Header */}
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs leading-4">

@@ -304,8 +304,14 @@ export function MapSidebar({
   useEffect(() => {
     if (!fullScreen || isCollapsed || window.innerWidth >= 768) return;
     const outside = (event: PointerEvent) => {
-      if (!sidebarRef.current?.contains(event.target as Node)
-        && !mobileControlsHost?.contains(event.target as Node)) handleCollapseSidebar();
+      const target = event.target;
+      // Taps inside portalled modals must not collapse the sidebar.
+      if (target instanceof Node) {
+        if (target instanceof Element && target.closest('[role="dialog"]')) return;
+        if (sidebarRef.current?.contains(target)
+          || mobileControlsHost?.contains(target)) return;
+      }
+      handleCollapseSidebar();
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') handleCollapseSidebar();

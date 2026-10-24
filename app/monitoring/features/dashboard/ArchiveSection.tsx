@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, History, LoaderCircle } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import type { ReportArchive } from '@/types/dashboard';
 import { fetchReportArchive } from '../reports/actions/reports';
 import { ARCHIVE_LEVELS, archiveDateLabel, buildArchiveCalendar } from './archiveCalendar';
@@ -114,7 +115,7 @@ export function ArchiveSection({
             <History className="h-3.5 w-3.5 text-gakit-maroon" />
             <span className="text-xs font-semibold text-slate-700">Submission Archive</span>
             <span className="hidden text-[10px] text-slate-400 sm:inline">{total.toLocaleString('en-PH')} received · {MONTHS[month - 1]} {selectedYear}</span>
-            {open && loading && <LoaderCircle className="h-3 w-3 animate-spin text-slate-400 motion-reduce:animate-none" aria-label="Refreshing archive" />}
+            {open && loading && <Spinner size="xs" label="Refreshing archive" />}
           </span>
           <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>

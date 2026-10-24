@@ -12,7 +12,7 @@ import { ScenariosTab } from './ScenariosTab';
  */
 export function FloodScenariosShell({ initialAuth }: { initialAuth?: AuthSnapshot }) {
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-canvas-grey">
+    <div data-map-shell className="relative h-[100dvh] w-full overflow-hidden bg-canvas-grey">
       <PublicHeader
         initialAuth={initialAuth}
         showBentoMenu

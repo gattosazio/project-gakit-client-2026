@@ -2,13 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   LEGACY_FIRST_VISIT_KEY,
-  ONBOARDING_AUTO_LOCATE_SESSION_KEY,
   ONBOARDING_STORAGE_KEY,
   isOnboardingComplete,
-  markAutoLocatedThisSession,
   readOnboardingRecord,
   saveOnboardingChoice,
-  wasAutoLocatedThisSession,
 } from '@/lib/onboarding/storage';
 
 class MemoryStorage implements Storage {
@@ -40,12 +37,10 @@ class MemoryStorage implements Storage {
 }
 
 const localStorage = new MemoryStorage();
-const sessionStorage = new MemoryStorage();
 
 beforeEach(() => {
   localStorage.clear();
-  sessionStorage.clear();
-  vi.stubGlobal('window', { localStorage, sessionStorage });
+  vi.stubGlobal('window', { localStorage });
 });
 
 afterEach(() => {
@@ -89,12 +84,5 @@ describe('onboarding storage', () => {
 
     expect(readOnboardingRecord()).toBeNull();
     expect(isOnboardingComplete()).toBe(false);
-  });
-
-  it('remembers that GPS was already auto-applied this browser session', () => {
-    expect(wasAutoLocatedThisSession()).toBe(false);
-    markAutoLocatedThisSession();
-    expect(wasAutoLocatedThisSession()).toBe(true);
-    expect(sessionStorage.getItem(ONBOARDING_AUTO_LOCATE_SESSION_KEY)).toBe('true');
   });
 });

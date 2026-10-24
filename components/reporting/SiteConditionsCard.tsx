@@ -99,7 +99,7 @@ export function SiteConditionsCard({
         <div className="text-right">
           {isCheckingLocation ? (
             <span className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-              <Spinner size="xs" iconClassName="bg-sky-500" />
+              <Spinner size="xs" />
               <span>Checking…</span>
             </span>
           ) : (
@@ -132,7 +132,7 @@ export function SiteConditionsCard({
             </div>
             {isCheckingLocation ? (
               <span className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                <Spinner size="xs" iconClassName="bg-blue-500" />
+                <Spinner size="xs" />
               </span>
             ) : (
               <HazardBadge level={locationRisk?.floodHazard ?? null} />
@@ -149,7 +149,7 @@ export function SiteConditionsCard({
             </div>
             {isCheckingLocation ? (
               <span className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                <Spinner size="xs" iconClassName="bg-amber-500" />
+                <Spinner size="xs" />
               </span>
             ) : (
               <HazardBadge level={locationRisk?.landslide ?? null} />
@@ -166,7 +166,7 @@ export function SiteConditionsCard({
             </div>
             {isCheckingLocation ? (
               <span className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                <Spinner size="xs" iconClassName="bg-cyan-500" />
+                <Spinner size="xs" />
               </span>
             ) : (
               <HazardBadge

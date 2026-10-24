@@ -405,7 +405,7 @@ function StatusActionMenu({
   return (
     <>
       <button ref={buttonRef} type="button" onClick={toggle} disabled={isUpdating} aria-haspopup="menu" aria-expanded={open} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-3 py-2 text-xs font-semibold text-white hover:bg-maroon-800 disabled:opacity-60">
-        {isUpdating ? <Spinner size="sm" iconClassName="bg-white" /> : null}
+        {isUpdating ? <Spinner size="sm" /> : null}
         {!isUpdating && <span>Update Status</span>}
         <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : 'rotate-180'}`} />
       </button>
@@ -442,7 +442,7 @@ function StatusActionMenu({
               disabled={isUpdating || (pendingNeedsReason && !reason.trim())}
               className="inline-flex items-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isUpdating ? <Spinner size="sm" iconClassName="bg-white" /> : null}
+              {isUpdating ? <Spinner size="sm" /> : null}
               Confirm
             </button>
           </div>

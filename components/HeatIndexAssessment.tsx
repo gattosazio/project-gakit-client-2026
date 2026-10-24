@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw, ThermometerSun } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { fetchHeatIndex, sampleHeatIndex, type HeatIndexGrid } from '@/lib/map/heatIndex';
+import { heatStressLabel } from '@/lib/weather/heatStress';
 
 const formatTime = (stamp: string) => new Intl.DateTimeFormat('en-PH', {
   timeZone: 'Asia/Manila', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -52,19 +53,19 @@ export function HeatIndexAssessment({ lat, lng }: { lat: number; lng: number }) 
   }, [retry]);
 
   const value = grid ? sampleHeatIndex(grid, lat, lng) : null;
-  return <section aria-label="Heat index forecast" aria-busy={loading} className="min-w-0 bg-orange-50/70 p-4 sm:p-5">
-    <div className="mb-3 flex items-center gap-2 text-orange-900">
+  return <section aria-label="Heat index forecast" aria-busy={loading} className="min-w-0 bg-orange-50/70 p-3">
+    <div className="mb-2 flex items-center gap-2 text-orange-900">
       <ThermometerSun className="h-4 w-4 shrink-0" aria-hidden="true" />
       <h3 className="text-sm font-semibold">Heat index</h3>
     </div>
     <div aria-live="polite">
       {loading ? <div className="flex h-9 items-center"><Spinner size="sm" /></div>
-        : value !== null ? <p className="text-3xl font-bold tabular-nums tracking-tight text-orange-950">{value.toFixed(1)}<span className="ml-1 text-xs font-medium text-orange-800">°C</span></p>
+        : value !== null ? <p className="text-2xl font-bold tabular-nums tracking-tight text-orange-950">{value.toFixed(1)}<span className="ml-1 text-xs font-medium text-orange-800">°C</span></p>
           : <p className="flex h-9 items-center text-sm font-medium text-orange-900">Unavailable</p>}
       <p className="mt-1 text-xs text-orange-900" title={grid && value !== null
         ? `Regional model estimate · Valid ${formatTime(grid.validAt)} PHT${grid.stale ? ' · Update pending' : ''}`
         : undefined}>
-        {grid?.stale && value !== null ? 'Earlier forecast' : 'Feels like'}
+        {!loading && (heatStressLabel(value) ?? 'No forecast data')}
       </p>
       {!loading && failed && <button type="button" onClick={() => { setLoading(true); setRetry((count) => count + 1); }}
         className="mt-2 inline-flex min-h-8 items-center gap-1.5 rounded-md text-xs font-semibold text-orange-900 underline underline-offset-4 hover:text-orange-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-800 focus-visible:ring-offset-2">

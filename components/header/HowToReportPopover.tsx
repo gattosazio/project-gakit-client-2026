@@ -35,7 +35,7 @@ export function HowToReportPopover({
 }: HowToReportPopoverProps) {
   const panelId = useId();
   const scenarios = variant === 'scenarios';
-  const title = scenarios ? 'Flood scenarios guide' : 'Platform Guide';
+  const title = scenarios ? 'Flood Scenario Explorer guide' : 'Platform Guide';
   const steps = scenarios ? [
     { icon: ListFilter, title: 'Choose a scenario', description: 'Open the scenario selector to choose an event. Use its info button for context.' },
     { icon: Play, title: 'Explore the timeline', description: 'Play, pause, or scrub through frames. Adjust playback speed or restart below.' },

@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { ChevronLeft, Info, MapPinPlus, MapPinned, Waves } from 'lucide-react';
+import { ChevronLeft, Info, MapPinPlus, MapPinned } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { getDisplayName, getStaffRole, homePathForRole, type AuthSnapshot, type StaffRole } from '@/lib/auth/roles';
 import { useActiveAlerts } from '@/lib/weather/weatherStore';
@@ -240,13 +240,14 @@ export function PublicHeader({
     const measure = () => {
       const top = Math.ceil(header.getBoundingClientRect().bottom + 6);
       toolbar.style.top = `${top}px`;
+      shell.style.setProperty('--map-header-bottom', `${Math.ceil(header.getBoundingClientRect().bottom)}px`);
       shell.style.setProperty('--map-mobile-controls-top', `${top + 42}px`);
     };
     const observer = new ResizeObserver(measure);
     observer.observe(header);
     window.addEventListener('resize', measure);
     measure();
-    return () => { observer.disconnect(); window.removeEventListener('resize', measure); shell.style.removeProperty('--map-mobile-controls-top'); };
+    return () => { observer.disconnect(); window.removeEventListener('resize', measure); shell.style.removeProperty('--map-mobile-controls-top'); shell.style.removeProperty('--map-header-bottom'); };
   }, []);
 
   const scrollToSection = (id: 'hazard-map' | 'about') => {
@@ -275,11 +276,11 @@ export function PublicHeader({
 
   return (
     <>
-    <header ref={headerRef} data-map-header className="fixed top-[max(0.375rem,env(safe-area-inset-top,0px))] inset-x-1.5 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-6xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]">
-      <div className="flex h-12 md:h-14 items-center justify-between px-2 md:px-5">
+    <header ref={headerRef} data-map-header data-scenario-header={guideVariant === 'scenarios' || undefined} className={`fixed top-[max(0.375rem,env(safe-area-inset-top,0px))] inset-x-1.5 md:top-4 md:left-1/2 md:-translate-x-1/2 md:inset-x-auto md:w-[calc(100%-3rem)] md:max-w-6xl z-[1200] isolate rounded-full bg-white shadow-[0_4px_20px_rgba(15,23,42,0.08)] border border-slate-200/90 ring-1 ring-slate-900/5 md:[background-color:var(--hud-bg-desktop)] md:[backdrop-filter:blur(var(--hud-blur-desktop))] md:border-white/80 md:shadow-[0_12px_36px_rgba(15,23,42,0.1),inset_0_1px_0_0_rgba(255,255,255,0.9)]`}>
+      <div className={`flex h-12 md:h-14 items-center justify-between px-2 md:px-5`}>
         <ValidationModeBadge />
         {/* Left: Brand Logo & Title */}
-        <div className={`flex items-center min-w-0 md:gap-3 ${showSectionNav ? 'shrink-0 gap-2' : 'flex-1 gap-1.5 md:flex-none md:shrink-0'}`}>
+        <div className={`flex items-center min-w-0 md:gap-3 ${showSectionNav ? 'shrink-0 gap-2' : 'flex-1 gap-1 md:flex-none md:shrink-0'}`}>
           {!showSectionNav && (
             <button
               type="button"
@@ -293,22 +294,13 @@ export function PublicHeader({
             </button>
           )}
 
-          {!showSectionNav && (
-            <div className="flex min-w-0 items-center gap-1.5 md:hidden">
-              <span className="truncate text-xs font-semibold text-gakit-maroon">
-                Flood scenarios
-              </span>
-              <span className="shrink-0 select-none rounded bg-amber-50 px-1 py-0.5 text-[10px] font-semibold leading-none text-amber-800">
-                Beta
-              </span>
-            </div>
-          )}
+
 
           <button
             type="button"
             onClick={() => (showSectionNav ? scrollToSection('hazard-map') : navigate('/'))}
-            className={`group items-center rounded-lg transition-transform duration-200 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 ${
-              !showSectionNav ? 'hidden md:flex' : 'flex'
+            className={`group shrink-0 items-center rounded-lg transition-transform duration-200 hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 ${
+              !showSectionNav && guideVariant !== 'scenarios' ? 'hidden md:flex' : 'flex'
             }`}
             aria-label="Go to the GAKIT hazard map"
             title={showSectionNav ? undefined : 'Return to public map'}
@@ -332,26 +324,21 @@ export function PublicHeader({
                 className="hidden h-8 w-auto object-contain md:block"
               />
             </div>
-            <div className="hidden h-9 pl-2 flex-col justify-center text-left font-heading text-[10px] font-bold uppercase tracking-wide leading-3 text-slate-600 2xl:flex">
+            <div className={`hidden h-9 pl-2 flex-col justify-center text-left font-heading text-[10px] font-bold uppercase tracking-wide leading-3 text-slate-600 ${guideVariant === 'scenarios' ? '' : '2xl:flex'}`}>
               <div>Geohazard Assessment &amp;</div>
               <div>Knowledge Integration Tool</div>
             </div>
           </button>
-        </div>
-
-        {/* Center: Title (for Scenario Simulator) OR Location Search (for Hazard Map) */}
-        <div className={`${!showSectionNav && !onSearchSelect ? 'hidden md:flex' : 'flex'} min-w-0 flex-1 items-center justify-center px-2`}>
-          {!showSectionNav && (
-            <div className="hidden min-w-0 items-center gap-2 md:inline-flex">
-              <Waves className="h-3.5 w-3.5 shrink-0 text-gakit-maroon" />
-              <span className="truncate text-sm font-semibold text-gakit-maroon">
-                Flood scenario simulator
-              </span>
-              <span className="shrink-0 select-none rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold leading-4 text-amber-800">
-                Beta
-              </span>
+          {guideVariant === 'scenarios' && (
+            <div className="flex min-w-0 items-center gap-1 whitespace-nowrap">
+              <span className="max-w-[8rem] whitespace-normal font-heading text-[10px] font-bold uppercase leading-3 tracking-wide text-slate-600 md:max-w-none md:whitespace-nowrap">Flood Scenario Explorer</span>
+              <sup className="relative -top-1 shrink-0 select-none rounded bg-amber-50 px-1 py-0.5 text-[8px] font-semibold leading-none text-amber-800">BETA</sup>
             </div>
           )}
+        </div>
+
+        {/* Location search or flexible spacing between brand and actions. */}
+        <div className={`${!showSectionNav && !onSearchSelect ? 'hidden md:flex' : 'flex'} min-w-0 flex-1 items-center justify-center px-2`}>
           {onSearchSelect && (
             <div data-tour="search" className="w-full min-w-0 max-w-md lg:max-w-lg">
               <LocationSearch

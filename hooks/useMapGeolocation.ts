@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from 'react';
 import { toast } from 'react-toastify';
 import { reverseGeocode } from '@/lib/map/geoUtils';
+import { requestCurrentPosition } from '@/lib/map/geolocation';
 import { locationFromGps } from '@/lib/reports/observationMetadata';
 import type { SelectedLocation } from '@/types/report';
 
@@ -43,34 +44,35 @@ export function useMapGeolocation({
     []
   );
 
-  // Re-centers the camera on a selected point so the marker stays visible above
-  // the mobile report bottom-sheet (which covers the lower part of the map).
+  // Center both tapped and GPS selections in the map, including on mobile.
   const panToSelectedLocation = useCallback(
     (lat: number, lng: number, zoom?: number) => {
       const map = mapRef.current;
       if (!map) return;
-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-      const offsetY = isMobile ? -map.getCanvas().clientHeight * 0.3 : 0;
-      map.easeTo({ center: [lng, lat], offset: [0, offsetY], zoom, duration: 400 });
+      map.easeTo({ center: [lng, lat], offset: [0, 0], zoom, duration: 400 });
     },
     [mapRef]
   );
 
   const handleLocationSelect = useCallback(
     (lat: number, lng: number, gpsLocation?: SelectedLocation) => {
+      // Cancel the previous lookup before publishing a new selection.
+      if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
+      geocodeTimerRef.current = null;
+      abortControllerRef.current?.abort();
+
       // Immediately update with coordinates for instant pin placement.
       const location: SelectedLocation = gpsLocation ?? {
         lat, lng, address: `${lat.toFixed(4)}, ${lng.toFixed(4)}`, source: 'manual',
       };
       onLocationSelectRef.current(location);
 
-      panToSelectedLocation(lat, lng);
+      panToSelectedLocation(lat, lng, gpsLocation ? 16 : undefined);
 
       if (!enableAddressLookup) return;
 
       // Local spatial reverse-geocoding (0ms lookup against memory GeoJSON/Overture).
       // Micro-debounce of 25ms to coalesce rapid taps or trackpad settling.
-      if (geocodeTimerRef.current) clearTimeout(geocodeTimerRef.current);
       geocodeTimerRef.current = setTimeout(() => {
         geocodeTimerRef.current = null;
         void reverseGeocodeWithAbort(location);
@@ -79,57 +81,20 @@ export function useMapGeolocation({
     [panToSelectedLocation, enableAddressLookup, reverseGeocodeWithAbort]
   );
 
-  const handleShareLocation = useCallback((): Promise<boolean> => {
-    const attempt = (canRetry: boolean): Promise<boolean> =>
-      new Promise((resolve) => {
-        if (!navigator.geolocation) {
-          toast.error('Location sharing is not supported by this browser.', {
-            position: 'top-right',
-            autoClose: 3000,
-          });
-          resolve(false);
-          return;
-        }
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            try {
-              panToSelectedLocation(latitude, longitude, 16);
-              handleLocationSelect(latitude, longitude, locationFromGps(position));
-            } finally {
-              resolve(true);
-            }
-          },
-          (error) => {
-            // Transient failures (timeout, position unavailable) get one retry;
-            // permission state is not retried — it needs a real user action.
-            if (canRetry && error.code !== 1) {
-              void attempt(false).then(resolve);
-              return;
-            }
-            if (error.code === 1) {
-              toast.error('To use your location, allow location access for this site.', {
-                position: 'top-right',
-                autoClose: 4000,
-              });
-            } else if (error.code === 3) {
-              toast.error('Location request timed out. Please try again.', {
-                position: 'top-right',
-                autoClose: 4000,
-              });
-            } else {
-              toast.error("Couldn't get your location. Please try again.", {
-                position: 'top-right',
-                autoClose: 4000,
-              });
-            }
-            resolve(false);
-          },
-          { enableHighAccuracy: false, timeout: 15000, maximumAge: 30000 }
-        );
+  const handleShareLocation = useCallback(async (): Promise<boolean> => {
+    const result = await requestCurrentPosition();
+    if (!result.ok) {
+      toast.error(result.error.message, {
+        position: 'top-right',
+        autoClose: result.error.code === 'unsupported' ? 3000 : 4000,
       });
-    return attempt(true);
-  }, [handleLocationSelect, panToSelectedLocation]);
+      return false;
+    }
+
+    const location = locationFromGps(result.position);
+    handleLocationSelect(location.lat, location.lng, location);
+    return true;
+  }, [handleLocationSelect]);
 
   const clearPendingGeocoding = useCallback(() => {
     if (geocodeTimerRef.current) {
@@ -143,7 +108,6 @@ export function useMapGeolocation({
   return {
     isShareLocating,
     setIsShareLocating,
-    panToSelectedLocation,
     handleLocationSelect,
     handleShareLocation,
     clearPendingGeocoding,
