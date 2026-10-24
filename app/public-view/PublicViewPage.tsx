@@ -51,7 +51,7 @@ import {
 
 // Dynamically import the map to avoid window is not defined errors
 const PublicMap = dynamic(() => import('@/components/PublicMap').then(mod => ({ default: mod.PublicMap })), {
-  loading: () => <PageLoader />,
+  loading: () => <PageLoader label="Loading map…" />,
   ssr: false,
 });
 
@@ -913,7 +913,7 @@ export function PublicViewPage({
           <section id="hazard-map" className="min-h-[100dvh] snap-start">
             <div className="flex h-[100dvh] overflow-hidden bg-white">
               <div className="relative isolate flex-1 w-full h-full min-h-0">
-                <PageLoader isLoading={isLoadingReports} />
+                <PageLoader isLoading={isLoadingReports} label="Loading flood reports…" />
                 <PublicMap
                   hideDisplayControls
                   onDisplaySettingsChange={setMapDisplay}

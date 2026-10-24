@@ -36,7 +36,7 @@ const SCENARIO_GROUPS = [
   },
   {
     type: 'pagasa_alert' as const,
-    title: 'Rainfall warning examples · 24h',
+    title: 'PAGASA rainfall thresholds · 24h',
     description: 'Hypothetical rainfall, not issued advisories.',
     badge: 'Example',
     badgeClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
@@ -74,7 +74,7 @@ export function ScenarioSelector({
   onSelectPreset,
   isLoading,
 }: ScenarioSelectorProps) {
-  const [showDetails, setShowDetails] = useState<boolean | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
   const [showModelInfo, setShowModelInfo] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -135,7 +135,7 @@ export function ScenarioSelector({
     <div className="flex flex-col gap-2 w-full text-xs leading-4 pointer-events-auto">
       {/* Dropdown Container */}
       <div className="relative" ref={dropdownRef}>
-        <div className="hud-card flex items-center gap-2 p-2 pl-2.5">
+        <div className="hud-card flex items-center gap-1.5 px-2.5 py-1.5 md:h-20 md:gap-2 md:p-2 md:pl-2.5">
           {/* Custom Dropdown Trigger Button */}
           <button
             ref={triggerRef}
@@ -157,11 +157,11 @@ export function ScenarioSelector({
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="mb-0.5 flex items-center gap-2 text-xs font-medium text-slate-500">
+              <div className="flex items-center gap-1.5 text-[10px] font-medium leading-4 text-slate-500 md:mb-0.5 md:gap-2 md:text-xs">
                 <span>Scenario</span>
-                <span className={`rounded px-1.5 py-0.5 text-xs leading-4 ${getAlertBadgeClass(activePreset.alertLevel, true)}`}>{activePreset.badge}</span>
+                <span className={`rounded px-1 py-0 text-[10px] leading-4 md:px-1.5 md:py-0.5 md:text-xs ${getAlertBadgeClass(activePreset.alertLevel, true)}`}>{activePreset.badge}</span>
               </div>
-              <div className="text-sm font-semibold leading-5 text-slate-900 group-hover:text-gakit-maroon transition-colors [text-wrap:balance]">
+              <div title={activePreset.name} className="truncate text-xs font-semibold leading-5 text-slate-900 group-hover:text-gakit-maroon transition-colors">
                 {activePreset.name}
               </div>
             </div>
@@ -177,10 +177,10 @@ export function ScenarioSelector({
           <div className="flex items-center pl-1 shrink-0">
             <button
               type="button"
-              onClick={() => setShowDetails(value => !(value ?? window.matchMedia('(min-width: 768px)').matches))}
+              onClick={() => setShowDetails(value => !value)}
               title="Scenario details"
               aria-label="Toggle scenario details"
-              aria-expanded={showDetails ?? undefined}
+              aria-expanded={showDetails}
               aria-controls={detailsId}
               className="flex min-h-11 min-w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-gakit-maroon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon transition-colors"
             >
@@ -204,7 +204,7 @@ export function ScenarioSelector({
               role="listbox"
               aria-label="Choose scenario"
               onKeyDown={handleOptionsKeyDown}
-              className="absolute left-0 right-0 top-full mt-1.5 z-[1300] max-h-[min(60dvh,26rem)] overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/95 p-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-slate-900/10 animate-in fade-in zoom-in-95 duration-100"
+              className="absolute left-0 right-0 top-full mt-1.5 z-[1300] max-h-[min(60dvh,26rem)] overflow-y-auto rounded-2xl border border-slate-200/90 bg-white/95 p-1 md:p-1.5 shadow-2xl backdrop-blur-xl ring-1 ring-slate-900/10 animate-in fade-in zoom-in-95 duration-100"
             >
               {SCENARIO_GROUPS.map((group, groupIdx) => {
                 const presetsInGroup = SCENARIO_PRESETS.filter(
@@ -216,21 +216,21 @@ export function ScenarioSelector({
                   <div
                     key={group.type}
                     className={
-                      groupIdx > 0 ? 'mt-2 pt-2 border-t border-slate-100' : ''
+                      groupIdx > 0 ? 'mt-1.5 pt-1.5 border-t border-slate-100 md:mt-2 md:pt-2' : ''
                     }
                   >
                     {/* Group Header */}
                     <div className="px-2 pt-1 pb-1 flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-600">
+                      <span className="text-[10px] font-semibold text-slate-600 md:text-xs">
                         {group.title}
                       </span>
                       <span
-                        className={`text-xs font-semibold px-1.5 py-0.5 rounded border ${group.badgeClass}`}
+                        className={`text-[9px] font-semibold px-1 py-0 rounded border md:px-1.5 md:py-0.5 md:text-xs ${group.badgeClass}`}
                       >
                         {group.badge}
                       </span>
                     </div>
-                    <p className="px-2 pb-1 text-xs leading-4 text-slate-600">{group.description}</p>
+                    <p className="hidden px-2 pb-1 text-xs leading-4 text-slate-600 md:block">{group.description}</p>
 
                     {/* Group Preset Options */}
                     <div className="space-y-0.5 mt-0.5">
@@ -246,15 +246,15 @@ export function ScenarioSelector({
                               onSelectPreset(preset);
                               closeDropdown();
                             }}
-                            className={`w-full flex items-center justify-between gap-2.5 min-h-11 rounded-xl px-2.5 py-2 text-left transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-inset group cursor-pointer ${
+                            className={`w-full flex items-center justify-between gap-1.5 min-h-11 rounded-lg px-2 py-1 text-left md:gap-2.5 md:rounded-xl md:px-2.5 md:py-2 transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-inset group cursor-pointer ${
                               isSelected
                                 ? 'bg-maroon-50/90 text-gakit-maroon ring-1 ring-maroon-200/90 shadow-xs'
                                 : 'text-slate-700 hover:bg-slate-100/70 hover:text-slate-900'
                             }`}
                           >
-                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1 md:gap-2.5">
                               <div
-                                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full transition-colors ${
+                                className={`flex h-4 w-4 md:h-5 md:w-5 shrink-0 items-center justify-center rounded-full transition-colors ${
                                   isSelected
                                     ? 'bg-maroon-700 text-white'
                                     : 'bg-slate-100 text-slate-500 group-hover:bg-slate-200 group-hover:text-slate-600'
@@ -269,7 +269,8 @@ export function ScenarioSelector({
 
                               <div className="min-w-0 flex-1">
                                 <div
-                                  className={`text-sm leading-5 [text-wrap:pretty] ${
+                                  title={preset.name}
+                                  className={`truncate text-[11px] leading-4 md:whitespace-normal md:text-sm md:leading-5 md:[text-wrap:pretty] ${
                                     isSelected
                                       ? 'font-semibold text-gakit-maroon'
                                       : 'font-semibold text-slate-800 group-hover:text-slate-900'
@@ -277,20 +278,18 @@ export function ScenarioSelector({
                                 >
                                   {preset.name}
                                 </div>
-                                <div className="flex items-center gap-1.5 text-xs leading-4 text-slate-500 mt-0.5 truncate">
+                                <div className="flex items-center gap-1 text-[10px] leading-3 text-slate-500 mt-0.5 truncate md:gap-1.5 md:text-xs md:leading-4">
                                   <span className="truncate">{preset.dates}</span>
-                                  <span>•</span>
-                                  <span className="font-medium text-slate-500 shrink-0">
-                                    {preset.type === 'live'
-                                      ? 'Updates hourly'
-                                      : `${preset.totalRain} total`}
-                                  </span>
+                                  {preset.type === 'live' && <>
+                                    <span>•</span>
+                                    <span className="shrink-0 font-medium">Updates hourly</span>
+                                  </>}
                                 </div>
                               </div>
                             </div>
 
                             <span
-                              className={`shrink-0 rounded-md px-1.5 py-0.5 text-xs font-semibold whitespace-nowrap border ${
+                              className={`shrink-0 rounded px-1 py-0.5 text-[10px] leading-3 font-semibold whitespace-nowrap border md:rounded-md md:px-1.5 md:text-xs md:leading-4 ${
                                 preset.alertLevel
                                   ? getAlertBadgeClass(preset.alertLevel)
                                   : isSelected
@@ -312,11 +311,11 @@ export function ScenarioSelector({
         )}
       </div>
 
-      {/* Storm Summary & Metadata Card (always visible on md+, collapsible on mobile) */}
+      {/* Scenario details are available on demand at every screen size. */}
       <div
         id={detailsId}
         className={`${
-          showDetails === null ? 'hidden md:flex' : showDetails ? 'flex' : 'hidden'
+          showDetails ? 'flex' : 'hidden'
         } hud-card max-h-[min(45dvh,24rem)] overflow-y-auto overscroll-contain p-3 flex-col gap-2`}
       >
         {/* Date and Time Header */}

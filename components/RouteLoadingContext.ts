@@ -8,7 +8,7 @@ export interface RouteLoaderContextValue {
   showLoader: () => void;
   hideLoader: () => void;
   loadingOverlay: ReactNode;
-  registerFallback: () => () => void;
+  registerFallback: (label?: string) => () => void;
 }
 
 export const RouteLoaderContext = createContext<RouteLoaderContextValue | null>(null);

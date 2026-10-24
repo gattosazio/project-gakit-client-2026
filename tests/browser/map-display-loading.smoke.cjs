@@ -30,19 +30,25 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
     window.listenerCount = () => [...listeners.values()].reduce((total, set) => total + set.size, 0);
     function Fixture() {
       const mapRef = useRef(map), layers = useRef(true);
-      const { loading, run } = useMapDisplayLoading(mapRef, layers);
+      const { loading, overlayLabel, run } = useMapDisplayLoading(mapRef, layers);
       const [settings, setSettings] = useState({ basemap: 'light', mode: '2d', showBuildings: true, smoothPolygons: true, showRoads: false, showBarangayBoundaries: false });
       const change = (key, field) => value => {
         setSettings(previous => ({ ...previous, [field]: value }));
         if (['basemap', 'mode', 'buildings'].includes(key)) run(key, () => { ready = false; });
       };
       window.pending = loading;
+      window.overlayLabel = overlayLabel;
+      window.runQuick = () => {
+        window.quickApplied = false;
+        run('buildings', () => { window.quickApplied = true; });
+        return window.quickApplied;
+      };
       window.runDeferred = () => run('mode', () => new Promise(resolve => { window.finishWork = resolve; }));
       window.runCamera = () => run('mode', () => { moving = true; });
-      window.runLayer = () => run('layers', () => { layerPending = true; }, () => layerPending);
+      window.runLayer = () => run('layers', () => { layerPending = true; }, () => layerPending, 'Loading satellite imagery…');
       window.finishLayerData = () => { layerPending = false; map.triggerRepaint(); };
       window.runFailure = () => run('buildings', () => { throw new Error('Expected fixture failure'); });
-      return <><PageLoader isLoading={Object.values(loading).some(Boolean)} /><MapDisplayPopover {...settings}
+      return <><PageLoader isLoading={overlayLabel !== null} label={overlayLabel || 'Loading map…'} /><MapDisplayPopover {...settings}
         onBasemapChange={change('basemap', 'basemap')} onModeChange={change('mode', 'mode')}
         onBuildingsChange={change('buildings', 'showBuildings')} onSmoothingChange={change('smoothing', 'smoothPolygons')}
         onRoadsChange={change('roads', 'showRoads')} onBarangayBoundariesChange={change('boundaries', 'showBarangayBoundaries')} /></>;
@@ -75,6 +81,10 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
       await page.getByRole('button', { name: 'Map display settings', exact: true }).click();
       const panel = page.getByRole('region', { name: 'Map display settings' });
       const initialHeight = (await panel.boundingBox()).height;
+      assert(await page.evaluate(() => window.runQuick()), 'Map work starts synchronously');
+      await page.waitForFunction(() => !window.pending.buildings);
+      await page.waitForTimeout(600);
+      assert.equal(await page.getByRole('status', { name: 'Loading page', exact: true }).count(), 0, 'Fast changes never flash a delayed overlay');
       const actions = [
         ['basemap', page.getByRole('button', { name: 'Satellite', exact: true })],
         ['mode', page.getByRole('switch', { name: '3D view', exact: true })],
@@ -84,7 +94,9 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
         await control.click();
         await page.waitForFunction(key => window.pending[key] && window.listenerCount() > 0, key);
         const overlay = page.getByRole('status', { name: 'Loading page', exact: true });
+        assert.equal(await overlay.count(), 0, 'No overlay immediately after a change');
         await overlay.waitFor();
+        await overlay.getByText({ basemap: 'Loading basemap…', mode: 'Switching map view…', buildings: 'Updating buildings…' }[key], { exact: true }).waitFor();
         assert.equal(await panel.locator('.flood-loader').count(), 0, 'No compact display animations');
         const bounds = await overlay.boundingBox();
         assert.equal(bounds.width, width);
@@ -119,13 +131,14 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
       await page.waitForFunction(() => window.pending.layers && window.listenerCount() > 0);
       await page.evaluate(() => window.emit('idle'));
       assert(await page.evaluate(() => window.pending.layers), 'Layer downloads keep the full-page animation visible after map idle');
+      await page.getByRole('status', { name: 'Loading page', exact: true }).getByText('Loading satellite imagery…', { exact: true }).waitFor();
       await page.evaluate(() => window.finishLayerData());
       await page.waitForFunction(() => !window.pending.layers);
       await page.getByRole('switch', { name: 'Buildings', exact: true }).click();
       await page.waitForFunction(() => window.listenerCount() > 0);
       await page.evaluate(() => window.unmountFixture());
       assert.equal(await page.evaluate(() => window.listenerCount()), 0, 'Unmount removes map listeners');
-      console.log('Map display ' + width + 'px: basemap/3D/buildings and layer downloads, stable height, tile/setup/camera completion, errors and cleanup passed');
+      console.log('Delayed map display ' + width + 'px: basemap/3D/buildings and layer downloads, stable height, tile/setup/camera completion, errors and cleanup passed');
     }
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }

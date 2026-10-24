@@ -234,7 +234,7 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
         {/* Wide screens place cards beside the header; smaller screens keep
             them below it so the three panels never overlap. */}
         <div className="absolute inset-0 z-10 pointer-events-none">
-          <div className="pointer-events-auto absolute left-3 right-3 top-[4.5rem] sm:right-auto sm:w-80 md:left-4 md:top-20 min-[1856px]:top-4">
+          <div className="pointer-events-auto absolute left-3 right-3 top-[calc(max(0.375rem,env(safe-area-inset-top,0px))+3.5rem)] sm:right-auto sm:w-80 md:left-4 md:top-20 min-[1856px]:top-4">
             <ScenarioSelector
               activePreset={activePreset}
               onSelectPreset={preset => { setReadyScenario(null); setActivePreset(preset); setScenarioData(null); setLoadError(null); setRasterState(null); setCurrentIndex(0); }}
