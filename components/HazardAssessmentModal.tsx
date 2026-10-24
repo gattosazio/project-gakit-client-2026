@@ -149,7 +149,6 @@ export function HazardAssessmentModal({
                   ? <p className="text-2xl font-bold tabular-nums tracking-tight text-sky-950">{rainfall.toFixed(1)} <span className="text-xs font-medium text-sky-800">{rainfallPeriod === 1 ? 'mm/hr' : 'mm'}</span></p>
                   : <p className="flex h-9 items-center text-sm font-medium text-sky-900">Unavailable</p>}
                 <p className="mt-1 text-xs text-sky-900">{rainfallPeriod === 1 ? '1-hour rate' : `${rainfallPeriod}-hour total`}</p>
-                {!isCheckingLocation && hasRainfall && rainfall === 0 && <p className="mt-0.5 text-[10px] text-sky-900/75">No rainfall recorded</p>}
               </section>
               {isOpen && <HeatIndexAssessment key={`${selectedLocation.lat},${selectedLocation.lng}`} lat={selectedLocation.lat} lng={selectedLocation.lng} />}
             </div>

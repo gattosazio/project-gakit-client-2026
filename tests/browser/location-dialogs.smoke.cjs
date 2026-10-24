@@ -157,7 +157,8 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
       else {
         await rainfall.getByText(new RegExp('^' + rain.toFixed(1).replace('.', '\\.') + '\\s')).waitFor();
         assert((await rainfall.innerText()).includes(hours === 1 ? 'mm/hr' : 'mm'));
-        if (rain === 0) await rainfall.getByText('No rainfall recorded', { exact: true }).waitFor();
+        assert(!(await rainfall.innerText()).includes('No rainfall recorded'));
+        assert((await rainfall.innerText()).includes(hours === 1 ? '1-hour rate' : `${hours}-hour total`));
       }
       const heatCard = assessment.getByRole('region', { name: 'Heat index forecast', exact: true });
       await heatCard.getByText(category, { exact: true }).waitFor();
