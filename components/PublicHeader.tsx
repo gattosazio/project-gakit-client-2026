@@ -29,6 +29,9 @@ export function PublicHeader({
   onSearchSelect,
   onLocate,
   showBentoMenu = false,
+  hideMobileAlertsAndMenu = false,
+  showAlerts = true,
+  guideVariant = 'map',
   showSectionNav = true,
   showBottomNav = true,
   onStartReport,
@@ -47,6 +50,9 @@ export function PublicHeader({
   onStartTour?: () => void;
   /** Adds the bento portals launcher left of the bell. */
   showBentoMenu?: boolean;
+  hideMobileAlertsAndMenu?: boolean;
+  showAlerts?: boolean;
+  guideVariant?: 'map' | 'scenarios';
   /** Hides the About button and the account pill. For pages with no About
    *  section, where the bento home row is the way back to the portal. */
   showSectionNav?: boolean;
@@ -273,7 +279,7 @@ export function PublicHeader({
       <div className="flex h-12 md:h-14 items-center justify-between px-2 md:px-5">
         <ValidationModeBadge />
         {/* Left: Brand Logo & Title */}
-        <div className="flex shrink-0 items-center gap-2 md:gap-3 min-w-0">
+        <div className={`flex items-center min-w-0 md:gap-3 ${showSectionNav ? 'shrink-0 gap-2' : 'flex-1 gap-1.5 md:flex-none md:shrink-0'}`}>
           {!showSectionNav && (
             <button
               type="button"
@@ -288,9 +294,9 @@ export function PublicHeader({
           )}
 
           {!showSectionNav && (
-            <div className="flex items-center gap-1.5 md:hidden min-w-0 ml-1 sm:ml-2">
+            <div className="flex min-w-0 items-center gap-1.5 md:hidden">
               <span className="truncate text-xs font-semibold text-gakit-maroon">
-                Flood sim
+                Flood scenarios
               </span>
               <span className="shrink-0 select-none rounded bg-amber-50 px-1 py-0.5 text-[10px] font-semibold leading-none text-amber-800">
                 Beta
@@ -334,7 +340,7 @@ export function PublicHeader({
         </div>
 
         {/* Center: Title (for Scenario Simulator) OR Location Search (for Hazard Map) */}
-        <div className="flex min-w-0 flex-1 items-center justify-center px-2">
+        <div className={`${!showSectionNav && !onSearchSelect ? 'hidden md:flex' : 'flex'} min-w-0 flex-1 items-center justify-center px-2`}>
           {!showSectionNav && (
             <div className="hidden min-w-0 items-center gap-2 md:inline-flex">
               <Waves className="h-3.5 w-3.5 shrink-0 text-gakit-maroon" />
@@ -371,6 +377,7 @@ export function PublicHeader({
             </button>}
             {extraAction}
             <HowToReportPopover
+              variant={guideVariant}
               isOpen={isInfoOpen}
               onToggle={() => {
                 setIsInfoOpen((open) => !open);
@@ -380,12 +387,12 @@ export function PublicHeader({
               onStartTour={onStartTour}
               containerRef={infoRef}
             />
-            <NotificationBell
+            {showAlerts && <NotificationBell
               notifications={weatherNotifications}
               onSelectAlert={setSelectedAlert}
               onMarkRead={markAlertRead}
               variant="header"
-            />
+            />}
             {showBentoMenu && (
               <BentoMenu
                 items={bentoTiles}
@@ -402,7 +409,7 @@ export function PublicHeader({
         {/* Mobile top-right cluster */}
         <div className="flex shrink-0 items-center gap-0.5 sm:gap-1 md:hidden [&>button]:h-8 [&>button]:min-w-8 [&>div>button]:h-8 [&>div>button]:min-w-8">
           {extraAction}
-          {showBentoMenu && !showBottomNav && (
+          {showBentoMenu && !showBottomNav && !hideMobileAlertsAndMenu && (
             <BentoMenu
               items={bentoTiles}
               onOpenChange={setIsMenuOpen}
@@ -413,6 +420,7 @@ export function PublicHeader({
             />
           )}
           <HowToReportPopover
+              variant={guideVariant}
             isOpen={isInfoOpen}
             onToggle={() => {
               setIsInfoOpen((v) => !v);
@@ -428,10 +436,10 @@ export function PublicHeader({
     </header>
 
     <div ref={toolbarRef} aria-label="Map toolbar"
-      className={`fixed inset-x-1.5 top-[calc(max(0.375rem,env(safe-area-inset-top,0px))+3.5rem)] z-[1150] ${activeSection === 'about' ? 'hidden' : 'flex'} h-9 items-start gap-1.5 pr-1 md:hidden`}>
+      className={`fixed inset-x-1.5 top-[calc(max(0.375rem,env(safe-area-inset-top,0px))+3.5rem)] z-[1150] ${activeSection === 'about' || hideMobileAlertsAndMenu ? 'hidden' : 'flex'} h-9 items-start gap-1.5 pr-1 md:hidden`}>
       <div data-map-mobile-controls-slot className="min-w-0 empty:hidden" />
-      <NotificationBell notifications={weatherNotifications} onSelectAlert={setSelectedAlert}
-        onMarkRead={markAlertRead} variant="toolbar" className="shrink-0" />
+      {showAlerts && <NotificationBell notifications={weatherNotifications} onSelectAlert={setSelectedAlert}
+        onMarkRead={markAlertRead} variant="toolbar" className="shrink-0" />}
     </div>
     {showBottomNav && <nav aria-label="Map navigation" className="pointer-events-none fixed bottom-0 inset-x-0 z-[1200] px-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom,0px))] md:hidden">
       <div className="pointer-events-auto mx-auto grid max-w-[240px] grid-cols-3 items-center gap-1.5 rounded-full border border-slate-200/80 bg-white/95 p-1 shadow-lg backdrop-blur-md">

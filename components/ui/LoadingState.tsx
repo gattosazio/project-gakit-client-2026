@@ -23,16 +23,18 @@ export function PageLoader({
   className = '',
   isLoading = true,
   standalone = false,
+  label = 'Loading page…',
 }: {
   className?: string;
   isLoading?: boolean;
   standalone?: boolean;
+  label?: string;
 }) {
   const route = useContext(RouteLoaderContext);
   const registerFallback = route?.registerFallback;
   useEffect(() => {
-    if (!standalone && isLoading && registerFallback) return registerFallback();
-  }, [standalone, isLoading, registerFallback]);
+    if (!standalone && isLoading && registerFallback) return registerFallback(label);
+  }, [standalone, isLoading, registerFallback, label]);
 
   // Next's route fallbacks signal the shared loader instead of stacking one.
   if (route && !standalone) return null;
@@ -45,7 +47,7 @@ export function PageLoader({
       aria-live="polite"
       className={`fixed inset-0 z-[2000] flex items-center justify-center bg-transparent backdrop-blur-md backdrop-brightness-[0.45] transition-opacity duration-200 ease-out motion-reduce:transition-none ${isLoading ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'} ${className}`}
     >
-      <FloodLoader active={isLoading} />
+      <FloodLoader active={isLoading} label={label} />
     </div>
   );
 }

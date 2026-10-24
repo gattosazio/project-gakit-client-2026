@@ -331,7 +331,7 @@ export function PublicMap({
   const [focusRoads, setFocusRoads] = useState(false);
   const showRoadsRef = useRef(false);
   const layersReadyRef = useRef(false);
-  const { loading: displayLoading, run: updateDisplay } = useMapDisplayLoading(mapRef, layersReadyRef);
+  const { overlayLabel: displayLoadingLabel, run: updateDisplay } = useMapDisplayLoading(mapRef, layersReadyRef);
   const onReadyFiredRef = useRef(false);
 
   const reportsLayer = useReportsLayer(reportFilters);
@@ -386,8 +386,8 @@ export function PublicMap({
     // Wake the readiness check when a fetch settles, even if the map was idle.
     mapRef.current?.triggerRepaint();
   }, [layerDataPending]);
-  const updateLayer = useCallback((apply: () => void | Promise<void>) => {
-    updateDisplay('layers', apply, () => layerDataPendingRef.current);
+  const updateLayer = useCallback((label: string, apply: () => void | Promise<void>) => {
+    updateDisplay('layers', apply, () => layerDataPendingRef.current, label);
   }, [updateDisplay]);
 
   useEffect(() => {
@@ -874,7 +874,7 @@ export function PublicMap({
         showBuildings: showBuildingsRef.current && !(hideBuildingsOnSatellite && basemapRef.current === 'satellite'),
         showRoads: showRoadsRef.current,
       });
-    });
+    }, undefined, `Switching to ${nextMode.toUpperCase()} view…`);
   }, [himawari.visibleRef, typhoon, hoursRef, hideBuildingsOnSatellite, updateDisplay]);
 
   const handleSmoothingChange = useCallback((smooth: boolean) => {
@@ -1195,7 +1195,7 @@ export function PublicMap({
   return (
     <div className="relative w-full h-full bg-canvas-grey">
       <div ref={mapContainer} className="w-full h-full touch-none select-none" />
-      <PageLoader isLoading={Object.values(displayLoading).some(Boolean)} />
+      <PageLoader isLoading={displayLoadingLabel !== null} label={displayLoadingLabel ?? 'Loading map layers…'} />
       {onStartReport && <button
         type="button"
         onClick={onStartReport}
@@ -1241,9 +1241,9 @@ export function PublicMap({
 
       <MapSidebar
         heatIndex={{ ...heatIndex,
-          setVisible: checked => updateLayer(() => heatIndex.setVisible(checked)),
-          setHour: hour => updateLayer(() => heatIndex.setHour(hour)),
-          retry: () => updateLayer(heatIndex.retry),
+          setVisible: checked => updateLayer('Updating heat index…', () => heatIndex.setVisible(checked)),
+          setHour: hour => updateLayer('Loading heat-index forecast…', () => heatIndex.setHour(hour)),
+          retry: () => updateLayer('Loading heat-index forecast…', heatIndex.retry),
         }}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={setIsSidebarCollapsed}
@@ -1257,9 +1257,9 @@ export function PublicMap({
         layersOpen={layersOpen}
         onToggleLayers={setLayersOpen}
         showFloodHazard={showFloodHazard}
-        onShowFloodHazardChange={checked => updateLayer(() => handleShowFloodHazardChange(checked))}
+        onShowFloodHazardChange={checked => updateLayer('Updating flood hazard…', () => handleShowFloodHazardChange(checked))}
         showSimulatedFlood={showSimulatedFlood}
-        onShowSimulatedFloodChange={checked => updateLayer(() => handleShowSimulatedFloodChange(checked))}
+        onShowSimulatedFloodChange={checked => updateLayer('Loading flood simulation…', () => handleShowSimulatedFloodChange(checked))}
         isLoadingSimulatedFlood={simulatedFlood.isPreparing}
         simulatedFloodHorizon={simulatedFlood.displayHorizon}
         onSimulatedFloodHorizonChange={simulatedFlood.selectHorizon}
@@ -1271,19 +1271,19 @@ export function PublicMap({
         simulatedFloodReplayIndex={simulatedFlood.replayIndex}
         onSimulatedFloodReplayChange={simulatedFlood.selectReplayFrame}
         showRainfall={showRainfall}
-        onShowRainfallChange={checked => updateLayer(() => handleShowRainfallChange(checked))}
+        onShowRainfallChange={checked => updateLayer('Updating rainfall…', () => handleShowRainfallChange(checked))}
         isLoadingRainfall={rainfall.isLoading}
         rainfallObservedAt={rainfall.rainfallObservedAt}
         rainfallSource={rainfall.rainfallSource}
         rainfallHours={rainfall.rainfallHours}
-        onRainfallHoursChange={hours => updateLayer(() => handleRainfallHoursChange(hours))}
+        onRainfallHoursChange={hours => updateLayer('Loading rainfall accumulation…', () => handleRainfallHoursChange(hours))}
         showHimawariIR={himawari.showHimawariIR}
-        onShowHimawariIRChange={checked => updateLayer(() => handleShowHimawariIRChange(checked))}
+        onShowHimawariIRChange={checked => updateLayer('Updating satellite imagery…', () => handleShowHimawariIRChange(checked))}
         isLoadingHimawari={himawari.isLoading}
         himawariOpacity={himawari.opacity}
         onHimawariOpacityChange={himawari.setOpacity}
         showTyphoonTrack={typhoon.showTyphoonTrack}
-        onShowTyphoonTrackChange={checked => updateLayer(() => handleShowTyphoonTrackChange(checked))}
+        onShowTyphoonTrackChange={checked => updateLayer('Updating typhoon tracks…', () => handleShowTyphoonTrackChange(checked))}
         isLoadingTyphoon={typhoon.isLoading}
         activeTyphoonName={typhoon.liveTyphoonData?.stormName}
         typhoonObservedAt={typhoon.liveTyphoonData?.latestPosition?.datetime || typhoon.liveTyphoonData?.fetchedAt}
@@ -1292,16 +1292,16 @@ export function PublicMap({
         onFocusStorm={typhoon.focusStorm}
         historicalStorms={typhoon.historicalStorms}
         selectedHistoricalStorm={typhoon.selectedHistoricalStorm}
-        onSelectHistoricalStorm={storm => updateLayer(() => typhoon.selectHistoricalStorm(storm))}
+        onSelectHistoricalStorm={storm => updateLayer('Loading historical typhoon track…', () => typhoon.selectHistoricalStorm(storm))}
         isLoadingHistory={typhoon.isLoadingHistory}
         showBarangayBoundaries={showBarangayBoundaries}
-        onShowBarangayBoundariesChange={checked => updateLayer(() => handleShowBarangayBoundariesChange(checked))}
+        onShowBarangayBoundariesChange={checked => updateLayer('Updating barangay boundaries…', () => handleShowBarangayBoundariesChange(checked))}
         showBarangayBoundariesToggle={!hideBarangayBoundariesToggle}
         showLandslide={showLandslide}
-        onShowLandslideChange={checked => updateLayer(() => handleShowLandslideChange(checked))}
+        onShowLandslideChange={checked => updateLayer('Updating landslide hazard…', () => handleShowLandslideChange(checked))}
         showStormSurge={showStormSurge}
         stormSurgeAdvisory={stormSurgeAdvisory}
-        onStormSurgeAdvisoryChange={advisory => updateLayer(() => handleStormSurgeAdvisoryChange(advisory))}
+        onStormSurgeAdvisoryChange={advisory => updateLayer('Updating storm surge…', () => handleStormSurgeAdvisoryChange(advisory))}
         reportsOpen={reportsOpen}
         onToggleReports={setReportsOpen}
         visibleReportStatuses={visibleReportStatuses}
@@ -1459,7 +1459,7 @@ export function PublicMap({
         title="Satellite imagery temporarily down"
         message="Himawari satellite imagery is temporarily unavailable. Please try again later."
         onClose={himawari.dismissFailure}
-        onRetry={() => updateLayer(himawari.retry)}
+        onRetry={() => updateLayer('Loading satellite imagery…', himawari.retry)}
       />
 
     </div>

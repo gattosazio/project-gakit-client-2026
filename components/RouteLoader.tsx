@@ -28,16 +28,29 @@ function RouteChangeWatcher({ onRouteChange }: { onRouteChange: () => void }) {
   return null;
 }
 
-export function RouteLoadingOverlay({ isLoading }: { isLoading: boolean }) {
-  return <PageLoader isLoading={isLoading} standalone />;
+export function RouteLoadingOverlay({ isLoading, label = 'Loading page…' }: { isLoading: boolean; label?: string }) {
+  return <PageLoader isLoading={isLoading} label={label} standalone />;
 }
 
 const MIN_DISPLAY_TIME_MS = 150;
 const SAFETY_TIMEOUT_MS = 8000;
 
+function routeLabel(href: string) {
+  const path = new URL(href, window.location.href).pathname;
+  if (path.startsWith('/flood-scenarios')) return 'Loading flood scenarios…';
+  if (path.startsWith('/monitoring')) return 'Loading monitoring…';
+  if (path.startsWith('/settings')) return 'Loading settings…';
+  if (path.startsWith('/admin')) return 'Loading administration…';
+  if (path.startsWith('/login')) return 'Loading login…';
+  if (path === '/' || path.startsWith('/public-view')) return 'Loading map…';
+  return 'Loading page…';
+}
+
 export function RouteLoaderProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingLabel, setLoadingLabel] = useState('Loading page…');
+  const fallbackLabels = useRef(new Map<symbol, string>());
   const startTimeRef = useRef<number>(0);
   const contentRef = useRef<HTMLDivElement>(null);
   const snapshotRef = useRef<HTMLDivElement>(null);
@@ -45,7 +58,8 @@ export function RouteLoaderProvider({ children }: { children: React.ReactNode })
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastPathRef = useRef<string | null>(null);
 
-  const showLoader = useCallback(() => {
+  const showLoader = useCallback((label = 'Loading page…') => {
+    setLoadingLabel(label);
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     if (contentRef.current && snapshotRef.current && !snapshotRef.current.hasChildNodes()) {
       try {
@@ -74,11 +88,17 @@ export function RouteLoaderProvider({ children }: { children: React.ReactNode })
     hideTimerRef.current = setTimeout(finish, remaining);
   }, []);
 
-  const registerFallback = useCallback(() => {
+  const registerFallback = useCallback((label = 'Loading page…') => {
+    const id = Symbol();
+    fallbackLabels.current.set(id, label);
+    setLoadingLabel(label);
     fallbackCountRef.current++;
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     setIsLoading(true);
     return () => {
+      fallbackLabels.current.delete(id);
+      const remaining = [...fallbackLabels.current.values()];
+      if (remaining.length) setLoadingLabel(remaining[remaining.length - 1]);
       fallbackCountRef.current--;
       if (fallbackCountRef.current === 0) hideLoader();
     };
@@ -95,7 +115,7 @@ export function RouteLoaderProvider({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     const onHistoryNavigation = () => {
-      if (lastPathRef.current && lastPathRef.current !== window.location.pathname) showLoader();
+      if (lastPathRef.current && lastPathRef.current !== window.location.pathname) showLoader(routeLabel(window.location.href));
     };
     // Capture the outgoing view before the router handles browser Back/Forward.
     window.addEventListener('popstate', onHistoryNavigation, true);
@@ -135,7 +155,7 @@ export function RouteLoaderProvider({ children }: { children: React.ReactNode })
         /* proceed to navigate */
       }
 
-      showLoader();
+      showLoader(routeLabel(href));
 
       if (options?.replace) {
         router.replace(href);
@@ -184,7 +204,7 @@ export function RouteLoaderProvider({ children }: { children: React.ReactNode })
         }
 
         // Cross-page link triggered: show loading screen immediately
-        showLoader();
+        showLoader(routeLabel(href));
       } catch {
         /* ignore invalid URL parsing */
       }
@@ -211,7 +231,7 @@ export function RouteLoaderProvider({ children }: { children: React.ReactNode })
       <div ref={contentRef} className="contents" data-route-content>{children}</div>
       <div ref={snapshotRef} aria-hidden="true" inert data-route-snapshot
         className="fixed inset-0 z-[1999] overflow-hidden bg-white pointer-events-none select-none" />
-      <RouteLoadingOverlay isLoading={isLoading} />
+      <RouteLoadingOverlay isLoading={isLoading} label={loadingLabel} />
     </RouteLoaderContext.Provider>
   );
 }

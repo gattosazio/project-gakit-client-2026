@@ -18,15 +18,17 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
     import { PageLoader } from '@/components/ui/LoadingState';
     function Portal() {
       const [pending, setPending] = useState(false);
+      const [reportsPending, setReportsPending] = useState(true);
       const [arrived, setArrived] = useState(false);
       const { navigate } = useRouteLoader();
       window.beginPortalLoad = () => setPending(true);
+      window.finishReportLoad = () => setReportsPending(false);
       window.finishPortalLoad = () => { setArrived(true); setPending(false); };
       useEffect(() => {
         const canvas = document.querySelector('[data-fixture-canvas]');
         if (canvas) { const context = canvas.getContext('2d'); context.fillStyle = '#7a0019'; context.fillRect(0, 0, 100, 40); }
       }, [arrived, pending]);
-      if (pending) return <><PageLoader /><PageLoader /></>;
+      if (pending) return <><PageLoader label="Loading administration…" />{reportsPending && <PageLoader label="Loading flood reports…" />}</>;
       return <main style={{ minHeight: '100vh', padding: 24, background: '#f8fafc' }}>
         <h1>{arrived ? 'Administration portal' : 'Monitoring portal'}</h1>
         <button onClick={() => navigate('/admin')}>Switch portal</button>
@@ -83,6 +85,9 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
       const overlay = page.getByRole('status', { name: 'Loading page', exact: true });
       await overlay.waitFor();
       assert.equal(await overlay.count(), 1, 'Nested route fallbacks share one overlay');
+      await overlay.getByText('Loading flood reports…', { exact: true }).waitFor();
+      await page.evaluate(() => window.finishReportLoad());
+      await overlay.getByText('Loading administration…', { exact: true }).waitFor();
       const snapshot = page.locator('[data-route-snapshot]');
       assert((await snapshot.textContent()).includes('Monitoring portal'));
       assert.equal(await snapshot.locator('[data-fixture-scroll]').evaluate(element => element.scrollTop), 120);
