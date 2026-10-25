@@ -13,6 +13,7 @@ import {
 import { Spinner } from '@/components/ui/Spinner';
 import { FloodLoader } from '@/components/ui/FloodLoader';
 import type { HeatIndexControlState } from '@/components/map/HeatIndexDetails';
+import type { DroughtControlState } from '@/components/map/DroughtControls';
 import { WeatherChip } from '@/components/map/WeatherChip';
 import { DataLayerControls, ReportControls } from '@/components/map/MapControls';
 import { usePointOutlook } from '@/hooks/usePointOutlook';
@@ -26,6 +27,7 @@ import type { SimulatedFloodHorizon, SimulatedFloodTelemetry } from '@/lib/map/s
 import type { ScenarioFrame } from '@/types/scenario';
 
 export interface MapSidebarProps {
+  drought?: DroughtControlState;
   heatIndex?: HeatIndexControlState;
   isCollapsed: boolean;
   onToggleCollapse: (collapsed: boolean) => void;
@@ -105,6 +107,7 @@ export interface MapSidebarProps {
 }
 
 export function MapSidebar({
+  drought,
   heatIndex,
   isCollapsed,
   onToggleCollapse,
@@ -255,6 +258,7 @@ export function MapSidebar({
     showSimulatedFlood,
     showRainfall,
     heatIndex?.visible,
+    drought?.visible,
     showHimawariIR,
     showTyphoonTrack,
     showLandslide,
@@ -518,6 +522,7 @@ export function MapSidebar({
             {/* Map Layers Card */}
             <div ref={layersCardRef} className={`${fullScreen && !layersOpen ? 'hidden md:block' : ''} w-full`}>
               <DataLayerControls
+                drought={drought}
                 heatIndex={heatIndex}
                 open={layersOpen}
                 onToggle={handleToggleLayers}

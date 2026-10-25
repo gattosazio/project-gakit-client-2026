@@ -13,6 +13,7 @@ import { Check, ChevronDown, ChevronUp, History, Info, Layers, MapPin, RotateCwF
 import { Spinner } from '@/components/ui/Spinner';
 import { FloodLoader } from '@/components/ui/FloodLoader';
 import { HeatIndexDetails, type HeatIndexControlState } from '@/components/map/HeatIndexDetails';
+import type { DroughtControlState } from '@/components/map/DroughtControls';
 import {
   BASEMAP_LABELS,
   REPORT_MARKER_COLORS,
@@ -145,7 +146,7 @@ function PillToggle({
                 style={{ backgroundColor: indicatorDot }}
               />
             )}
-            <span className="truncate leading-none">{label}</span>
+            <span className="truncate leading-tight">{label}</span>
             {beta && <sup className="relative -top-1 shrink-0 select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase leading-none tracking-wider text-amber-800 shadow-xs ring-1 ring-inset ring-amber-200/70">Beta</sup>}
             {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
             {loading && <FloodLoader compact label={`Loading ${label}`} />}
@@ -481,6 +482,7 @@ export function ReportControls({
 /* ─── Data layer controls card ────────────────────────────────────────── */
 
 interface DataLayerControlsProps {
+  drought?: DroughtControlState;
   heatIndex?: HeatIndexControlState;
   open: boolean;
   onToggle: (open: boolean) => void;
@@ -868,6 +870,7 @@ function StormTrackSelector({
 }
 
 export function DataLayerControls({
+  drought,
   heatIndex,
   open,
   onToggle,
@@ -1064,7 +1067,7 @@ export function DataLayerControls({
         </div>
 
         <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-          Weather &amp; Satellite
+          Weather &amp; Climate
           <CoverageChip label="Philippines" detail="Covers the Philippines" />
         </div>
 
@@ -1153,6 +1156,12 @@ export function DataLayerControls({
             credit={{ href: 'https://www.ecmwf.int/', label: 'ECMWF' }}
           />
           {heatIndex.visible && <HeatIndexDetails state={heatIndex} />}
+        </>}
+
+        {drought && <>
+          <PillToggle label="Drought conditions" checked={drought.visible}
+            onChange={drought.setVisible} loading={drought.visible && drought.loading}
+            credit={{ href: 'https://droughtcaster.pagasa.dost.gov.ph/', label: 'DOST-PAGASA' }} />
         </>}
 
         <PillToggle

@@ -97,6 +97,7 @@ export function PublicViewPage({
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [rainfallHours, setRainfallHours] = useState(1);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [droughtActive, setDroughtActive] = useState(false);
   const [welcomePinnedLocation, setWelcomePinnedLocation] = useState<SelectedLocation | null>(null);
   const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('closed');
   const [onboardingLocationStatus, setOnboardingLocationStatus] =
@@ -810,6 +811,7 @@ export function PublicViewPage({
         onLocate={handleLocate}
         showBentoMenu
         onStartReport={handleStartReport}
+        hideReportButton={droughtActive}
         onStartTour={startMapTour}
       />
       </div>
@@ -832,6 +834,7 @@ export function PublicViewPage({
                 <PageLoader isLoading={isLoadingReports} label="Loading flood reports…" />
                 <PublicMap
                   onCampusFocusChange={setIsCampusFocus}
+                  onDroughtVisibilityChange={setDroughtActive}
                   hideDisplayControls
                   onDisplaySettingsChange={setMapDisplay}
                   mapApiRef={mapRef}

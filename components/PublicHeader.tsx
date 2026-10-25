@@ -34,6 +34,7 @@ export function PublicHeader({
   showSectionNav = true,
   showBottomNav = true,
   onStartReport,
+  hideReportButton = false,
   extraAction,
   onStartTour,
 }: {
@@ -44,6 +45,7 @@ export function PublicHeader({
   onLocate?: () => void | Promise<void>;
   /** Starts reporting from the mobile navigation bar. */
   onStartReport?: () => void;
+  hideReportButton?: boolean;
   showBottomNav?: boolean;
   /** Replays the guided map tour from the Platform Guide. */
   onStartTour?: () => void;
@@ -428,19 +430,19 @@ export function PublicHeader({
         onMarkRead={markAlertRead} variant="toolbar" className="shrink-0" />}
     </div>
     {showBottomNav && <nav aria-label="Map navigation" className="pointer-events-none fixed bottom-0 inset-x-0 z-[1200] px-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom,0px))] md:hidden">
-      <div className="pointer-events-auto mx-auto grid max-w-[240px] grid-cols-3 items-center gap-1.5 rounded-full border border-slate-200/80 bg-white/95 p-1 shadow-lg backdrop-blur-md">
+      <div className={`pointer-events-auto mx-auto grid ${hideReportButton ? 'max-w-[160px] grid-cols-2' : 'max-w-[240px] grid-cols-3'} items-center gap-1.5 rounded-full border border-slate-200/80 bg-white/95 p-1 shadow-lg backdrop-blur-md`}>
         <button type="button" onClick={() => scrollToSection(activeSection === 'about' ? 'hazard-map' : 'about')}
           className="flex h-10 flex-col items-center justify-center gap-0.5 rounded-full text-slate-600 transition-colors hover:bg-slate-100">
           {activeSection === 'about' ? <MapPinned className="h-4 w-4" aria-hidden="true" /> : <Info className="h-4 w-4" aria-hidden="true" />}
           <span className="text-[10px] font-semibold">{activeSection === 'about' ? 'Map' : 'About'}</span>
         </button>
-        <button type="button" onClick={onStartReport} data-tour="report" aria-label="Report flooding"
+        {!hideReportButton && <button type="button" onClick={onStartReport} data-tour="report" aria-label="Report flooding"
           className="group relative flex h-10 items-end justify-center rounded-full text-gakit-maroon transition-transform active:scale-95 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon">
           <span className="absolute -top-5 left-1/2 flex h-12 w-12 -translate-x-1/2 items-center justify-center rounded-full border border-slate-200/80 bg-white shadow-[0_3px_12px_rgba(15,23,42,0.12)] transition-colors group-hover:bg-maroon-50">
             <MapPinPlus className="h-6 w-6" strokeWidth={1.8} aria-hidden="true" />
           </span>
           <span className="whitespace-nowrap pb-0.5 text-[10px] font-semibold leading-3">Report flood</span>
-        </button>
+        </button>}
         {showBentoMenu && <BentoMenu items={bentoTiles} variant="mobile-nav"
           onOpenChange={setIsMenuOpen} onSignOut={requestSignOut} isSigningOut={isSigningOut}
           onNavigateSection={scrollToSection} activeSection={activeSection} />}
