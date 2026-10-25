@@ -18,6 +18,9 @@ import { PageLoader } from '@/components/ui/LoadingState';
 import { FloodSimulationTimeline } from '@/components/map/FloodSimulationTimeline';
 import { PinnedLocationActions, type PinActions } from '@/components/map/PinnedLocationActions';
 import { toast } from 'react-toastify';
+import dynamic from 'next/dynamic';
+
+const DroughtControls = dynamic(() => import('@/components/map/DroughtControls'), { ssr: false });
 
 import * as maplibregl from 'maplibre-gl';
 
@@ -86,6 +89,7 @@ import { formatReportDepth, STATUS_META, timeAgo } from '@/lib/reports/reportFor
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useRainfallLayer } from '@/hooks/useRainfallLayer';
 import { useHeatIndexLayer } from '@/hooks/useHeatIndexLayer';
+import { useDroughtLayer } from '@/hooks/useDroughtLayer';
 import { useReportsLayer } from '@/hooks/useReportsLayer';
 import { FailureModal } from '@/components/ui/FailureModal';
 import { useHimawariLayer } from '@/hooks/useHimawariLayer';
@@ -171,6 +175,7 @@ interface PublicMapProps {
   defaultShowBarangayBoundaries?: boolean;
   /** Triggered when the user clicks the dedicated "Report Flooding" HUD card button. */
   onStartReport?: () => void;
+  onDroughtVisibilityChange?: (visible: boolean) => void;
   /** Initial sidebar collapse state. Embedded maps default to collapsed icon rail. */
   defaultSidebarCollapsed?: boolean;
   /** Guided map tour is driving the sidebar. */
@@ -260,6 +265,7 @@ export function PublicMap({
   hideBuildingsOnSatellite = false,
   defaultShowBarangayBoundaries = false,
   onStartReport,
+  onDroughtVisibilityChange,
   defaultSidebarCollapsed,
   onDisplaySettingsChange,
   hideDisplayControls = false,
@@ -382,6 +388,12 @@ export function PublicMap({
 
   const rainfall = useRainfallLayer(mapRef, showRainfall);
   const heatIndex = useHeatIndexLayer(mapRef);
+  const drought = useDroughtLayer(mapRef);
+  useEffect(() => { onDroughtVisibilityChange?.(drought.visible); }, [drought.visible, onDroughtVisibilityChange]);
+  useEffect(() => () => onDroughtVisibilityChange?.(false), [onDroughtVisibilityChange]);
+  const droughtVisibleRef = useRef(false);
+  useLayoutEffect(() => { droughtVisibleRef.current = drought.visible; }, [drought.visible]);
+  const applyDroughtPreloaded = drought.applyPreloaded;
   const { loadRainfall, lookupPrecip, applyPreloaded, hoursRef } = rainfall;
 
   const handleRainfallHoursChange = useCallback(
@@ -782,7 +794,7 @@ export function PublicMap({
   const applySelectedMarker = useCallback(
     (map: any) => {
       const location = selectedLocationRef.current;
-      if (!location || !maplibregl) {
+      if (droughtVisibleRef.current || !location || !maplibregl) {
         selectedMarkerRef.current?.remove();
         selectedMarkerRef.current = null;
         return;
@@ -861,6 +873,7 @@ export function PublicMap({
         applyPreloaded(map);
         typhoon.applyPreloaded(map);
         heatIndex.applyPreloaded(map);
+        applyDroughtPreloaded(map);
       })();
 
       void loadMapReportsRef.current?.();
@@ -868,6 +881,7 @@ export function PublicMap({
     [
       attachLayerEvents,
       heatIndex.applyPreloaded,
+      applyDroughtPreloaded,
       applyReportData,
       applySelectedMarker,
       applyPreloaded,
@@ -1020,7 +1034,7 @@ export function PublicMap({
     if (mapRef.current) {
       applySelectedMarker(mapRef.current);
     }
-  }, [selectedLocation, applySelectedMarker]);
+  }, [selectedLocation, drought.visible, applySelectedMarker]);
 
   useEffect(() => {
     if (!mapContainer.current || !maplibregl) return;
@@ -1116,6 +1130,8 @@ export function PublicMap({
       if (campusFocusRef.current && !isInsideIit(e.lngLat.lng, e.lngLat.lat)) return;
       // Location selection only fires on land; interactive features own their clicks.
       const interactiveLayers = [
+        'drought-province-raised',
+        'drought-provinces-layer',
         'report-points',
         'report-clusters',
         'typhoon-track-point-circle',
@@ -1126,6 +1142,7 @@ export function PublicMap({
         layers: interactiveLayers,
       });
       if (hit.length) return;
+      if (droughtVisibleRef.current) return;
       try {
         const isLand = await canAssessMapLocation(map, e.lngLat.lat, e.lngLat.lng);
         if (!isLand || pick !== locationPick || mapRef.current !== map) return;
@@ -1272,6 +1289,7 @@ export function PublicMap({
   return (
     <div className="relative w-full h-full bg-canvas-grey">
       <div ref={mapContainer} className="w-full h-full touch-none select-none" />
+      {drought.visible && <DroughtControls state={drought} />}
       {campusFocus && (
         <div role="region" aria-label="Campus focus" className="absolute bottom-[calc(env(safe-area-inset-bottom,0px)+7rem)] left-1/2 z-[1010] flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 rounded-2xl border border-white/80 bg-white px-3 py-2 shadow-lg md:bottom-auto md:top-5">
           <Focus className="h-5 w-5 shrink-0 text-gakit-maroon" aria-hidden="true" />
@@ -1281,7 +1299,7 @@ export function PublicMap({
           </button>
         </div>
       )}
-      {mapReady && selectedLocation && selectedLocationActions && (
+      {!drought.visible && mapReady && selectedLocation && selectedLocationActions && (
         <PinnedLocationActions
           key={`${selectedLocation.lat},${selectedLocation.lng}`}
           mapRef={mapRef}
@@ -1290,7 +1308,7 @@ export function PublicMap({
         />
       )}
       <PageLoader isLoading={displayLoadingLabel !== null} label={displayLoadingLabel ?? 'Loading map layers…'} />
-      {onStartReport && !campusFocus && <button
+      {onStartReport && !campusFocus && !drought.visible && <button
         type="button"
         onClick={onStartReport}
         data-tour="report"
@@ -1334,6 +1352,10 @@ export function PublicMap({
       {fullScreen && mapReady && <MapScaleRuler mapRef={mapRef} />}
 
       <MapSidebar
+        drought={{ ...drought, setVisible: visible => {
+          drought.setVisible(visible);
+          if (visible && window.innerWidth < 768) setLayersOpen(false);
+        } }}
         heatIndex={{ ...heatIndex,
           setVisible: checked => updateLayer('Updating heat index…', () => heatIndex.setVisible(checked)),
           setHour: hour => updateLayer('Loading heat-index forecast…', () => heatIndex.setHour(hour)),
