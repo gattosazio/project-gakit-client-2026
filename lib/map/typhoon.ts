@@ -516,7 +516,7 @@ export function buildTyphoonPopupHtml(props: TyphoonProperties): string {
 
 
   return `
-    <div class="gakit-tooltip typhoon-popup min-w-[260px] sm:min-w-[280px] text-slate-800" style="font-family: var(--font-inter), system-ui, sans-serif;">
+    <div class="gakit-tooltip typhoon-popup min-w-[260px] sm:min-w-[280px] text-slate-800" style="font-family: 'Cal Sans', system-ui, sans-serif;">
       <div class="flex items-center gap-2 mb-2 pb-2 border-b border-slate-100" style="padding-right: 36px;">
         <img src="/icons/pagasa/${typeCode}.png" alt="${typeConfig.name} (${typeCode})" width="28" height="28" class="shrink-0 object-contain" />
         <div class="font-bold text-xs text-slate-900 truncate min-w-0 flex-1 leading-tight" title="${escapeHtml(name)}">${escapeHtml(name)}</div>

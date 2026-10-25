@@ -16,6 +16,7 @@
     "@maplibre/vt-pbf": "4.3.2",
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.2",
+    "cal-sans": "^2.1.1",
     "lucide-react": "^1.35.0",
     "maplibre-gl": "^6.6.0",
     "next": "^16.4.2",

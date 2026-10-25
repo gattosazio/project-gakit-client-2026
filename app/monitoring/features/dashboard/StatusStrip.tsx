@@ -139,7 +139,7 @@ export function StatusStrip({ current, alerts, alertsCheckedAt, alertsError = fa
                 <span className={`text-[10px] font-bold uppercase tracking-wider truncate ${
                   isDarkAtmosphere ? 'text-slate-400' : 'text-slate-600'
                 }`}>
-                  Iligan City · Model estimate · {manilaTimestamp(new Date(current.observedAt))} PHT{currentError ? ' · Update delayed' : ''}
+                  Iligan City · {manilaTimestamp(new Date(current.observedAt))} PHT{currentError ? ' · Update delayed' : ''}
                 </span>
                 {digest && (
                   <span className={`inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold transition-colors ${

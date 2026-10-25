@@ -43,7 +43,7 @@ export function DroughtTimeline({ state, periods, overviewOpen, onOverview }: {
   const commit = () => { if (scrub !== null && periods[scrub]) { setPlaying(false); select(periods[scrub]); } };
   const message = state.error ?? (state.mode === 'forecast' ? state.catalog?.forecastMessage : state.catalog?.observedMessage);
   return <section aria-label="Drought timeline" className="absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom,0px)+4rem)] z-[1010] md:bottom-5 md:left-[max(340px,calc(50%-330px))] md:right-auto md:w-[min(620px,calc(100%-380px))]">
-    <div aria-label="Drought map legend" className="mb-1.5 flex items-center justify-center gap-1 text-[8px] md:mb-2 md:gap-1.5 md:text-[9px]">
+    <div aria-label="Drought map legend" className="mb-1.5 flex items-center justify-center gap-1 font-bold text-[8px] md:mb-2 md:gap-1.5 md:text-[9px]">
       <span className="mr-1 hidden text-slate-500 md:inline">STATUS</span>
       {STATUS_BANDS.map(b => <span key={b.label} className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-white/90 px-1 py-1 shadow-sm md:px-1.5"><span className="h-2 w-2 rounded-sm ring-1 ring-black/10" style={{ backgroundColor: b.color }} />{b.label}</span>)}
     </div>
@@ -52,7 +52,7 @@ export function DroughtTimeline({ state, periods, overviewOpen, onOverview }: {
       <div className="w-[65px] shrink-0 md:w-[78px]"><p className="whitespace-nowrap text-[11px] font-bold text-slate-800 md:text-xs" aria-live="polite">{shown ? droughtMonthLabel(shown.month) : 'Drought'}</p><span className={`whitespace-nowrap text-[8px] font-bold uppercase ${state.mode === 'forecast' ? 'text-cyan-700' : 'text-slate-400'}`}>{state.mode === 'forecast' ? 'Forecast' : 'Observed'}<span className="hidden md:inline"> · PAGASA</span></span></div>
       <div ref={ticksRef} className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:none]" role="group" aria-label="Drought months">
         {periods.length > 0 && <div className="relative" style={{ minWidth: periods.length * 24 }}>
-          <div className="flex h-3 text-[7px] font-semibold uppercase leading-3 text-slate-400"><span style={{ width: `${observed / periods.length * 100}%` }}>Observed</span>{observed < periods.length && <span className="text-cyan-600">Forecast</span>}</div>
+          <div className="flex h-3 text-[7px] font-bold uppercase leading-3 text-slate-400"><span style={{ width: `${observed / periods.length * 100}%` }}>Observed</span>{observed < periods.length && <span className="text-cyan-600">Forecast</span>}</div>
           <div className="absolute left-3 right-3 top-[17px] h-0.5 bg-slate-200" />
           <input aria-label="Drought month slider" type="range" min={0} max={periods.length - 1} step={1} value={displayed}
             aria-valuetext={shown ? `${droughtMonthLabel(shown.month)}, ${shown.mode}` : ''} onChange={e => setScrub(Number(e.target.value))}
