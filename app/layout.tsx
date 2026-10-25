@@ -1,22 +1,8 @@
 import type { Metadata } from 'next';
-import { Inter, Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
+import 'cal-sans';
 import 'react-toastify/dist/ReactToastify.css';
 import { ClientProviders } from './providers';
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-  preload: false,
-});
-
-const plusJakarta = Plus_Jakarta_Sans({
-  subsets: ['latin'],
-  variable: '--font-heading',
-  display: 'swap',
-  preload: false,
-});
 
 export const metadata: Metadata = {
   title: 'GAKIT - Geohazard Assessment & Knowledge Integration Tool',
@@ -31,7 +17,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${plusJakarta.variable}`}>
+    <html lang="en">
       <head>
         {/* Warm up connections for the basemap and terrain so the map paints faster on first load */}
         <link rel="preconnect" href="https://tiles.openfreemap.org" crossOrigin="anonymous" />

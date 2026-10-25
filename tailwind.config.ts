@@ -8,8 +8,12 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
-        heading: ['var(--font-heading)', 'var(--font-inter)', 'system-ui', 'sans-serif'],
+        sans: ['Cal Sans', 'system-ui', 'sans-serif'],
+        heading: ['Cal Sans', 'system-ui', 'sans-serif'],
+      },
+      fontWeight: {
+        normal: '500',
+        medium: '500',
       },
       colors: {
         // GAKIT Brand Colors
