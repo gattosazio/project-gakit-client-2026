@@ -23,6 +23,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.112.2
         version: 2.117.3
+      cal-sans:
+        specifier: ^2.1.1
+        version: 2.1.1
       lucide-react:
         specifier: ^1.35.0
         version: 1.52.0(@types/react@19.3.0)(react@19.3.0)
@@ -1070,6 +1073,9 @@ packages:
     resolution: {integrity: sha512-1R4kiYKXGViqEN0CnoDrXc1StD9niAwu+j2dukWzrD4bJgsD4lDmEp0CRbc6E/vYJIfTHwPmwyaKtVSudICdPA==}
     engines: {node: ^6 || ^7 || ^8 || ^9 || ^10 || ^11 || ^12 || >=13.7}
     hasBin: true
+
+  cal-sans@2.1.1:
+    resolution: {integrity: sha512-Aze+2yZNbKtzUvi17PjHkmja1CMvse1oyPs3GTn61nfNvaJhVGf13qtwgG3Zu1IunVL1mTVpaWcBBOPpTN0Dkg==}
 
   call-bind-apply-helpers@1.0.2:
     resolution: {integrity: sha512-Sp1ablJ0ivDkSzjcaJdxEunN5/XvksFJ2sMBFfq6x0ryhQV/2b/KwFe21cMpmHtPOSij8K99/wSfoEuTObmuMQ==}
@@ -3498,6 +3504,8 @@ snapshots:
       electron-to-chromium: 1.5.451
       node-releases: 2.0.57
       update-browserslist-db: 1.3.4(browserslist@4.29.3)
+
+  cal-sans@2.1.1: {}
 
   call-bind-apply-helpers@1.0.2:
     dependencies:
