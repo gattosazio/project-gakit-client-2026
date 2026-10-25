@@ -389,6 +389,7 @@ export function PublicMap({
   const rainfall = useRainfallLayer(mapRef, showRainfall);
   const heatIndex = useHeatIndexLayer(mapRef);
   const drought = useDroughtLayer(mapRef);
+  const setDroughtVisible = drought.setVisible;
   useEffect(() => { onDroughtVisibilityChange?.(drought.visible); }, [drought.visible, onDroughtVisibilityChange]);
   useEffect(() => () => onDroughtVisibilityChange?.(false), [onDroughtVisibilityChange]);
   const droughtVisibleRef = useRef(false);
@@ -491,6 +492,10 @@ export function PublicMap({
   }, []);
 
   const handleShowSimulatedFloodChange = useCallback((checked: boolean) => {
+    if (checked && droughtVisibleRef.current) {
+      setDroughtVisible(false);
+      droughtVisibleRef.current = false;
+    }
     setShowSimulatedFlood(checked);
     showSimulatedFloodRef.current = checked;
     if (mapRef.current?.getLayer('simulation-flood-grid')) {
@@ -500,7 +505,7 @@ export function PublicMap({
         'none'
       );
     }
-  }, []);
+  }, [setDroughtVisible]);
 
   const handleShowRainfallChange = useCallback((checked: boolean) => {
     setShowRainfall(checked);
@@ -1353,6 +1358,8 @@ export function PublicMap({
 
       <MapSidebar
         drought={{ ...drought, setVisible: visible => {
+          if (visible) handleShowSimulatedFloodChange(false);
+          droughtVisibleRef.current = visible;
           drought.setVisible(visible);
           if (visible && window.innerWidth < 768) setLayersOpen(false);
         } }}
@@ -1379,7 +1386,6 @@ export function PublicMap({
         isLoadingSimulatedFlood={simulatedFlood.isPreparing}
         simulatedFloodHorizon={simulatedFlood.displayHorizon}
         onSimulatedFloodHorizonChange={simulatedFlood.selectHorizon}
-        simulatedFloodTelemetry={simulatedFlood.telemetry}
         simulatedFloodStatus={simulatedFlood.status}
         simulatedFloodOpacity={simulatedFlood.opacity}
         onSimulatedFloodOpacityChange={simulatedFlood.setOpacity}
@@ -1568,6 +1574,8 @@ export function PublicMap({
       {showSimulatedFlood && <FloodSimulationTimeline
         frames={simulatedFlood.replayFrames} selectedIndex={simulatedFlood.replayIndex}
         onSelect={simulatedFlood.selectReplayFrame} status={simulatedFlood.status}
+        telemetry={simulatedFlood.telemetry} onRetry={simulatedFlood.loadSimulation}
+        onClose={() => handleShowSimulatedFloodChange(false)}
         loading={simulatedFlood.isPreparing} hasBottomNav={hasBottomNav} fullScreen={fullScreen} />}
 
       <FailureModal

@@ -19,7 +19,7 @@ interface ScenarioSelectorProps {
   isLoading?: boolean;
 }
 
-const SCENARIO_GROUPS = [
+export const SCENARIO_GROUPS = [
   {
     type: 'live' as const,
     title: 'Live estimates · 24h',
