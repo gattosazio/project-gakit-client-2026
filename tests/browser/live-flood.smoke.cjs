@@ -12,23 +12,43 @@ const timeline={schema_version:2,snapshot_id:'fixture',created_at:new Date().toI
 (async()=>{
  const browser=await chromium.launch({channel:process.platform === 'win32' ? 'msedge' : undefined,headless:true});try { const page=await browser.newPage({viewport:{width:1440,height:1000}});let images=0;
  await page.route('**/api/v1/surrogate/live/v2/timeline',route=>route.fulfill({json:timeline,headers:{'access-control-allow-origin':'*'}}));
+ await page.route('**/api/v1/drought/catalog',route=>route.fulfill({json:{status:'pending',generatedAt:null,periods:[],forecastStatus:'unavailable',observedMessage:'Fixture awaiting assessment',forecastMessage:'Fixture awaiting outlook'},headers:{'access-control-allow-origin':'*'}}));
  await page.route('**/api/v1/surrogate/live/v2/snapshots/**',route=>{images++;return route.fulfill({body:png,contentType:'image/png',headers:{'access-control-allow-origin':'*'}})});
+ await page.route('**/data/scenarios/*.json',route=>route.fulfill({json:{storm_id:'fixture',source:'fixture',source_label:'Fixture',event_name:'Fixture',category:'historical',dates:'Fixture',total_rainfall_mm:0,official_total_mm:null,is_calibrated:false,description:'Fixture',total_frames:0,bounds:timeline.bounds,frames:[]}}));
+ const area=async value=>page.waitForFunction(value=>document.querySelector('[data-flood-metric="area"]')?.textContent.includes(value),value);
  await page.goto(`${base}/flood-scenarios`,{waitUntil:'domcontentloaded'});
- const notice=page.getByRole('button',{name:/I Understand/});await notice.waitFor({state:'visible'});await notice.click();
- await page.getByRole('button',{name:/Active Scenario/}).click();await page.getByText('Live inundation estimates',{exact:true}).click();console.log('Scenario selected');
- await page.locator('.hud-card .text-2xl').filter({hasText:/^9\.12/}).waitFor();console.log('Latest rendered');
- await page.getByRole('slider').first().press('Home');await page.locator('.hud-card .text-2xl').filter({hasText:/^2\.34/}).waitFor();
+ const notice=page.getByRole('button',{name:'Start exploring',exact:true});await notice.waitFor({state:'visible'});await notice.click();
+ await page.getByRole('listbox',{name:'Flood scenarios',exact:true}).getByRole('option').filter({hasText:'Live inundation estimates'}).click();
+ await area('9.12');
+ await page.getByRole('slider').first().press('Home');await area('2.34');
  await page.getByRole('slider').first().press('End');await page.getByText('Rainfall history incomplete (18/24 hours)',{exact:true}).waitFor();
- assert(!(await page.locator('.hud-card').filter({hasText:'Rainfall over 24h'}).innerText()).includes('NaN'));assert(images>=2);
+ assert((await page.locator('[data-flood-metric="area"]').innerText()).includes('—'));assert(images>=2);
  await page.goto(`${base}/`,{waitUntil:'domcontentloaded'});
- const guide=page.getByRole('button',{name:'Close guide',exact:true});try { await guide.waitFor({state:'visible',timeout:5000});await guide.click(); } catch {}
- const expand=page.getByRole('button',{name:'Expand Layers',exact:true});if(await expand.count())await expand.click();
- await page.getByText('Flood Simulation',{exact:true}).click();
- await page.getByText(/^9\.12 km/).first().waitFor();
- await page.getByRole('slider',{name:'Rolling 24-hour replay hour'}).press('Home');
- await page.getByText(/^2\.34 km/).first().waitFor();
- await page.getByRole('button',{name:'+3h',exact:true}).click();
+ const welcome=page.getByRole('dialog',{name:'Welcome to GAKIT',exact:true});await welcome.waitFor();await welcome.getByRole('checkbox').check();await welcome.getByRole('button',{name:'Continue',exact:true}).click();await welcome.waitFor({state:'hidden'});
+ const toggle=page.getByRole('switch',{name:'Flood Simulation',exact:true});
+ if(!await toggle.isVisible())await page.getByRole('button',{name:'Map Layers',exact:true}).click();
+ await page.getByRole('button',{name:'About Flood Simulation',exact:true}).click();
+ const details=page.getByRole('dialog',{name:'About Flood Simulation',exact:true});await details.getByRole('heading',{name:'How it works',exact:true}).waitFor();assert.equal(await toggle.getAttribute('aria-checked'),'false');await page.keyboard.press('Escape');
+ const hazards=['Flood','Landslide','Storm Surge'].map(name=>page.getByRole('switch',{name,exact:true}));
+ for(const hazard of hazards){await hazard.click();assert.equal(await hazard.getAttribute('aria-checked'),'true');}
+ await toggle.click();await area('9.12');
+ for(const hazard of hazards){assert.equal(await hazard.getAttribute('aria-checked'),'true');assert.equal(await hazard.isEnabled(),true);await hazard.click();await hazard.click();assert.equal(await hazard.getAttribute('aria-checked'),'true');}
+ const slider=page.getByRole('slider',{name:'Select past, live, or forecast flood estimate',exact:true});await slider.focus();
+ const beforeScrub=images;await page.keyboard.down('Home');await page.waitForTimeout(100);assert.equal(images,beforeScrub);await page.keyboard.up('Home');await area('2.34');
+ await slider.press('End');
  await page.getByText('Rainfall history incomplete (18/24 hours)',{exact:true}).waitFor();
+ assert((await page.locator('[data-flood-metric="area"]').innerText()).includes('—'));
+ const droughtToggle=page.getByRole('switch',{name:'Drought conditions',exact:true});
+ assert.equal(await droughtToggle.isDisabled(),true);
+ assert.equal(await droughtToggle.evaluate(el=>getComputedStyle(el).opacity),'0.4');
+ assert.equal(await page.getByRole('switch',{name:'Rainfall',exact:true}).isDisabled(),false);
+ await toggle.click();assert.equal(await droughtToggle.isEnabled(),true);
+ for(const hazard of hazards)assert.equal(await hazard.isEnabled(),true);
+ await droughtToggle.click();await page.getByRole('region',{name:'Drought timeline',exact:true}).waitFor();
+ assert.equal(await toggle.isDisabled(),true);
+ assert.equal(await page.getByRole('region',{name:'Flood simulation timeline',exact:true}).count(),0);
+ await page.getByRole('button',{name:'Close drought layer',exact:true}).click();
+ assert.equal(await toggle.isEnabled(),true);
  console.log(JSON.stringify({scenario:'latest, replay, and unavailable frames passed',publicMap:'latest, replay, and unavailable forecasts passed',decodedImageFetches:images}));
  } finally { await browser.close(); }
 })().catch(e=>{console.error(e.stack);process.exit(1)});

@@ -39,22 +39,6 @@
       border-color: var(--hud-border-desktop);
       box-shadow: 0 12px 32px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06);
     }
-    .scenario-control-panel[data-scenario-controls] {
-      top: var(--scenario-panel-top, calc(var(--map-header-bottom, 74px) + 12px));
-      left: auto;
-      right: 16px;
-    }
-    .scenario-control-panel [role="listbox"] {
-      max-height: min(26rem, calc((100dvh - var(--scenario-player-height, 100px)) / 2));
-    }
-    .scenario-control-panel .hud-card {
-      background: transparent;
-      border: 0;
-      border-radius: 0;
-      box-shadow: none;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
-    }
   }
 
   /* Compact collapsed pill / button / toggle bar (Weather pill, Layers pill, Locate button, Zoom widget) */

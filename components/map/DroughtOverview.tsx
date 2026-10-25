@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
-import { ChartNoAxesColumnIncreasing, GripHorizontal, Info, Map as MapIcon, Minus, PieChart, X } from 'lucide-react';
+import { ChartNoAxesColumnIncreasing, GripHorizontal, Info, Map as MapIcon, Maximize2, Minus, PieChart, X } from 'lucide-react';
 import { useDraggableCard } from '@/hooks/useDraggableCard';
 import { STATUS_BANDS, droughtMonthLabel, fetchDroughtFrame, islandOverview, provinceCategory, provinceDistribution, provinceIsland, type DroughtPeriod } from '@/lib/map/drought';
 import { droughtPreview } from '@/lib/map/droughtPreview';
@@ -61,7 +61,7 @@ export function DroughtOverview({ state, periods, onClose }: { state: DroughtCon
     <header className="flex shrink-0 items-center gap-1 border-b border-slate-100 px-3 py-2">
       <button type="button" aria-label="Move drought details" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onKeyDown={keyMove} className="flex min-w-0 flex-1 cursor-grab touch-none items-center gap-2 text-left active:cursor-grabbing"><GripHorizontal size={12} className="text-slate-400" /><span className="text-xs font-bold text-slate-800">Drought overview</span></button>
       <button type="button" aria-label="About drought overview" aria-expanded={help} onClick={() => setHelp(v => !v)} className="p-1.5 text-slate-400 hover:text-slate-700"><Info size={12} /></button>
-      <button type="button" aria-label={minimized ? 'Expand drought overview' : 'Minimize drought overview'} onClick={() => setMinimized(v => !v)} className="p-1.5 text-slate-400 hover:text-slate-700"><Minus size={12} /></button>
+      <button type="button" aria-label={minimized ? 'Expand drought overview' : 'Minimize drought overview'} title={minimized ? 'Expand drought overview' : 'Minimize drought overview'} aria-expanded={!minimized} onClick={() => setMinimized(v => !v)} className="p-1.5 text-slate-400 hover:text-slate-700">{minimized ? <Maximize2 size={12} /> : <Minus size={12} />}</button>
       <button type="button" aria-label="Close drought overview" onClick={onClose} className="p-1.5 text-slate-400 hover:text-slate-700"><X size={12} /></button>
     </header>
     {!minimized && <div className="min-h-0 overflow-y-auto p-3 [scrollbar-width:thin]">

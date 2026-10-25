@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useLayoutEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   SCENARIO_PRESETS,
   type ScenarioPreset,
@@ -8,14 +8,14 @@ import {
 } from '@/types/scenario';
 import { ScenarioMap } from './components/ScenarioMap';
 import { ScenarioSelector } from './components/ScenarioSelector';
-import { TimelinePlayer } from './components/TimelinePlayer';
-import { TelemetryHUD } from './components/TelemetryHUD';
+import { ScenarioSidebar } from './components/ScenarioSidebar';
+import { FloodSimulationTimeline } from '@/components/map/FloodSimulationTimeline';
 import { liveObservationPollDelay, liveReportNotice } from '@/lib/map/liveReportObservations';
-import { liveStatus, selectedLiveFrame, selectionForFrame } from '@/lib/map/liveFloodState';
+import { liveModelNotice, liveStatus, selectedLiveFrame, selectionForFrame } from '@/lib/map/liveFloodState';
 import type { ScenarioFrame } from '@/types/scenario';
 import { LoadingOverlay } from '@/components/ui/LoadingState';
 import { ScenarioDisclaimerModal } from './components/ScenarioDisclaimerModal';
-import { fetchLiveFloodTimeline, LiveFloodPending, LIVE_TIMELINE_POLL_MS } from '@/lib/map/surrogate';
+import { fetchLiveFloodTimeline, LiveFloodPending, LIVE_TIMELINE_POLL_MS, type SimulatedFloodTelemetry } from '@/lib/map/surrogate';
 
 interface ScenariosTabProps {
   active: boolean;
@@ -36,44 +36,12 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
   const [readyScenario, setReadyScenario] = useState<string | null>(null);
   const frameRef = useRef<ScenarioFrame | undefined>(undefined);
   const followLatest = useRef(true);
-  const playerRef = useRef<HTMLDivElement>(null);
-  const controlsRef = useRef<HTMLDivElement>(null);
-  const [playerHeight, setPlayerHeight] = useState(120);
-
-  useLayoutEffect(() => {
-    const panel = controlsRef.current;
-    const header = panel?.closest('[data-map-shell]')?.querySelector<HTMLElement>('[data-map-header]');
-    if (!panel || !header) return;
-    const measure = () => {
-      if (window.innerWidth < 768) {
-        panel.style.removeProperty('--scenario-panel-top');
-        return;
-      }
-      const headerBounds = header.getBoundingClientRect();
-      const panelBounds = panel.getBoundingClientRect();
-      const besideHeader = panelBounds.left >= headerBounds.right + 12;
-      const top = besideHeader ? headerBounds.top : headerBounds.bottom + 12;
-      panel.style.setProperty('--scenario-panel-top', `${Math.ceil(top)}px`);
-    };
-    const observer = new ResizeObserver(measure);
-    observer.observe(header);
-    observer.observe(panel);
-    window.addEventListener('resize', measure);
-    measure();
-    return () => {
-      observer.disconnect();
-      window.removeEventListener('resize', measure);
-      panel.style.removeProperty('--scenario-panel-top');
-    };
-  }, []);
 
   useEffect(() => {
-    const player = playerRef.current;
-    if (!player) return;
-    const observer = new ResizeObserver(() => setPlayerHeight(player.getBoundingClientRect().height));
-    observer.observe(player);
-    return () => observer.disconnect();
-  }, [scenarioData]);
+    const pauseWhenHidden = () => { if (document.visibilityState !== 'visible') setIsPlaying(false); };
+    document.addEventListener('visibilitychange', pauseWhenHidden);
+    return () => document.removeEventListener('visibilitychange', pauseWhenHidden);
+  }, []);
 
 
   useEffect(() => {
@@ -240,10 +208,39 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
     setIsPlaying(false);
     setReloadCount(value => value + 1);
   };
+  const rasterReady = rasterState === null && Boolean(frameUrl);
+  const modelNotice = activePreset.type === 'live'
+    ? `${liveModelNotice(currentFrame?.live)} ${currentFrame?.live?.kind === 'latest' ? liveReportNotice(scenarioData?.live?.report_observations) : ''}`.trim()
+    : scenarioData?.model_notice ?? scenarioData?.description;
+  const overviewTelemetry: SimulatedFloodTelemetry | null = currentFrame ? {
+    horizonHours: currentFrame.forecast_horizon_hours ?? 0,
+    hourlyRainMm: currentFrame.hourly_rain_mm,
+    inundatedKm2: rasterReady ? currentFrame.inundated_km2 : null,
+    maxDepthM: rasterReady ? currentFrame.max_depth_m ?? null : null,
+    effectiveRainfallMm: currentFrame.cum_rain_mm,
+    rasterUrl: currentFrame.raster_uri,
+    timestamp: currentFrame.raw_time,
+    forecastSource: currentFrame.forecast_source ?? null,
+    forecastIssueTime: null,
+    forecastValidTime: currentFrame.is_forecast ? currentFrame.raw_time : null,
+    modelNotice,
+  } : null;
+  const timelineStatus = loadError ?? (currentFrame?.live && currentFrame.live.availability !== 'ready'
+    ? status : (!frameLoading && rasterState) || status);
+  const selectPreset = (preset: ScenarioPreset) => {
+    if (preset.id === activePreset.id) return;
+    setIsPlaying(false);
+    setReadyScenario(null);
+    setActivePreset(preset);
+    setScenarioData(null);
+    setLoadError(null);
+    setRasterState(null);
+    setCurrentIndex(0);
+  };
 
 
   return (
-    <div className="relative h-[100dvh] w-full flex flex-col overflow-hidden" style={{ '--scenario-player-height': `${playerHeight}px` } as React.CSSProperties}>
+    <div className="relative h-[100dvh] w-full flex flex-col overflow-hidden">
       {/* Loading Overlay */}
       {initialLoading && (
         <LoadingOverlay message={loadError === 'Preparing live estimates' ? 'Preparing live flood estimates…' : rasterState === 'Loading flood image' ? 'Loading flood simulation map…' : `Loading ${activePreset.name}…`} className="pointer-events-none" />
@@ -259,50 +256,35 @@ export function ScenariosTab({ active }: ScenariosTabProps) {
           reportObservations={scenarioData?.live?.report_observations} scenarioId={activePreset.id} currentFrame={currentFrame} bounds={scenarioData?.bounds} onRasterStateChange={handleRasterStateChange} />
         ) : null}
 
-        {/* Desktop groups the scenario and conditions; mobile keeps its two anchors. */}
-        <div className="absolute inset-0 z-10 pointer-events-none">
-          <div ref={controlsRef} data-scenario-controls className="scenario-control-panel pointer-events-auto absolute left-3 right-3 top-[calc(max(0.375rem,env(safe-area-inset-top,0px))+3.5rem)] sm:right-auto sm:w-80 md:rounded-2xl md:border md:border-slate-200/90 md:bg-white/95 md:shadow-lg">
+        {/* Scenario selection stays on the left; frame details live in the overview. */}
+        <div className="absolute inset-0 z-[1020] pointer-events-none">
+          <ScenarioSidebar activePreset={activePreset} onSelectPreset={selectPreset} isLoading={isLoading} />
+          <div data-scenario-controls className="pointer-events-auto absolute left-3 right-3 top-[calc(max(0.375rem,env(safe-area-inset-top,0px))+3.5rem)] sm:right-auto sm:w-80 md:hidden">
             <ScenarioSelector
               activePreset={activePreset}
-              onSelectPreset={preset => { setReadyScenario(null); setActivePreset(preset); setScenarioData(null); setLoadError(null); setRasterState(null); setCurrentIndex(0); }}
+              onSelectPreset={selectPreset}
               isLoading={isLoading}
             />
 
-          <div className="pointer-events-auto fixed bottom-[calc(var(--scenario-player-height)+2rem)] left-3 right-3 sm:bottom-[calc(var(--scenario-player-height)+2.5rem)] md:static md:mx-3 md:border-t md:border-slate-100">
-            {status && !currentFrame && <div className="hud-card flex items-center justify-between gap-3 p-3 text-xs text-slate-600"><p role="status">{status}</p>{loadError !== 'Preparing live estimates' && <button type="button" onClick={retryScenario} className="min-h-9 rounded-lg px-2 font-semibold text-gakit-maroon hover:bg-maroon-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon">Retry</button>}</div>}
-            <TelemetryHUD
-              onRetry={retryScenario}
-              currentFrame={currentFrame}
-              totalRainfallMm={scenarioData ? scenarioData.total_rainfall_mm : null}
-              presetType={activePreset.type}
-              status={status ?? undefined}
-              rasterState={rasterState}
-              reportNotice={currentFrame?.live?.kind === 'latest' ? liveReportNotice(scenarioData?.live?.report_observations) : undefined}
-              modelNotice={scenarioData?.model_notice}
-            />
-          </div>
           </div>
         </div>
 
         {/* Bottom Center: Timeline Scrubber & Controls */}
-        {scenarioData && visibleFrames.length > 0 && (
-          <TimelinePlayer
-            compactDesktop
-            containerRef={playerRef}
+          <FloodSimulationTimeline
+            key={activePreset.id}
+            explorer fullScreen hasBottomNav={false}
             frames={visibleFrames}
-            currentIndex={safeIndex}
-            onIndexChange={index => { followLatest.current = false; setCurrentIndex(index); }}
-            isPlaying={isPlaying}
-            onTogglePlay={handleTogglePlay}
-            playbackSpeed={playbackSpeed}
-            onToggleSpeed={handleToggleSpeed}
-            onReset={handleReset}
-            forecastCount={forecastCount}
-            forecastMaxHours={Math.max(0, ...(scenarioData.frames.map(f => f.forecast_horizon_hours ?? 0)))}
-            showForecast={includeForecast}
-            onToggleForecast={handleToggleForecast}
+            selectedIndex={safeIndex}
+            onSelect={index => {
+              followLatest.current = index === null;
+              setCurrentIndex(index === null ? Math.max(0, visibleFrames.findIndex(frame => frame.live?.kind === 'latest')) : index);
+            }}
+            telemetry={overviewTelemetry} loading={Boolean(initialLoading || frameLoading || isLoading)}
+            status={timelineStatus} onRetry={retryScenario}
+            context={{ title: activePreset.name, presetType: activePreset.type, totalRainfallMm: scenarioData?.total_rainfall_mm ?? null, modelNotice }}
+            forecastControl={forecastCount > 0 ? { included: includeForecast, maxHours: Math.max(0, ...(scenarioData?.frames.map(frame => frame.forecast_horizon_hours ?? 0) ?? [])), onChange: handleToggleForecast } : undefined}
+            playback={{ playing: isPlaying, speed: playbackSpeed, toggle: handleTogglePlay, pause: () => setIsPlaying(false), cycleSpeed: handleToggleSpeed, reset: handleReset }}
           />
-        )}
       </div>
     </div>
   );

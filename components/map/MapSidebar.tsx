@@ -23,7 +23,7 @@ import { getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCod
 import type { RainfallAccumulationHours } from '@/lib/map/rainfall';
 import type { MapReportFeature, ReportStatus } from '@/types/report';
 import type { ActiveStormSummary, HistoricalStormSummary } from '@/types/typhoon';
-import type { SimulatedFloodHorizon, SimulatedFloodTelemetry } from '@/lib/map/surrogate';
+import type { SimulatedFloodHorizon } from '@/lib/map/surrogate';
 import type { ScenarioFrame } from '@/types/scenario';
 
 export interface MapSidebarProps {
@@ -51,7 +51,6 @@ export interface MapSidebarProps {
   isLoadingSimulatedFlood?: boolean;
   simulatedFloodHorizon?: SimulatedFloodHorizon | null;
   onSimulatedFloodHorizonChange?: (horizon: SimulatedFloodHorizon) => void;
-  simulatedFloodTelemetry?: SimulatedFloodTelemetry | null;
   simulatedFloodStatus?: string;
   simulatedFloodOpacity?: number;
   onSimulatedFloodOpacityChange?: (value: number) => void;
@@ -127,7 +126,6 @@ export function MapSidebar({
   isLoadingSimulatedFlood = false,
   simulatedFloodHorizon = 0,
   onSimulatedFloodHorizonChange,
-  simulatedFloodTelemetry,
   simulatedFloodStatus,
   simulatedFloodOpacity = 0.85,
   onSimulatedFloodOpacityChange,
@@ -535,7 +533,6 @@ export function MapSidebar({
                 isLoadingSimulatedFlood={isLoadingSimulatedFlood}
                 simulatedFloodHorizon={simulatedFloodHorizon}
                 onSimulatedFloodHorizonChange={onSimulatedFloodHorizonChange}
-                simulatedFloodTelemetry={simulatedFloodTelemetry}
                 simulatedFloodStatus={simulatedFloodStatus}
                 simulatedFloodOpacity={simulatedFloodOpacity}
                 onSimulatedFloodOpacityChange={onSimulatedFloodOpacityChange}

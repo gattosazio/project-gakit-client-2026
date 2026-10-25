@@ -3,7 +3,6 @@
 import Image from 'next/image';
 import { typhoonIconURL } from '@/lib/map/typhoonIcons';
 
-import { formatFloodMetric } from '@/lib/map/liveFloodState';
 import { DEPTH_RANK } from '@/lib/map/barangayStats';
 import { formatReportDepth, timeAgo } from '@/lib/reports/reportFormatting';
 
@@ -14,6 +13,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import { FloodLoader } from '@/components/ui/FloodLoader';
 import { HeatIndexDetails, type HeatIndexControlState } from '@/components/map/HeatIndexDetails';
 import type { DroughtControlState } from '@/components/map/DroughtControls';
+import { FloodSimulationInfoModal } from '@/components/map/FloodSimulationInfoModal';
 import {
   BASEMAP_LABELS,
   REPORT_MARKER_COLORS,
@@ -24,7 +24,6 @@ import {
 } from '@/lib/map/rainfall';
 import {
   FLOOD_HAZARD_GRADIENT_CSS,
-  SIMULATION_DEPTH_GRADIENT_CSS,
   LANDSLIDE_GRADIENT_CSS,
   STORM_SURGE_GRADIENT_CSS,
   STORM_SURGE_LEGEND,
@@ -34,7 +33,6 @@ import {
 } from '@/lib/map/colorScales';
 import {
   type SimulatedFloodHorizon,
-  type SimulatedFloodTelemetry,
 } from '@/lib/map/surrogate';
 import type { MapMode } from '@/lib/map/overlayLayers';
 import type { MapReportFeature, ReportStatus } from '@/types/report';
@@ -102,6 +100,9 @@ function PillToggle({
   indicatorDot,
   count,
   beta = false,
+  onDetails,
+  disabled = false,
+  disabledReason,
 }: {
   label: string;
   beta?: boolean;
@@ -113,17 +114,21 @@ function PillToggle({
   loading?: boolean;
   indicatorDot?: string;
   count?: number;
+  onDetails?: () => void;
+  disabled?: boolean;
+  disabledReason?: string;
 }) {
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between gap-2 select-none group w-full">
+      <div className="flex items-center justify-between gap-2 select-none group w-full" title={disabled ? disabledReason : undefined}>
         <button
           type="button"
           role="switch"
           aria-label={label}
           aria-checked={checked}
+          disabled={disabled}
           onClick={() => onChange(!checked)}
-          className="flex items-center gap-2 cursor-pointer select-none text-left min-w-0 flex-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon rounded"
+          className="flex items-center gap-2 cursor-pointer select-none text-left min-w-0 flex-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon rounded disabled:cursor-not-allowed disabled:opacity-40"
         >
           {/* Pill track */}
           <span
@@ -152,6 +157,7 @@ function PillToggle({
             {loading && <FloodLoader compact label={`Loading ${label}`} />}
           </span>
         </button>
+        {onDetails && <button type="button" aria-label={`About ${label}`} aria-haspopup="dialog" onClick={onDetails} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-gakit-maroon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"><Info size={14} /></button>}
         {typeof count === 'number' && (
           <span className={`text-[10px] font-bold tabular-nums shrink-0 px-1.5 py-0.5 rounded-full ${
             checked ? 'text-slate-600 bg-slate-100' : 'text-slate-300 bg-slate-50'
@@ -493,7 +499,6 @@ interface DataLayerControlsProps {
   isLoadingSimulatedFlood?: boolean;
   simulatedFloodHorizon?: SimulatedFloodHorizon | null;
   onSimulatedFloodHorizonChange?: (horizon: SimulatedFloodHorizon) => void;
-  simulatedFloodTelemetry?: SimulatedFloodTelemetry | null;
   simulatedFloodStatus?: string;
   simulatedFloodOpacity?: number;
   onSimulatedFloodOpacityChange?: (value: number) => void;
@@ -881,7 +886,6 @@ export function DataLayerControls({
   isLoadingSimulatedFlood = false,
   simulatedFloodHorizon = 0,
   onSimulatedFloodHorizonChange,
-  simulatedFloodTelemetry,
   simulatedFloodStatus,
   simulatedFloodOpacity = 0.85,
   onSimulatedFloodOpacityChange,
@@ -924,6 +928,7 @@ export function DataLayerControls({
   activeLayersCount,
 }: DataLayerControlsProps) {
   const [showScaleModal, setShowScaleModal] = useState(false);
+  const [showSimulationInfo, setShowSimulationInfo] = useState(false);
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
   return (
     <Card
@@ -1043,27 +1048,14 @@ export function DataLayerControls({
         <PillToggle
           label="Flood Simulation"
           beta
+          onDetails={() => setShowSimulationInfo(true)}
+          disabled={Boolean(drought?.visible) && !showSimulatedFlood}
+          disabledReason="Turn off Drought conditions to use Flood Simulation."
           checked={showSimulatedFlood}
           onChange={(checked) => onShowSimulatedFloodChange?.(checked)}
           loading={showSimulatedFlood && isLoadingSimulatedFlood}
         />
-        {showSimulatedFlood && (
-          <div className="ml-2 rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 space-y-2.5">
-            <p className="text-[10px] leading-4 text-slate-500">Use the floating timeline to explore past and forecast estimates.</p>
-            <div className="grid grid-cols-3 divide-x divide-slate-200 rounded-lg border border-slate-200 bg-white py-2 text-center">
-              {[
-                ['Rain rate', `${formatFloodMetric(simulatedFloodTelemetry?.hourlyRainMm, 1)} mm/hr`],
-                ['Inundated', `${formatFloodMetric(simulatedFloodTelemetry?.inundatedKm2, 2)} km²`],
-                ['Max depth', `${formatFloodMetric(simulatedFloodTelemetry?.maxDepthM, 2)} m`],
-              ].map(([label, value]) => <div key={label}><p className="text-[9px] text-slate-400">{label}</p><p className="mt-0.5 text-[11px] font-bold tabular-nums text-slate-700">{value}</p></div>)}
-            </div>
-            <div className="space-y-1 border-t border-slate-200 pt-2">
-              <div className="h-2 rounded-full" style={{ background: SIMULATION_DEPTH_GRADIENT_CSS }} />
-              <div className="flex justify-between text-[9px] text-slate-400"><span>0.2 m</span><span>0.5–1.5 m</span><span>&gt;1.5 m</span></div>
-              <p className="text-[9px] leading-4 text-slate-500">{simulatedFloodTelemetry?.modelNotice ?? 'Rainfall-based spatial estimates. Flood arrival and recession are unvalidated.'}</p>
-            </div>
-          </div>
-        )}
+        {showSimulationInfo && <FloodSimulationInfoModal isOpen onClose={() => setShowSimulationInfo(false)} />}
         </div>
 
         <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
@@ -1160,6 +1152,8 @@ export function DataLayerControls({
 
         {drought && <>
           <PillToggle label="Drought conditions" checked={drought.visible}
+            disabled={showSimulatedFlood && !drought.visible}
+            disabledReason="Turn off Flood Simulation to use Drought conditions."
             onChange={drought.setVisible} loading={drought.visible && drought.loading}
             credit={{ href: 'https://droughtcaster.pagasa.dost.gov.ph/', label: 'DOST-PAGASA' }} />
         </>}
