@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { LoaderCircle, Pause, PieChart, Play, X } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Pause, PieChart, Play, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { STATUS_BANDS, droughtMonthLabel, type DroughtPeriod } from '@/lib/map/drought';
 import type { DroughtControlState } from './DroughtControls';
 
@@ -14,12 +15,31 @@ export function DroughtTimeline({ state, periods, overviewOpen, onOverview }: {
   const [scrub, setScrub] = useState<number | null>(null);
   const [pageVisible, setPageVisible] = useState(true);
   const ticksRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<HTMLElement>(null);
   const { selectPeriod: choosePeriod } = state;
   const index = periods.findIndex(p => p.mode === state.mode && p.month === state.month);
   const displayed = scrub ?? Math.max(0, index);
   const shown = periods[displayed];
   const observed = periods.filter(p => p.mode === 'observed').length;
   const select = (p: DroughtPeriod) => { setScrub(null); choosePeriod(p.mode, p.month); };
+  useLayoutEffect(() => {
+    const player = playerRef.current;
+    const container = player?.parentElement;
+    if (!player || !container) return;
+    const measure = () => {
+      const bottom = parseFloat(getComputedStyle(player).bottom) || 0;
+      container.style.setProperty('--drought-player-clearance', `${Math.ceil(player.getBoundingClientRect().height + bottom + 12)}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(player);
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+      container.style.removeProperty('--drought-player-clearance');
+    };
+  }, []);
   useEffect(() => {
     const update = () => setPageVisible(document.visibilityState === 'visible');
     document.addEventListener('visibilitychange', update);
@@ -42,7 +62,7 @@ export function DroughtTimeline({ state, periods, overviewOpen, onOverview }: {
   }, [index]);
   const commit = () => { if (scrub !== null && periods[scrub]) { setPlaying(false); select(periods[scrub]); } };
   const message = state.error ?? (state.mode === 'forecast' ? state.catalog?.forecastMessage : state.catalog?.observedMessage);
-  return <section aria-label="Drought timeline" className="absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom,0px)+4rem)] z-[1010] md:bottom-5 md:left-[max(340px,calc(50%-330px))] md:right-auto md:w-[min(620px,calc(100%-380px))]">
+  return <section ref={playerRef} aria-label="Drought timeline" className="absolute inset-x-3 bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)] z-[1010] md:bottom-5 md:left-[max(340px,calc(50%-330px))] md:right-auto md:w-[min(620px,calc(100%-380px))]">
     <div aria-label="Drought map legend" className="mb-1.5 flex items-center justify-center gap-1 font-bold text-[8px] md:mb-2 md:gap-1.5 md:text-[9px]">
       <span className="mr-1 hidden text-slate-500 md:inline">STATUS</span>
       {STATUS_BANDS.map(b => <span key={b.label} className="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-white/90 px-1 py-1 shadow-sm md:px-1.5"><span className="h-2 w-2 rounded-sm ring-1 ring-black/10" style={{ backgroundColor: b.color }} />{b.label}</span>)}
@@ -64,7 +84,7 @@ export function DroughtTimeline({ state, periods, overviewOpen, onOverview }: {
           </div>)}</div>
         </div>}
       </div>
-      {state.loading && <LoaderCircle aria-label="Loading drought month" className="h-3 w-3 shrink-0 animate-spin text-slate-400" />}
+      {state.loading && <Spinner size="xs" label="Loading drought month" className="shrink-0" />}
       <button type="button" aria-label="Toggle drought overview" aria-pressed={overviewOpen} onClick={onOverview} className="hidden shrink-0 items-center gap-1.5 rounded-lg bg-slate-100 px-2 py-2 text-[10px] text-slate-600 hover:bg-slate-200 md:flex"><PieChart size={12} />Overview</button>
       <button type="button" aria-label="Close drought layer" onClick={() => state.setVisible(false)} className="shrink-0 p-1 text-slate-400 hover:text-slate-700"><X size={12} /></button>
     </div>

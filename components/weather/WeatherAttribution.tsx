@@ -21,7 +21,7 @@ export function WeatherAttribution({ source, className = '', compact = false }: 
         href={PAGASA_MINPRSD_URL}
         target="_blank"
         rel="noopener noreferrer"
-        className={`inline-block text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline ${className}`}
+        className={`inline-block text-[11px] text-slate-500 hover:text-gakit-maroon hover:underline ${className}`}
         title="Official advisory by DOST-PAGASA Mindanao PRSD"
       >
         {compact ? 'PAGASA' : 'Source: DOST-PAGASA MINPRSD'}
@@ -34,7 +34,7 @@ export function WeatherAttribution({ source, className = '', compact = false }: 
       href={OPEN_METEO_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className={`inline-block text-[10px] text-slate-400 hover:text-gakit-maroon hover:underline ${className}`}
+      className={`inline-block text-[11px] text-slate-500 hover:text-gakit-maroon hover:underline ${className}`}
       title="ECMWF IFS HRES forecast data provided through Open-Meteo"
     >
       {compact ? 'ECMWF' : 'ECMWF via Open-Meteo'}

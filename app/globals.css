@@ -367,6 +367,10 @@ body {
     bottom: var(--flood-player-clearance, 18rem);
   }
 
+  .drought-player-clearance {
+    bottom: var(--drought-player-clearance, 18rem);
+  }
+
   .flood-sidebar-clearance {
     max-height: calc(100% - var(--flood-player-clearance, 18rem) - 6rem);
   }

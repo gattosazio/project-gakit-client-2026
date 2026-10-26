@@ -8,6 +8,7 @@ import { PublicHeader } from '@/components/PublicHeader';
 import { HazardAssessmentModal } from '@/components/HazardAssessmentModal';
 import { CampusFocusPrompt } from '@/components/map/CampusFocusPrompt';
 import { isIitSearchLocation } from '@/lib/map/campusFocus';
+import { locationSearchAction } from '@/lib/map/locationSearchAction';
 import { ReportModal } from '@/components/ReportModal';
 import { MapPin, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
@@ -97,7 +98,6 @@ export function PublicViewPage({
   const [isLoadingReports, setIsLoadingReports] = useState(false);
   const [rainfallHours, setRainfallHours] = useState(1);
   const [isMapReady, setIsMapReady] = useState(false);
-  const [droughtActive, setDroughtActive] = useState(false);
   const [welcomePinnedLocation, setWelcomePinnedLocation] = useState<SelectedLocation | null>(null);
   const [onboardingStage, setOnboardingStage] = useState<OnboardingStage>('closed');
   const [onboardingLocationStatus, setOnboardingLocationStatus] =
@@ -656,6 +656,9 @@ export function PublicViewPage({
         return;
       }
       if (isAssessmentOpen || isReportModalOpen) return;
+      const action = locationSearchAction({
+        mode: locationPromptMode, promptOpen: isLocationPromptOpen, manualMode: isManualLocationMode,
+      });
       setIsLocationPromptOpen(false);
       if (locationPromptMode !== 'report' && isIitSearchLocation(location)) {
         setIsManualLocationMode(false);
@@ -663,18 +666,27 @@ export function PublicViewPage({
         setCampusFocusLocation(location);
         return;
       }
+      scrollToMap();
       mapRef.current?.focusLocation(location);
-      const mode = locationPromptMode;
       setLocationPromptMode('assessment');
-      void openLocationModalFor(location, mode);
+      if (action === 'pin') {
+        setSelectedLocation(location);
+        setWelcomePinnedLocation(location);
+        setWithinCity(null);
+        return;
+      }
+      void openLocationModalFor(location, action);
     },
     [
       beginOnboardingTour,
       isAssessmentOpen,
+      isLocationPromptOpen,
+      isManualLocationMode,
       isReportModalOpen,
       locationPromptMode,
       openLocationModalFor,
       rememberOnboardingChoice,
+      scrollToMap,
     ]
   );
 
@@ -811,7 +823,6 @@ export function PublicViewPage({
         onLocate={handleLocate}
         showBentoMenu
         onStartReport={handleStartReport}
-        hideReportButton={droughtActive}
         onStartTour={startMapTour}
       />
       </div>
@@ -834,7 +845,6 @@ export function PublicViewPage({
                 <PageLoader isLoading={isLoadingReports} label="Loading flood reports…" />
                 <PublicMap
                   onCampusFocusChange={setIsCampusFocus}
-                  onDroughtVisibilityChange={setDroughtActive}
                   hideDisplayControls
                   onDisplaySettingsChange={setMapDisplay}
                   mapApiRef={mapRef}
@@ -965,18 +975,21 @@ export function PublicViewPage({
 
       <CampusFocusPrompt
         isOpen={campusFocusLocation !== null && onboardingStage === 'closed'}
+        onGoTo={() => {
+          const location = campusFocusLocation;
+          setCampusFocusLocation(null);
+          if (!location) return;
+          scrollToMap();
+          mapRef.current?.focusLocation(location);
+          setSelectedLocation(location);
+          setWelcomePinnedLocation(location);
+          setWithinCity(null);
+        }}
         onEnable={() => {
           setCampusFocusLocation(null);
           setSelectedLocation(null);
           setWelcomePinnedLocation(null);
           mapRef.current?.setCampusFocus(true);
-        }}
-        onAssess={() => {
-          const location = campusFocusLocation;
-          setCampusFocusLocation(null);
-          if (!location) return;
-          mapRef.current?.focusLocation(location);
-          void openLocationModalFor(location, 'assessment');
         }}
         onClose={() => {
           if (campusFocusLocation) mapRef.current?.focusLocation(campusFocusLocation);

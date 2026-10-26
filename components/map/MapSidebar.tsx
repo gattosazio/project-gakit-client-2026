@@ -265,18 +265,17 @@ export function MapSidebar({
 
   const handleExpandTo = (target: 'weather' | 'layers' | 'reports') => {
     onToggleCollapse(false);
+    const mobile = window.innerWidth < 768;
+    // Desktop restores the existing card layout; mobile remains an accordion.
     if (target === 'weather') {
       onToggleWeather(true);
-      onToggleLayers(false);
-      onToggleReports(false);
+      if (mobile) { onToggleLayers(false); onToggleReports(false); }
     } else if (target === 'layers') {
       onToggleLayers(true);
-      onToggleWeather(false);
-      onToggleReports(false);
+      if (mobile) { onToggleWeather(false); onToggleReports(false); }
     } else if (target === 'reports') {
       onToggleReports(true);
-      onToggleWeather(false);
-      onToggleLayers(false);
+      if (mobile) { onToggleWeather(false); onToggleLayers(false); }
     }
     if (fullScreen && window.innerWidth < 768) return;
     setTimeout(() => {
@@ -297,9 +296,12 @@ export function MapSidebar({
   const handleCollapseSidebar = useCallback(() => {
     (document.activeElement as HTMLElement)?.blur();
     onToggleCollapse(true);
-    onToggleWeather(false);
-    onToggleLayers(false);
-    onToggleReports(false);
+    // Minimize the desktop container without discarding which cards were open.
+    if (window.innerWidth < 768) {
+      onToggleWeather(false);
+      onToggleLayers(false);
+      onToggleReports(false);
+    }
   }, [onToggleCollapse, onToggleWeather, onToggleLayers, onToggleReports]);
 
   useEffect(() => {
@@ -400,7 +402,7 @@ export function MapSidebar({
           onClick={() => !isCollapsed && open ? handleCollapseSidebar() : handleExpandTo(id)}
           className={`relative flex h-8 ${id === 'weather' ? 'min-w-0' : 'shrink-0'} items-center justify-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold shadow-sm transition-[background-color,border-color,color,transform] duration-150 active:scale-95 motion-reduce:transition-none ${!isCollapsed && open ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-slate-200/80 bg-white/95 text-slate-600'}`}>
           <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">{loading ? <Spinner size="sm" label={`Loading ${label}`} /> : <Icon className="h-3.5 w-3.5" aria-hidden="true" />}</span>{text && <span className="min-w-0 max-w-[130px] truncate">{text}</span>}
-          {value != null && (id === 'weather' || Number(value) > 0) && <span className={`absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums text-white shadow-xs ${id === 'layers' ? 'bg-slate-600' : 'bg-red-500'}`}>{value}</span>}
+          {value != null && (id === 'weather' || Number(value) > 0) && <span className={`absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums text-white shadow-xs bg-gakit-maroon`}>{value}</span>}
           <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${!isCollapsed && open ? 'rotate-180' : ''}`} aria-hidden="true" />
         </button>)}
       </div>, mobileControlsHost)}
@@ -441,7 +443,7 @@ export function MapSidebar({
             <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
               <Layers className="h-5 w-5 text-slate-500 transition-transform group-hover:scale-110 group-hover:text-slate-700" />
               {activeLayersCount > 0 && (
-                <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1 text-[9px] font-bold text-white shadow-xs">
+                <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold text-white shadow-xs">
                   {activeLayersCount}
                 </span>
               )}
