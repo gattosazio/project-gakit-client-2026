@@ -74,10 +74,11 @@ export function LoadingOverlay({
   return (
     <div
       className={`absolute inset-0 ${zIndex} flex items-center justify-center bg-transparent backdrop-blur-md backdrop-brightness-[0.45] ${className}`}
-      role="status"
-      aria-live="polite"
     >
-      <FloodLoader label={message} />
+      <div className="flex flex-col items-center gap-2 rounded-xl bg-slate-900/80 px-5 py-4 text-white shadow-lg">
+        <Spinner size="lg" label={message} />
+        <span aria-hidden="true" className="text-xs font-medium">{message}</span>
+      </div>
     </div>
   );
 }
