@@ -436,7 +436,7 @@ export function ReportControls({
         isLoading ? (
           <Spinner size="xs" />
         ) : typeof summaryCount === 'number' ? (
-          <span className="rounded-full bg-gakit-maroon px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
+          <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
             {summaryCount}
           </span>
         ) : undefined

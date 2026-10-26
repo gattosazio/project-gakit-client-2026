@@ -1,6 +1,15 @@
 export const ONBOARDING_STORAGE_KEY = 'gakit:onboarding-v1';
 export const LEGACY_FIRST_VISIT_KEY = 'gakit:first-visit-seen';
 
+export const MODAL_GUIDE_KEYS = {
+  report: 'gakit:onboarding:report-guide:v1',
+  assessmentTour: 'gakit:onboarding:assessment-tour:v1',
+} as const;
+
+export type ModalGuideId = keyof typeof MODAL_GUIDE_KEYS;
+
+const MODAL_GUIDE_CHANGE_EVENT = 'gakit:modal-guides-changed';
+
 export type OnboardingLocationChoice = 'gps' | 'map' | 'skipped';
 
 export interface OnboardingRecord {
@@ -81,4 +90,54 @@ export function saveOnboardingChoice(
     /* storage unavailable (private mode); onboarding simply repeats next visit */
   }
   return record;
+}
+
+/** Whether the task-modal onboarding (report or assessment) has been dismissed. */
+export function hasSeenModalGuide(id: ModalGuideId): boolean {
+  const store = storage();
+  if (!store) return false;
+  try {
+    return store.getItem(MODAL_GUIDE_KEYS[id]) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Persist that a task-modal onboarding flow was dismissed. Uses separate keys
+ * from the main onboarding record so adding guidance never changes that
+ * record's shape.
+ */
+export function markModalGuideSeen(id: ModalGuideId): void {
+  const store = storage();
+  if (!store) return;
+  try {
+    store.setItem(MODAL_GUIDE_KEYS[id], 'true');
+    window.dispatchEvent(new Event(MODAL_GUIDE_CHANGE_EVENT));
+  } catch {
+    /* storage unavailable (private mode); guide simply repeats next visit */
+  }
+}
+
+/** Stable snapshots for `useSyncExternalStore` consumers. */
+export const getReportGuideSeen = (): boolean => hasSeenModalGuide('report');
+export const getAssessmentTourSeen = (): boolean => hasSeenModalGuide('assessmentTour');
+export const getServerModalGuideSeen = (): boolean => false;
+
+export function subscribeToModalGuides(onChange: () => void): () => void {
+  const onStorage = (event: StorageEvent) => {
+    if (
+      event.key === null ||
+      event.key === MODAL_GUIDE_KEYS.report ||
+      event.key === MODAL_GUIDE_KEYS.assessmentTour
+    ) {
+      onChange();
+    }
+  };
+  window.addEventListener('storage', onStorage);
+  window.addEventListener(MODAL_GUIDE_CHANGE_EVENT, onChange);
+  return () => {
+    window.removeEventListener('storage', onStorage);
+    window.removeEventListener(MODAL_GUIDE_CHANGE_EVENT, onChange);
+  };
 }
