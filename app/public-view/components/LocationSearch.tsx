@@ -205,7 +205,7 @@ export function LocationSearch({
             setSearchError(null);
             setIsFocused(true);
           }}
-          placeholder={isMobile && isCompact ? 'Search address or barangay to assess' : placeholder}
+          placeholder={isMobile && isCompact ? 'Search address or barangay' : placeholder}
           aria-label="Search for a location in Iligan City"
           className={`min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 truncate ${isCompact ? 'text-center md:text-left' : ''}`}
         />

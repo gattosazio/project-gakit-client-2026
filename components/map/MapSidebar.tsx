@@ -266,18 +266,17 @@ export function MapSidebar({
 
   const handleExpandTo = (target: 'weather' | 'layers' | 'reports') => {
     onToggleCollapse(false);
+    const mobile = window.innerWidth < 768;
+    // Desktop restores the existing card layout; mobile remains an accordion.
     if (target === 'weather') {
       onToggleWeather(true);
-      onToggleLayers(false);
-      onToggleReports(false);
+      if (mobile) { onToggleLayers(false); onToggleReports(false); }
     } else if (target === 'layers') {
       onToggleLayers(true);
-      onToggleWeather(false);
-      onToggleReports(false);
+      if (mobile) { onToggleWeather(false); onToggleReports(false); }
     } else if (target === 'reports') {
       onToggleReports(true);
-      onToggleWeather(false);
-      onToggleLayers(false);
+      if (mobile) { onToggleWeather(false); onToggleLayers(false); }
     }
     if (fullScreen && window.innerWidth < 768) return;
     setTimeout(() => {
@@ -298,9 +297,12 @@ export function MapSidebar({
   const handleCollapseSidebar = useCallback(() => {
     (document.activeElement as HTMLElement)?.blur();
     onToggleCollapse(true);
-    onToggleWeather(false);
-    onToggleLayers(false);
-    onToggleReports(false);
+    // Minimize the desktop container without discarding which cards were open.
+    if (window.innerWidth < 768) {
+      onToggleWeather(false);
+      onToggleLayers(false);
+      onToggleReports(false);
+    }
   }, [onToggleCollapse, onToggleWeather, onToggleLayers, onToggleReports]);
 
   useEffect(() => {
