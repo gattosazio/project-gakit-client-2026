@@ -12,7 +12,6 @@ import {
 import { Focus, Locate, MapPinPlus, X } from 'lucide-react';
 import { IIT_BOUNDS, isInsideIit, syncCampusFocus } from '@/lib/map/campusFocus';
 import { ensureCampusSatelliteProtocol } from '@/lib/map/campusSatellite';
-import { FloodLoader } from '@/components/ui/FloodLoader';
 import { Spinner } from '@/components/ui/Spinner';
 import { PageLoader } from '@/components/ui/LoadingState';
 import { FloodSimulationTimeline } from '@/components/map/FloodSimulationTimeline';
@@ -1497,7 +1496,7 @@ export function PublicMap({
             className="flex h-9 w-9 items-center justify-center text-slate-700 hud-pill hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94] disabled:cursor-not-allowed md:hidden"
           >
             {isShareLocating ? (
-              <FloodLoader compact label="Locating your position" />
+              <Spinner label="Locating your position" />
             ) : (
               <Locate className="h-4 w-4" strokeWidth={2.5} />
             )}

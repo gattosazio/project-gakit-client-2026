@@ -10,7 +10,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ChevronUp, History, Info, Layers, MapPin, RotateCwFadingClock, Search, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
-import { FloodLoader } from '@/components/ui/FloodLoader';
 import { HeatIndexDetails, type HeatIndexControlState } from '@/components/map/HeatIndexDetails';
 import type { DroughtControlState } from '@/components/map/DroughtControls';
 import { FloodSimulationInfoModal } from '@/components/map/FloodSimulationInfoModal';
@@ -154,7 +153,7 @@ function PillToggle({
             <span className="truncate leading-tight">{label}</span>
             {beta && <sup className="relative -top-1 shrink-0 select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase leading-none tracking-wider text-amber-800 shadow-xs ring-1 ring-inset ring-amber-200/70">Beta</sup>}
             {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
-            {loading && <FloodLoader compact label={`Loading ${label}`} />}
+            {loading && <Spinner size="sm" label={`Loading ${label}`} />}
           </span>
         </button>
         {onDetails && <button type="button" aria-label={`About ${label}`} aria-haspopup="dialog" onClick={onDetails} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"><Info size={14} /></button>}

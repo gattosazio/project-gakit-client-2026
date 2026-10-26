@@ -11,7 +11,6 @@ import {
   MapPin,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
-import { FloodLoader } from '@/components/ui/FloodLoader';
 import type { HeatIndexControlState } from '@/components/map/HeatIndexDetails';
 import type { DroughtControlState } from '@/components/map/DroughtControls';
 import { WeatherChip } from '@/components/map/WeatherChip';
@@ -400,7 +399,7 @@ export function MapSidebar({
           aria-busy={loading || undefined}
           onClick={() => !isCollapsed && open ? handleCollapseSidebar() : handleExpandTo(id)}
           className={`relative flex h-8 ${id === 'weather' ? 'min-w-0' : 'shrink-0'} items-center justify-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold shadow-sm transition-[background-color,border-color,color,transform] duration-150 active:scale-95 motion-reduce:transition-none ${!isCollapsed && open ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-slate-200/80 bg-white/95 text-slate-600'}`}>
-          <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">{loading ? <FloodLoader compact label={`Loading ${label}`} /> : <Icon className="h-3.5 w-3.5" aria-hidden="true" />}</span>{text && <span className="min-w-0 max-w-[130px] truncate">{text}</span>}
+          <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">{loading ? <Spinner size="sm" label={`Loading ${label}`} /> : <Icon className="h-3.5 w-3.5" aria-hidden="true" />}</span>{text && <span className="min-w-0 max-w-[130px] truncate">{text}</span>}
           {value != null && (id === 'weather' || Number(value) > 0) && <span className={`absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums text-white shadow-xs ${id === 'layers' ? 'bg-slate-600' : 'bg-gakit-maroon'}`}>{value}</span>}
           <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${!isCollapsed && open ? 'rotate-180' : ''}`} aria-hidden="true" />
         </button>)}

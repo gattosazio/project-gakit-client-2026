@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { Clock3, Locate, MapPin, Search, X } from 'lucide-react';
-import { FloodLoader } from '@/components/ui/FloodLoader';
+import { Spinner } from '@/components/ui/Spinner';
 import { searchLocations } from '@/lib/map/geoUtils';
 import type { LocationSearchResult } from '@/lib/map/geoUtils';
 import { clearRecentSearches, getRecentSearches, getServerRecentSearches, saveRecentSearch, subscribeRecentSearches } from '@/lib/map/recentSearches';
@@ -190,7 +190,7 @@ export function LocationSearch({
             } ${activeLocating ? 'text-slate-700' : ''}`}
           >
             {activeLocating ? (
-              <FloodLoader compact label="Locating your position" />
+              <Spinner label="Locating your position" />
             ) : (
               <Locate className="h-3.5 w-3.5 md:h-4 md:w-4" strokeWidth={2.2} />
             )}
@@ -228,7 +228,7 @@ export function LocationSearch({
           }`}
         >
           {isSearching ? (
-            <FloodLoader compact size="xs" label="Searching locations" />
+            <Spinner size="xs" label="Searching locations" />
           ) : (
             <Search className="h-3.5 w-3.5" strokeWidth={2.5} />
           )}
@@ -258,7 +258,7 @@ export function LocationSearch({
             >
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-slate-200">
                 {activeLocating ? (
-                  <FloodLoader compact label="Locating your position" />
+                  <Spinner label="Locating your position" />
                 ) : (
                   <Locate className="h-4 w-4 text-slate-600" strokeWidth={2.5} />
                 )}
