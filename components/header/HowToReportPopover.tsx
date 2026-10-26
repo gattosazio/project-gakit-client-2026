@@ -62,7 +62,7 @@ export function HowToReportPopover({
       <button
         type="button"
         onClick={onToggle}
-        className={`flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-colors duration-150 hover:bg-slate-100 hover:text-gakit-maroon md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px] ${
+        className={`flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-900 md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px] ${
           isOpen ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80 font-bold' : ''
         }`}
         aria-expanded={isOpen}
@@ -70,7 +70,7 @@ export function HowToReportPopover({
         aria-label={title}
         title={title}
       >
-        <HelpCircle className={`h-4 w-4 ${isOpen ? 'text-gakit-maroon' : 'text-slate-600'}`} />
+        <HelpCircle className={`h-4 w-4 ${isOpen ? 'text-slate-900' : 'text-slate-600'}`} />
         <span>Guide</span>
       </button>
 
@@ -111,7 +111,7 @@ export function HowToReportPopover({
                     onToggle();
                     onStartTour();
                   }}
-                  className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-semibold text-slate-600 transition-colors hover:border-maroon-200 hover:bg-maroon-50/40 hover:text-gakit-maroon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
+                  className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-[10px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
                 >
                   <span className="flex items-center gap-1.5">
                     <Compass className="h-3.5 w-3.5" aria-hidden="true" />
@@ -120,7 +120,7 @@ export function HowToReportPopover({
                   <ChevronRight className="h-3 w-3 text-slate-400" aria-hidden="true" />
                 </button>
               )}
-              <Link href="/#about" onClick={handleAboutClick} className="flex items-center justify-between text-[10px] font-medium text-slate-500 transition-colors hover:text-gakit-maroon focus-visible:outline-gakit-maroon">About Project GAKIT<ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
+              <Link href="/#about" onClick={handleAboutClick} className="flex items-center justify-between text-[10px] font-medium text-slate-500 transition-colors hover:text-slate-900 focus-visible:outline-gakit-maroon">About Project GAKIT<ArrowUpRight className="h-3 w-3" aria-hidden="true" /></Link>
             </div>
           </div>
         </>

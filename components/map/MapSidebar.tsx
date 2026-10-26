@@ -399,9 +399,9 @@ export function MapSidebar({
           aria-label={label} aria-expanded={!isCollapsed && open}
           aria-busy={loading || undefined}
           onClick={() => !isCollapsed && open ? handleCollapseSidebar() : handleExpandTo(id)}
-          className={`relative flex h-8 ${id === 'weather' ? 'min-w-0' : 'shrink-0'} items-center justify-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold shadow-sm transition-[background-color,border-color,color,transform] duration-150 active:scale-95 motion-reduce:transition-none ${!isCollapsed && open ? 'border-maroon-200 bg-maroon-50 text-gakit-maroon' : 'border-slate-200/80 bg-white/95 text-slate-600'}`}>
+          className={`relative flex h-8 ${id === 'weather' ? 'min-w-0' : 'shrink-0'} items-center justify-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold shadow-sm transition-[background-color,border-color,color,transform] duration-150 active:scale-95 motion-reduce:transition-none ${!isCollapsed && open ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-slate-200/80 bg-white/95 text-slate-600'}`}>
           <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center">{loading ? <FloodLoader compact label={`Loading ${label}`} /> : <Icon className="h-3.5 w-3.5" aria-hidden="true" />}</span>{text && <span className="min-w-0 max-w-[130px] truncate">{text}</span>}
-          {value != null && (id === 'weather' || Number(value) > 0) && <span className="absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold tabular-nums text-white shadow-xs">{value}</span>}
+          {value != null && (id === 'weather' || Number(value) > 0) && <span className={`absolute -bottom-1 -right-1 inline-flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full px-1 text-[9px] font-bold tabular-nums text-white shadow-xs ${id === 'layers' ? 'bg-slate-600' : 'bg-gakit-maroon'}`}>{value}</span>}
           <ChevronDown className={`h-3 w-3 shrink-0 transition-transform ${!isCollapsed && open ? 'rotate-180' : ''}`} aria-hidden="true" />
         </button>)}
       </div>, mobileControlsHost)}
@@ -413,12 +413,12 @@ export function MapSidebar({
             <button
               type="button"
               onClick={() => handleExpandTo('weather')}
-              className="flex h-10 md:h-11 items-center hud-pill hover:bg-white hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer text-slate-700 hover:text-gakit-maroon shrink-0"
+              className="flex h-10 md:h-11 items-center hud-pill hover:bg-white hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer text-slate-700 hover:text-slate-900 shrink-0"
               title="Weather Outlook"
               aria-label="Weather Outlook"
             >
               <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
-                <WeatherIcon className="h-5 w-5 text-gakit-maroon transition-transform group-hover:scale-110 shrink-0" />
+                <WeatherIcon className="h-5 w-5 text-slate-500 transition-transform group-hover:scale-110 group-hover:text-slate-700 shrink-0" />
                 {currentTemp && (
                   <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold text-white shadow-xs">
                     {currentTemp}
@@ -435,14 +435,14 @@ export function MapSidebar({
           <button
             type="button"
             onClick={() => handleExpandTo('layers')}
-            className="flex h-10 md:h-11 items-center hud-pill hover:bg-white hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer text-slate-700 hover:text-gakit-maroon shrink-0"
+            className="flex h-10 md:h-11 items-center hud-pill hover:bg-white hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer text-slate-700 hover:text-slate-900 shrink-0"
             title="Map Layers"
             aria-label="Map Layers"
           >
             <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
-              <Layers className="h-5 w-5 text-gakit-maroon transition-transform group-hover:scale-110" />
+              <Layers className="h-5 w-5 text-slate-500 transition-transform group-hover:scale-110 group-hover:text-slate-700" />
               {activeLayersCount > 0 && (
-                <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold text-white shadow-xs">
+                <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-600 px-1 text-[9px] font-bold text-white shadow-xs">
                   {activeLayersCount}
                 </span>
               )}
@@ -456,12 +456,12 @@ export function MapSidebar({
           <button
             type="button"
             onClick={() => handleExpandTo('reports')}
-            className="flex h-10 md:h-11 items-center hud-pill hover:bg-white hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer text-slate-700 hover:text-gakit-maroon shrink-0"
+            className="flex h-10 md:h-11 items-center hud-pill hover:bg-white hover:shadow-lg transition-all duration-300 ease-in-out active:scale-95 group cursor-pointer text-slate-700 hover:text-slate-900 shrink-0"
             title="Citizen Flood Reports"
             aria-label="Citizen Flood Reports"
           >
             <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
-              <MapPin className="h-5 w-5 text-gakit-maroon transition-transform group-hover:scale-110" />
+              <MapPin className="h-5 w-5 text-slate-500 transition-transform group-hover:scale-110 group-hover:text-slate-700" />
               {typeof visibleReportsCount === 'number' && visibleReportsCount > 0 && (
                 <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold text-white shadow-xs">
                   {visibleReportsCount}

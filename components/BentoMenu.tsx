@@ -301,7 +301,7 @@ export function BentoMenu({
                   className={`group relative flex aspect-square min-h-[108px] flex-col items-center justify-center gap-2 rounded-lg border px-2 py-3 text-center transition-colors duration-150 ${
                     isCurrent
                       ? 'bg-slate-200 border-slate-300 text-slate-900 shadow-xs cursor-default font-bold'
-                      : 'bg-white/80 border-slate-200/80 text-slate-600 hover:bg-white hover:border-slate-300 hover:text-gakit-maroon'
+                      : 'bg-white/80 border-slate-200/80 text-slate-600 hover:bg-white hover:border-slate-300 hover:text-slate-900'
                   }`}
                 >
                   <div className="relative">
@@ -315,7 +315,7 @@ export function BentoMenu({
                     )}
                   </div>
 
-                  <span className="font-heading text-[11px] font-bold leading-tight transition-colors line-clamp-2 text-slate-800 group-hover:text-gakit-maroon">
+                  <span className="font-heading text-[11px] font-bold leading-tight transition-colors line-clamp-2 text-slate-800 group-hover:text-slate-900">
                     {tile.label}
                   </span>
                 </Link>
@@ -325,7 +325,7 @@ export function BentoMenu({
           {onSignOut && <div className="mt-2 border-t border-slate-200/70 pt-1">
             <button type="button" disabled={isSigningOut}
               onClick={() => { setIsOpen(false); onSignOut(); }}
-              className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-gakit-maroon disabled:opacity-50">
+              className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 disabled:opacity-50">
               <LogOut className="h-3.5 w-3.5" aria-hidden="true" />
               {isSigningOut ? 'Signing out…' : 'Sign out'}
             </button>
@@ -352,9 +352,9 @@ export function BentoMenu({
             ? `relative flex h-10 w-full flex-col items-center justify-center gap-0.5 rounded-full px-2 transition-colors duration-150 ${
                 isOpen
                   ? 'bg-slate-200 text-slate-900 font-bold'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100'
               }`
-            : `flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-colors duration-150 hover:bg-slate-100 hover:text-gakit-maroon md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px] ${
+            : `flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-900 md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px] ${
                 isOpen
                   ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80'
                   : ''
@@ -368,10 +368,10 @@ export function BentoMenu({
             isMobileNav
               ? `h-5 w-5 ${
                   isOpen
-                    ? 'text-gakit-maroon'
+                    ? 'text-slate-900'
                     : 'text-slate-500'
                 }`
-              : `h-4 w-4 ${isOpen ? 'text-gakit-maroon' : ''}`
+              : `h-4 w-4 ${isOpen ? 'text-slate-900' : ''}`
           }
         />
         {isMobileNav && (
