@@ -3,6 +3,7 @@ import { formatValidationFlag } from './reportFormatting';
 
 type AssessmentReport = Pick<Report, 'status' | 'decisionSource' | 'validationSummary' | 'photoUrl'>;
 export interface ReportCheckRow { label: string; value: string }
+export const REOPEN_REVIEW_DESCRIPTION = 'Moves the report to Pending for a staff decision. Your reason is recorded.';
 
 /** Present saved decisions in everyday language; do not make validation decisions here. */
 export function getReportCheckPresentation(report: AssessmentReport) {
@@ -13,16 +14,17 @@ export function getReportCheckPresentation(report: AssessmentReport) {
   ]);
   const has = (...keys: string[]) => keys.some(key => flags.has(key));
   const manual = report.decisionSource === 'manual';
-  const current = summary?.demoAutoValidated || summary?.decisionBasis === 'physical_support'
+  const current = summary?.checkState || summary?.demoAutoValidated || summary?.decisionBasis === 'physical_support'
     || summary?.decisionBasis === 'original_observations';
   let message: string;
   if (manual) {
     message = { VERIFIED: 'Accepted by staff.', REJECTED: 'Rejected by staff.',
-      UNVERIFIED: 'Staff requested another review.', ANOMALY: 'Staff flagged this report for review.' }[report.status];
+      UNVERIFIED: 'Pending staff review. A staff decision is needed.', ANOMALY: 'Staff flagged this report for review.' }[report.status];
+    if (summary?.staffDecision?.label) message += ` ${summary.staffDecision.label}.`;
   } else if (!summary) {
     message = 'This report has not been checked yet.';
   } else if (!current || summary.recommendedStatus !== report.status) {
-    message = 'Check this report again to update its review.';
+    message = 'The saved assessment details are incomplete. Staff can review this report.';
   } else if (report.status === 'REJECTED') {
     message = has('USER_BLACKLISTED') ? 'The reporter’s account is blocked.'
       : has('CURRENT_CONDITIONS_UNSUPPORTED', 'UNSUPPORTED_DRY_REPORT', 'DRY_EVENT_TERRAIN_CONTRADICTION')
@@ -38,8 +40,10 @@ export function getReportCheckPresentation(report: AssessmentReport) {
       ? 'Staff report needs review: rainfall and flood estimates do not support it.'
       : 'Some information does not agree. Please review this report.';
   } else {
-    message = has('DEPTH_CATEGORY_MISMATCH') ? 'The water depth entry needs to be reviewed.'
+    message = has('CURRENT_CONDITIONS_UNSUPPORTED') ? 'Rainfall and flood estimates do not support this report. Staff review is needed.'
+      : has('DEPTH_CATEGORY_MISMATCH') ? 'The water depth entry needs to be reviewed.'
       : has('WARNING_ARCHIVE_UNAVAILABLE') ? 'PAGASA records for that time are incomplete.'
+      : summary.checkState === 'review_required' ? 'The available evidence needs staff review.'
       : [...flags].some(flag => /_(UNAVAILABLE|STALE|OUTSIDE_COVERAGE)$/.test(flag))
         ? 'Some checks are unavailable. More information is needed.'
         : 'More information is needed before this report can be accepted.';
@@ -57,9 +61,9 @@ export function getReportCheckPresentation(report: AssessmentReport) {
   else if (has('SIMULATION_DRY_UNCORROBORATED')) add('Flood estimate', has('CURRENT_CONDITIONS_UNSUPPORTED') ? 'No flooding shown nearby' : 'No flooding shown here', 'SIMULATION_DRY_UNCORROBORATED');
   else if (has('SIMULATION_UNAVAILABLE', 'SIMULATION_STALE', 'SIMULATION_OUTSIDE_COVERAGE')) add('Flood estimate', 'Not available', 'SIMULATION_UNAVAILABLE', 'SIMULATION_STALE', 'SIMULATION_OUTSIDE_COVERAGE');
 
+  if (has('HEAVY_RAINFALL_CONTEXT')) add('Rainfall', 'Rainfall threshold met', 'HEAVY_RAINFALL_CONTEXT');
   if (has('LOCAL_FLOOD_WARNING')) add('PAGASA', 'Rain or flood warning recorded', 'LOCAL_FLOOD_WARNING');
   else if (has('WARNING_ARCHIVE_UNAVAILABLE')) add('PAGASA', 'Incomplete record for that time', 'WARNING_ARCHIVE_UNAVAILABLE', 'WARNING_UNAVAILABLE');
-  else if (has('HEAVY_RAINFALL_CONTEXT')) add('Rainfall', 'Heavy rain recorded', 'HEAVY_RAINFALL_CONTEXT');
   else if (has('PAGASA_THUNDERSTORM_WATCH')) add('PAGASA', 'Thunderstorm watch only', 'PAGASA_THUNDERSTORM_WATCH');
   else if (has('PAGASA_WEATHER_NOTICE')) add('PAGASA', 'Weather notice only', 'PAGASA_WEATHER_NOTICE');
   else if (has('WARNING_UNAVAILABLE')) add('PAGASA', 'Check unavailable', 'WARNING_UNAVAILABLE');
@@ -75,7 +79,7 @@ export function getReportCheckPresentation(report: AssessmentReport) {
     LOW_CONNECTED_TERRAIN_CONTEXT: 'The area has low, mostly flat ground.',
     PAGASA_THUNDERSTORM_WATCH: 'A thunderstorm watch means storms may develop; it does not confirm flooding.',
     PAGASA_WEATHER_NOTICE: 'A general weather notice was recorded.',
-    HEAVY_RAINFALL_CONTEXT: 'Heavy rain was recorded around the observation time.',
+    HEAVY_RAINFALL_CONTEXT: 'Recorded rainfall meets the report assessment threshold.',
     PEER_DATA_UNAVAILABLE: 'The nearby report check is unavailable.',
     REPORTER_POLICY_UNAVAILABLE: 'The account check is unavailable.',
     DEPTH_CATEGORY_MISMATCH: 'The water depth entry needs review.',
@@ -110,6 +114,8 @@ export function getReportCheckPresentation(report: AssessmentReport) {
     : 'Water depth is an estimate.';
   return {
     message, checks, details: [...new Set(details)], depthNote,
+    reviewNotice: summary?.reviewAvailable
+      ? 'Additional evidence is available for staff review. The saved decision remains in effect.' : null,
     origin: manual ? 'Staff decision' : summary?.demoAutoValidated ? 'Demo approval'
       : report.decisionSource === 'legacy' ? 'Previous check' : 'Automatic check',
   };

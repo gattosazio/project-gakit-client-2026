@@ -36,6 +36,7 @@ interface AdminHeaderProps {
   icon?: LucideIcon;
   badge?: string;
   showTopo?: boolean;
+  compact?: boolean;
   onNotificationClick?: (notificationId: string) => void;
 }
 
@@ -143,6 +144,7 @@ export function AdminHeader({
   icon: Icon,
   badge,
   showTopo = false,
+  compact = false,
   onNotificationClick,
 }: AdminHeaderProps) {
   const [recentReports, setRecentReports] = useState<Report[]>([]);
@@ -381,7 +383,7 @@ export function AdminHeader({
   };
 
   return (
-    <header className="relative flex h-16 shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-slate-50 px-4 py-3 md:h-24 md:px-9 md:py-4">
+    <header className={`relative flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 ${compact ? 'h-14 gap-2 px-3 py-2 md:px-4' : 'h-16 gap-4 px-4 py-3 md:h-24 md:px-9 md:py-4'}`}>
       {showTopo && (
         <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
           <TopoBackground className="opacity-[0.15]" />
@@ -390,7 +392,7 @@ export function AdminHeader({
       <div className="relative flex min-w-0 items-center gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <h1 className="truncate text-lg font-bold tracking-[-0.02em] text-slate-900 md:text-xl lg:text-[1.75rem]">
+            <h1 className={`truncate font-bold tracking-[-0.02em] text-slate-900 ${compact ? 'text-base md:text-lg' : 'text-lg md:text-xl lg:text-[1.75rem]'}`}>
               {title}
             </h1>
             {badge && (
@@ -399,7 +401,7 @@ export function AdminHeader({
               </span>
             )}
           </div>
-          <p className="mt-1 hidden truncate text-sm text-slate-500 md:block">
+          <p className={compact ? 'sr-only' : 'mt-1 hidden truncate text-sm text-slate-500 md:block'}>
             {description}
           </p>
         </div>

@@ -1,51 +1,47 @@
 import { describe, it, expect } from 'vitest';
-import { formatValidationFlag, getReportScoreDisplay, VALIDATION_FLAG_LABELS } from '@/lib/reports/reportFormatting';
+import { formatValidationFlag, getReportAssessmentBasis, VALIDATION_FLAG_LABELS } from '@/lib/reports/reportFormatting';
 import { getOrCreateReporterToken, reporterHeaders } from '@/lib/reports/reporterIdentity';
 import type { ValidationSummary } from '@/types/report';
 
-describe('report score display', () => {
+describe('assessment basis display', () => {
   const summary: ValidationSummary = {
-    assessedAt: '2026-10-16T00:00:00Z', recommendedStatus: 'UNVERIFIED', evidenceScore: null, decisionBasis: 'original_observations', corroboratingSourceCount: 2,
-    support: [], conflicts: [], missing: [], explanation: 'Awaiting evidence',
+    assessedAt: '2026-10-26T00:00:00Z', recommendedStatus: 'VERIFIED',
+    decisionBasis: 'original_observations', corroboratingSourceCount: 2,
+    support: [], conflicts: [], missing: [], explanation: 'Saved assessment',
   };
+  const report = { status: 'VERIFIED' as const, validationSummary: summary };
 
-  it('shows corroborating sources instead of a historical score', () => {
-    const display = getReportScoreDisplay({ validationScore: 15, validationSummary: summary });
-    expect(display).toEqual({ score: 2, label: 'Corroborating sources', title: '2 corroborating observation sources' });
-  });
-
-  it('hides obsolete scores when no current assessment exists', () => {
-    expect(getReportScoreDisplay({ validationScore: 15 })).toMatchObject({
-      score: undefined, title: 'Awaiting evidence assessment',
+  it('names the acceptance basis and keeps the observation count in its detail', () => {
+    expect(getReportAssessmentBasis(report)).toMatchObject({
+      label: 'Independent observations', score: undefined,
+      title: '2 eligible original observation sources; reported depth is not independently verified',
     });
-    expect(getReportScoreDisplay({ validationScore: 0 }).score).toBeUndefined();
-    expect(getReportScoreDisplay({}).score).toBeUndefined();
   });
-
-  it('preserves a genuine zero in the current assessment', () => {
-    expect(getReportScoreDisplay({ validationScore: 15, validationSummary: { ...summary, corroboratingSourceCount: 0 } }))
-      .toMatchObject({ score: 0, title: '0 corroborating observation sources' });
+  it('shows physical support without implying independent confirmation', () => {
+    expect(getReportAssessmentBasis({ ...report, validationSummary: { ...summary, decisionBasis: 'physical_support', corroboratingSourceCount: 0 } }))
+      .toMatchObject({ label: 'Physical support', score: undefined });
   });
-
-  it('distinguishes retired assessments from reports that have never been assessed', () => {
-    expect(getReportScoreDisplay({ validationSummary: { ...summary, decisionBasis: undefined } }))
-      .toMatchObject({ label: 'Reassessment needed' });
-    expect(getReportScoreDisplay({})).toMatchObject({ label: 'Awaiting assessment' });
+  it('does not reuse an old automated acceptance basis for a staff rejection', () => {
+    expect(getReportAssessmentBasis({ ...report, status: 'REJECTED', decisionSource: 'manual' }))
+      .toMatchObject({ label: 'Staff decision', score: undefined });
   });
-
-  it('labels demo approvals instead of implying independent witnesses were checked', () => {
-    expect(getReportScoreDisplay({ validationSummary: { ...summary, decisionBasis: 'demo_override', demoAutoValidated: true } }))
-      .toMatchObject({ score: undefined, label: 'Demo approval' });
-    expect(formatValidationFlag('UNSUPPORTED_DRY_REPORT').type).toBe('warning');
-    expect(formatValidationFlag('UNSUPPORTED_REPORT')).toMatchObject({ label: 'No Flood Evidence', type: 'danger' });
+  it('does not make a pending report look independently corroborated', () => {
+    expect(getReportAssessmentBasis({ ...report, status: 'UNVERIFIED', validationSummary: { ...summary, checkState: 'review_required' } }))
+      .toMatchObject({ label: 'Insufficient evidence', score: undefined });
   });
-
-  it('shows physical acceptance without a zero-source or obsolete-assessment badge', () => {
-    const accepted: ValidationSummary = { ...summary, recommendedStatus: 'VERIFIED',
-      decisionBasis: 'physical_support', verificationScope: 'physical_consistency', modelAssisted: true,
-      corroboratingSourceCount: 0 };
-    expect(getReportScoreDisplay({ validationSummary: accepted })).toMatchObject({ score: undefined, label: 'Physical support' });
-    expect(formatValidationFlag('PHYSICALLY_SUPPORTED_REPORT').type).toBe('success');
+  it('distinguishes unavailable checks from a completed evidence conflict', () => {
+    expect(getReportAssessmentBasis({ ...report, status: 'UNVERIFIED', validationSummary: { ...summary, checkState: 'checks_incomplete' } }).label)
+      .toBe('Checks unavailable');
+    expect(getReportAssessmentBasis({ ...report, status: 'UNVERIFIED', validationSummary: { ...summary, conflicts: ['DEPTH_CATEGORY_MISMATCH'] } }).label)
+      .toBe('Evidence conflict');
+  });
+  it('labels legacy saved decisions without demanding automatic reassessment', () => {
+    expect(getReportAssessmentBasis({ ...report, validationSummary: undefined }).label).toBe('Previous assessment');
+    expect(getReportAssessmentBasis({ status: 'UNVERIFIED' }).label).toBe('Awaiting assessment');
+    expect(getReportAssessmentBasis({ status: 'ANOMALY' }).label).toBe('Evidence conflict');
+  });
+  it('labels demo bypasses explicitly', () => {
+    expect(getReportAssessmentBasis({ ...report, validationSummary: { ...summary, demoAutoValidated: true } }).label).toBe('Demo approval');
   });
 });
 

@@ -466,12 +466,12 @@ export function ReportControls({
       }
     >
       {publicSummary ? <div className="space-y-2.5">
-        <p className="text-[10px] font-medium text-slate-500">Verified reports · {reportWindowHours == null ? 'All time' : `Last ${reportWindowHours} hours`}</p>
+        <p className="text-[10px] font-medium text-slate-500">Validated reports · {reportWindowHours == null ? 'All time' : `Last ${reportWindowHours} hours`}</p>
         {isLoading && !verified.length ? <p role="status" className="text-xs text-slate-400">Loading reports…</p> : verified.length === 0 ? (
           <p className="rounded-lg bg-slate-50 px-2.5 py-3 text-xs leading-5 text-slate-500">No verified reports in this area {reportWindowHours == null ? '' : `in the last ${reportWindowHours} hours`}.</p>
         ) : <>
           <div className="grid grid-cols-[0.7fr_1.3fr] divide-x divide-slate-200 rounded-lg border border-slate-200 bg-slate-50 py-2">
-            <div className="px-2.5"><p className="text-[9px] text-slate-400">Verified reports</p><p className="mt-0.5 text-lg font-bold leading-5 tabular-nums text-slate-900">{verified.length}</p></div>
+            <div className="px-2.5"><p className="text-[9px] text-slate-400">Validated reports</p><p className="mt-0.5 text-lg font-bold leading-5 tabular-nums text-slate-900">{verified.length}</p></div>
             <div className="px-2.5"><p className="text-[9px] text-slate-400">Deepest reported</p><p className="mt-1 text-[11px] font-semibold text-slate-800">{deepest ? formatReportDepth(deepest.properties.depth, deepest.properties.depthCm) : '—'}</p></div>
           </div>
           <div role="group" aria-label="Reported depth distribution" className="space-y-1">
@@ -967,7 +967,7 @@ export function DataLayerControls({
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [showSimulationInfo, setShowSimulationInfo] = useState(false);
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
-  // Mirrors activeLayersCount in MapSidebar so the X clears everything the
+  // Mirrors activeLayersCount in MapSidebar so Clear layers turns off everything the
   // count badge considers active.
   const hasActiveLayers = [
     showFloodHazard,
@@ -1014,11 +1014,11 @@ export function DataLayerControls({
             e.stopPropagation();
             disableAllLayers();
           }}
-          aria-label="Disable all layers"
-          title="Disable all layers"
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-gakit-maroon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
+          aria-label="Clear layers"
+          title="Turn off all active layers"
+          className="flex h-6 shrink-0 items-center justify-center rounded-md px-1.5 text-[10px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-gakit-maroon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
         >
-          <X className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden="true" />
+          Clear layers
         </button>
       ) : undefined}
     >

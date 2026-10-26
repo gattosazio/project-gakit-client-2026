@@ -4,27 +4,25 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { createPortal } from 'react-dom';
 import {
-  AlertTriangle,
   Check,
-  CheckCircle2,
   ChevronDown,
   Copy,
   MapPin,
   X,
-  XCircle,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { useModalA11y } from '@/hooks/useModalA11y';
 import {
   REFERENCE_LABELS,
   STATUS_META,
+  DEPTH_LABELS,
   formatDateTime,
-  formatReportDepth,
 } from '@/lib/reports/reportFormatting';
 import type { Report, ReportStatus } from '@/types/report';
-import { requestReportReassessment } from './actions/reports';
-import { RejectionReasonSelect } from './RejectionReason';
-import { ReportAssessment } from './ReportAssessment';
+import { ReportDecisionDialog } from './ReportDecisionDialog';
+import type { DecisionReason } from '@/lib/reports/decisionReasons';
+import { ReportAssessment, ReportValidationChecks } from './ReportAssessment';
+import { StaffDecisionHistory } from './StaffDecisionHistory';
 
 const ReportMiniMap = dynamic(() =>
   import('./ReportMiniMap').then((mod) => ({ default: mod.ReportMiniMap })),
@@ -44,7 +42,7 @@ export function ReportDetail({
   report: Report;
   isUpdating: boolean;
   onClose: () => void;
-  onUpdateStatus: (report: Report, toStatus: ReportStatus, reason?: string) => void;
+  onUpdateStatus: (report: Report, toStatus: ReportStatus, reason?: DecisionReason) => Promise<boolean>;
   onViewOnMap?: () => void;
   modal?: boolean;
 }) {
@@ -54,7 +52,9 @@ export function ReportDetail({
   const [copiedId, setCopiedId] = useState(false);
   const [copiedCoord, setCopiedCoord] = useState(false);
   const [photoOpen, setPhotoOpen] = useState(false);
-  const panelRef = useModalA11y<HTMLDivElement>({ enabled: modal });
+  const [decisionOpen, setDecisionOpen] = useState(false);
+  const photoTrigger = useRef<HTMLElement | null>(null);
+  const panelRef = useModalA11y<HTMLDivElement>({ enabled: modal && !decisionOpen && !photoOpen });
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -65,13 +65,9 @@ export function ReportDetail({
   useEffect(() => {
     if (!modal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (decisionOpen || photoOpen) return;
       if (e.key === 'Escape') {
         e.preventDefault();
-        // Escape closes the photo lightbox first, not the whole details card.
-        if (photoOpen) {
-          setPhotoOpen(false);
-          return;
-        }
         requestClose();
       }
     };
@@ -79,11 +75,9 @@ export function ReportDetail({
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [modal, requestClose, photoOpen]);
+  }, [modal, requestClose, photoOpen, decisionOpen]);
 
-  // Focus, focus trap, scroll lock and focus restoration are handled by
-  // `useModalA11y` (modal mode only); Escape stays below so it can dismiss the
-  // inner photo lightbox before the drawer itself.
+  // Nested dialogs own focus and Escape while the outer focus scope is paused.
 
   const copyText = async (text: string, target: 'id' | 'coord') => {
     try {
@@ -109,109 +103,71 @@ export function ReportDetail({
   };
 
   const coordinates = `${report.location.latitude.toFixed(4)}, ${report.location.longitude.toFixed(4)}`;
+  const photoUrl = report.photoUrl?.trim() || null;
 
   const content = (
-    <div className={modal ? 'flex max-h-[90dvh] flex-col' : 'flex flex-col'}>
-      <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
+    <div className={modal ? 'flex max-h-[calc(100dvh-2rem)] flex-col sm:max-h-[calc(100dvh-3rem)]' : 'flex flex-col'}>
+      <header className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
         <div className="min-w-0">
-          <h3 className="font-bold text-slate-900">Report Details</h3>
-          <div className="mt-1 flex items-center gap-1.5">
-            <p className="truncate font-mono text-[10px] text-slate-500" title={report.id}>#{report.id.slice(0, 8)}</p>
-            <button
-              type="button"
-              onClick={() => copyText(report.id, 'id')}
-              aria-label="Copy report ID"
-              title="Copy report ID"
-              className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-canvas-light hover:text-slate-700"
-            >
-              {copiedId ? <Check className="h-3.5 w-3.5 text-hazard-safe" /> : <Copy className="h-3.5 w-3.5" />}
-            </button>
-          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Report details</p>
+          <h3 title={address} className="mt-0.5 line-clamp-2 break-words text-sm font-bold leading-5 text-slate-900 sm:text-base">{address}</h3>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>
-            {status.label}
-          </span>
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="Close report details"
-            className="rounded-lg border border-canvas-grey p-2 text-slate-500 hover:bg-canvas-light hover:text-slate-900 transition-colors"
-          >
-            <X className="h-4 w-4" />
-          </button>
+          <span className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${status.badgeClass}`}>{status.label}</span>
+          <button type="button" onClick={requestClose} aria-label="Close report details"
+            className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50"><X className="h-4 w-4" /></button>
         </div>
-      </div>
-
-      <div className={`min-h-0 space-y-4 p-4 sm:p-5 ${modal ? 'overflow-y-auto overscroll-contain' : ''}`}>
-        <div className={`grid gap-4 ${modal ? 'sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]' : ''}`}>
-          <div className="min-w-0 space-y-3">
-            <LocationPreview
-              address={address}
-              coordinates={coordinates}
-              latitude={report.location.latitude}
-              longitude={report.location.longitude}
-              status={report.status}
-              copied={copiedCoord}
-              onCopy={() => copyText(coordinates, 'coord')}
-              onViewOnMap={onViewOnMap}
-            />
-            <PhotoEvidence photoUrl={report.photoUrl} reportId={report.id} onOpen={() => setPhotoOpen(true)} />
+      </header>
+      <div className={`min-h-0 space-y-3 p-3 sm:p-4 ${modal ? 'overflow-y-auto overscroll-contain' : ''}`}>
+        <div className={`grid items-start gap-3 ${modal ? 'sm:grid-cols-2' : ''}`}>
+          <ObservationSnapshot report={report} />
+          <ReportAssessment report={report} />
+        </div>
+        <section aria-label="Report evidence">
+          <div className="mb-1.5 flex items-center justify-between gap-2">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Evidence</h4>
+            {!photoUrl && <span className="text-[10px] text-slate-400">No photo attached</span>}
           </div>
-          <div className="min-w-0 space-y-3">
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Reported water depth</p>
-              <p className="mt-1 text-lg font-bold leading-6 text-slate-900">{formatReportDepth(report.depth, report.depthCm)}</p>
-              <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
-                <span>Reporter: <strong className="font-semibold text-slate-700">{report.reporterType === 'staff' ? 'Staff' : report.reporterType === 'public' ? 'Public' : report.validationFlags?.includes('STAFF_REPORTER') ? 'Staff' : 'Unknown'}</strong></span>
-                {report.reference && <span>Reference: {REFERENCE_LABELS[report.reference] || report.reference}</span>}
-              </div>
+          <div className={`grid gap-3 ${modal && photoUrl ? 'sm:grid-cols-2' : ''}`}>
+            {photoUrl && <PhotoEvidence photoUrl={photoUrl} reportId={report.id} onOpen={() => {
+              photoTrigger.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+              setPhotoOpen(true);
+            }} />}
+            <LocationPreview coordinates={coordinates} latitude={report.location.latitude} longitude={report.location.longitude}
+              status={report.status} copied={copiedCoord} onCopy={() => copyText(coordinates, 'coord')} onViewOnMap={onViewOnMap} />
+          </div>
+        </section>
+        <ReportValidationChecks report={report} />
+        {report.decisionSource === 'manual' && <StaffDecisionHistory key={`${report.id}:${report.updatedAt}`} reportId={report.id} />}
+        <details className="group rounded-xl border border-slate-200 bg-white">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-3 text-xs font-semibold text-slate-700 focus-visible:outline-gakit-maroon [&::-webkit-details-marker]:hidden">
+            Report history<ChevronDown aria-hidden="true" className="h-4 w-4 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+          </summary>
+          <dl className="grid grid-cols-2 gap-3 border-t border-slate-100 p-3 text-xs">
+            <DetailItem label="Submitted" value={formatDateTime(report.createdAt)} />
+            <DetailItem label="Last updated" value={formatDateTime(report.updatedAt)} />
+            <div className="col-span-2 min-w-0">
+              <dt className="text-[10px] text-slate-500">Report ID</dt>
+              <dd className="mt-1 flex items-start gap-2">
+                <span className="min-w-0 break-all font-mono text-[11px] text-slate-700">{report.id}</span>
+                <button type="button" onClick={() => copyText(report.id, 'id')} aria-label="Copy report ID" className="shrink-0 rounded p-1 text-slate-400 hover:bg-slate-50">
+                  {copiedId ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                </button>
+              </dd>
             </div>
-            <ReportAssessment report={report} />
-            <ReassessmentAction key={report.id} reportId={report.id} />
-          </div>
-        </div>
-        <FieldGroup title="Timeline">
-          <DetailItem label="Submitted" value={formatDateTime(report.createdAt)} />
-          <DetailItem label="Observed" value={formatDateTime(report.observedAt)} />
-          <DetailItem label="Last updated" value={formatDateTime(report.updatedAt)} />
-        </FieldGroup>
+          </dl>
+        </details>
       </div>
-      <div className="shrink-0 space-y-2 border-t border-slate-100 bg-white px-4 py-3 sm:px-5">
-        <StatusActionMenu report={report} isUpdating={isUpdating} onUpdateStatus={onUpdateStatus} />
+      <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-2">
+        <StatusActionMenu report={report} isUpdating={isUpdating} onUpdateStatus={onUpdateStatus} onOpenChange={setDecisionOpen} />
       </div>
     </div>
   );
 
-  const lightbox =
-    photoOpen && report.photoUrl
-      ? createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Report photo"
-            className="fixed inset-0 z-[1400] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-xs"
-            onClick={() => setPhotoOpen(false)}
-          >
-            <button
-              type="button"
-              onClick={() => setPhotoOpen(false)}
-              aria-label="Close photo"
-              className="absolute right-4 top-4 rounded-lg border border-white/20 bg-white/10 p-2 text-white transition-colors hover:bg-white/20"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            {/* eslint-disable-next-line @next/next/no-img-element -- Supabase host isn't in next.config images.remotePatterns */}
-            <img
-              src={report.photoUrl}
-              alt={`Photo evidence for report ${report.id}`}
-              className="max-h-[90vh] max-w-full rounded-xl shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>,
-          document.body
-        )
-      : null;
+  const lightbox = photoOpen && photoUrl ? <PhotoLightbox photoUrl={photoUrl} reportId={report.id} onClose={() => {
+    setPhotoOpen(false);
+    requestAnimationFrame(() => photoTrigger.current?.focus());
+  }} /> : null;
 
   if (modal) {
     return createPortal(
@@ -228,9 +184,10 @@ export function ReportDetail({
               ref={panelRef}
               tabIndex={-1}
               role="dialog"
-              aria-modal="true"
+              aria-modal={!decisionOpen && !photoOpen}
+              inert={decisionOpen || photoOpen}
               aria-label="Report details"
-              className="gakit-modal-open w-full max-w-3xl overflow-hidden rounded-t-2xl bg-white shadow-2xl border border-slate-200/80 ring-1 ring-slate-900/5 outline-none sm:max-h-[90dvh] sm:rounded-2xl"
+              className="gakit-modal-open w-full max-w-3xl overflow-hidden rounded-t-2xl bg-white shadow-2xl border border-slate-200/80 ring-1 ring-slate-900/5 outline-none sm:max-h-[calc(100dvh-3rem)] sm:rounded-2xl"
             >
               <div className="h-1.5 w-10 rounded-full bg-slate-200 sm:hidden" style={{ margin: '8px auto 4px' }} />
               {content}
@@ -250,266 +207,107 @@ export function ReportDetail({
   );
 }
 
-function LocationPreview({
-  address,
-  coordinates,
-  latitude,
-  longitude,
-  status,
-  copied,
-  onCopy,
-  onViewOnMap,
-}: {
-  address: string;
-  coordinates: string;
-  latitude: number;
-  longitude: number;
-  status: ReportStatus;
-  copied: boolean;
-  onCopy: () => void;
-  onViewOnMap?: () => void;
-}) {
-  return (
-    <div className="overflow-hidden rounded-lg border border-canvas-grey bg-canvas-light">
-      <div className="relative h-32 sm:h-36">
-        <ReportMiniMap latitude={latitude} longitude={longitude} status={status} onViewOnMap={onViewOnMap} />
-        <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-slate-950/60 px-2 py-0.5 text-[10px] font-bold text-white shadow-sm backdrop-blur-sm">
-          {coordinates}
-        </span>
+function ObservationSnapshot({ report }: { report: Report }) {
+  const metadata = report.observation ?? report.validationSummary?.observation;
+  const method = metadata?.depthMethod ?? report.validationSummary?.depthQuality ?? 'unknown';
+  const numericDepth = method !== 'category' && report.depthCm != null && Number.isFinite(report.depthCm) ? report.depthCm : null;
+  const methodLabel = method === 'category' ? 'Category only' : method === 'measured' ? 'Measured by reporter'
+    : method === 'estimated' ? 'Estimated' : 'Method not recorded';
+  const reporter = report.reporterType === 'staff' || (!report.reporterType && report.validationFlags?.includes('STAFF_REPORTER'))
+    ? 'Staff' : report.reporterType === 'public' ? 'Public reporter' : 'Not recorded';
+  return <section aria-label="Reported observation" className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+    <div className="grid grid-cols-2 gap-x-3 gap-y-2">
+      <div className="col-span-2">
+        <h4 className="text-[10px] font-medium text-slate-500">Reported water depth</h4>
+        <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-base font-bold leading-5 text-slate-900">
+          <span>{DEPTH_LABELS[report.depth.code]}</span>
+          {numericDepth != null && <span className="text-xs font-semibold text-slate-700">{method === 'estimated' ? 'About ' : ''}{numericDepth} cm</span>}
+        </p>
+        <p className="mt-0.5 text-[10px] text-slate-500">{methodLabel}</p>
+        {numericDepth == null && (method === 'estimated' || method === 'measured') && <p className="mt-1 text-[10px] text-slate-500">No numeric depth recorded</p>}
       </div>
-      <div className="space-y-2 border-t border-canvas-grey p-2.5">
-        <div className="flex items-start justify-between gap-2">
-          <span className="text-xs font-semibold leading-5 text-slate-700">{address}</span>
-          <button
-            type="button"
-            onClick={onCopy}
-            aria-label="Copy coordinates"
-            title="Copy coordinates"
-            className="shrink-0 rounded-md p-1 text-slate-400 transition-colors hover:bg-canvas-light hover:text-slate-700"
-          >
-            {copied ? <Check className="h-4 w-4 text-hazard-safe" /> : <Copy className="h-4 w-4" />}
-          </button>
-        </div>
-        {onViewOnMap && (
-          <button
-            type="button"
-            onClick={onViewOnMap}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md border border-canvas-grey bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-canvas-light hover:text-gakit-maroon"
-          >
-            <MapPin className="h-4 w-4" />
-            View on map
-          </button>
-        )}
+      <div className="min-w-0 text-xs">
+        <p className="text-[10px] text-slate-500">Observed</p>
+        <time dateTime={report.observedAt} className="mt-1 block font-medium leading-5 text-slate-700">{formatDateTime(report.observedAt)}</time>
+        {metadata?.timeSource === 'submission_default' && <p className="mt-1 text-[10px] leading-4 text-slate-500">Uses submission time</p>}
+      </div>
+      <div className="min-w-0 text-xs">
+        <p className="text-[10px] text-slate-500">Reporter</p>
+        <p className="mt-1 font-medium leading-5 text-slate-700">{reporter}</p>
+        {report.reference && <p className="mt-1 text-[10px] leading-4 text-slate-500">Depth reference: {REFERENCE_LABELS[report.reference]}</p>}
       </div>
     </div>
-  );
+  </section>;
 }
 
-function PhotoEvidence({
-  photoUrl,
-  reportId,
-  onOpen,
-}: {
-  photoUrl?: string | null;
-  reportId: string;
-  onOpen: () => void;
+function LocationPreview({ coordinates, latitude, longitude, status, copied, onCopy, onViewOnMap }: {
+  coordinates: string; latitude: number; longitude: number; status: ReportStatus; copied: boolean;
+  onCopy: () => void; onViewOnMap?: () => void;
 }) {
-  return (
-    <div>
-      <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Photo evidence</h4>
-      {photoUrl ? (
-        <button
-          type="button"
-          onClick={onOpen}
-          aria-label="View photo full size"
-          className="block w-full cursor-zoom-in overflow-hidden rounded-lg border border-canvas-grey bg-canvas-light focus:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element -- Supabase host isn't in next.config images.remotePatterns */}
-          <img
-            src={photoUrl}
-            alt={`Photo evidence for report ${reportId}`}
-            loading="lazy"
-            className="h-32 w-full object-cover sm:h-36"
-          />
-        </button>
-      ) : (
-        <p className="rounded-lg border border-dashed border-slate-200 px-3 py-3 text-xs text-slate-400">No photo submitted</p>
-      )}
+  return <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <h5 className="px-3 py-2 text-[11px] font-medium text-slate-500">Reported location</h5>
+    <div className="relative h-40 overflow-hidden bg-slate-50"><ReportMiniMap latitude={latitude} longitude={longitude} status={status} onViewOnMap={onViewOnMap} /></div>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 px-3 py-2">
+      <span className="text-[10px] text-slate-500">{coordinates}</span>
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={onCopy} aria-label="Copy coordinates" className="rounded p-1 text-slate-400 hover:bg-slate-50">{copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}</button>
+        {onViewOnMap && <button type="button" onClick={onViewOnMap} className="inline-flex items-center gap-1 text-[11px] font-semibold text-gakit-maroon"><MapPin className="h-3.5 w-3.5" />View on map</button>}
+      </div>
     </div>
-  );
+  </div>;
 }
 
-function FieldGroup({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <h4 className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500">{title}</h4>
-      <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-3">{children}</div>
-    </div>
-  );
+function PhotoEvidence({ photoUrl, reportId, onOpen }: { photoUrl: string; reportId: string; onOpen: () => void }) {
+  return <div className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white">
+    <h5 className="px-3 py-2 text-[11px] font-medium text-slate-500">Reporter photo</h5>
+    <button type="button" onClick={onOpen} aria-label="View photo full size" className="block w-full cursor-zoom-in text-left focus-visible:outline-gakit-maroon">
+      {/* eslint-disable-next-line @next/next/no-img-element -- Evidence host is supplied by the existing storage API. */}
+      <img src={photoUrl} alt={`Photo evidence for report ${reportId}`} loading="lazy" className="h-40 w-full object-cover" />
+      <span className="block border-t border-slate-100 px-3 py-2.5 text-[11px] font-medium text-gakit-maroon">View full photo</span>
+    </button>
+  </div>;
 }
 
-function StatusActionMenu({
-  report,
-  isUpdating,
-  onUpdateStatus,
-}: {
+function PhotoLightbox({ photoUrl, reportId, onClose }: { photoUrl: string; reportId: string; onClose: () => void }) {
+  const ref = useModalA11y<HTMLDivElement>({ restoreFocus: false });
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') { event.preventDefault(); onClose(); } };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [onClose]);
+  return createPortal(<div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Report photo"
+    onClick={event => { if (event.target === event.currentTarget) onClose(); }}
+    className="fixed inset-0 z-[1500] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-xs">
+    <button type="button" onClick={onClose} aria-label="Close photo" className="absolute right-4 top-4 rounded-lg bg-white/10 p-3 text-white"><X className="h-5 w-5" /></button>
+    {/* eslint-disable-next-line @next/next/no-img-element -- Same reporter-provided evidence as the preview. */}
+    <img src={photoUrl} alt={`Photo evidence for report ${reportId}`} className="max-h-[85dvh] max-w-full rounded-xl object-contain" />
+  </div>, document.body);
+}
+
+function StatusActionMenu({ report, isUpdating, onUpdateStatus, onOpenChange }: {
   report: Report;
   isUpdating: boolean;
-  onUpdateStatus: (report: Report, toStatus: ReportStatus, reason?: string) => void;
+  onUpdateStatus: (report: Report, toStatus: ReportStatus, reason?: DecisionReason) => Promise<boolean>;
+  onOpenChange: (open: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [menuPos, setMenuPos] = useState({ bottom: 0, left: 0, width: 0 });
-  const [pending, setPending] = useState<ReportStatus | null>(null);
-  const [reason, setReason] = useState('');
-  const pendingNeedsReason = pending === 'REJECTED' || pending === 'UNVERIFIED';
-  const reasonRef = useRef<HTMLTextAreaElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const options: Array<{ status: ReportStatus; label: string; className: string; icon: typeof CheckCircle2; needsReason: boolean }> = [
-    { status: 'UNVERIFIED', label: 'Reopen for review', className: 'text-slate-600', icon: AlertTriangle, needsReason: true },
-    { status: 'VERIFIED', label: 'Verify', className: 'text-hazard-safe', icon: CheckCircle2, needsReason: false },
-    { status: 'ANOMALY', label: 'Mark Anomaly', className: 'text-hazard-critical', icon: AlertTriangle, needsReason: false },
-    { status: 'REJECTED', label: 'Reject', className: 'text-slate-600', icon: XCircle, needsReason: true },
-  ];
-
-  const toggle = () => {
-    if (open) return setOpen(false);
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) setMenuPos({ bottom: window.innerHeight - rect.top + 4, left: rect.left, width: rect.width });
-    setOpen(true);
-  };
-
-  const selectOption = (option: (typeof options)[number]) => {
-    if (!option.needsReason) {
-      setOpen(false);
-      onUpdateStatus(report, option.status);
-      return;
-    }
-    setOpen(false);
-    setPending(option.status);
-    setReason('');
-    window.setTimeout(() => reasonRef.current?.focus(), 0);
-  };
-
-  const confirmPending = () => {
-    if (!pending) return;
-    const option = options.find((o) => o.status === pending);
-    if (option?.needsReason && !reason.trim()) return;
-    onUpdateStatus(report, pending, reason.trim() ? reason.trim() : undefined);
-  };
-
-  const cancelPending = () => {
-    setPending(null);
-    setReason('');
-  };
-
-  return (
-    <>
-      <button ref={buttonRef} type="button" onClick={toggle} disabled={isUpdating} aria-haspopup="menu" aria-expanded={open} className="flex w-full items-center justify-center gap-2 rounded-lg bg-gakit-maroon px-3 py-2 text-xs font-semibold text-white hover:bg-maroon-800 disabled:opacity-60">
-        {isUpdating ? <Spinner size="sm" /> : null}
-        {!isUpdating && <span>Update Status</span>}
-        <ChevronDown className={`h-4 w-4 transition-transform ${open ? '' : 'rotate-180'}`} />
-      </button>
-
-      {pending && (
-        <div className="rounded-lg border border-canvas-grey bg-canvas-light p-4" role="group" aria-label="Reason for status change">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <span className="text-sm font-semibold text-slate-800">
-              {pending === 'REJECTED' ? 'Reason for rejection' : 'Reason for reopening'}
-            </span>
-            {pendingNeedsReason && <span className="text-xs font-semibold text-hazard-critical">Required</span>}
-          </div>
-          {pending === 'REJECTED' ? <RejectionReasonSelect value={reason} onChange={setReason} disabled={isUpdating} /> : <textarea
-            ref={reasonRef}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            rows={3}
-            placeholder="Explain why this report needs another review…"
-            aria-label="Reason"
-            className="w-full resize-y rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 focus:border-gakit-maroon"
-          />}
-          <div className="mt-3 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={cancelPending}
-              disabled={isUpdating}
-              className="rounded-lg border border-canvas-grey bg-white px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-canvas-light disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={confirmPending}
-              disabled={isUpdating || (pendingNeedsReason && !reason.trim())}
-              className="inline-flex items-center gap-2 rounded-lg bg-gakit-maroon px-4 py-2 text-sm font-semibold text-white hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isUpdating ? <Spinner size="sm" /> : null}
-              Confirm
-            </button>
-          </div>
-        </div>
-      )}
-
-      {open && createPortal(
-        <>
-          <button type="button" aria-hidden tabIndex={-1} className="fixed inset-0 z-[1300]" onClick={() => setOpen(false)} />
-          <div role="menu" style={{ position: 'fixed', bottom: menuPos.bottom, left: menuPos.left, width: menuPos.width }} className="z-[1400] overflow-hidden rounded-lg border border-canvas-grey bg-white shadow-lg">
-            {options.filter(option => option.status !== 'UNVERIFIED' || report.status !== 'UNVERIFIED').map((option, index) => {
-              const isCurrent = report.status === option.status && (report.decisionSource === 'manual' || option.status === 'UNVERIFIED');
-              const Icon = option.icon;
-              return (
-                <button
-                  key={option.status}
-                  role="menuitem"
-                  disabled={isCurrent || isUpdating}
-                  onClick={() => selectOption(option)}
-                  className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] font-semibold hover:bg-canvas-light disabled:opacity-50 ${index > 0 ? 'border-t border-canvas-grey' : ''} ${option.className}`}
-                >
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="flex-1 text-left">{option.label}</span>
-                  {isCurrent && <span className="text-[10px] font-medium text-slate-400">Current</span>}
-                </button>
-              );
-            })}
-          </div>
-        </>,
-        document.body
-      )}
-    </>
-  );
+  return <>
+    <button type="button" onClick={() => { setOpen(true); onOpenChange(true); }} disabled={isUpdating} aria-haspopup="dialog"
+      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gakit-maroon px-3 py-3 text-sm font-semibold text-white disabled:opacity-60">
+      {isUpdating && <Spinner size="sm" />}Update report status<ChevronDown className="h-4 w-4" />
+    </button>
+    {open && <ReportDecisionDialog report={report} isUpdating={isUpdating} onClose={() => { setOpen(false); onOpenChange(false); }}
+      onConfirm={(status, reason) => onUpdateStatus(report, status, reason)} />}
+  </>;
 }
 
-function DetailItem({ label, value, loading = false }: { label: string; value: string; loading?: boolean }) {
+function DetailItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-[10px] font-medium text-slate-500">{label}</div>
-      <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-medium text-slate-900">
-        {loading && <Spinner size="xs" />}
+      <dt className="text-[10px] font-medium text-slate-500">{label}</dt>
+      <dd className="mt-0.5 text-[11px] font-medium text-slate-900">
         <span className="break-words">{value}</span>
-      </div>
-    </div>
-  );
-}
-
-function ReassessmentAction({ reportId }: { reportId: string }) {
-  const [state, setState] = useState<'idle' | 'loading' | 'queued' | 'error'>('idle');
-  const request = async () => {
-    setState('loading');
-    try {
-      await requestReportReassessment(reportId);
-      setState('queued');
-    } catch {
-      setState('error');
-    }
-  };
-  return (
-    <div className="text-xs">
-      <button type="button" onClick={request} disabled={state === 'loading' || state === 'queued'}
-        className="rounded-md border border-canvas-grey px-2.5 py-1.5 font-semibold text-slate-700 disabled:opacity-60">
-        {state === 'loading' ? 'Requesting check…' : state === 'queued' ? 'Check requested' : 'Check again'}
-      </button>
-      <p role="status" className="mt-1 text-[10px] leading-4 text-slate-500">
-        {state === 'queued' ? 'A new check will run shortly.' : state === 'error' ? 'Could not request a check. Please try again.' : ''}
-      </p>
+      </dd>
     </div>
   );
 }

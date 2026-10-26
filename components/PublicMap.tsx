@@ -90,6 +90,7 @@ import { useRainfallLayer } from '@/hooks/useRainfallLayer';
 import { useHeatIndexLayer } from '@/hooks/useHeatIndexLayer';
 import { useDroughtLayer } from '@/hooks/useDroughtLayer';
 import { useReportsLayer } from '@/hooks/useReportsLayer';
+import { useVisibleInterval } from '@/hooks/useVisibleInterval';
 import { FailureModal } from '@/components/ui/FailureModal';
 import { useHimawariLayer } from '@/hooks/useHimawariLayer';
 import { useTyphoonLayer } from '@/hooks/useTyphoonLayer';
@@ -112,6 +113,7 @@ export interface MapReportToShow {
   depthLabel: string;
   statusLabel: string;
   createdAt: string;
+  observedAt?: string;
 }
 
 export interface PublicMapHandle {
@@ -135,6 +137,10 @@ export interface PublicMapHandle {
 }
 
 interface PublicMapProps {
+  controlsHost?: HTMLElement | null;
+  /** Space occupied by an overlapping panel; keeps camera targets and controls visible. */
+  rightInset?: number;
+  bottomInset?: number;
   onCampusFocusChange?: (enabled: boolean) => void;
   onDisplaySettingsChange?: (settings: { basemap: BasemapId; mode: MapMode; showBuildings: boolean; showBarangayBoundaries: boolean; smoothPolygons: boolean; showRoads: boolean; focusRoads: boolean; ready: boolean }) => void;
   hideDisplayControls?: boolean;
@@ -239,6 +245,9 @@ function MinimalCompass({
 }
 
 export function PublicMap({
+  controlsHost,
+  rightInset,
+  bottomInset,
   onCampusFocusChange,
   onLocationSelect,
   selectedLocation,
@@ -311,6 +320,12 @@ export function PublicMap({
   const stormSurgeAdvisoryRef = useRef<1 | 2 | 3 | 4>(4);
   const hasBottomAction = hasBottomNav || Boolean(onStartReport);
   const [mapReady, setMapReady] = useState(false);
+  const reportFocusOffset = useMemo<[number, number]>(() => [0, -(bottomInset ?? 0) / 2], [bottomInset]);
+  const rightInsetRef = useRef(rightInset);
+  useLayoutEffect(() => {
+    rightInsetRef.current = rightInset;
+    if (rightInset !== undefined) mapRef.current?.setPadding({ top: 0, bottom: 0, left: 0, right: rightInset });
+  }, [rightInset]);
   const [mapBearing, setMapBearing] = useState(0);
   const [mapPitch, setMapPitch] = useState(0);
 
@@ -636,6 +651,7 @@ export function PublicMap({
   } = useMapPopups({
     mapRef,
     mapReady,
+    focusOffset: reportFocusOffset,
     showTyphoonTrack: typhoon.showTyphoonTrack,
     showBarangayBoundariesRef,
     onReportClickRef,
@@ -815,6 +831,7 @@ export function PublicMap({
       );
     }
   }, [reportsRef]);
+  useVisibleInterval(() => { if (mapRef.current) applyReportData(mapRef.current); }, 60_000, mapReady);
 
 
 
@@ -1090,6 +1107,7 @@ export function PublicMap({
       fadeDuration: 0,
       attributionControl: false,
     });
+    if (rightInsetRef.current !== undefined) map.setPadding({ top: 0, bottom: 0, left: 0, right: rightInsetRef.current });
     setSwathZoomFloor(map);
 
     mapRef.current = map;
@@ -1346,8 +1364,7 @@ export function PublicMap({
             ageLabel={hoveredAgeLabel}
             windowLabel={barangayWindowLabel}
             alignToTop={hideDisplayControls && !fullScreen}
-            mapRef={mapRef}
-            containerRef={mapContainer}
+            alignToLeft={rightInset !== undefined}
             onClose={() => {
               setDismissedBarangayId(hoveredBarangay.id);
               clearBarangayHover();
@@ -1368,6 +1385,7 @@ export function PublicMap({
       {fullScreen && mapReady && <MapScaleRuler mapRef={mapRef} />}
 
       <MapSidebar
+        headerHost={controlsHost}
         drought={{ ...drought, setVisible: visible => {
           if (visible) handleShowSimulatedFloodChange(false);
           droughtVisibleRef.current = visible;
@@ -1454,7 +1472,7 @@ export function PublicMap({
           showReport({ id: feature.properties.id, lat: feature.geometry.coordinates[1], lng: feature.geometry.coordinates[0],
             address: feature.properties.address || 'Location not named',
             depthLabel: formatReportDepth(feature.properties.depth, feature.properties.depthCm),
-            statusLabel: STATUS_META[feature.properties.status].label, createdAt: feature.properties.createdAt });
+            statusLabel: STATUS_META[feature.properties.status].label, createdAt: feature.properties.createdAt, observedAt: feature.properties.observedAt });
         }}
       />
 
@@ -1466,6 +1484,7 @@ export function PublicMap({
 
       {/* Bottom-right Navigation & Location Cluster */}
       <div
+        style={{ right: rightInset ? rightInset + 16 : undefined, bottom: bottomInset ? bottomInset + 16 : undefined }}
         className={`absolute ${
           fullScreen
             ? (hasBottomAction ? 'bottom-24 md:bottom-10' : 'bottom-6 md:bottom-10')
@@ -1521,6 +1540,7 @@ export function PublicMap({
 
       {!hideAttribution && (
         <div
+          style={{ right: rightInset ? rightInset + 8 : undefined, bottom: bottomInset ? bottomInset + 6 : undefined }}
           className={`absolute ${
             fullScreen ? 'bottom-2 md:bottom-2' : 'bottom-1.5'
           } right-2 z-[990] flex items-center gap-1 text-[10px] font-medium text-slate-600 [text-shadow:_0_1px_2px_rgb(255_255_255_/_80%)]`}

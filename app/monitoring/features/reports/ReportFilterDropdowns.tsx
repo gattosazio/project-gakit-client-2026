@@ -15,7 +15,7 @@ export function StatusFilterDropdown({
 }) {
   const options: FilterDropdownOption<'All' | ReportStatus>[] = [
     { value: 'All', label: 'All statuses', icon: <Filter className="w-4 h-4 shrink-0" /> },
-    ...(['UNVERIFIED', 'VERIFIED', 'ANOMALY', 'REJECTED'] as ReportStatus[]).map((status) => {
+    ...(['UNVERIFIED', 'VERIFIED', 'REJECTED'] as ReportStatus[]).map((status) => {
       const Icon = STATUS_ICONS[status];
       return {
         value: status,

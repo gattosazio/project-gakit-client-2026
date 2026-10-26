@@ -262,9 +262,9 @@ export function AlertsTab({
   };
 
   return (
-    <section className="space-y-5">
-      <div className="rounded-2xl border border-canvas-grey bg-white p-4 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <section className="flex min-h-0 flex-col gap-3 xl:h-full">
+      <div className="rounded-2xl border border-canvas-grey bg-white p-3 shadow-sm shrink-0">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-bold text-slate-900">Notification inbox</h3>
             <p className="mt-1 text-sm text-slate-500" aria-live="polite">
@@ -320,7 +320,7 @@ export function AlertsTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+      <div className="grid min-h-0 grid-cols-1 gap-3 xl:flex-1 xl:grid-cols-2 xl:grid-rows-1">
         <WeatherAlertsPanel
           notifications={visibleWeather}
           error={weatherError}

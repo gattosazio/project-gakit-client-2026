@@ -55,24 +55,26 @@ const { chromium } = require(process.env.GAKIT_PLAYWRIGHT_MODULE || 'playwright'
     await page.route('**/receipt-fixture', route => route.fulfill({contentType:'text/html', body:'<div id="root"></div>'}));
     await page.route('**/receipt-api/fixture', route => {
       requests++;
-      return route.fulfill({json:{status:requests > 1 ? 'ANOMALY' : 'VERIFIED', decisionSource:'automated',
+      return route.fulfill({json:{status:requests > 1 ? 'ANOMALY' : 'VERIFIED', decisionSource:requests > 1 ? 'manual' : 'automated',
         validationSummary:{explanation:requests > 1 ? 'Saved reassessment requires review' : 'Saved current assessment',
           assessedAt:'2026-10-19T04:45:00Z'}}});
     });
     await page.goto(`${process.env.GAKIT_BASE_URL || 'http://localhost:3000'}/receipt-fixture`);
     await page.addScriptTag({content:bundle});
+    await page.getByText('Submission details', {exact:true}).click();
     await page.getByText('Saved current assessment', {exact:true}).waitFor();
-    await page.getByText('Saved reassessment requires review', {exact:true}).waitFor({timeout:10000});
-    await page.getByText('Updated after submission.', {exact:true}).waitFor();
+    await page.getByText('Staff flagged your report for review.', {exact:true}).waitFor({timeout:10000});
+    await page.getByText('Status updated after submission.', {exact:true}).waitFor();
     const dialog = await page.locator('[role="dialog"]').innerText();
-    assert(dialog.includes('Flagged for review'));
+    assert(dialog.includes('Pending'));
+    assert(dialog.includes('Staff decision'));
     assert(!dialog.includes('Original saved assessment'));
     await page.getByRole('button', {name:'Done', exact:true}).click();
     const atClose = requests;
     await page.waitForTimeout(5500);
     assert.equal(requests, atClose);
     assert.deepEqual(errors, []);
-    console.log('Receipt browser check passed: saved explanation, changed status, polling cleanup.');
+    console.log('Receipt browser check passed: saved explanation, staff status change, polling cleanup.');
   } finally {
     await browser?.close();
     fs.unlinkSync(entry);

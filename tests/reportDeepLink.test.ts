@@ -12,11 +12,19 @@ describe('report deep link params', () => {
     expect(params.get('time')).toBe('all');
   });
 
-  it('defaults the time window to the last 24 hours and clears the status', () => {
+  it('clears stale URL filters so general navigation preserves the table filters', () => {
     const params = new URLSearchParams('status=ANOMALY&time=48h');
     applyReportDeepLinkParams(params);
     expect(params.get('status')).toBeNull();
-    expect(params.get('time')).toBe('24h');
+    expect(params.get('time')).toBeNull();
+  });
+
+  it('opens a specific report without overriding the table window', () => {
+    const params = new URLSearchParams('tab=reports&status=UNVERIFIED&time=all');
+    applyReportDeepLinkParams(params, { reportId: 'older-report' });
+    expect(params.get('status')).toBeNull();
+    expect(params.get('time')).toBeNull();
+    expect(params.get('tab')).toBe('reports');
   });
 
   it('leaves unrelated params untouched while applying', () => {

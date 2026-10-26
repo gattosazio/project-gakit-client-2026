@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CheckCircle2, ChevronDown, ChevronRight, type LucideIcon } from 'lucide-react';
 import type { Notification } from '@/lib/notifications';
 import {
@@ -74,6 +74,8 @@ export function AlertsPanel({
   const [unreadCollapsed, setUnreadCollapsed] = useState(false);
   const [readCollapsed, setReadCollapsed] = useState(false);
 
+  const listRef = useRef<HTMLDivElement>(null);
+
   const isArchivedView = view === 'archived';
 
   const { unread, read } = useMemo(
@@ -133,6 +135,16 @@ export function AlertsPanel({
     !isArchivedView && (!unreadCollapsed || (highlightOwnsView && !highlightedIsRead));
   const showReadGroup = !readCollapsed || (highlightOwnsView && highlightedIsRead);
 
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    list.scrollTop = 0;
+    const highlighted = list.querySelector<HTMLElement>('[data-highlighted-notification]');
+    if (highlighted) {
+      list.scrollTop = highlighted.getBoundingClientRect().top - list.getBoundingClientRect().top;
+    }
+  }, [safePage, resetKey, highlightedId, highlightedIndex]);
+
   const setPage = (next: number) => setPageState({ key: resetKey, page: next });
 
   const handleMarkAllRead = () => {
@@ -166,9 +178,9 @@ export function AlertsPanel({
   return (
     <section
       aria-label={title}
-      className="min-w-0 self-start overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm"
+      className="flex max-h-[75dvh] min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl border border-canvas-grey bg-white shadow-sm xl:h-full xl:max-h-none"
     >
-      <header className="space-y-2 border-b border-canvas-grey p-3">
+      <header className="shrink-0 space-y-2 border-b border-canvas-grey p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <h3 className="flex items-center gap-2 font-bold text-slate-900">
@@ -201,12 +213,18 @@ export function AlertsPanel({
         {filterBar}
       </header>
 
-      {error ? (
-        <div className="p-5 text-sm text-red-700">{error}</div>
-      ) : count === 0 && !loading ? (
-        <div className="p-2">{emptyState ?? <EmptyNotifications />}</div>
-      ) : (
-        <>
+      <div
+        ref={listRef}
+        role="region"
+        aria-label={`${title} list`}
+        tabIndex={0}
+        className="min-h-0 overflow-y-auto overscroll-y-contain [scrollbar-gutter:stable] xl:flex-1"
+      >
+        {error ? (
+          <div className="p-5 text-sm text-red-700">{error}</div>
+        ) : count === 0 && !loading ? (
+          <div className="p-2">{emptyState ?? <EmptyNotifications />}</div>
+        ) : (
           <div className="divide-y divide-canvas-grey">
             {!isArchivedView && (
               <div>
@@ -258,18 +276,21 @@ export function AlertsPanel({
               </div>
             )}
           </div>
+        )}
+      </div>
 
-          {totalPages > 1 && (
-            <ReportsPagination
-              currentPage={safePage}
-              totalPages={totalPages}
-              totalItems={orderedNotifications.length}
-              pageSize={NOTIFICATIONS_PER_PAGE}
-              onPageChange={setPage}
-              itemLabel="alerts"
-            />
-          )}
-        </>
+      {!error && totalPages > 1 && (
+        <div className="shrink-0">
+          <ReportsPagination
+            compact
+            currentPage={safePage}
+            totalPages={totalPages}
+            totalItems={orderedNotifications.length}
+            pageSize={NOTIFICATIONS_PER_PAGE}
+            onPageChange={setPage}
+            itemLabel="alerts"
+          />
+        </div>
       )}
     </section>
   );

@@ -10,6 +10,7 @@ vi.mock('pmtiles', () => ({
 
 // Stub canvas-based marker image creation (needs a DOM) — not relevant here.
 vi.mock('@/lib/map/reportMarkers', () => ({
+  createReportBubbleImage: () => ({ width: 1, height: 1, data: new Uint8ClampedArray(4), colorSpace: 'srgb' }),
   createReportMarkerImage: () => ({
     width: 1,
     height: 1,

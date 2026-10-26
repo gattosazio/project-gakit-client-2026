@@ -132,13 +132,14 @@ export async function fetchReportArchive(year: number, signal?: AbortSignal): Pr
 export async function updateReportStatus(
   reportId: string,
   toStatus: ReportStatus,
-  options: { reason?: string | null } = {}
+  options: { reasonCode: string; reason?: string | null }
 ): Promise<Report> {
   const url = `/api/v1/reports/${reportId}/status`;
   const report = await request<Report>(url, {
     method: 'PATCH',
     body: JSON.stringify({
       status: toStatus,
+      reasonCode: options.reasonCode,
       reason: options.reason ?? null,
     }),
   });
@@ -150,4 +151,17 @@ export async function updateReportStatus(
 export async function requestReportReassessment(reportId: string): Promise<void> {
   await request(`/api/v1/reports/${reportId}/reassess`, { method: 'POST' });
   invalidateApiCache('/api/v1/reports');
+}
+
+export interface ReportReviewHistory {
+  decisions?: { id: number; verdict: ReportStatus; actor: string; reason: string | null;
+    reasonCode?: string; note?: string | null; created_at: string }[];
+  reportRevision: number;
+  assessments: { id: number; report_revision: number; applied: boolean; trigger: string;
+    assessment: { result: { assigned_status: ReportStatus; explanation: string } } }[];
+  jobs: { id: number; report_revision: number; trigger: string; status: string }[];
+}
+
+export async function fetchReportReviewHistory(reportId: string, signal?: AbortSignal): Promise<ReportReviewHistory> {
+  return request(`/api/v1/reports/${encodeURIComponent(reportId)}/validation`, { signal });
 }

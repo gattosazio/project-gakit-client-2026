@@ -129,7 +129,7 @@ export function DashboardOverview({
     [stats, selectedYear]
   );
   const now = clock || (snapshot ? Date.parse(snapshot.asOf) : 0);
-  const openReport = (report: Report) => onReviewReports?.({ reportId: report.id, time: 'all' });
+  const openReport = (report: Report) => onReviewReports?.({ reportId: report.id });
   const delayed = !!snapshot && (error !== null || sourceState(snapshot.asOf, now, 2) !== 'fresh');
   const advisoryDelayed = feeds.alerts.status === 'error' ||
     sourceState(feeds.alerts.checkedAt, now, 15) !== 'fresh';
@@ -189,14 +189,14 @@ export function DashboardOverview({
               onOpen={openReport}
               onBrowse={(status) => onReviewReports?.({ status, time: 'all' })}
             />
-            <WorkloadSummary snapshot={snapshot} onReview={() => onReviewReports?.({ time: 'all' })} />
+            <WorkloadSummary snapshot={snapshot} onReview={() => onReviewReports?.()} />
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <div className="min-w-0 sm:col-span-2 lg:col-span-1">
               <ReportInflow snapshot={snapshot} onBrowse={() => onReviewReports?.({ time: '24h' })} />
             </div>
-            <GeographicHighlights snapshot={snapshot} kind="depth" onBrowse={() => onReviewReports?.({ time: 'all' })} />
-            <GeographicHighlights snapshot={snapshot} kind="hotspots" onBrowse={() => onReviewReports?.({ time: 'all' })} />
+            <GeographicHighlights snapshot={snapshot} kind="depth" onBrowse={() => onReviewReports?.({ time: '24h' })} />
+            <GeographicHighlights snapshot={snapshot} kind="hotspots" onBrowse={() => onReviewReports?.({ time: '24h' })} />
           </div>
         </>
       )}
@@ -211,7 +211,7 @@ export function DashboardOverview({
           {snapshot && <span>{snapshot.automation.enabled ? `${snapshot.automation.queued} assessments queued` : 'Background reassessment paused'}</span>}
           {snapshot && snapshot.automation.failed > 0 && snapshot.automation.firstFailedReportId && (
             <button type="button" className="font-semibold text-amber-700 underline underline-offset-2"
-              onClick={() => onReviewReports?.({ reportId: snapshot.automation.firstFailedReportId!, time: 'all' })}>
+              onClick={() => onReviewReports?.({ reportId: snapshot.automation.firstFailedReportId! })}>
               {snapshot.automation.failed} failed assessment{snapshot.automation.failed === 1 ? '' : 's'}
             </button>
           )}

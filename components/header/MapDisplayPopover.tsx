@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { ChevronUp, SlidersHorizontal, X } from 'lucide-react';
 import { BASEMAP_LABELS, type BasemapId } from '@/constants/publicMap';
 
 export interface MapDisplaySettings { basemap: BasemapId; mode: '2d' | '3d'; showBuildings: boolean; smoothPolygons?: boolean; showRoads?: boolean; focusRoads?: boolean }
@@ -38,7 +38,7 @@ function DisplaySettingRow({ label, description, checked, change }: DisplaySetti
   );
 }
 
-export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChange, onModeChange, onBuildingsChange, smoothPolygons = true, onSmoothingChange, showBarangayBoundaries = false, onBarangayBoundariesChange, showRoads = false, onRoadsChange, focusRoads = false, onFocusRoadsChange, disabled = false, className = '', placement = 'below', compact = false }: MapDisplaySettings & {
+export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChange, onModeChange, onBuildingsChange, smoothPolygons = true, onSmoothingChange, showBarangayBoundaries = false, onBarangayBoundariesChange, showRoads = false, onRoadsChange, focusRoads = false, onFocusRoadsChange, disabled = false, className = '', placement = 'below', compact = false, align = 'end' }: MapDisplaySettings & {
   onBasemapChange: (basemap: BasemapId) => void;
   onModeChange: (mode: '2d' | '3d') => void;
   onBuildingsChange: (visible: boolean) => void;
@@ -51,9 +51,11 @@ export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChang
   disabled?: boolean;
   className?: string;
   placement?: 'above' | 'below';
+  align?: 'start' | 'end';
   compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [popupPosition, setPopupPosition] = useState({ top: 0, left: 8, width: 304, maxHeight: 400 });
   const container = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const id = useId();
@@ -66,26 +68,41 @@ export function MapDisplayPopover({ basemap, mode, showBuildings, onBasemapChang
     const escape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); trigger.current?.focus(); }
     };
+    const resize = () => setOpen(false);
+    if (align === 'start') window.addEventListener('resize', resize);
     document.addEventListener('pointerdown', outside);
     window.addEventListener('keydown', escape, true);
-    return () => { document.removeEventListener('pointerdown', outside); window.removeEventListener('keydown', escape, true); };
-  }, [open]);
+    return () => { document.removeEventListener('pointerdown', outside); window.removeEventListener('keydown', escape, true); window.removeEventListener('resize', resize); };
+  }, [open, align]);
   return (
     <div ref={container} className={`relative ${className}`}>
-      <button ref={trigger} type="button" onClick={() => setOpen(value => !value)} aria-label="Map display settings" title="Map display settings"
-        aria-expanded={open} aria-controls={id} className={`flex items-center justify-center rounded-full font-semibold text-slate-600 transition-colors hover:bg-slate-100 ${compact ? 'h-8 flex-row gap-1.5 px-2.5 text-[11px]' : 'h-10 min-w-10 flex-col gap-0.5 px-1 text-[9px] md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px]'} ${open ? 'bg-slate-100 text-gakit-maroon ring-1 ring-slate-300' : ''}`}>
+      <button ref={trigger} type="button" onClick={event => {
+        if (!open && align === 'start') {
+          const bounds = event.currentTarget.getBoundingClientRect();
+          const workspace = container.current?.closest('[data-map-workspace]')?.getBoundingClientRect();
+          const leftEdge = Math.max(8, (workspace?.left ?? 0) + 8);
+          const rightEdge = Math.min(window.innerWidth - 8, (workspace?.right ?? window.innerWidth) - 8);
+          const width = Math.min(304, rightEdge - leftEdge);
+          const top = bounds.bottom + 8;
+          setPopupPosition({ top, left: Math.max(leftEdge, Math.min(bounds.left, rightEdge - width)), width,
+            maxHeight: Math.max(80, Math.min(window.innerHeight, workspace?.bottom ?? window.innerHeight) - top - 8) });
+        }
+        setOpen(value => !value);
+      }} aria-label="Map display settings" title="Map display settings"
+        aria-expanded={open} aria-controls={id} className={`flex items-center justify-center rounded-full font-semibold text-slate-600 transition-colors hover:bg-slate-100 ${compact ? `${align === 'start' ? 'h-[30px]' : 'h-8'} flex-row gap-1.5 px-2 text-[11px]` : 'h-10 min-w-10 flex-col gap-0.5 px-1 text-[9px] md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px]'} ${open ? 'bg-slate-100 text-gakit-maroon ring-1 ring-slate-300' : ''}`}>
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
         Display
       </button>
       {open && <>
-        <div className="fixed inset-0 z-[1290] bg-black/20 md:hidden" onClick={close} aria-hidden="true" />
-        <div id={id} role="region" aria-label="Map display settings" data-header-dropdown={placement === 'below' || undefined}
-          className={`${placement === 'below' ? 'map-header-dropdown' : ''} fixed inset-x-4 top-16 z-[1300] mx-auto max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom,0px))] max-w-[320px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 text-slate-800 shadow-xl backdrop-blur-xl md:absolute md:inset-x-auto md:right-0 md:w-72 md:max-h-[calc(100dvh-5rem)] ${placement === 'above' ? 'md:top-auto md:bottom-full md:mb-2' : 'md:top-12'}`}>
-          <div className="mb-2 flex items-center justify-between border-b border-slate-100 pb-1.5">
+        {align !== 'start' && <div className="fixed inset-0 z-[1290] bg-black/20 md:hidden" onClick={close} aria-hidden="true" />}
+        <div id={id} role="region" aria-label="Map display settings" data-header-dropdown={(align !== 'start' && placement === 'below') || undefined}
+          style={align === 'start' ? { position: 'fixed', ...popupPosition } : undefined}
+          className={align === 'start' ? 'z-[1300] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white text-slate-800 shadow-xl' : `${placement === 'below' ? 'map-header-dropdown' : ''} fixed inset-x-4 top-16 z-[1300] mx-auto max-h-[calc(100dvh-10rem-env(safe-area-inset-bottom,0px))] max-w-[320px] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white/95 p-3 text-slate-800 shadow-xl backdrop-blur-xl md:absolute md:inset-x-auto md:right-0 md:w-72 md:max-h-[calc(100dvh-5rem)] ${placement === 'above' ? 'md:top-auto md:bottom-full md:mb-2' : 'md:top-12'}`}>
+          <div className={align === 'start' ? 'flex items-center justify-between gap-2 border-b border-slate-100 px-3 py-2' : 'mb-2 flex items-center justify-between border-b border-slate-100 pb-1.5'}>
             <h3 className="text-xs font-bold">Map display settings</h3>
-            <button type="button" onClick={close} aria-label="Close display settings" className="rounded p-1 text-slate-400 hover:bg-slate-100"><X className="h-4 w-4" /></button>
+            <button type="button" onClick={close} aria-label="Close display settings" className="rounded p-1 text-slate-400 hover:bg-slate-100">{align === 'start' ? <ChevronUp className="h-4 w-4" aria-hidden="true" /> : <X className="h-4 w-4" />}</button>
           </div>
-          <fieldset disabled={disabled} className="space-y-2 disabled:opacity-50">
+          <fieldset disabled={disabled} className={`space-y-2 disabled:opacity-50 ${align === 'start' ? 'px-3 pb-3 pt-2' : ''}`}>
             <legend className="sr-only">Map appearance</legend>
             <div>
               <div className="mb-1"><DisplaySectionHeading>Basemap</DisplaySectionHeading></div>

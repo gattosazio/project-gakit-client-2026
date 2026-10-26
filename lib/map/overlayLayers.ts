@@ -45,7 +45,8 @@ import {
   TYPHOON_CATEGORY_CONFIG,
   DEFAULT_TYPHOON_COLOR,
 } from '@/lib/map/typhoon';
-import { createReportMarkerImage } from '@/lib/map/reportMarkers';
+import { createReportBubbleImage, createReportMarkerImage } from '@/lib/map/reportMarkers';
+import { DEPTH_BAR_COLOR } from '@/lib/reports/reportFormatting';
 import { getFirstBasemapSymbolLayerId } from '@/lib/map/basemapLayers';
 import {
   addBuildingExtrusionLayer,
@@ -392,7 +393,7 @@ export const setupOverlayLayers = async (
       layout: {
         'text-field': 'PAR Boundary (PAGASA)',
         'text-size': 10,
-        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+        'text-font': ['Noto Sans Bold'],
         'symbol-placement': 'line',
         'text-offset': [0, -0.8],
         'text-allow-overlap': false,
@@ -659,6 +660,14 @@ export const setupOverlayLayers = async (
       const image = createReportMarkerImage(REPORT_MARKER_COLORS[status]);
       if (image) map.addImage(imageId, image, { pixelRatio: 2 });
     });
+    Object.entries(DEPTH_BAR_COLOR).forEach(([code, color]) => {
+      const imageId = `report-depth-badge-${code}`;
+      if (map.hasImage(imageId)) return;
+      const depthBadge = createReportBubbleImage(color);
+      if (depthBadge) map.addImage(imageId, depthBadge, {
+        pixelRatio: 2, stretchX: [[28, 84]], content: [24, 0, 88, 36],
+      });
+    });
 
     // Status colors for the individual-pin glow. Cluster discs are coloured
     // separately by dominant status (see the report-clusters layer below).
@@ -670,9 +679,7 @@ export const setupOverlayLayers = async (
       REPORT_MARKER_COLORS.UNVERIFIED,
     ];
 
-    // Solid cluster disc coloured by the dominant report status, so a cluster
-    // reads the same as the pins it contains. Radius scales with count but is
-    // capped so clusters don't balloon when zoomed out.
+    // Preserve the existing status-colored cluster appearance.
     map.addLayer({
       id: 'report-clusters',
       type: 'circle',
@@ -681,28 +688,10 @@ export const setupOverlayLayers = async (
       paint: {
         'circle-color': [
           'case',
-          [
-            '>=', ['get', 'verified'],
-            ['max', ['get', 'unverified'], ['get', 'anomaly'], ['get', 'rejected']],
-          ],
-          REPORT_MARKER_COLORS.VERIFIED,
-          [
-            '>=', ['get', 'unverified'],
-            ['max', ['get', 'verified'], ['get', 'anomaly'], ['get', 'rejected']],
-          ],
-          REPORT_MARKER_COLORS.UNVERIFIED,
-          [
-            '>=', ['get', 'anomaly'],
-            ['max', ['get', 'verified'], ['get', 'unverified'], ['get', 'rejected']],
-          ],
-          REPORT_MARKER_COLORS.ANOMALY,
-          [
-            '>=', ['get', 'rejected'],
-            ['max', ['get', 'verified'], ['get', 'unverified'], ['get', 'anomaly']],
-          ],
+          ['>=', ['get', 'verified'], ['max', ['get', 'unverified'], ['get', 'anomaly'], ['get', 'rejected']]], REPORT_MARKER_COLORS.VERIFIED,
+          ['>=', ['get', 'unverified'], ['max', ['get', 'verified'], ['get', 'anomaly'], ['get', 'rejected']]], REPORT_MARKER_COLORS.UNVERIFIED,
+          ['>=', ['get', 'anomaly'], ['max', ['get', 'verified'], ['get', 'unverified'], ['get', 'rejected']]], REPORT_MARKER_COLORS.ANOMALY,
           REPORT_MARKER_COLORS.REJECTED,
-          // No clear majority — mixed cluster.
-          '#6366f1',
         ],
         'circle-radius': [
           'interpolate', ['linear'], ['get', 'point_count'],
@@ -722,7 +711,7 @@ export const setupOverlayLayers = async (
       layout: {
         'text-field': '{point_count_abbreviated}',
         'text-size': 10,
-        'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+        'text-font': ['Noto Sans Bold'],
       },
       paint: { 'text-color': '#ffffff' },
     });
@@ -758,9 +747,25 @@ export const setupOverlayLayers = async (
           REPORT_MARKER_IMAGE_IDS.UNVERIFIED,
         ],
         'icon-anchor': 'center',
+        'icon-size': 1,
         'icon-allow-overlap': true,
         'icon-ignore-placement': true,
       },
+    });
+    map.addLayer({
+      id: 'report-depth-labels', type: 'symbol', source: 'reports',
+      filter: ['!', ['has', 'point_count']],
+      layout: {
+        'icon-image': ['get', 'depthBadgeImage'],
+        'icon-text-fit': 'width',
+        'text-field': ['get', 'depthBadge'],
+        'text-font': ['Noto Sans Bold'], 'text-size': 10.5,
+        'text-anchor': 'left', 'text-offset': [1.85, -1.1], 'text-max-width': 24,
+        'icon-allow-overlap': false, 'text-allow-overlap': false,
+        'icon-ignore-placement': false, 'text-ignore-placement': false,
+        'symbol-sort-key': ['get', 'labelPriority'], 'text-padding': 4,
+      },
+      paint: { 'text-color': '#0f172a' },
     });
   }
 

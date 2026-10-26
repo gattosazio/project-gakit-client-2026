@@ -10,6 +10,7 @@ import type { MapReportToShow } from '@/types/report';
 interface UseMapPopupsOptions {
   mapRef: MutableRefObject<any>;
   mapReady: boolean;
+  focusOffset?: [number, number];
   showTyphoonTrack?: boolean;
   showBarangayBoundariesRef: MutableRefObject<boolean>;
   onReportClickRef: MutableRefObject<((reportId: string) => void) | undefined>;
@@ -24,6 +25,7 @@ export interface HoveredBarangay {
 export function useMapPopups({
   mapRef,
   mapReady,
+  focusOffset,
   showTyphoonTrack = false,
   showBarangayBoundariesRef,
   onReportClickRef,
@@ -203,14 +205,14 @@ export function useMapPopups({
         Math.abs(center.lat - report.lat) < 1e-4;
 
       if (alreadyFocused) {
-        map.flyTo({ center: target, zoom: Math.max(zoom - 3, 8), duration: 350 });
+        map.flyTo({ center: target, zoom: Math.max(zoom - 3, 8), duration: 350, offset: focusOffset });
         map.once('moveend', () => {
           if (map === mapRef.current && inspectTargetRef.current?.id === report.id) {
-            map.easeTo({ center: target, zoom: 16, duration: 500 });
+            map.easeTo({ center: target, zoom: 16, duration: 500, offset: focusOffset });
           }
         });
       } else {
-        map.flyTo({ center: target, zoom: 16, duration: 900 });
+        map.flyTo({ center: target, zoom: 16, duration: 900, offset: focusOffset });
       }
 
       if (inspectTargetRef.current?.id !== report.id) return;
@@ -227,12 +229,13 @@ export function useMapPopups({
             depthLabel: report.depthLabel,
             statusLabel: report.statusLabel,
             createdAt: report.createdAt,
+            observedAt: report.observedAt,
           },
         },
         target
       );
     },
-    [mapReady, mapRef, showReportPopup]
+    [mapReady, mapRef, showReportPopup, focusOffset]
   );
 
   useEffect(() => {
@@ -258,7 +261,7 @@ export function useMapPopups({
         // the popup, so don't stack both. Without a consumer (public map) the
         // popup is the only feedback and stays.
         if (!onReportClickRef.current) {
-          showReportPopup(e.features[0], e.lngLat);
+          showReportPopup(e.features[0], e.features[0].geometry.coordinates);
         }
         const reportId = e.features[0].properties?.id;
         if (reportId) onReportClickRef.current?.(reportId);
@@ -278,7 +281,7 @@ export function useMapPopups({
       clearReportHover();
       return;
     }
-    const layers = ['report-points', 'report-clusters'].filter(id => map.getLayer(id));
+    const layers = ['report-depth-labels', 'report-points', 'report-clusters'].filter(id => map.getLayer(id));
     if (!layers.length) return;
     const feature = map.queryRenderedFeatures(event.point, { layers })[0];
     const isCluster = feature?.properties?.cluster_id != null && Number(feature.properties.point_count) > 0;
@@ -329,7 +332,7 @@ export function useMapPopups({
       const map = mapRef.current;
       if (!map || !e.features?.length || !showBarangayBoundariesRef.current) return;
       const overInteractive = map.queryRenderedFeatures(e.point, {
-        layers: ['report-points', 'report-clusters'],
+        layers: ['report-depth-labels', 'report-points', 'report-clusters'].filter(id => map.getLayer(id)),
       });
       if (overInteractive.length) {
         clearBarangayHover();
@@ -438,8 +441,9 @@ export function useMapPopups({
   const attachLayerEvents = useCallback(
     (map: any) => {
       detachLayerEventsRef.current?.();
+      const reportClickLayers = ['report-depth-labels', 'report-points'].filter(id => map.getLayer(id));
+      if (reportClickLayers.length) map.on('click', reportClickLayers, handleReportPointsClick);
       const layerListeners: Array<{ event: string; layer: string; handler: (e: any) => void }> = [
-        { event: 'click', layer: 'report-points', handler: handleReportPointsClick },
         { event: 'click', layer: 'report-clusters', handler: handleReportClustersClick },
         { event: 'mousemove', layer: 'barangay-fill', handler: handleBarangayMouseMove },
         { event: 'mouseleave', layer: 'barangay-fill', handler: handleBarangayMouseLeave },
@@ -476,6 +480,7 @@ export function useMapPopups({
       detachLayerEventsRef.current = () => {
         clusterExpandRequestRef.current++;
         layerListeners.forEach(({ event, layer, handler }) => map.off(event, layer, handler));
+        if (reportClickLayers.length) map.off('click', reportClickLayers, handleReportPointsClick);
         map.off('click', handleMapClick);
         map.off('mousemove', handleReportHover);
         map.off('movestart', clearReportHover);

@@ -23,11 +23,15 @@ export interface DepthCategory {
 }
 
 export interface ValidationSummary {
+  staffDecision?: { status: ReportStatus; reasonCode: string; label: string; decidedAt: string };
   observation?: ObservationMetadata | null;
   assessedAt: string;
   recommendedStatus: ReportStatus;
   evidenceScore?: number | null;
-  decisionBasis?: 'original_observations' | 'physical_support' | 'demo_override';
+  decisionBasis?: 'original_observations' | 'physical_support' | 'demo_override' | null;
+  checkState?: 'complete' | 'checks_incomplete' | 'review_required';
+  retryableChecks?: string[];
+  reviewAvailable?: boolean;
   demoAutoValidated?: boolean;
   corroboratingSourceCount?: number;
   modelIndependent?: boolean;
@@ -75,7 +79,7 @@ export interface ReportReceipt {
   status: ReportStatus;
   decisionSource?: Report['decisionSource'];
   validationSummary?: Partial<Pick<ValidationSummary,
-    'assessedAt' | 'recommendedStatus' | 'explanation' | 'demoAutoValidated' | 'decisionBasis'>> | null;
+    'assessedAt' | 'recommendedStatus' | 'explanation' | 'demoAutoValidated' | 'decisionBasis' | 'checkState' | 'reviewAvailable' | 'staffDecision'>> | null;
 }
 
 export interface MapReportProperties {
@@ -121,6 +125,7 @@ export interface MapReportToShow {
   depthLabel: string;
   statusLabel: string;
   createdAt: string;
+  observedAt?: string;
 }
 
 export interface MapBounds {

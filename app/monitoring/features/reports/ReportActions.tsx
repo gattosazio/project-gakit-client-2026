@@ -1,19 +1,16 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import {
-  AlertTriangle,
-  CheckCircle2,
   ChevronDown,
   FileText,
-  XCircle,
 } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { STATUS_META } from '@/lib/reports/reportFormatting';
 import type { Report, ReportStatus } from '@/types/report';
 import { STATUS_ICONS } from './reportFilterOptions';
-import { ReportStatusReasonDialog } from './RejectionReason';
+import { ReportDecisionDialog } from './ReportDecisionDialog';
+import type { DecisionReason } from '@/lib/reports/decisionReasons';
 
 function MapPinSearchIcon({ className }: { className?: string }) {
   return (
@@ -47,21 +44,23 @@ export function ReportActions({
   onInspect,
   onViewDetails,
   showInspect = true,
+  compact = false,
 }: {
   report: Report;
   onInspect: () => void;
   onViewDetails: () => void;
   showInspect?: boolean;
+  compact?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center ${compact ? 'gap-1' : 'gap-2'}`}>
       {showInspect && (
         <button
           type="button"
           onClick={onInspect}
-          aria-label="Inspect report on map"
+          aria-label={compact ? `View report ${report.id.slice(0, 8)} on map` : 'Inspect report on map'}
           title="View on map"
-          className="inline-flex items-center justify-center rounded-lg border border-canvas-grey p-2 text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon"
+          className={`inline-flex items-center justify-center rounded-lg border border-canvas-grey text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon ${compact ? 'h-7 w-7' : 'p-2'}`}
         >
           <MapPinSearchIcon className="h-4 w-4" />
         </button>
@@ -70,132 +69,33 @@ export function ReportActions({
         type="button"
         onClick={onViewDetails}
         aria-label={`View report ${report.id.slice(0, 8)} details`}
-        className="inline-flex h-8 w-28 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md bg-gakit-maroon px-2.5 text-[11px] font-semibold text-white transition-colors hover:bg-maroon-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
+        title="View report details"
+        className={`relative inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 ${compact ? 'h-7 w-7 border border-slate-200 text-slate-600 hover:bg-slate-100' : 'h-8 w-28 bg-gakit-maroon px-2.5 text-white hover:bg-maroon-800'}`}
       >
         <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        View report
+        <span className={compact ? 'sr-only' : ''}>View report</span>
       </button>
     </div>
   );
 }
 
-/**
- * Quick status updater rendered in the status column. The status pill itself
- * is the trigger and doubles as the current-state readout.
- */
-export function StatusDropdown({
-  report,
-  isUpdating,
-  onUpdateStatus,
-}: {
+/** The same decision form is used from the table and report details. */
+export function StatusDropdown({ report, isUpdating, onUpdateStatus, compact = false }: {
   report: Report;
   isUpdating: boolean;
-  onUpdateStatus: (report: Report, toStatus: ReportStatus, reason?: string) => Promise<boolean>;
+  onUpdateStatus: (report: Report, status: ReportStatus, reason?: DecisionReason) => Promise<boolean>;
+  compact?: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [reasonStatus, setReasonStatus] = useState<'REJECTED' | 'UNVERIFIED' | null>(null);
-  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const status = STATUS_META[report.status];
   const StatusIcon = STATUS_ICONS[report.status];
-  const options: Array<{
-    status: ReportStatus;
-    label: string;
-    className: string;
-    icon: typeof CheckCircle2;
-  }> = [
-    ...(report.status !== 'UNVERIFIED' ? [{ status: 'UNVERIFIED' as const, label: 'Reopen for review', className: 'text-slate-600', icon: AlertTriangle }] : []),
-    { status: 'VERIFIED', label: 'Verify', className: 'text-hazard-safe', icon: CheckCircle2 },
-    { status: 'ANOMALY', label: 'Flag for review', className: 'text-hazard-critical', icon: AlertTriangle },
-    { status: 'REJECTED', label: 'Reject', className: 'text-slate-600', icon: XCircle },
-  ];
-
-  const toggle = () => {
-    if (open) {
-      setOpen(false);
-      return;
-    }
-    const rect = buttonRef.current?.getBoundingClientRect();
-    if (rect) {
-      const width = 176;
-      setMenuPos({
-        top: rect.bottom + 4,
-        left: Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8)),
-      });
-    }
-    setOpen(true);
-  };
-
-  return (
-    <div>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={toggle}
-        disabled={isUpdating}
-        aria-label={`Update status for report ${report.id.slice(0, 8)}`}
-        title={`${status.label} · Update status`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={`inline-flex h-7 cursor-pointer items-center gap-1 whitespace-nowrap rounded-full border px-2 text-[11px] font-semibold ${status.badgeClass} hover:brightness-95 disabled:cursor-wait disabled:opacity-60`}
-      >
-        {isUpdating ? (
-          <Spinner size="sm" />
-        ) : (
-          <>
-            <StatusIcon className="h-3.5 w-3.5" style={{ color: status.color }} />
-            {status.label}
-            <ChevronDown
-              className={`h-3 w-3 text-current opacity-60 transition-transform ${open ? 'rotate-180' : ''}`}
-            />
-          </>
-        )}
-      </button>
-
-      {open &&
-        createPortal(
-          <>
-            <button
-              type="button"
-              aria-hidden
-              tabIndex={-1}
-              className="fixed inset-0 z-[1300] cursor-default"
-              onClick={() => setOpen(false)}
-            />
-            <div
-              role="menu"
-              style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: 176 }}
-              className="z-[1400] overflow-hidden rounded-lg border border-canvas-grey bg-white shadow-lg"
-            >
-              {options.map((option, index) => {
-                const isCurrent = report.status === option.status;
-                const Icon = option.icon;
-                return (
-                  <button
-                    key={option.status}
-                    role="menuitem"
-                    disabled={isCurrent}
-                    onClick={() => {
-                      setOpen(false);
-                      if (option.status === 'REJECTED' || option.status === 'UNVERIFIED') { setReasonStatus(option.status); return; }
-                      onUpdateStatus(report, option.status);
-                    }}
-                    className={`flex w-full items-center gap-2 px-2.5 py-1.5 text-[11px] font-semibold hover:bg-canvas-light disabled:cursor-not-allowed disabled:opacity-50 ${index > 0 ? 'border-t border-canvas-grey' : ''} ${option.className}`}
-                  >
-                    <Icon className="h-3.5 w-3.5 shrink-0" />
-                    <span className="flex-1 text-left">{option.label}</span>
-                    {isCurrent && <span className="text-[10px] font-medium text-slate-400">Current</span>}
-                  </button>
-                );
-              })}
-            </div>
-          </>,
-          document.body
-        )}
-      {reasonStatus && <ReportStatusReasonDialog reportId={report.id} isUpdating={isUpdating} action={reasonStatus === 'UNVERIFIED' ? 'reopen' : 'reject'}
-        onClose={() => setReasonStatus(null)} onConfirm={async (reason) => {
-          if (await onUpdateStatus(report, reasonStatus, reason)) setReasonStatus(null);
-        }} />}
-    </div>
-  );
+  return <>
+    <button type="button" onClick={() => setOpen(true)} disabled={isUpdating}
+      aria-label={`Update status for report ${report.id.slice(0, 8)}`} aria-haspopup="dialog"
+      className={`inline-flex h-7 items-center gap-1 whitespace-nowrap rounded-full border font-semibold ${compact ? 'px-1.5 text-[10px]' : 'px-2 text-[11px]'} ${status.badgeClass} disabled:opacity-50`}>
+      {isUpdating ? <Spinner size="sm" /> : <>{!compact && <StatusIcon className="h-3.5 w-3.5" />}{status.label}<ChevronDown className="h-3 w-3 opacity-60" /></>}
+    </button>
+    {open && <ReportDecisionDialog report={report} isUpdating={isUpdating} onClose={() => setOpen(false)}
+      onConfirm={(status, reason) => onUpdateStatus(report, status, reason)} />}
+  </>;
 }

@@ -14,6 +14,7 @@ import { Spinner } from '@/components/ui/Spinner';
 import type { HeatIndexControlState } from '@/components/map/HeatIndexDetails';
 import type { DroughtControlState } from '@/components/map/DroughtControls';
 import { WeatherChip } from '@/components/map/WeatherChip';
+import { MapHeaderControls } from './MapHeaderControls';
 import { DataLayerControls, ReportControls } from '@/components/map/MapControls';
 import { usePointOutlook } from '@/hooks/usePointOutlook';
 import { usableCurrentWeather } from '@/lib/weather/weather';
@@ -26,6 +27,7 @@ import type { SimulatedFloodHorizon } from '@/lib/map/surrogate';
 import type { ScenarioFrame } from '@/types/scenario';
 
 export interface MapSidebarProps {
+  headerHost?: HTMLElement | null;
   drought?: DroughtControlState;
   heatIndex?: HeatIndexControlState;
   isCollapsed: boolean;
@@ -105,6 +107,7 @@ export interface MapSidebarProps {
 }
 
 export function MapSidebar({
+  headerHost,
   drought,
   heatIndex,
   isCollapsed,
@@ -383,6 +386,91 @@ export function MapSidebar({
     ? 'max-h-[calc(100%-2rem)]'
     : `${hasBottomAction ? 'max-h-[calc(100dvh-12rem)]' : 'max-h-[calc(100dvh-7.5rem)]'} ${headerClear ? 'md:max-h-[calc(100dvh-2rem)]' : 'md:max-h-[calc(100dvh-10.5rem)]'}`;
 
+  const layerCard = (
+    <DataLayerControls
+      drought={drought}
+      heatIndex={heatIndex}
+      open={layersOpen}
+      onToggle={handleToggleLayers}
+      isSidebarItem
+      activeLayersCount={activeLayersCount}
+      showFloodHazard={showFloodHazard}
+      onShowFloodHazardChange={onShowFloodHazardChange}
+      showSimulatedFlood={showSimulatedFlood}
+      onShowSimulatedFloodChange={onShowSimulatedFloodChange}
+      isLoadingSimulatedFlood={isLoadingSimulatedFlood}
+      simulatedFloodHorizon={simulatedFloodHorizon}
+      onSimulatedFloodHorizonChange={onSimulatedFloodHorizonChange}
+      simulatedFloodStatus={simulatedFloodStatus}
+      simulatedFloodOpacity={simulatedFloodOpacity}
+      onSimulatedFloodOpacityChange={onSimulatedFloodOpacityChange}
+      simulatedFloodReplayFrames={simulatedFloodReplayFrames}
+      simulatedFloodReplayIndex={simulatedFloodReplayIndex}
+      onSimulatedFloodReplayChange={onSimulatedFloodReplayChange}
+      showRainfall={showRainfall}
+      onShowRainfallChange={onShowRainfallChange}
+      isLoadingRainfall={isLoadingRainfall}
+      rainfallObservedAt={rainfallObservedAt}
+      rainfallSource={rainfallSource}
+      rainfallHours={rainfallHours}
+      onRainfallHoursChange={onRainfallHoursChange}
+      showHimawariIR={showHimawariIR}
+      onShowHimawariIRChange={onShowHimawariIRChange}
+      isLoadingHimawari={isLoadingHimawari}
+      himawariOpacity={himawariOpacity}
+      onHimawariOpacityChange={onHimawariOpacityChange}
+      showTyphoonTrack={showTyphoonTrack}
+      onShowTyphoonTrackChange={onShowTyphoonTrackChange}
+      isLoadingTyphoon={isLoadingTyphoon}
+      activeTyphoonName={activeTyphoonName}
+      typhoonObservedAt={typhoonObservedAt}
+      hasActiveTyphoon={hasActiveTyphoon}
+      activeStorms={activeStorms}
+      onFocusStorm={onFocusStorm}
+      historicalStorms={historicalStorms}
+      selectedHistoricalStorm={selectedHistoricalStorm}
+      onSelectHistoricalStorm={onSelectHistoricalStorm}
+      isLoadingHistory={isLoadingHistory}
+      showBarangayBoundaries={showBarangayBoundaries}
+      onShowBarangayBoundariesChange={onShowBarangayBoundariesChange}
+      showBarangayBoundariesToggle={showBarangayBoundariesToggle}
+      showLandslide={showLandslide}
+      onShowLandslideChange={onShowLandslideChange}
+      showStormSurge={showStormSurge}
+      stormSurgeAdvisory={stormSurgeAdvisory}
+      onStormSurgeAdvisoryChange={onStormSurgeAdvisoryChange}
+    />
+  );
+  const reportCard = (
+    <ReportControls
+      open={reportsOpen}
+      onToggle={handleToggleReports}
+      isSidebarItem
+      visibleReportStatuses={visibleReportStatuses}
+      onReportStatusChange={onReportStatusChange}
+      reportStatusToggleStatuses={reportStatusToggleStatuses}
+      reportWindowHours={reportWindowHours}
+      isLoading={isLoadingReports}
+      totalReports={visibleReportsCount ?? totalReportsCount}
+      statusCounts={statusCounts}
+      reportFeatures={reportFeatures}
+      onOpenReport={onOpenReport}
+    />
+  );
+
+  if (headerHost !== undefined) {
+    if (!headerHost) return null;
+    const open = !isCollapsed ? layersOpen ? 'layers' : reportsOpen ? 'reports' : null : null;
+    return createPortal(<MapHeaderControls open={open} layers={layerCard} reports={reportCard}
+      layersCount={activeLayersCount} reportsCount={visibleReportsCount ?? totalReportsCount ?? 0}
+      onToggle={panel => {
+        onToggleCollapse(panel === null);
+        onToggleWeather(false);
+        onToggleLayers(panel === 'layers');
+        onToggleReports(panel === 'reports');
+      }} />, headerHost);
+  }
+
   return (
     <aside
       ref={sidebarRef}
@@ -520,77 +608,12 @@ export function MapSidebar({
 
             {/* Map Layers Card */}
             <div ref={layersCardRef} className={`${fullScreen && !layersOpen ? 'hidden md:block' : ''} w-full`}>
-              <DataLayerControls
-                drought={drought}
-                heatIndex={heatIndex}
-                open={layersOpen}
-                onToggle={handleToggleLayers}
-                isSidebarItem
-                activeLayersCount={activeLayersCount}
-                showFloodHazard={showFloodHazard}
-                onShowFloodHazardChange={onShowFloodHazardChange}
-                showSimulatedFlood={showSimulatedFlood}
-                onShowSimulatedFloodChange={onShowSimulatedFloodChange}
-                isLoadingSimulatedFlood={isLoadingSimulatedFlood}
-                simulatedFloodHorizon={simulatedFloodHorizon}
-                onSimulatedFloodHorizonChange={onSimulatedFloodHorizonChange}
-                simulatedFloodStatus={simulatedFloodStatus}
-                simulatedFloodOpacity={simulatedFloodOpacity}
-                onSimulatedFloodOpacityChange={onSimulatedFloodOpacityChange}
-                simulatedFloodReplayFrames={simulatedFloodReplayFrames}
-                simulatedFloodReplayIndex={simulatedFloodReplayIndex}
-                onSimulatedFloodReplayChange={onSimulatedFloodReplayChange}
-                showRainfall={showRainfall}
-                onShowRainfallChange={onShowRainfallChange}
-                isLoadingRainfall={isLoadingRainfall}
-                rainfallObservedAt={rainfallObservedAt}
-                rainfallSource={rainfallSource}
-                rainfallHours={rainfallHours}
-                onRainfallHoursChange={onRainfallHoursChange}
-                showHimawariIR={showHimawariIR}
-                onShowHimawariIRChange={onShowHimawariIRChange}
-                isLoadingHimawari={isLoadingHimawari}
-                himawariOpacity={himawariOpacity}
-                onHimawariOpacityChange={onHimawariOpacityChange}
-                showTyphoonTrack={showTyphoonTrack}
-                onShowTyphoonTrackChange={onShowTyphoonTrackChange}
-                isLoadingTyphoon={isLoadingTyphoon}
-                activeTyphoonName={activeTyphoonName}
-                typhoonObservedAt={typhoonObservedAt}
-                hasActiveTyphoon={hasActiveTyphoon}
-                activeStorms={activeStorms}
-                onFocusStorm={onFocusStorm}
-                historicalStorms={historicalStorms}
-                selectedHistoricalStorm={selectedHistoricalStorm}
-                onSelectHistoricalStorm={onSelectHistoricalStorm}
-                isLoadingHistory={isLoadingHistory}
-                showBarangayBoundaries={showBarangayBoundaries}
-                onShowBarangayBoundariesChange={onShowBarangayBoundariesChange}
-                showBarangayBoundariesToggle={showBarangayBoundariesToggle}
-                showLandslide={showLandslide}
-                onShowLandslideChange={onShowLandslideChange}
-                showStormSurge={showStormSurge}
-                stormSurgeAdvisory={stormSurgeAdvisory}
-                onStormSurgeAdvisoryChange={onStormSurgeAdvisoryChange}
-              />
+              {layerCard}
             </div>
 
             {/* Citizen Flood Reports Card */}
             <div ref={reportsCardRef} data-tour="reports" className={`${fullScreen && !reportsOpen ? 'hidden md:block' : ''} w-full scroll-mt-2`}>
-              <ReportControls
-                open={reportsOpen}
-                onToggle={handleToggleReports}
-                isSidebarItem
-                visibleReportStatuses={visibleReportStatuses}
-                onReportStatusChange={onReportStatusChange}
-                reportStatusToggleStatuses={reportStatusToggleStatuses}
-                reportWindowHours={reportWindowHours}
-                isLoading={isLoadingReports}
-                totalReports={visibleReportsCount ?? totalReportsCount}
-                statusCounts={statusCounts}
-                reportFeatures={reportFeatures}
-                onOpenReport={onOpenReport}
-              />
+              {reportCard}
             </div>
           </div>
 
