@@ -144,7 +144,7 @@ export function NotificationBell({
         {isToolbar && <ChevronDown className={`h-3 w-3 ${open ? 'rotate-180' : ''}`} aria-hidden="true" />}
         {count > 0 && (
           <span
-            className={isToolbar ? 'absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-xs' : `absolute flex h-3.5 min-w-[14px] md:h-4 md:min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 md:px-1 text-[9px] md:text-[10px] font-bold text-white shadow-sm ${
+            className={isToolbar ? 'absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[10px] font-bold text-white shadow-xs' : `absolute flex h-4 min-w-4 md:min-w-[18px] items-center justify-center rounded-full bg-red-600 px-0.5 md:px-1 text-[10px] md:text-[11px] font-bold text-white shadow-sm ${
               variant === 'header'
                 ? '-right-0.5 -top-0.5 md:-right-1 md:-top-1'
                 : variant === 'mobile-nav'
@@ -180,7 +180,7 @@ export function NotificationBell({
           <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
             <div className="flex items-center gap-2">
               <p className="text-xs font-bold text-slate-900">{isToolbar ? 'Advisories' : 'Alerts'}</p>
-              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">
+              <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
                 {total} active
               </span>
             </div>
@@ -270,7 +270,7 @@ export function NotificationBell({
                       <Icon className={`h-3.5 w-3.5 ${config.icon}`} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide">
+                      <span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide">
                         <span className={config.text}>{item.severity}</span>
                         {typeLabel && <span className="truncate text-slate-500">· {typeLabel}</span>}
                         {!item.read && <span className={`ml-auto h-1.5 w-1.5 shrink-0 rounded-full ${config.dot}`} aria-label="Unread" />}
@@ -282,12 +282,12 @@ export function NotificationBell({
                         <span className="mt-0.5 block text-[11px] leading-4 text-slate-600 line-clamp-2">{summary}</span>
                       )}
                       {areas.length > 0 && (
-                        <span className="mt-1 flex items-center gap-1 text-[10px] text-slate-500">
+                        <span className="mt-1 flex items-center gap-1 text-[11px] text-slate-500">
                           <MapPin className="h-3 w-3 shrink-0" />
                           <span className="truncate">{areas.join(', ')}</span>
                         </span>
                       )}
-                      <span className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                      <span className="mt-1 flex items-center justify-between gap-2 text-[11px] text-slate-500">
                         <span className="truncate">{item.data?.source || 'Weather advisory'}</span>
                         <time dateTime={Number.isNaN(issued.getTime()) ? undefined : issuedAt} className="shrink-0">{isToolbar && timestamp ? `Issued ${timestamp} PHT` : timestamp}</time>
                       </span>

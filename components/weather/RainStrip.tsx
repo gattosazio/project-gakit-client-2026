@@ -71,7 +71,7 @@ export function RainStrip({ hours: rawHours, probabilities: rawProbabilities, co
     <div className={`relative ${compact ? 'mt-1' : 'pt-4'}`} onMouseLeave={() => setHovered(null)}>
       {hovered !== null && (
         <span
-          className={`pointer-events-none absolute ${compact ? 'bottom-full mb-1' : 'top-0'} z-10 max-w-full -translate-x-1/2 rounded-md bg-slate-800 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white shadow-sm`}
+          className={`pointer-events-none absolute ${compact ? 'bottom-full mb-1' : 'top-0'} z-10 max-w-full -translate-x-1/2 rounded-md bg-slate-800 px-1.5 py-0.5 text-center text-[11px] font-semibold text-white shadow-sm`}
           style={{ left: `${labelLeft}%` }}
         >
           {renderHoverLabel()}
@@ -149,11 +149,11 @@ export function RainStrip({ hours: rawHours, probabilities: rawProbabilities, co
           return (
             <span
               key={hour}
-              className={`${compact ? 'text-left' : 'min-w-[2px] flex-1 text-center'} text-[9px] font-medium leading-none ${
+              className={`${compact ? 'text-left' : 'min-w-[2px] flex-1 text-center'} text-[11px] font-medium leading-none ${
                 hovered === hour
-                  ? 'text-slate-600'
+                  ? 'text-slate-700'
                   : showTick
-                    ? 'text-slate-400'
+                    ? 'text-slate-500'
                     : 'invisible'
               }`}
             >

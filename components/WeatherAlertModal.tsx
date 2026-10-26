@@ -129,10 +129,10 @@ function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAle
           <div className="flex min-w-0 items-start gap-2.5">
             <span className={`mt-0.5 shrink-0 rounded-xl p-2 ${config.badge}`}><Icon className="h-5 w-5" /></span>
             <div className="min-w-0">
-              <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[9px] font-semibold uppercase tracking-wide">
+              <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide">
                 <span className="text-slate-500">{ALERT_TYPE_LABELS[activeAlert.alertType]}</span>
                 <span className={`rounded px-1.5 py-0.5 ${config.badge}`}>{activeAlert.severity}</span>
-                {activeAlert.data?.bulletinNumber != null && <span className="text-slate-400">Bulletin #{activeAlert.data.bulletinNumber}</span>}
+                {activeAlert.data?.bulletinNumber != null && <span className="text-slate-500">Bulletin #{activeAlert.data.bulletinNumber}</span>}
               </div>
               <h3 id={titleId} className="text-sm font-bold leading-5 text-slate-900">{heading}</h3>
             </div>
@@ -142,8 +142,8 @@ function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAle
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 sm:p-5">
           <dl className="grid grid-cols-2 divide-x divide-slate-200 rounded-xl border border-slate-200 bg-slate-50 py-2.5">
-            <div className="px-3"><dt className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Issued · PHT</dt><dd className="mt-1 text-[11px] font-semibold text-slate-700">{alertDateTime(activeAlert.data?.issuedAt || activeAlert.createdAt)}</dd></div>
-            <div className="px-3"><dt className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Valid until · PHT</dt><dd className="mt-1 text-[11px] font-semibold text-slate-700">{alertDateTime(activeAlert.validTo)}</dd></div>
+            <div className="px-3"><dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Issued · PHT</dt><dd className="mt-1 text-[11px] font-semibold text-slate-700">{alertDateTime(activeAlert.data?.issuedAt || activeAlert.createdAt)}</dd></div>
+            <div className="px-3"><dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">Valid until · PHT</dt><dd className="mt-1 text-[11px] font-semibold text-slate-700">{alertDateTime(activeAlert.validTo)}</dd></div>
           </dl>
           {activeAlert.alertType === 'daily_digest' && digestPeriod(activeAlert) && <p className="text-[11px] font-medium text-slate-500">{digestPeriod(activeAlert)}</p>}
 
@@ -168,18 +168,18 @@ function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAle
                           : 'bg-canvas-light text-slate-600 hover:bg-slate-100/80 ring-1 ring-canvas-grey'
                       }`}
                     >
-                      <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${isSelected ? 'text-gakit-maroon' : 'text-slate-400'}`}>
+                      <span className={`text-[11px] font-bold uppercase tracking-wider transition-colors ${isSelected ? 'text-gakit-maroon' : 'text-slate-600'}`}>
                         {shortName}
                       </span>
                       <div className={`my-1.5 flex h-7 w-7 items-center justify-center rounded-lg transition-colors ${isSelected ? 'bg-maroon-50/80 ring-1 ring-maroon-200/60' : 'bg-white shadow-2xs ring-1 ring-canvas-grey'}`}>
                         <DayIcon className={`h-4 w-4 ${isSelected ? 'text-gakit-maroon' : 'text-slate-600'}`} />
                       </div>
-                      <div className="flex items-center gap-0.5 text-[10px] tabular-nums font-bold leading-none">
+                      <div className="flex items-center gap-0.5 text-[11px] tabular-nums font-bold leading-none">
                         <span className="text-slate-900">{day.tempMax}°</span>
-                        <span className="text-slate-400 font-normal text-[9px]">{day.tempMin}°</span>
+                        <span className="text-slate-500 font-normal text-[11px]">{day.tempMin}°</span>
                       </div>
-                      <span className={`mt-1 flex items-center justify-center gap-0.5 text-[9px] font-semibold tabular-nums leading-none ${(day.rainChance ?? 0) > 0 ? 'text-sky-600' : 'text-slate-400'}`}>
-                        {(day.rainChance ?? 0) > 0 && <Droplet className="h-2.5 w-2.5 text-sky-500 fill-sky-500/30 shrink-0" />}
+                      <span className={`mt-1 flex items-center justify-center gap-0.5 text-[11px] font-semibold tabular-nums leading-none ${(day.rainChance ?? 0) > 0 ? 'text-sky-700' : 'text-slate-500'}`}>
+                        {(day.rainChance ?? 0) > 0 && <Droplet className="h-3 w-3 text-sky-500 fill-sky-500/30 shrink-0" />}
                         <span>{day.rainChance == null ? 'Unavailable' : `${day.rainChance}%`}</span>
                       </span>
                     </button>
@@ -216,7 +216,7 @@ function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAle
                   {((activeDay.hourlyProbabilities && activeDay.hourlyProbabilities.length > 0) ||
                     (activeDay.hours && activeDay.hours.length > 0)) && (
                     <div className="pt-2 border-t border-slate-200/60">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
                         Hourly Precipitation Chance
                       </div>
                       <RainStrip
@@ -229,15 +229,15 @@ function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAle
                   {/* Key Day Metrics */}
                   <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60 text-center">
                     <div className="rounded-lg bg-white p-2 shadow-2xs ring-1 ring-canvas-grey">
-                      <span className="block text-[10px] text-slate-400 font-medium">Rain chance</span>
+                      <span className="block text-[11px] text-slate-500 font-medium">Rain chance</span>
                       <span className="text-xs font-bold text-slate-800 tabular-nums">{activeDay.rainChance}%</span>
                     </div>
                     <div className="rounded-lg bg-white p-2 shadow-2xs ring-1 ring-canvas-grey">
-                      <span className="block text-[10px] text-slate-400 font-medium">Precipitation</span>
+                      <span className="block text-[11px] text-slate-500 font-medium">Precipitation</span>
                       <span className="text-xs font-bold text-slate-800 tabular-nums">~{activeDay.rainMm.toFixed(1)} mm</span>
                     </div>
                     <div className="rounded-lg bg-white p-2 shadow-2xs ring-1 ring-canvas-grey">
-                      <span className="block text-[10px] text-slate-400 font-medium">Peak Wind</span>
+                      <span className="block text-[11px] text-slate-500 font-medium">Peak Wind</span>
                       <span className="text-xs font-bold text-slate-800 tabular-nums">{activeDay.windMax} km/h</span>
                     </div>
                   </div>
@@ -248,13 +248,13 @@ function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAle
             <div className="space-y-3">
               {summary && (
                 <div className={`rounded-xl border border-slate-200 border-l-[3px] bg-slate-50/70 p-3 ${activeAlert.severity === 'critical' ? 'border-l-red-500' : activeAlert.severity === 'warning' ? 'border-l-orange-500' : 'border-l-blue-500'}`}>
-                  <h4 className="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500">Advisory summary</h4>
+                  <h4 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">Advisory summary</h4>
                   <p className="whitespace-pre-line text-xs leading-5 text-slate-700">{summary}</p>
                 </div>
               )}
               {towns.length > 0 && (
                 <div className="rounded-xl bg-slate-50 p-3 border border-slate-200/70 text-xs">
-                  <h4 className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-500"><MapPin className="h-3 w-3" />Affected areas <span className="ml-auto rounded-full bg-white px-1.5 text-slate-400">{towns.length}</span></h4>
+                  <h4 className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500"><MapPin className="h-3 w-3" />Affected areas <span className="ml-auto rounded-full bg-white px-1.5 text-slate-500">{towns.length}</span></h4>
                   <div className="flex flex-wrap gap-1.5">
                     {visibleTowns.map((town) =>
                       /iligan/i.test(town) ? (
@@ -296,7 +296,7 @@ function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAle
                 </div>
               )}
               {otherCount > 0 && (
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-slate-500">
                   + also covering {otherCount} other province{otherCount === 1 ? '' : 's'}.
                 </p>
               )}

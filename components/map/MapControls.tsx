@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { typhoonIconURL } from '@/lib/map/typhoonIcons';
 
 import { DEPTH_RANK } from '@/lib/map/barangayStats';
-import { formatReportDepth, timeAgo } from '@/lib/reports/reportFormatting';
+import { DEPTH_BAR_COLOR, DEPTH_LABELS, formatReportDepth, timeAgo } from '@/lib/reports/reportFormatting';
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -34,7 +34,7 @@ import {
   type SimulatedFloodHorizon,
 } from '@/lib/map/surrogate';
 import type { MapMode } from '@/lib/map/overlayLayers';
-import type { MapReportFeature, ReportStatus } from '@/types/report';
+import type { FloodDepthCode, MapReportFeature, ReportStatus } from '@/types/report';
 import type { ScenarioFrame } from '@/types/scenario';
 import { PillSlider } from '@/components/ui/PillSlider';
 import type { BasemapId } from '@/constants/publicMap';
@@ -365,6 +365,8 @@ export function MapViewToggle({
 
 /* ─── Report controls card ────────────────────────────────────────────── */
 
+const REPORT_DEPTH_ORDER: FloodDepthCode[] = ['ankle', 'knee', 'waist', 'shoulder', 'head', 'overhead'];
+
 export function formatReportWindowSubtitle(hours?: number | null, count?: number): string {
   const countStr = typeof count === 'number'
     ? `${count} ${count === 1 ? 'report' : 'reports'}`
@@ -424,6 +426,18 @@ export function ReportControls({
     return !best || centimeters > previousCm || (centimeters === previousCm && DEPTH_RANK[depth.depth.code] > DEPTH_RANK[best.properties.depth.code]) ? feature : best;
   }, null);
   const summaryCount = publicSummary ? verified.length : totalReports;
+  const depthCounts = verified.reduce<Record<FloodDepthCode, number>>((counts, feature) => {
+    counts[feature.properties.depth.code] += 1;
+    return counts;
+  }, { ankle: 0, knee: 0, waist: 0, shoulder: 0, head: 0, overhead: 0 });
+  const depthMix = REPORT_DEPTH_ORDER
+    .map(code => ({
+      code,
+      count: depthCounts[code],
+      color: DEPTH_BAR_COLOR[code],
+      label: DEPTH_LABELS[code].replace(/ Deep$/, ''),
+    }))
+    .filter(entry => entry.count > 0);
 
   return (
     <Card
@@ -450,6 +464,21 @@ export function ReportControls({
           <div className="grid grid-cols-[0.7fr_1.3fr] divide-x divide-slate-200 rounded-lg border border-slate-200 bg-slate-50 py-2">
             <div className="px-2.5"><p className="text-[9px] text-slate-400">Verified reports</p><p className="mt-0.5 text-lg font-bold leading-5 tabular-nums text-slate-900">{verified.length}</p></div>
             <div className="px-2.5"><p className="text-[9px] text-slate-400">Deepest reported</p><p className="mt-1 text-[11px] font-semibold text-slate-800">{deepest ? formatReportDepth(deepest.properties.depth, deepest.properties.depthCm) : '—'}</p></div>
+          </div>
+          <div role="group" aria-label="Reported depth distribution" className="space-y-1">
+            <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-100" aria-hidden="true">
+              {depthMix.map(({ code, count, color }) => (
+                <span key={code} className="h-full" style={{ flexGrow: count, flexBasis: 0, backgroundColor: color }} />
+              ))}
+            </div>
+            <ul className="flex flex-wrap gap-x-2 gap-y-0.5 text-[9px] font-medium text-slate-500">
+              {depthMix.map(({ code, count, color, label }) => (
+                <li key={code} className="flex items-center gap-1" title={`${DEPTH_LABELS[code]}: ${count} ${count === 1 ? 'report' : 'reports'}`}>
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden="true" />
+                  <span>{label} <span className="font-semibold tabular-nums text-slate-700">{count}</span></span>
+                </li>
+              ))}
+            </ul>
           </div>
           {latest && <button type="button" onClick={() => onOpenReport?.(latest)} disabled={!onOpenReport}
             className="block w-full rounded-lg border border-slate-200 bg-white p-2.5 text-left hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-gakit-maroon">
@@ -1040,7 +1069,7 @@ export function DataLayerControls({
 
         <div data-tour="flood-simulation" className="space-y-1.5 scroll-mt-2">
         <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-          Flood simulation
+          Hazard simulations
           <CoverageChip label="Iligan City" detail="Estimated inundation based on rainfall" />
         </div>
 
@@ -1058,7 +1087,7 @@ export function DataLayerControls({
         </div>
 
         <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-          Weather &amp; Climate
+          Weather
           <CoverageChip label="Philippines" detail="Covers the Philippines" />
         </div>
 
@@ -1148,50 +1177,6 @@ export function DataLayerControls({
           />
           {heatIndex.visible && <HeatIndexDetails state={heatIndex} />}
         </>}
-
-        {drought && <>
-          <PillToggle label="Drought conditions" checked={drought.visible}
-            disabled={showSimulatedFlood && !drought.visible}
-            disabledReason="Turn off Flood Simulation to use Drought conditions."
-            onChange={drought.setVisible} loading={drought.visible && drought.loading}
-            credit={{ href: 'https://droughtcaster.pagasa.dost.gov.ph/', label: 'DOST-PAGASA' }} />
-        </>}
-
-        <PillToggle
-          label="Satellite imagery"
-          checked={showHimawariIR}
-          onChange={onShowHimawariIRChange}
-          loading={showHimawariIR && isLoadingHimawari}
-          credit={{
-            href: 'https://rammb-slider.cira.colostate.edu/?sat=himawari&sec=full_disk&p[]=band_13',
-            label: 'Himawari-9',
-          }}
-        />
-        {showHimawariIR && (
-          <div className="pl-10 pt-0.5 pb-1 space-y-1.5">
-            <div className="text-[10px] leading-snug text-slate-400">
-              Last hour · 10-min satellite frames
-            </div>
-            <div>
-              <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
-                Opacity
-              </div>
-              <div className="flex items-center gap-2">
-                <PillSlider
-                  value={himawariOpacity}
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  onChange={onHimawariOpacityChange}
-                  ariaLabel="Himawari IR layer opacity"
-                  accent="#7B1113"
-                />
-                <span className="text-[10px] font-semibold text-slate-600 w-7 text-right">{Math.round(himawariOpacity * 100)}%</span>
-              </div>
-            </div>
-          </div>
-        )}
-
 
         <PillToggle
           label="Typhoon tracks"
@@ -1297,6 +1282,54 @@ export function DataLayerControls({
             />
           </div>
         )}
+
+        <PillToggle
+          label="Satellite imagery"
+          checked={showHimawariIR}
+          onChange={onShowHimawariIRChange}
+          loading={showHimawariIR && isLoadingHimawari}
+          credit={{
+            href: 'https://rammb-slider.cira.colostate.edu/?sat=himawari&sec=full_disk&p[]=band_13',
+            label: 'Himawari-9',
+          }}
+        />
+        {showHimawariIR && (
+          <div className="pl-10 pt-0.5 pb-1 space-y-1.5">
+            <div className="text-[10px] leading-snug text-slate-400">
+              Last hour · 10-min satellite frames
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+                Opacity
+              </div>
+              <div className="flex items-center gap-2">
+                <PillSlider
+                  value={himawariOpacity}
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  onChange={onHimawariOpacityChange}
+                  ariaLabel="Himawari IR layer opacity"
+                  accent="#7B1113"
+                />
+                <span className="text-[10px] font-semibold text-slate-600 w-7 text-right">{Math.round(himawariOpacity * 100)}%</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {drought && <>
+          <div className="flex items-center gap-1 pt-2 text-[10px] uppercase tracking-wide text-slate-400 font-semibold">
+            Climate
+            <CoverageChip label="Philippines" detail="Covers the Philippines" />
+          </div>
+
+          <PillToggle label="Drought conditions" checked={drought.visible}
+            disabled={showSimulatedFlood && !drought.visible}
+            disabledReason="Turn off Flood Simulation to use Drought conditions."
+            onChange={drought.setVisible} loading={drought.visible && drought.loading}
+            credit={{ href: 'https://droughtcaster.pagasa.dost.gov.ph/', label: 'DOST-PAGASA' }} />
+        </>}
 
         {showBarangayBoundariesToggle && (
           <>
