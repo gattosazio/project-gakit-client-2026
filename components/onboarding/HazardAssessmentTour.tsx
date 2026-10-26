@@ -4,6 +4,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSy
 import { ArrowLeft, ArrowRight, Compass, X } from 'lucide-react';
 import { ASSESSMENT_TOUR_STEPS } from '@/lib/onboarding/assessmentSteps';
 import { computeTourTooltipPosition, type TourRect, type TourViewport } from '@/lib/onboarding/position';
+import type { ModalTourStep } from '@/lib/onboarding/steps';
 
 const emptySubscribe = () => () => {};
 
@@ -43,25 +44,29 @@ function findTourTarget(name: string): HTMLElement | null {
   return null;
 }
 
-interface HazardAssessmentTourProps {
+interface ModalOnboardingTourProps {
   isActive: boolean;
   stepIndex: number;
   onStepChange: (index: number) => void;
   onClose: () => void;
   onFinish: () => void;
+  steps: readonly ModalTourStep[];
+  tourTitle: string;
 }
 
-export function HazardAssessmentTour({
+export function ModalOnboardingTour({
   isActive,
   stepIndex,
   onStepChange,
   onClose,
   onFinish,
-}: HazardAssessmentTourProps) {
+  steps,
+  tourTitle,
+}: ModalOnboardingTourProps) {
   const mounted = useMounted();
   const active = isActive && mounted;
-  const step = ASSESSMENT_TOUR_STEPS[stepIndex] ?? ASSESSMENT_TOUR_STEPS[0];
-  const lastStep = stepIndex >= ASSESSMENT_TOUR_STEPS.length - 1;
+  const step = steps[stepIndex] ?? steps[0];
+  const lastStep = stepIndex >= steps.length - 1;
   const bodyId = useId();
 
   const [targetRect, setTargetRect] = useState<TourRect | null>(null);
@@ -226,7 +231,7 @@ export function HazardAssessmentTour({
         ref={cardRef}
         role="dialog"
         aria-modal="true"
-        aria-label={`Hazard assessment tour step ${stepIndex + 1}: ${step.title}`}
+        aria-label={`${tourTitle} step ${stepIndex + 1}: ${step.title}`}
         aria-describedby={bodyId}
         tabIndex={-1}
         onKeyDown={(event) => {
@@ -257,7 +262,7 @@ export function HazardAssessmentTour({
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1.5 text-gakit-maroon">
             <Compass className="h-3.5 w-3.5" aria-hidden />
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em]">Assessment tour</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em]">{tourTitle}</p>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -270,7 +275,7 @@ export function HazardAssessmentTour({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close assessment tour"
+              aria-label={`Close ${tourTitle.toLowerCase()}`}
               className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
             >
               <X className="h-3.5 w-3.5" aria-hidden />
@@ -279,35 +284,16 @@ export function HazardAssessmentTour({
         </div>
 
         <p className="sr-only" aria-live="polite">
-          Step {stepIndex + 1} of {ASSESSMENT_TOUR_STEPS.length}: {step.title}
+          Step {stepIndex + 1} of {steps.length}: {step.title}
         </p>
         <h3 className="mt-2.5 text-base font-bold leading-5 text-slate-900">{step.title}</h3>
         <p id={bodyId} className="mt-1.5 text-xs leading-5 text-slate-600" aria-live="polite">
           {step.body}
         </p>
 
-        {lastStep ? (
-          <button
-            type="button"
-            onClick={onFinish}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-maroon-200 bg-maroon-50/60 px-3 py-2.5 text-xs font-bold text-gakit-maroon transition-colors hover:bg-maroon-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
-          >
-            Got it.
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onStepChange(stepIndex + 1)}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-maroon-200 bg-maroon-50/60 px-3 py-2.5 text-xs font-bold text-gakit-maroon transition-colors hover:bg-maroon-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
-          >
-            Next
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </button>
-        )}
-
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
-          <div className="flex items-center gap-1.5" aria-label={`Step ${stepIndex + 1} of ${ASSESSMENT_TOUR_STEPS.length}`}>
-            {ASSESSMENT_TOUR_STEPS.map((tourStep, index) => (
+          <div className="flex items-center gap-1.5" aria-label={`Step ${stepIndex + 1} of ${steps.length}`}>
+            {steps.map((tourStep, index) => (
               <span
                 key={tourStep.id}
                 aria-hidden
@@ -321,7 +307,7 @@ export function HazardAssessmentTour({
               />
             ))}
             <span className="ml-1 text-[10px] font-semibold tabular-nums text-slate-400">
-              {stepIndex + 1}/{ASSESSMENT_TOUR_STEPS.length}
+              {stepIndex + 1}/{steps.length}
             </span>
           </div>
 
@@ -330,10 +316,27 @@ export function HazardAssessmentTour({
               <button
                 type="button"
                 onClick={() => onStepChange(stepIndex - 1)}
-                aria-label="Previous assessment tour step"
+                aria-label="Previous tour step"
                 className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
               >
                 <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+              </button>
+            )}
+            {lastStep ? (
+              <button
+                type="button"
+                onClick={onFinish}
+                className="inline-flex h-9 items-center justify-center rounded-lg bg-gakit-maroon px-3 text-xs font-bold text-white transition-colors hover:bg-maroon-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
+              >
+                Got it
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onStepChange(stepIndex + 1)}
+                className="inline-flex h-9 items-center justify-center gap-1 rounded-lg bg-gakit-maroon px-3 text-xs font-bold text-white transition-colors hover:bg-maroon-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
+              >
+                Next
               </button>
             )}
           </div>
@@ -341,4 +344,8 @@ export function HazardAssessmentTour({
       </div>
     </div>
   );
+}
+
+export function HazardAssessmentTour(props: Omit<ModalOnboardingTourProps, 'steps' | 'tourTitle'>) {
+  return <ModalOnboardingTour {...props} steps={ASSESSMENT_TOUR_STEPS} tourTitle="Assessment tour" />;
 }

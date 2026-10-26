@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { ASSESSMENT_TOUR_STEPS } from '@/lib/onboarding/assessmentSteps';
 import { computeTourTooltipPosition } from '@/lib/onboarding/position';
+import { REPORT_TOUR_STEPS } from '@/lib/onboarding/reportSteps';
 
 const viewport = { width: 1000, height: 800 };
 const tooltip = { width: 300, height: 180 };
@@ -11,6 +12,20 @@ describe('computeTourTooltipPosition', () => {
     expect(
       computeTourTooltipPosition({ target: null, tooltip, viewport })
     ).toEqual({ top: 310, left: 350, placement: 'center' });
+  });
+
+  describe('report tour steps', () => {
+    it('guides users through the report location and estimated depth only', () => {
+      expect(REPORT_TOUR_STEPS).toHaveLength(2);
+      expect(REPORT_TOUR_STEPS.map((step) => step.target)).toEqual([
+        'report-location',
+        'report-depth',
+      ]);
+    });
+
+    it('scrolls estimated depth into view for the second step', () => {
+      expect(REPORT_TOUR_STEPS[1].scrollBlock).toBe('end');
+    });
   });
 
   describe('assessment tour positioning', () => {

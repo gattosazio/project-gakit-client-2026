@@ -319,17 +319,6 @@ export function MapTour({
           {step.body}
         </p>
 
-        {lastStep && onReport && (
-          <button
-            type="button"
-            onClick={onReport}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-maroon-200 bg-maroon-50/60 px-3 py-2.5 text-xs font-bold text-gakit-maroon transition-colors hover:bg-maroon-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
-          >
-            <MapPin className="h-4 w-4" aria-hidden />
-            Report flooding now
-          </button>
-        )}
-
         <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
           <div className="flex items-center gap-1.5" aria-label={`Step ${stepIndex + 1} of ${TOUR_STEPS.length}`}>
             {TOUR_STEPS.map((tourStep, index) => (
@@ -367,7 +356,7 @@ export function MapTour({
               className="flex h-9 items-center gap-1.5 rounded-lg bg-gakit-maroon px-3 text-xs font-bold text-white transition-colors hover:bg-maroon-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 active:scale-[0.98]"
             >
               {lastStep ? 'Start exploring' : 'Next'}
-              {!lastStep && <ArrowRight className="h-3.5 w-3.5" aria-hidden />}
+              {!lastStep}
             </button>
           </div>
         </div>

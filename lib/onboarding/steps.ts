@@ -1,6 +1,16 @@
 export type TourPanel = 'weather' | 'layers' | 'reports';
 export type TourPlacement = 'top' | 'bottom' | 'left' | 'right' | 'center';
 
+export interface ModalTourStep {
+  id: string;
+  title: string;
+  body: string;
+  target: string;
+  placement: TourPlacement;
+  spotlightPadding?: number;
+  scrollBlock?: ScrollLogicalPosition;
+}
+
 export interface TourStep {
   id: string;
   title: string;
