@@ -111,15 +111,19 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
       const bounds = await status.locator('svg').boundingBox();
       assert.equal(bounds.width, pixels, `${size} loading size`);
       assert.equal(bounds.height, pixels);
+      assert.equal(await status.locator('.flood-loader').count(), 0, `${size} uses the simple circular loader`);
+      assert.equal(await status.locator('svg').evaluate(element => getComputedStyle(element).animationName), 'spin', `${size} circular loader animates`);
     }
-    const clipIds = await samples.locator('clipPath').evaluateAll(items => items.map(item => item.id));
-    assert.equal(new Set(clipIds).size, clipIds.length, 'Each water animation gets its own clipping path');
-    assert.equal(await samples.locator('.flood-loader[data-active="false"] .flood-loader-tide').evaluate(element => getComputedStyle(element).animationPlayState), 'paused');
-    assert.notEqual(await samples.locator('.flood-loader-wave-front').first().evaluate(element => getComputedStyle(element).animationName), 'none');
+    const waterLoader = samples.locator('.flood-loader');
+    const clipIds = await waterLoader.locator('clipPath').evaluateAll(items => items.map(item => item.id));
+    assert.equal(clipIds.length, 1, 'Only the explicit main water loader uses a water animation');
+    assert.equal(await waterLoader.locator('.flood-loader-tide').evaluate(element => getComputedStyle(element).animationPlayState), 'paused');
+    assert.notEqual(await waterLoader.locator('.flood-loader-wave-front').evaluate(element => getComputedStyle(element).animationName), 'none');
     await page.emulateMedia({ reducedMotion: 'reduce' });
     assert(await samples.locator('.flood-loader-tide, .flood-loader-wave-front, .flood-loader-wave-back').evaluateAll(items => items.every(element => getComputedStyle(element).animationName === 'none')), 'Water animations respect reduced motion');
+    assert(await samples.getByRole('status', { name: 'Loading sm', exact: true }).locator('svg').evaluate(element => getComputedStyle(element).animationName === 'none'), 'Circular indicators respect reduced motion');
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    console.log('Water loader sizes, status labels, unique SVG clips, pausing and reduced motion passed');
+    console.log('Circular indicator sizes, water loader motion, status labels and reduced motion passed');
     for (const [width, height] of [[320, 568], [390, 844], [768, 600], [1440, 900]]) {
       await load(width, height);
       await page.getByRole('button', { name: 'Open report', exact: true }).click();
