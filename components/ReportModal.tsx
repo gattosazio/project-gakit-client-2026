@@ -1,11 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useId, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import dynamic from 'next/dynamic';
 import { Droplets } from 'lucide-react';
 import { LocationDialog, LOCATION_DIALOG_PRIMARY_BUTTON, LOCATION_DIALOG_SECONDARY_BUTTON } from '@/components/map/LocationDialog';
+import { ModalOnboardingTour } from '@/components/onboarding/HazardAssessmentTour';
 import { ReportLocationPreview } from '@/components/reporting/ReportLocationPreview';
 import { Spinner } from '@/components/ui/Spinner';
+import { REPORT_TOUR_STEPS } from '@/lib/onboarding/reportSteps';
+import { focusOnboardingTarget } from '@/lib/onboarding/focus';
+import {
+  getReportGuideSeen,
+  getServerModalGuideSeen,
+  markModalGuideSeen,
+  subscribeToModalGuides,
+} from '@/lib/onboarding/storage';
 import { toast } from 'react-toastify';
 import {
   DEPTH_PRESETS,
@@ -73,9 +82,29 @@ export function ReportModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [photo, setPhoto] = useState<PreparedPhoto | null>(null);
   const [resolvedLocation, setResolvedLocation] = useState<SelectedLocation | null>(null);
+  const [tourActive, setTourActive] = useState(false);
+  const [tourStepIndex, setTourStepIndex] = useState(0);
+  const guideSeen = useSyncExternalStore(
+    subscribeToModalGuides,
+    getReportGuideSeen,
+    getServerModalGuideSeen
+  );
+  const tourAutoStartedRef = useRef(false);
+  const depthHeadingRef = useRef<HTMLHeadingElement>(null);
   const displayAddress = selectedLocation && isRawCoordinateString(selectedLocation.address)
     && resolvedLocation?.lat === selectedLocation.lat && resolvedLocation.lng === selectedLocation.lng
     ? resolvedLocation.address : selectedLocation?.address;
+
+  useEffect(() => {
+    if (!isOpen || !selectedLocation) {
+      tourAutoStartedRef.current = false;
+      return;
+    }
+    if (withinCity === false || guideSeen || tourAutoStartedRef.current || adjustingLocation) return;
+    tourAutoStartedRef.current = true;
+    setTourStepIndex(0);
+    setTourActive(true);
+  }, [isOpen, selectedLocation, withinCity, guideSeen, adjustingLocation]);
 
   useEffect(() => {
     if (selectedLocation && isRawCoordinateString(selectedLocation.address)) {
@@ -115,6 +144,18 @@ export function ReportModal({
       cancelled = true;
     };
   }, [isOpen]);
+
+  const handleTourEnd = () => {
+    markModalGuideSeen('report');
+    setTourActive(false);
+    setTourStepIndex(0);
+    window.requestAnimationFrame(() => focusOnboardingTarget(depthHeadingRef.current));
+  };
+
+  const startTour = () => {
+    setTourStepIndex(0);
+    setTourActive(true);
+  };
 
   const referenceMeta =
     FLOOD_REFERENCE_META.find((meta) => meta.id === selectedReference) ?? null;
@@ -167,6 +208,8 @@ export function ReportModal({
         },
         photo: photo ?? undefined,
       });
+      markModalGuideSeen('report');
+      setTourActive(false);
       resetForm();
       onClose();
       onSuccess?.();
@@ -184,6 +227,8 @@ export function ReportModal({
 
   const handleClose = () => {
     if (isSubmitting) return;
+    if (tourActive) markModalGuideSeen('report');
+    setTourActive(false);
     resetForm();
     onClose();
   };
@@ -195,6 +240,23 @@ export function ReportModal({
     <LocationDialog isOpen={isOpen} onClose={handleClose} title="Report flooding"
       subtitle="Share what you observed" icon={Droplets} closeLabel="Close report modal"
       busy={isSubmitting} suspended={adjustingLocation}
+      tour={tourActive ? (
+        <ModalOnboardingTour
+          isActive
+          stepIndex={tourStepIndex}
+          onStepChange={setTourStepIndex}
+          onClose={handleTourEnd}
+          onFinish={handleTourEnd}
+          steps={REPORT_TOUR_STEPS}
+          tourTitle="Report tour"
+        />
+      ) : undefined}
+      helpCta={selectedLocation && withinCity !== false ? (
+        <button type="button" onClick={startTour} disabled={isSubmitting}
+          className="min-h-9 rounded px-2 text-[11px] font-semibold text-slate-500 underline-offset-2 transition-colors hover:text-slate-800 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2 disabled:opacity-50">
+          Need help?
+        </button>
+      ) : undefined}
       footer={withinCity === false
         ? <button type="button" onClick={handleClose} className={LOCATION_DIALOG_PRIMARY_BUTTON}>Back to map</button>
         : <>
@@ -214,8 +276,13 @@ export function ReportModal({
             </div>
           ) : (
             <div className="space-y-3">
-              <section aria-labelledby={`${titleId}-depth-heading`}>
-                <h3 id={`${titleId}-depth-heading`} className="mb-2 text-sm font-semibold text-slate-900">Estimated water depth</h3>
+              <section data-tour="report-depth" aria-labelledby={`${titleId}-depth-heading`}>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 ref={depthHeadingRef} id={`${titleId}-depth-heading`} tabIndex={-1}
+                    className="rounded text-sm font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2">
+                    Estimated water depth
+                  </h3>
+                </div>
                 <div className="mb-3 grid grid-cols-5 gap-1.5" aria-label="Depth categories">
                   {DEPTH_PRESETS.map(preset => {
                     const selected = selectedCode === preset.code;

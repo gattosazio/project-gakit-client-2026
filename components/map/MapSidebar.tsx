@@ -418,10 +418,10 @@ export function MapSidebar({
               title="Weather Outlook"
               aria-label="Weather Outlook"
             >
-              <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
-                <WeatherIcon className="h-5 w-5 text-slate-500 transition-transform group-hover:scale-110 group-hover:text-slate-700 shrink-0" />
+              <div className="relative flex h-10 w-10 shrink-0 items-center justify-center transition-transform duration-150 group-hover:scale-110 md:h-11 md:w-11">
+                <WeatherIcon className="h-5 w-5 text-slate-500 transition-colors group-hover:text-slate-700 shrink-0" />
                 {currentTemp && (
-                  <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold text-white shadow-xs">
+                  <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-xs">
                     {currentTemp}
                   </span>
                 )}
@@ -461,10 +461,10 @@ export function MapSidebar({
             title="Citizen Flood Reports"
             aria-label="Citizen Flood Reports"
           >
-            <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center">
-              <MapPin className="h-5 w-5 text-slate-500 transition-transform group-hover:scale-110 group-hover:text-slate-700" />
+            <div className="relative flex h-10 w-10 md:h-11 md:w-11 shrink-0 items-center justify-center transition-transform duration-150 group-hover:scale-110">
+              <MapPin className="h-5 w-5 text-slate-500 transition-colors group-hover:text-slate-700" />
               {typeof visibleReportsCount === 'number' && visibleReportsCount > 0 && (
-                <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold text-white shadow-xs">
+                <span className="absolute -bottom-1 left-[65%] flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-xs">
                   {visibleReportsCount}
                 </span>
               )}

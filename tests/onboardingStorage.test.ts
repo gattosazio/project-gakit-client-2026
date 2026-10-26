@@ -2,10 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   LEGACY_FIRST_VISIT_KEY,
+  MODAL_GUIDE_KEYS,
   ONBOARDING_STORAGE_KEY,
+  hasSeenModalGuide,
   isOnboardingComplete,
+  markModalGuideSeen,
   readOnboardingRecord,
   saveOnboardingChoice,
+  subscribeToModalGuides,
 } from '@/lib/onboarding/storage';
 
 class MemoryStorage implements Storage {
@@ -40,7 +44,7 @@ const localStorage = new MemoryStorage();
 
 beforeEach(() => {
   localStorage.clear();
-  vi.stubGlobal('window', { localStorage });
+  vi.stubGlobal('window', Object.assign(new EventTarget(), { localStorage }));
 });
 
 afterEach(() => {
@@ -84,5 +88,50 @@ describe('onboarding storage', () => {
 
     expect(readOnboardingRecord()).toBeNull();
     expect(isOnboardingComplete()).toBe(false);
+  });
+
+  it('tracks each task-modal guide independently', () => {
+    expect(hasSeenModalGuide('report')).toBe(false);
+    expect(hasSeenModalGuide('assessmentTour')).toBe(false);
+
+    markModalGuideSeen('report');
+
+    expect(hasSeenModalGuide('report')).toBe(true);
+    expect(hasSeenModalGuide('assessmentTour')).toBe(false);
+    expect(localStorage.getItem(MODAL_GUIDE_KEYS.report)).toBe('true');
+    expect(localStorage.getItem(MODAL_GUIDE_KEYS.assessmentTour)).toBeNull();
+  });
+
+  it('only treats an exact true marker as a dismissed guide', () => {
+    localStorage.setItem(MODAL_GUIDE_KEYS.assessmentTour, '1');
+
+    expect(hasSeenModalGuide('assessmentTour')).toBe(false);
+  });
+
+  it('notifies modal guide subscribers when a guide is marked seen', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeToModalGuides(listener);
+
+    markModalGuideSeen('assessmentTour');
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    markModalGuideSeen('report');
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats blocked storage as unseen without throwing', () => {
+    const blockedStorage = {
+      getItem: () => {
+        throw new Error('Blocked');
+      },
+      setItem: () => {
+        throw new Error('Blocked');
+      },
+    } as unknown as Storage;
+    vi.stubGlobal('window', Object.assign(new EventTarget(), { localStorage: blockedStorage }));
+
+    expect(hasSeenModalGuide('report')).toBe(false);
+    expect(() => markModalGuideSeen('report')).not.toThrow();
   });
 });
