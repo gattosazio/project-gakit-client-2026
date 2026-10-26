@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { LoaderCircle, Pause, PieChart, Play, X } from 'lucide-react';
+import { Pause, PieChart, Play, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { STATUS_BANDS, droughtMonthLabel, type DroughtPeriod } from '@/lib/map/drought';
 import type { DroughtControlState } from './DroughtControls';
 
@@ -83,7 +84,7 @@ export function DroughtTimeline({ state, periods, overviewOpen, onOverview }: {
           </div>)}</div>
         </div>}
       </div>
-      {state.loading && <LoaderCircle aria-label="Loading drought month" className="h-3 w-3 shrink-0 animate-spin text-slate-400" />}
+      {state.loading && <Spinner size="xs" label="Loading drought month" className="shrink-0" />}
       <button type="button" aria-label="Toggle drought overview" aria-pressed={overviewOpen} onClick={onOverview} className="hidden shrink-0 items-center gap-1.5 rounded-lg bg-slate-100 px-2 py-2 text-[10px] text-slate-600 hover:bg-slate-200 md:flex"><PieChart size={12} />Overview</button>
       <button type="button" aria-label="Close drought layer" onClick={() => state.setVisible(false)} className="shrink-0 p-1 text-slate-400 hover:text-slate-700"><X size={12} /></button>
     </div>

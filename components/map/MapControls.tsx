@@ -189,6 +189,7 @@ function Card({
   icon: Icon,
   title,
   badge,
+  headerAction,
   children,
   isSidebarItem = false,
 }: {
@@ -197,6 +198,8 @@ function Card({
   icon: typeof Layers;
   title: string;
   badge?: React.ReactNode;
+  /** Small action button (e.g. an X) rendered before the collapse chevron. */
+  headerAction?: React.ReactNode;
   children: React.ReactNode;
   isSidebarItem?: boolean;
 }) {
@@ -212,17 +215,20 @@ function Card({
             <span>{title}</span>
             {badge}
           </div>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggle(!open);
-            }}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
-            aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
-          >
-            {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-1">
+            {headerAction}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle(!open);
+              }}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
+              aria-label={open ? `Collapse ${title}` : `Expand ${title}`}
+            >
+              {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
         <div
           aria-hidden={!open}
@@ -246,13 +252,16 @@ function Card({
           {title}
           {badge}
         </div>
-        <button
-          onClick={() => onToggle(false)}
-          className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
-          aria-label={`Collapse ${title}`}
-        >
-          <ChevronUp className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-1">
+          {headerAction}
+          <button
+            onClick={() => onToggle(false)}
+            className="p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-canvas-light transition-colors"
+            aria-label={`Collapse ${title}`}
+          >
+            <ChevronUp className="w-4 h-4" />
+          </button>
+        </div>
       </div>
       <div className="max-h-[42vh] overflow-y-auto px-3 pb-3 pt-1">
         {children}
@@ -450,7 +459,7 @@ export function ReportControls({
         isLoading ? (
           <Spinner size="xs" />
         ) : typeof summaryCount === 'number' ? (
-          <span className="rounded-full bg-gakit-maroon px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
+          <span className="rounded-full bg-gakit-maroon/10 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-gakit-maroon">
             {summaryCount}
           </span>
         ) : undefined
@@ -958,6 +967,32 @@ export function DataLayerControls({
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [showSimulationInfo, setShowSimulationInfo] = useState(false);
   const { blended } = resolveRainfallAttribution(rainfallSource, rainfallHours);
+  // Mirrors activeLayersCount in MapSidebar so the X clears everything the
+  // count badge considers active.
+  const hasActiveLayers = [
+    showFloodHazard,
+    showSimulatedFlood,
+    showRainfall,
+    heatIndex?.visible,
+    drought?.visible,
+    showHimawariIR,
+    showTyphoonTrack,
+    showLandslide,
+    showStormSurge,
+    showBarangayBoundaries && showBarangayBoundariesToggle,
+  ].some(Boolean);
+  const disableAllLayers = () => {
+    onShowFloodHazardChange(false);
+    onShowSimulatedFloodChange?.(false);
+    onShowRainfallChange(false);
+    onShowHimawariIRChange(false);
+    onShowTyphoonTrackChange?.(false);
+    onShowLandslideChange(false);
+    onStormSurgeAdvisoryChange(null);
+    onShowBarangayBoundariesChange?.(false);
+    drought?.setVisible(false);
+    heatIndex?.setVisible(false);
+  };
   return (
     <Card
       open={open}
@@ -967,11 +1002,25 @@ export function DataLayerControls({
       isSidebarItem={isSidebarItem}
       badge={
         typeof activeLayersCount === 'number' && activeLayersCount > 0 ? (
-          <span className="rounded-full bg-slate-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
+          <span className="rounded-full bg-gakit-maroon/10 px-1.5 py-0.5 text-[10px] font-bold text-gakit-maroon">
             {activeLayersCount}
           </span>
         ) : undefined
       }
+      headerAction={hasActiveLayers ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            disableAllLayers();
+          }}
+          aria-label="Disable all layers"
+          title="Disable all layers"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-gakit-maroon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"
+        >
+          <X className="h-3.5 w-3.5" strokeWidth={2.25} aria-hidden="true" />
+        </button>
+      ) : undefined}
     >
       <div className="space-y-1.5">
         <div data-tour="layers-hazards" className="space-y-1.5 scroll-mt-2">

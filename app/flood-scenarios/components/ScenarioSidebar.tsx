@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, type KeyboardEvent } from 'react';
-import { Check, GripHorizontal, Info, LoaderCircle, Maximize2, Minus } from 'lucide-react';
+import { Check, GripHorizontal, Info, Maximize2, Minus } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { useDraggableCard } from '@/hooks/useDraggableCard';
 import { FloodSimulationInfoModal } from '@/components/map/FloodSimulationInfoModal';
 import { SCENARIO_PRESETS, type ScenarioPreset } from '@/types/scenario';
@@ -27,7 +28,7 @@ export function ScenarioSidebar({ activePreset, onSelectPreset, isLoading }: {
 
   return <aside ref={panelRef} aria-label="Scenario picker" className="pointer-events-auto absolute left-4 top-24 hidden max-h-[calc(100%-14rem)] w-[320px] flex-col overflow-hidden rounded-2xl border border-white/80 bg-white/95 shadow-xl backdrop-blur-md md:flex">
     <header className="flex shrink-0 items-center gap-1 border-b border-slate-100 px-3 py-2">
-      <button type="button" aria-label="Move scenario picker" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onKeyDown={keyMove} className="flex min-w-0 flex-1 cursor-grab touch-none items-center gap-2 text-left active:cursor-grabbing"><GripHorizontal size={12} className="text-slate-400" /><span className="text-xs font-bold text-slate-800">Scenarios</span>{isLoading && <LoaderCircle size={12} className="animate-spin text-slate-400" aria-label="Loading scenario" />}</button>
+      <button type="button" aria-label="Move scenario picker" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end} onKeyDown={keyMove} className="flex min-w-0 flex-1 cursor-grab touch-none items-center gap-2 text-left active:cursor-grabbing"><GripHorizontal size={12} className="text-slate-400" /><span className="text-xs font-bold text-slate-800">Scenarios</span>{isLoading && <Spinner size="xs" label="Loading scenario" />}</button>
       <button type="button" aria-label="About Flood Simulation" aria-haspopup="dialog" onClick={() => setShowInfo(true)} className="rounded p-1.5 text-slate-400 hover:text-slate-700"><Info size={13} /></button>
       <button type="button" aria-label={minimized ? 'Expand scenario picker' : 'Minimize scenario picker'} title={minimized ? 'Expand scenario picker' : 'Minimize scenario picker'} aria-expanded={!minimized} onClick={() => setMinimized(value => !value)} className="rounded p-1.5 text-slate-400 hover:text-slate-700">{minimized ? <Maximize2 size={13} /> : <Minus size={13} />}</button>
     </header>

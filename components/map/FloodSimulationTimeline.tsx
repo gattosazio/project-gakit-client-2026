@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { ChartNoAxesColumnIncreasing, LoaderCircle, Pause, Play, Radio, RotateCcw, SkipBack, SkipForward, X } from 'lucide-react';
+import { ChartNoAxesColumnIncreasing, Pause, Play, Radio, RotateCcw, SkipBack, SkipForward, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { SIMULATION_DEPTH_LEGEND } from '@/lib/map/colorScales';
 import type { SimulatedFloodTelemetry } from '@/lib/map/surrogate';
 import type { ScenarioFrame } from '@/types/scenario';
@@ -149,7 +150,7 @@ export function FloodSimulationTimeline({ frames, selectedIndex, onSelect, statu
         <button type="button" onClick={() => playback ? playback.cycleSpeed() : setSpeed(value => value === 1 ? 2 : 1)} aria-label={`Playback speed: ${speed}x. Change speed`} className="hidden h-8 shrink-0 rounded-lg px-1 text-[10px] font-bold text-slate-500 hover:bg-slate-100 lg:block">{speed}×</button>
         <button type="button" onClick={() => { setScrub(null); if (playback) playback.reset(); else { setPlaying(false); onSelect(live ? null : 0); } }} aria-label={live ? 'Return to live and follow updates' : 'Restart simulation'} title={live ? followingLive ? 'Following live' : 'Go live' : 'Restart simulation'} disabled={!frames.length}
           className={`flex h-8 w-7 shrink-0 items-center justify-center rounded-lg hover:bg-slate-100 disabled:opacity-30 ${followingLive ? 'bg-emerald-50 text-emerald-700' : 'text-slate-500'}`}>
-          {loading ? <LoaderCircle size={14} className="animate-spin" /> : live ? <Radio size={15} /> : <RotateCcw size={15} />}
+          {loading ? <Spinner size="xs" label="Loading simulation" /> : live ? <Radio size={15} /> : <RotateCcw size={15} />}
         </button>
         <button type="button" aria-label="Toggle flood overview" aria-expanded={overviewOpen} aria-controls={overviewId} onClick={toggleOverview} className={`flex h-8 w-7 shrink-0 items-center justify-center rounded-lg hover:bg-slate-100 lg:w-auto lg:gap-1.5 lg:px-2 ${overviewOpen ? 'bg-slate-100 text-slate-800' : 'text-slate-500'}`}><ChartNoAxesColumnIncreasing size={14} /><span className="hidden text-[10px] lg:inline">Overview</span></button>
         {onClose && <button type="button" aria-label="Close flood simulation" onClick={onClose} className="hidden shrink-0 p-1 text-slate-400 hover:text-slate-700 md:block"><X size={12} /></button>}

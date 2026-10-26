@@ -118,7 +118,7 @@ export function WeatherChip({ className = '', defaultExpanded = false, open: con
   const header = <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls={contentId}
     className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-bold text-slate-900 transition-colors hover:bg-slate-50/60">
     <span className="flex min-w-0 items-center gap-2"><PillIcon className="h-4 w-4 shrink-0 text-gakit-maroon" aria-hidden="true" /><span className="truncate">Weather Outlook</span>
-      {!open && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-600">{numericLabel}</span>}</span>
+      {!open && <span className="rounded-full bg-gakit-maroon/10 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-gakit-maroon">{numericLabel}</span>}</span>
     {open ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
   </button>;
 
