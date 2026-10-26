@@ -35,14 +35,17 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
   );
   const [selectedWeatherAlert, setSelectedWeatherAlert] = useState<WeatherAlert | null>(null);
   const activeFeature = monitoringFeatureMap[activeTab];
+  const [reportsFullscreen, setReportsFullscreen] = useState(false);
+  const reportsActive = activeTab === 'reports';
+  const focusedReports = reportsActive && reportsFullscreen;
 
   const STATUS_VALUES = new Set<ReportStatus>([
     'UNVERIFIED',
     'VERIFIED',
-    'ANOMALY',
     'REJECTED',
   ]);
-  const rawStatus = searchParams.get('status');
+  const requestedStatus = searchParams.get('status');
+  const rawStatus = requestedStatus === 'ANOMALY' ? 'UNVERIFIED' : requestedStatus;
   const initialStatus =
     rawStatus && STATUS_VALUES.has(rawStatus as ReportStatus)
       ? (rawStatus as ReportStatus)
@@ -104,6 +107,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
       const tabParam = currentParams.get('tab') as MonitoringFeatureId | null;
       const resolvedTab = tabParam && monitoringFeatureMap[tabParam] ? tabParam : 'dashboard';
       setActiveTab(resolvedTab);
+      if (resolvedTab !== 'reports') setReportsFullscreen(false);
       setHighlightedNotificationId(currentParams.get('notification'));
       setHighlightedReportId(null);
     };
@@ -114,6 +118,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
 
   const handleTabChange = (tab: MonitoringFeatureId) => {
     setActiveTab(tab);
+    if (tab !== 'reports') setReportsFullscreen(false);
     setHighlightedReportId(null);
     setHighlightedNotificationId(null);
     updateUrl(tab, (params) => {
@@ -148,6 +153,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
 
   const handleOpenNotification = (notificationId: string) => {
     setActiveTab('alerts');
+    setReportsFullscreen(false);
     setHighlightedReportId(null);
     setHighlightedNotificationId(notificationId);
     updateUrl('alerts', (params) => {
@@ -158,6 +164,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
 
   return (
     <div className="flex h-dvh overflow-hidden bg-slate-50/80">
+      <div className={focusedReports ? 'hidden' : 'contents'}>
       <SideBar
         activeTab={activeTab}
         items={monitoringFeatures}
@@ -166,20 +173,27 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
         initialAuth={initialAuth}
         showTopo
       />
-      <div className="h-full min-w-0 flex-1 flex flex-col overflow-hidden bg-white lg:rounded-[2rem] lg:rounded-l-[2.75rem]">
+      </div>
+      <div className={`h-full min-w-0 flex-1 flex flex-col overflow-hidden bg-white ${focusedReports ? '' : 'lg:rounded-[2rem] lg:rounded-l-[2.75rem]'}`}>
+        <div className={focusedReports ? 'hidden' : 'contents'}>
         <AdminHeader
           title={activeFeature.title}
           description={activeFeature.description}
           icon={activeFeature.icon}
           badge={activeFeature.badge}
+          compact
           showTopo
           onNotificationClick={handleOpenNotification}
         />
-        <main className={`min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-[calc(6rem+env(safe-area-inset-bottom,0px))] md:px-7 lg:px-8 space-y-6 ${activeTab === 'dashboard' ? 'md:pt-4 lg:pb-4' : 'md:pt-6 lg:pb-8'}`}>
+        </div>
+        <main className={`min-h-0 flex-1 ${reportsActive
+          ? focusedReports ? 'overflow-hidden' : 'overflow-hidden p-2 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] lg:p-3'
+          : activeTab === 'alerts' ? 'overflow-y-auto overflow-x-hidden p-3 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:px-7 lg:px-8 xl:overflow-hidden xl:pb-3'
+          : `overflow-y-auto overflow-x-hidden p-4 pb-[calc(4rem+env(safe-area-inset-bottom,0px))] md:px-7 lg:px-8 space-y-6 ${activeTab === 'dashboard' ? 'md:pt-4 lg:pb-4' : 'md:pt-6 lg:pb-8'}`} `}>
           <div className={activeTab === 'dashboard' ? 'min-w-0 space-y-4' : 'hidden'}>
             <DashboardOverview active={activeTab === 'dashboard'} onReviewReports={handleReviewReports} />
           </div>
-          <div className={activeTab === 'alerts' ? 'space-y-4' : 'hidden'}>
+          <div className={activeTab === 'alerts' ? 'min-h-0 xl:h-full' : 'hidden'}>
             <AlertsTab
               active={activeTab === 'alerts'}
               highlightedNotificationId={highlightedNotificationId}
@@ -187,22 +201,26 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
               onSelectWeatherAlert={setSelectedWeatherAlert}
             />
           </div>
-          <div className={activeTab === 'reports' ? 'space-y-4' : 'hidden'}>
+          <div className={reportsActive ? 'h-full min-h-0' : 'hidden'}>
             <ReportsTab
               active={activeTab === 'reports'}
               highlightedReportId={highlightedReportId}
               initialStatus={initialStatus}
               initialTime={initialTime}
+              fullscreenMode={focusedReports}
+              onFullscreenModeChange={setReportsFullscreen}
             />
           </div>
         </main>
       </div>
+      <div className={focusedReports ? 'hidden' : 'contents'}>
       <MobileBottomNav
         items={monitoringFeatures}
         activeTab={activeTab}
         onTabChange={handleTabChange}
         role={initialAuth?.role ?? null}
       />
+      </div>
       {selectedWeatherAlert && (
         <WeatherAlertModal
           alert={selectedWeatherAlert}

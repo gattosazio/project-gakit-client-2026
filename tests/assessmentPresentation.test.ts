@@ -15,6 +15,31 @@ const report: Pick<Report, 'status' | 'decisionSource' | 'validationSummary' | '
 };
 
 describe('LGU report check wording', () => {
+  it('keeps a completed rejection visible when new evidence needs staff review', () => {
+    const view = getReportCheckPresentation({ ...report, validationSummary: {
+      ...summary, decisionBasis: null, checkState: 'complete', reviewAvailable: true,
+    } });
+    expect(view.message).toBe('Rainfall and flood estimates do not support this report.');
+    expect(view.reviewNotice).toContain('The saved decision remains in effect.');
+    expect(view.depthNote).toBeNull();
+  });
+
+  it('distinguishes review from incomplete checks without asking for routine reassessment', () => {
+    const view = getReportCheckPresentation({ ...report, status: 'UNVERIFIED', validationSummary: {
+      ...summary, recommendedStatus: 'UNVERIFIED', decisionBasis: null,
+      checkState: 'review_required', conflicts: [], context: [],
+    } });
+    expect(view.message).toBe('The available evidence needs staff review.');
+  });
+
+  it('shows rainfall and PAGASA as separate checks when both provide context', () => {
+    const view = getReportCheckPresentation({ ...report, status: 'VERIFIED', validationSummary: {
+      ...summary, recommendedStatus: 'VERIFIED', decisionBasis: 'physical_support',
+      conflicts: [], context: ['HEAVY_RAINFALL_CONTEXT', 'LOCAL_FLOOD_WARNING'],
+    } });
+    expect(view.checks).toContainEqual({ label: 'Rainfall', value: 'Rainfall threshold met' });
+    expect(view.checks).toContainEqual({ label: 'PAGASA', value: 'Rain or flood warning recorded' });
+  });
   it('explains an unsupported staff report as a review, without claiming acceptance', () => {
     const view = getReportCheckPresentation({ ...report, status: 'ANOMALY', validationSummary: {
       ...summary, recommendedStatus: 'ANOMALY', context: [...summary.context!, 'STAFF_REPORTER'],
@@ -45,7 +70,7 @@ describe('LGU report check wording', () => {
       context: ['HEAVY_RAINFALL_CONTEXT', 'LOW_CONNECTED_TERRAIN_CONTEXT'],
     } });
     expect(view.message).toBe('Weather and conditions at this location support the report.');
-    expect(view.checks).toContainEqual({ label: 'Rainfall', value: 'Heavy rain recorded' });
+    expect(view.checks).toContainEqual({ label: 'Rainfall', value: 'Rainfall threshold met' });
     expect(view.checks).toContainEqual({ label: 'Other reports', value: 'No supporting reports' });
     expect(view.depthNote).toBe('Water depth is an estimate.');
   });

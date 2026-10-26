@@ -1,3 +1,4 @@
+import { hasEvidenceConflict } from '@/lib/reports/decisionReasons';
 // Pure mapping logic that turns domain objects (reports, weather alerts) into
 // the unified notification model shown in the monitoring alerts tab. Kept free
 // of React so it can be unit-tested directly.
@@ -43,7 +44,7 @@ export function createNotifications(
   return reports.flatMap<Notification>((report) => {
     const location = report.location.address || 'Unknown location';
 
-    const historical = report.validationSummary?.missing.includes('HISTORICAL_OBSERVATION_REVIEW')
+    const historical = report.validationSummary?.missing?.includes('HISTORICAL_OBSERVATION_REVIEW')
       || report.validationFlags?.includes('HISTORICAL_OBSERVATION_REVIEW');
     if (historical && (report.status === 'UNVERIFIED' || report.status === 'ANOMALY')) {
       return [{
@@ -53,7 +54,7 @@ export function createNotifications(
       }];
     }
 
-    if (report.status === 'ANOMALY') {
+    if (hasEvidenceConflict(report)) {
       return [{
         id: `flagged-${report.id}`,
         type: 'flagged',

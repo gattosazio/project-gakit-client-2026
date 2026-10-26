@@ -1,16 +1,8 @@
 'use client';
 
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type MutableRefObject,
-} from 'react';
+import { useState } from 'react';
 import { MapPinned, X } from 'lucide-react';
 import type { HoveredBarangay } from '@/hooks/useMapPopups';
-import { nearestPointOnRings, outerRings } from '@/lib/map/mapGeometry';
 import {
   BARANGAY_BANNER_COPY,
   type BarangayBannerKind,
@@ -32,10 +24,9 @@ interface BarangayMetricsCardProps {
   banner: BarangayBannerKind;
   ageLabel: string | null;
   windowLabel: string;
-  mapRef: MutableRefObject<any>;
-  containerRef: MutableRefObject<HTMLDivElement | null>;
   onClose: () => void;
   alignToTop?: boolean;
+  alignToLeft?: boolean;
 }
 
 /** Compact summary of reports within the active map filters. */
@@ -45,81 +36,11 @@ export function BarangayMetricsCard({
   banner,
   ageLabel,
   windowLabel,
-  mapRef,
-  containerRef,
   onClose,
   alignToTop = false,
+  alignToLeft = false,
 }: BarangayMetricsCardProps) {
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const mobileItemRef = useRef<HTMLElement | null>(null);
   const [mobileExpanded, setMobileExpanded] = useState(false);
-
-  const [from, setFrom] = useState<{ x: number; y: number } | null>(null);
-  const [to, setTo] = useState<{ x: number; y: number } | null>(null);
-  const [size, setSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
-
-  const measure = useCallback(() => {
-    const map = mapRef.current;
-    const container = containerRef.current;
-    const target =
-      (typeof window !== 'undefined' && window.innerWidth < 768
-        ? mobileItemRef.current
-        : cardRef.current) ?? cardRef.current;
-    if (!map || !container || !target) return null;
-
-    const containerRect = container.getBoundingClientRect();
-    const cardRect = target.getBoundingClientRect();
-    const anchor = {
-      x: cardRect.left - containerRect.left,
-      y: cardRect.bottom - containerRect.top,
-    };
-
-    // The leader line starts at the boundary point nearest the card, measured
-    // in screen pixels so it stays correct under map pitch.
-    const edge = nearestPointOnRings(
-      outerRings(barangay.geometry).map((ring) =>
-        ring.map(([lng, lat]) => {
-          const p = map.project([lng, lat]);
-          return [p.x, p.y] as [number, number];
-        })
-      ),
-      [anchor.x, anchor.y]
-    );
-    if (!edge) {
-      setFrom(null);
-      setTo(null);
-      return null;
-    }
-
-    setFrom({ x: edge[0], y: edge[1] });
-    setTo(anchor);
-    setSize({ w: containerRect.width, h: containerRect.height });
-  }, [mapRef, containerRef, barangay.geometry]);
-
-  useLayoutEffect(() => {
-    measure();
-  }, [measure, mobileExpanded]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const repaint = () => measure();
-
-    map.on('move', repaint);
-    map.on('zoom', repaint);
-    map.on('resize', repaint);
-    window.addEventListener('resize', repaint);
-
-    return () => {
-      map.off('move', repaint);
-      map.off('zoom', repaint);
-      map.off('resize', repaint);
-      window.removeEventListener('resize', repaint);
-    };
-  }, [mapRef, measure]);
-
-  const midX = from && to ? to.x - Math.max(0, (to.x - from.x) * 0.5) : 0;
-  const pathD = from && to ? `M ${from.x} ${from.y} L ${midX} ${from.y} L ${to.x} ${to.y}` : '';
 
   const header = (
     <>
@@ -175,32 +96,12 @@ export function BarangayMetricsCard({
 
   return (
     <>
-      {from && to && (
-        <svg
-          className="pointer-events-none absolute inset-0 z-[900]"
-          width={size.w}
-          height={size.h}
-          aria-hidden="true"
-        >
-          <path
-            d={pathD}
-            fill="none"
-            stroke="#06b6d4"
-            strokeWidth={1.5}
-            strokeDasharray="4 4"
-            strokeLinecap="round"
-          />
-        </svg>
-      )}
-
       {!mobileExpanded && (
         <button
+          data-barangay-telemetry
           type="button"
-          ref={(el) => {
-            mobileItemRef.current = el;
-          }}
           onClick={() => setMobileExpanded(true)}
-          className="hud-pill absolute top-2 right-2 z-[910] flex max-w-[180px] items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-slate-50 active:scale-95 md:hidden"
+          className={`hud-pill absolute top-2 ${alignToLeft ? 'left-2' : 'right-2'} z-[910] flex max-w-[180px] items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-900 hover:bg-slate-50 active:scale-95 md:hidden`}
           aria-label={`Show ${barangay.name} metrics`}
         >
           <MapPinned className="h-3.5 w-3.5 shrink-0 text-gakit-maroon" />
@@ -212,10 +113,8 @@ export function BarangayMetricsCard({
 
       {mobileExpanded && (
         <div
-          ref={(el) => {
-            mobileItemRef.current = el;
-          }}
-          className="hud-card absolute top-2 right-2 z-[910] w-52 overflow-hidden md:hidden"
+          data-barangay-telemetry
+          className={`hud-card absolute top-2 ${alignToLeft ? 'left-2' : 'right-2'} z-[910] w-52 overflow-hidden md:hidden`}
           role="status"
           aria-live="polite"
         >
@@ -227,8 +126,8 @@ export function BarangayMetricsCard({
       )}
 
       <div
-        ref={cardRef}
-        className={`hud-card absolute right-2 w-56 overflow-hidden sm:right-3 md:right-6 max-md:hidden ${alignToTop ? 'top-4' : 'top-16 sm:top-20'}`}
+        data-barangay-telemetry
+        className={`hud-card absolute ${alignToLeft ? 'left-2 sm:left-3 md:left-4' : 'right-2 sm:right-3 md:right-6'} w-56 overflow-hidden max-md:hidden ${alignToTop ? 'top-4' : 'top-16 sm:top-20'}`}
         role="status"
         aria-live="polite"
       >

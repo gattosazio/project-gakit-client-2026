@@ -1,21 +1,25 @@
 import type { FloodDepthCode, FloodReference, Report, ReportStatus } from '@/types/report';
 
-/** Use the same original-source count in the table, modal and map. */
-export function getReportScoreDisplay(report: Pick<Report, 'validationScore' | 'validationSummary'>) {
-  if (report.validationSummary?.demoAutoValidated) return {
-    score: undefined, label: 'Demo approval', title: 'Approved by the global demo override; evidence checks were skipped',
-  };
-  if (report.validationSummary?.decisionBasis === 'physical_support') return {
-    score: undefined, label: 'Physical support',
-    title: 'Storm conditions and location support flooding; reported depth is not independently proven',
-  };
-  const score = report.validationSummary?.decisionBasis === 'original_observations'
-    ? report.validationSummary.corroboratingSourceCount : undefined;
-  return {
-    score,
-    label: score == null ? report.validationSummary ? 'Reassessment needed' : 'Awaiting assessment' : 'Corroborating sources',
-    title: score == null ? report.validationSummary ? 'Saved assessment used retired rules; request reassessment' : 'Awaiting evidence assessment' : `${score} corroborating observation sources`,
-  };
+/** Explain the saved decision basis, independently of the observation count. */
+export function getReportAssessmentBasis(report: Pick<Report, 'status' | 'decisionSource' | 'validationSummary' | 'validationFlags'>) {
+  const summary = report.validationSummary;
+  const flags = new Set([...(report.validationFlags ?? []), ...(summary?.conflicts ?? []), ...(summary?.context ?? [])]);
+  const result = (label: string, title = label) => ({ label, title, score: undefined });
+  if (report.decisionSource === 'manual') return result(report.status === 'VERIFIED' ? 'Staff confirmation' : 'Staff decision', summary?.staffDecision?.label ?? 'Saved staff decision; automatic evidence is shown separately');
+  if (summary?.demoAutoValidated) return result('Demo approval', 'Evidence checks were skipped');
+  if (report.status === 'ANOMALY') return result('Evidence conflict', 'Saved conflict awaiting staff review');
+  if (report.status === 'VERIFIED') {
+    if (summary?.decisionBasis === 'physical_support') return result('Physical support', 'Weather and location support operational acceptance; this is not independent confirmation');
+    if (summary?.decisionBasis === 'original_observations') return result('Independent observations', `${summary.corroboratingSourceCount ?? 0} eligible original observation sources; reported depth is not independently verified`);
+    return result('Previous assessment', 'Saved operational acceptance; its evidence basis is not recorded');
+  }
+  if (flags.has('USER_BLACKLISTED')) return result('Abuse policy', 'Acceptance blocked by the reporter policy');
+  if (flags.has('CURRENT_CONDITIONS_UNSUPPORTED')) return result('No qualifying support', 'Saved checks did not meet the operational support policy; this does not prove flooding impossible');
+  if (summary?.checkState === 'checks_incomplete') return result('Checks unavailable', 'Required evidence checks could not be completed');
+  if (flags.has('DEPTH_CATEGORY_MISMATCH') || (summary?.conflicts?.length ?? 0) > 0) return result('Evidence conflict');
+  if (report.status === 'REJECTED') return result('Previous assessment', 'Saved rejection; consult its saved reason and decision history');
+  if (summary) return result('Insufficient evidence', 'The saved evidence does not establish an acceptance path');
+  return result('Awaiting assessment');
 }
 
 export const DEPTH_LABELS: Record<FloodDepthCode, string> = {
@@ -56,31 +60,29 @@ export interface StatusMeta {
 }
 
 /**
- * Validation state of a report. Deliberately kept off the DEPTH_BAR_COLOR
- * traffic-light ramp so a status badge and a water-level reading are never
- * mistaken for one another; PENDING and REJECTED share the slate family and
- * separate by intensity — readable outline vs grayed out — rather than hue.
+ * Decision colors describe report acceptance, not flood depth or location safety.
+ * Blue/cyan belong to flood layers; labels and icons distinguish status from severity.
  */
 export const STATUS_META: Record<ReportStatus, StatusMeta> = {
   UNVERIFIED: {
     label: 'Pending',
-    badgeClass: 'bg-slate-50 text-slate-600 border-slate-200',
-    color: '#64748B',
+    badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+    color: '#B45309',
   },
   VERIFIED: {
-    label: 'Verified',
-    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
-    color: '#2563EB',
+    label: 'Validated',
+    badgeClass: 'bg-green-50 text-green-800 border-green-200',
+    color: '#15803D',
   },
   ANOMALY: {
-    label: 'Anomaly',
-    badgeClass: 'bg-violet-50 text-violet-700 border-violet-200',
-    color: '#7C3AED',
+    label: 'Pending',
+    badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+    color: '#B45309',
   },
   REJECTED: {
     label: 'Rejected',
-    badgeClass: 'bg-slate-100 text-slate-500 border-slate-200',
-    color: '#94A3B8',
+    badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
+    color: '#64748B',
   },
 };
 
@@ -140,7 +142,7 @@ export const VALIDATION_FLAG_LABELS: Record<string, ValidationFlagMeta> = {
   },
   CURRENT_CONDITIONS_UNSUPPORTED: {
     label: 'Current Flood Support Missing', category: 'Evidence', type: 'danger',
-    description: 'Complete rainfall windows are below event thresholds, the baseline model shows no nearby water, and no relevant warning or direct evidence supports this report. Low terrain alone cannot establish flooding; new evidence can trigger reassessment.',
+    description: 'Complete rainfall windows are below event thresholds, the baseline model shows no nearby water, and no relevant warning or direct evidence supports this report. Low terrain alone cannot establish flooding; staff can review new evidence.',
   },
   PHYSICALLY_SUPPORTED_REPORT: {
     label: 'Physically Supported', category: 'Evidence', type: 'success',
@@ -172,7 +174,7 @@ export const VALIDATION_FLAG_LABELS: Record<string, ValidationFlagMeta> = {
   },
   UNSUPPORTED_REPORT: {
     label: 'No Flood Evidence', category: 'Evidence', type: 'danger',
-    description: 'No independent flood observations, photo evidence or available physical flood context support this submission. New original evidence can trigger reassessment.',
+    description: 'No independent flood observations, photo evidence or available physical flood context support this submission. Staff can review new original evidence.',
   },
   NEAR_MODELED_INUNDATION: {
     label: 'Within or Near Modeled Flooding', category: 'Simulation', type: 'info',
@@ -371,8 +373,8 @@ export function formatValidationFlag(flag: string): ValidationFlagMeta {
     description: 'A model difference is diagnostic context; it does not invalidate the observation.',
   };
   if (flag === 'HEAVY_RAINFALL_CONTEXT') return {
-    label: 'Recent Heavy Rain', category: 'General', type: 'info',
-    description: 'Observed rainfall estimates support flood plausibility, not a particular water depth.',
+    label: 'Rainfall Threshold Met', category: 'General', type: 'info',
+    description: 'Rainfall estimates meet a provisional report-assessment threshold. This does not establish water depth or an official PAGASA warning level.',
   };
   const independentPeers = flag.match(/^INDEPENDENT_PEERS_(\d+)$/);
   if (independentPeers) {

@@ -29,7 +29,7 @@ const REASONS = {
 export function PriorityReports({ snapshot, onOpen, onBrowse }: {
   snapshot: DashboardSnapshot;
   onOpen: (report: Report) => void;
-  onBrowse: (status: 'UNVERIFIED' | 'ANOMALY') => void;
+  onBrowse: (status: 'UNVERIFIED') => void;
 }) {
   const visible = snapshot.priorityReports.slice(0, 3);
   return (
@@ -66,8 +66,8 @@ export function PriorityReports({ snapshot, onOpen, onBrowse }: {
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/50 px-4 py-2">
         <span className="text-[10px] text-slate-500">{snapshot.totals.olderReviews} older reviews · all dates included</span>
         <div className="flex gap-2">
-          <button type="button" onClick={() => onBrowse('UNVERIFIED')} className="text-[11px] font-semibold text-gakit-maroon">View pending ({snapshot.totals.pending})</button>
-          <button type="button" onClick={() => onBrowse('ANOMALY')} className="text-[11px] font-semibold text-slate-600">Flagged ({snapshot.totals.flagged})</button>
+          <button type="button" onClick={() => onBrowse('UNVERIFIED')} className="text-[11px] font-semibold text-gakit-maroon">View pending · All time ({snapshot.totals.pending})</button>
+          <span className="text-[11px] text-slate-500">Includes {snapshot.totals.flagged} with conflicts</span>
         </div>
       </div>
     </section>
@@ -78,9 +78,9 @@ export function WorkloadSummary({ snapshot, onReview }: { snapshot: DashboardSna
   const { totals } = snapshot;
   const metrics = [
     { label: 'High severity', detail: 'Observed in 24h', value: totals.highSeverity, icon: Waves, color: 'text-red-600' },
-    { label: 'Pending review', detail: 'All unresolved', value: totals.pending, icon: Clock3, color: 'text-slate-500' },
-    { label: 'Flagged anomalies', detail: 'All unresolved', value: totals.flagged, icon: ShieldAlert, color: 'text-violet-600' },
-    { label: 'Verified observations', detail: 'Observed in 24h', value: totals.verifiedObservations, icon: ShieldCheck, color: 'text-blue-600' },
+    { label: 'Pending review', detail: 'All unresolved', value: totals.pending, icon: Clock3, color: 'text-amber-700' },
+    { label: 'Evidence conflicts', detail: 'Included in Pending', value: totals.flagged, icon: ShieldAlert, color: 'text-amber-700' },
+    { label: 'Validated observations', detail: 'Observed in 24h', value: totals.verifiedObservations, icon: ShieldCheck, color: 'text-green-700' },
   ];
   return (
     <section className={`${PANEL_CLASS} flex h-full flex-col`} aria-label="Workload summary">
@@ -169,7 +169,7 @@ export function ReportInflow({ snapshot, onBrowse }: { snapshot: DashboardSnapsh
           <span className="text-[9px] text-slate-400">Current status · PHT · faded = partial hour</span>
         </div>
         <p className="mt-1.5 text-[10px] leading-relaxed text-slate-500" aria-live="polite">
-          {selected && interval ? <><span className="font-semibold text-slate-700">{manilaTime(interval.start)}–{manilaTime(interval.end)}{interval.partial ? ' (partial)' : ''}</span> · {selected.count} received · {selected.verified} verified, {selected.pending} pending, {selected.flagged} anomalies, {selected.rejected} rejected</> : 'No submissions in the selected period.'}
+          {selected && interval ? <><span className="font-semibold text-slate-700">{manilaTime(interval.start)}–{manilaTime(interval.end)}{interval.partial ? ' (partial)' : ''}</span> · {selected.count} received · {selected.verified} validated, {selected.pending} pending, {selected.rejected} rejected ({selected.flagged} pending with conflicts)</> : 'No submissions in the selected period.'}
         </p>
       </div>
     </section>
@@ -195,7 +195,7 @@ export function GeographicHighlights({ snapshot, kind, onBrowse }: {
             <span className="text-[10px] font-semibold text-slate-400">{index + 1}</span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-xs font-semibold text-slate-700">{area.name}</span>
-              <span className="mt-0.5 block text-[9px] text-slate-400">{isDepth ? `Latest · ${manilaTime(area.latestObservedAt)}` : `${area.verified} verified · ${area.pending + area.flagged} to review`}</span>
+              <span className="mt-0.5 block text-[9px] text-slate-400">{isDepth ? `Latest · ${manilaTime(area.latestObservedAt)}` : `${area.verified} validated · ${area.pending} to review`}</span>
             </span>
             <span className={`shrink-0 rounded px-1.5 py-1 text-[10px] font-bold tabular-nums ${isDepth && area.maxDepthCm >= 159 ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'}`}>{isDepth ? `${area.maxDepthCm} cm` : area.total}</span>
           </div>

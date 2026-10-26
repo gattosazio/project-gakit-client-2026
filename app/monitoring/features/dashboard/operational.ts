@@ -15,9 +15,8 @@ export function sourceState(at: string | null, now: number, maxAgeMinutes: numbe
 }
 
 export const INFLOW_STATUSES = [
-  { key: 'verified', label: 'Verified', color: '#2563eb' },
+  { key: 'verified', label: 'Validated', color: '#2563eb' },
   { key: 'pending', label: 'Pending', color: '#64748b' },
-  { key: 'flagged', label: 'Anomaly', color: '#7c3aed' },
   { key: 'rejected', label: 'Rejected', color: '#cbd5e1' },
 ] as const;
 

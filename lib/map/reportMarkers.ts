@@ -1,23 +1,7 @@
+import { decisionStatus } from '@/lib/reports/decisionReasons';
 import { REPORT_STATUS_LABELS } from '@/constants/publicMap';
-import { formatDateTime, getReportScoreDisplay, STATUS_META, timeAgo } from '@/lib/reports/reportFormatting';
+import { DEPTH_LABELS, formatDateTime, getReportAssessmentBasis, STATUS_META, timeAgo } from '@/lib/reports/reportFormatting';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
-
-// A simple white water-wave glyph — two short strokes read as "flood" at a
-// glance and stay legible on a small, flat status disc.
-const drawWave = (ctx: CanvasRenderingContext2D, cx: number, cy: number, w: number) => {
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = 2;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  [-2.5, 2.5].forEach((dy) => {
-    const y = cy + dy;
-    ctx.beginPath();
-    ctx.moveTo(cx - w, y);
-    ctx.bezierCurveTo(cx - w * 0.5, y - 2.5, cx - w * 0.15, y - 2.5, cx, y);
-    ctx.bezierCurveTo(cx + w * 0.15, y + 2.5, cx + w * 0.5, y + 2.5, cx + w, y);
-    ctx.stroke();
-  });
-};
 
 export const createReportMarkerImage = (color: string): ImageData | null => {
   const size = 40;
@@ -49,11 +33,58 @@ export const createReportMarkerImage = (color: string): ImageData | null => {
   context.strokeStyle = '#ffffff';
   context.stroke();
 
-  // White wave glyph.
+  // Original flood-wave glyph.
   drawWave(context, cx, cy, 6);
 
   return context.getImageData(0, 0, size, size);
 };
+
+function drawWave(ctx: CanvasRenderingContext2D, x: number, y: number, width: number) {
+  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  [-2.5, 2.5].forEach(offset => {
+    const lineY = y + offset;
+    ctx.beginPath(); ctx.moveTo(x - width, lineY);
+    ctx.bezierCurveTo(x - width * .5, lineY - 2.5, x - width * .15, lineY - 2.5, x, lineY);
+    ctx.bezierCurveTo(x + width * .15, lineY + 2.5, x + width * .5, lineY + 2.5, x + width, lineY);
+    ctx.stroke();
+  });
+}
+
+/** Compact depth counter; the circular pin itself carries the status. */
+export function createReportBubbleImage(depthColor = '#64748b'): ImageData | null {
+  const canvas = document.createElement('canvas');
+  canvas.width = 96; canvas.height = 36;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+  ctx.beginPath(); ctx.roundRect(1, 1, 94, 34, 17);
+  ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.lineWidth = 1.5; ctx.strokeStyle = '#d7dee7'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(14, 18, 4, 0, Math.PI * 2);
+  ctx.fillStyle = depthColor; ctx.fill();
+  return ctx.getImageData(0, 0, 96, 36);
+}
+
+export function reportMapLabels(props: MapReportFeature['properties'], now = Date.now()) {
+  const quality = props.validationSummary?.depthQuality;
+  const method = props.validationSummary?.observation?.depthMethod;
+  const cm = props.depthCm;
+  const hasNumber = quality !== 'category' && method !== 'category' && typeof cm === 'number' && Number.isFinite(cm) && cm >= 0;
+  const measured = method === 'measured' || quality === 'measured' || quality === 'exact';
+  const category = DEPTH_LABELS[props.depth.code] ?? props.depth.label;
+  const bubbleDepth = hasNumber ? `${measured ? '' : '≈'}${cm}${props.depth.code === 'overhead' ? '+' : ''} cm` : category;
+  const observed = typeof props.observedAt === 'string' && Number.isFinite(Date.parse(props.observedAt));
+  const submitted = typeof props.createdAt === 'string' && Number.isFinite(Date.parse(props.createdAt));
+  const timestamp = observed ? props.observedAt : submitted ? props.createdAt : null;
+  return {
+    depthLabel: hasNumber ? `${category} (${bubbleDepth})` : category,
+    bubbleDepth,
+    depthBadge: hasNumber ? `${cm}${props.depth.code === 'overhead' ? '+' : ''} cm` : category.replace(/ Deep$/, ''),
+    depthBadgeImage: `report-depth-badge-${props.depth.code}`,
+    bubbleAge: timestamp ? `${observed ? '' : 'sent '}${timeAgo(timestamp, now)}` : '',
+    labelPriority: timestamp ? Math.max(0, (now - Date.parse(timestamp)) / 60_000) : 1e8,
+  };
+}
 
 export const formatDepth = (depth: DepthCategory, depthCm?: number | null) => {
   const cm = depthCm ?? depth.approximateCm;
@@ -98,17 +129,17 @@ export const buildReportsGeoJson = (
 
   backendReports.forEach((feature) => {
     const props = feature.properties;
-    const scoreDisplay = getReportScoreDisplay(props);
-    const depthLabel = formatDepth(props.depth, (props as unknown as { depthCm?: number | null }).depthCm);
-    pushReport(props.id, props.status, {
+    const scoreDisplay = getReportAssessmentBasis(props);
+    const labels = reportMapLabels(props);
+    pushReport(props.id, decisionStatus(props.status), {
       type: 'Feature',
       geometry: feature.geometry,
       properties: {
         id: props.id,
         kind: 'report',
-        status: props.status,
+        status: decisionStatus(props.status),
         address: props.address,
-        depthLabel,
+        ...labels,
         statusLabel: REPORT_STATUS_LABELS[props.status] || props.status,
         validationScore: scoreDisplay.score,
         validationScoreLabel: scoreDisplay.label,
@@ -116,6 +147,7 @@ export const buildReportsGeoJson = (
         verificationScope: props.validationSummary?.verificationScope,
         demoAutoValidated: props.validationSummary?.demoAutoValidated,
         createdAt: props.createdAt,
+        observedAt: props.observedAt,
       },
     });
   });
@@ -157,18 +189,24 @@ export const buildReportPopupHtml = (feature: Record<string, any>): string => {
       ${display.status ? `<span class="report-pin-status" data-status="${display.statusCode}">${escapeHtml(display.status)}</span>` : ''}</header>
     ${props.depthLabel ? `<p class="report-pin-label">Reported depth</p><p class="report-pin-depth">${escapeHtml(String(props.depthLabel))}</p>` : ''}
     ${props.address ? `<p class="report-pin-location" title="${escapeHtml(String(props.address))}">${escapeHtml(String(props.address))}</p>` : ''}
-    ${display.age ? `<p class="report-pin-time" title="${escapeHtml(display.fullTime)}">Reported ${escapeHtml(display.age)}</p>` : ''}
+    ${display.age ? `<p class="report-pin-time" title="${escapeHtml(display.fullTime)}">${display.timeLabel} ${escapeHtml(display.age)}</p>` : ''}
+    ${display.observed && display.submittedTime ? `<p class="report-pin-submitted" style="margin-top:4px;font-size:10px;color:#64748b">Submitted ${escapeHtml(display.submittedTime)}</p>` : ''}
   </article>`;
 };
 
 function reportPopupDisplay(props: Record<string, any>) {
   const statusCode = Object.prototype.hasOwnProperty.call(STATUS_META, props.status) ? props.status as ReportStatus : undefined;
   const hasDate = typeof props.createdAt === 'string' && Number.isFinite(Date.parse(props.createdAt));
+  const observed = typeof props.observedAt === 'string' && Number.isFinite(Date.parse(props.observedAt));
+  const timestamp = observed ? props.observedAt : props.createdAt;
   return {
     statusCode: statusCode ?? 'UNVERIFIED',
     status: statusCode ? STATUS_META[statusCode].label : String(props.statusLabel ?? ''),
-    age: hasDate ? timeAgo(props.createdAt) : String(props.createdAt ?? ''),
-    fullTime: hasDate ? formatDateTime(props.createdAt) : String(props.createdAt ?? ''),
+    age: observed || hasDate ? timeAgo(timestamp) : String(props.createdAt ?? ''),
+    fullTime: observed || hasDate ? formatDateTime(timestamp) : String(props.createdAt ?? ''),
+    timeLabel: observed ? 'Observed' : 'Submitted',
+    observed,
+    submittedTime: hasDate ? formatDateTime(props.createdAt) : '',
   };
 }
 
@@ -179,7 +217,7 @@ export const buildReportHoverHtml = (feature: Record<string, any>): string => {
   return `<div class="report-pin-preview" role="tooltip">
     <p class="report-pin-preview-depth">${escapeHtml(String(props.depthLabel ?? 'Flood report'))}</p>
     <p class="report-pin-preview-meta">${display.status ? `<span class="report-pin-status" data-status="${display.statusCode}">${escapeHtml(display.status)}</span>` : ''}
-      ${display.age ? `<span>${escapeHtml(display.age)}</span>` : ''}</p>
+      ${display.age ? `<span title="${display.timeLabel} ${escapeHtml(display.fullTime)}">${display.timeLabel} ${escapeHtml(display.age)}</span>` : ''}</p>
   </div>`;
 };
 

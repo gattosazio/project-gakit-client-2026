@@ -110,7 +110,7 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
         const hover = page.getByRole('tooltip');
         await hover.waitFor();
         assert((await hover.innerText()).includes('Knee Deep (50 cm)'));
-        assert((await hover.innerText()).includes('Verified'));
+        assert((await hover.innerText()).includes('Validated'));
         assert(!(await hover.innerText()).includes('Quezon Avenue'));
         await page.screenshot({path:path.join(os.tmpdir(),'gakit-report-hover.png')});
         const backdrop = await hover.evaluate(element => getComputedStyle(element.closest('.maplibregl-popup-content')).backdropFilter);

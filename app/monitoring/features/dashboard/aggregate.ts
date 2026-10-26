@@ -1,3 +1,4 @@
+import { hasEvidenceConflict } from '@/lib/reports/decisionReasons';
 import type { FloodDepthCode, Report } from '@/types/report';
 import { DEPTH_LABELS, timeAgo } from '@/lib/reports/reportFormatting';
 
@@ -21,7 +22,7 @@ export type QueueGroup = 'critical' | 'flagged' | 'pending';
 export const QUEUE_GROUP_ORDER: readonly QueueGroup[] = ['critical', 'flagged', 'pending'];
 
 export function reportGroup(report: Report): QueueGroup | 'done' {
-  if (report.status === 'ANOMALY') return 'flagged';
+  if (hasEvidenceConflict(report)) return 'flagged';
   if (report.status !== 'UNVERIFIED') return 'done';
   return CRITICAL_DEPTHS.has(report.depth.code) ? 'critical' : 'pending';
 }

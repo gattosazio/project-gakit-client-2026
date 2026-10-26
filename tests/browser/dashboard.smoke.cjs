@@ -122,10 +122,10 @@ export default function Preview() {
     assert.equal(await page.getByRole('region', { name: 'Priority reports', exact: true }).getByRole('button').count(), 5, 'Three entries and two browse actions');
     const region = page.getByRole('region', { name: 'Report inflow', exact: true });
     assert.equal(await region.locator('strong').first().textContent(), String(total));
-    await page.getByRole('button', { name: /View pending \(6\)/ }).click();
+    await page.getByRole('button', { name: /View pending · All time \(6\)/ }).click();
     assert.deepEqual(JSON.parse(await navigation(page).textContent()), { status: 'UNVERIFIED', time: 'all' });
     await page.getByRole('button').filter({ hasText: 'Mahayahay · Community road' }).click();
-    assert.deepEqual(JSON.parse(await navigation(page).textContent()), { reportId: 'older', time: 'all' });
+    assert.deepEqual(JSON.parse(await navigation(page).textContent()), { reportId: 'older' });
     await page.getByRole('button').filter({ hasText: 'Tibanga · National Highway' }).click();
     assert.equal(JSON.parse(await navigation(page).textContent()).reportId, 'severe');
     await page.getByRole('button', { name: '1 failed assessment', exact: true }).click();

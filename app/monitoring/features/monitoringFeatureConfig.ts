@@ -47,7 +47,7 @@ export const monitoringFeatures: PortalNavItem<MonitoringFeatureId>[] = [
     icon: Table2,
     contents: [
       'Searchable report table with status, depth, location, and submission time',
-      'Filters for pending, verified, anomaly, and critical reports',
+      'Filters for pending, validated, rejected, and critical reports',
       'Report detail panel with photo, coordinates, and audit status',
       'Manual actions to verify, reject, or escalate a report',
     ],

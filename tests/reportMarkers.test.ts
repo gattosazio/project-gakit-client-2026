@@ -6,6 +6,7 @@ import {
   buildReportsGeoJson,
   buildSelectedGeoJson,
   formatDepth,
+  reportMapLabels,
 } from '@/lib/map/reportMarkers';
 import type { MapReportFeature } from '@/types/report';
 
@@ -36,8 +37,8 @@ describe('buildReportsGeoJson', () => {
     expect(feature.properties).toMatchObject({
       kind: 'report',
       address: 'Quezon Ave',
-      depthLabel: 'Knee deep (45 cm)',
-      statusLabel: 'Pending validation',
+      depthLabel: 'Knee Deep',
+      statusLabel: 'Pending',
     });
     // The backend id is copied onto map features so pin clicks can resolve the report.
     expect(feature.properties.id).toBe('a');
@@ -75,6 +76,27 @@ describe('buildReportsGeoJson', () => {
   });
 });
 
+describe('minimal report map labels', () => {
+  const now = Date.parse('2026-08-22T03:00:00Z');
+  it('uses explicit reported depth and observation time, not category defaults or submission age', () => {
+    const props = makeFeature({ id: 'estimated', depthCm: 159, createdAt: '2026-08-22T02:50:00Z' }).properties;
+    expect(reportMapLabels(props, now)).toMatchObject({ bubbleDepth: '≈159 cm', depthBadge: '159 cm', depthBadgeImage: 'report-depth-badge-knee', bubbleAge: '2h ago' });
+    expect(reportMapLabels({ ...props, validationSummary: { assessedAt: '', recommendedStatus: 'VERIFIED', support: [], conflicts: [], missing: [], explanation: '', depthQuality: 'measured' } }, now).bubbleDepth).toBe('159 cm');
+  });
+  it('never substitutes approximateCm when a numeric observation is missing', () => {
+    expect(reportMapLabels(makeFeature({ id: 'category', depthCm: null }).properties, now).bubbleDepth).toBe('Knee Deep');
+  });
+  it('labels fallback ages as submission age and omits invalid ages', () => {
+    const props = makeFeature({ id: 'missing-time', observedAt: 'invalid' }).properties;
+    expect(reportMapLabels(props, now).bubbleAge).toBe('sent 2h ago');
+    expect(reportMapLabels({ ...props, createdAt: 'invalid' }, now).bubbleAge).toBe('');
+  });
+  it('preserves observation and submission times in the expanded popup', () => {
+    const html = buildReportPopupHtml({ properties: { status: 'VERIFIED', observedAt: '2026-08-22T01:00:00Z', createdAt: '2026-08-22T02:50:00Z' } });
+    expect(html).toContain('Observed'); expect(html).toContain('Submitted');
+  });
+});
+
 describe('buildSelectedGeoJson', () => {
   it('returns an empty collection when nothing is selected', () => {
     expect(buildSelectedGeoJson(null)).toEqual({
@@ -107,7 +129,7 @@ describe('buildReportPopupHtml', () => {
         kind: 'report',
         address: 'Test',
         depthLabel: 'Knee deep',
-        statusLabel: 'Pending validation',
+        statusLabel: 'Pending',
         createdAt: 'Aug 22',
         demoAutoValidated: true,
         validationScore: 4,
@@ -117,7 +139,7 @@ describe('buildReportPopupHtml', () => {
     });
     expect(html).toContain('Reported depth');
     expect(html).toContain('Knee deep');
-    expect(html).toContain('Pending validation');
+    expect(html).toContain('Pending');
     expect(html).not.toContain('Origin');
     expect(html).not.toContain('evidence checks skipped');
     expect(html).not.toContain('Verification');
@@ -131,7 +153,7 @@ describe('buildReportPopupHtml', () => {
       createdAt: new Date(Date.now() - 5 * 60_000).toISOString(),
     } });
     expect(html).toContain('&lt;img src=x&gt;');
-    expect(html).toContain('Verified');
+    expect(html).toContain('Validated');
     expect(html).toContain('5m ago');
     expect(html).not.toContain('Long address omitted');
     expect(html).not.toContain('<img');

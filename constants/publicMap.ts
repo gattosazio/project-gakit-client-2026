@@ -2,6 +2,7 @@ import type { LightSpecification, StyleSpecification } from 'maplibre-gl';
 import { ILIGAN_BOUNDS } from '@/lib/map/geoUtils';
 import { HIMAWARI_IMAGE_BOUNDS } from '@/lib/map/himawari';
 import type { ReportStatus } from '@/types/report';
+import { STATUS_META } from '@/lib/reports/reportFormatting';
 import { SATELLITE_IMAGERY_SOURCE } from '@/lib/map/satelliteImagery';
 export { satelliteTileUrl } from '@/lib/map/satelliteImagery';
 
@@ -25,6 +26,7 @@ export const BASEMAP_LABELS: Record<BasemapId, string> = {
 
 const SATELLITE_STYLE: StyleSpecification = {
   version: 8,
+  glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
   sources: {
     'esri-imagery': SATELLITE_IMAGERY_SOURCE,
   },
@@ -139,17 +141,17 @@ export const MAP_MAX_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
-  UNVERIFIED: 'Pending validation',
-  VERIFIED: 'Verified',
-  ANOMALY: 'Flagged for review',
+  UNVERIFIED: 'Pending',
+  VERIFIED: 'Validated',
+  ANOMALY: 'Pending',
   REJECTED: 'Rejected',
 };
 
 export const REPORT_MARKER_COLORS: Record<ReportStatus, string> = {
-  UNVERIFIED: '#64748B',
-  VERIFIED: '#2563EB',
-  ANOMALY: '#7C3AED',
-  REJECTED: '#334155',
+  UNVERIFIED: STATUS_META.UNVERIFIED.color,
+  VERIFIED: STATUS_META.VERIFIED.color,
+  ANOMALY: STATUS_META.ANOMALY.color,
+  REJECTED: STATUS_META.REJECTED.color,
 };
 
 export const REPORT_MARKER_IMAGE_IDS: Record<ReportStatus, string> = {
@@ -164,8 +166,7 @@ export const REPORT_STATUS_LEGEND: Array<{
   label: string;
 }> = [
   { status: 'UNVERIFIED', label: 'Pending' },
-  { status: 'VERIFIED', label: 'Verified' },
-  { status: 'ANOMALY', label: 'Flagged' },
+  { status: 'VERIFIED', label: 'Validated' },
   { status: 'REJECTED', label: 'Rejected' },
 ];
 
