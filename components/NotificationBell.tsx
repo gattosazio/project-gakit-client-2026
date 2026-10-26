@@ -147,9 +147,7 @@ export function NotificationBell({
             className={isToolbar || variant === 'mobile-nav' ? 'absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-xs' : `absolute flex h-4 min-w-4 md:min-w-[18px] items-center justify-center rounded-full bg-red-600 px-0.5 md:px-1 text-[10px] md:text-[11px] font-bold text-white shadow-sm ${
               variant === 'header'
                 ? '-right-0.5 -top-0.5 md:-right-1 md:-top-1'
-                : variant === 'mobile-nav'
-                  ? '-right-0.5 -top-0.5'
-                  : '-top-1.5 -right-1.5 h-5 min-w-[20px]'
+                : '-top-1.5 -right-1.5 h-5 min-w-[20px]'
             }`}
           >
             {count > 9 ? '9+' : count}

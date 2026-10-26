@@ -262,7 +262,7 @@ export function ReportModal({
         : <>
           <button type="button" onClick={handleClose} disabled={isSubmitting} className={LOCATION_DIALOG_SECONDARY_BUTTON}>Cancel</button>
           <button type="button" onClick={handleSubmit} disabled={selectedCm == null || !selectedLocation || isSubmitting}
-            className={LOCATION_DIALOG_PRIMARY_BUTTON}>
+            className={`${LOCATION_DIALOG_PRIMARY_BUTTON} !px-4`}>
             {isSubmitting ? <><Spinner size="sm" />Submitting…</> : 'Submit report'}
           </button>
         </>}>
