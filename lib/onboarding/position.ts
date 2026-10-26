@@ -102,6 +102,10 @@ export function computeTourTooltipPosition({
       placement = fitting.reduce((best, candidate) =>
         room[candidate] > room[best] ? candidate : best
       );
+    } else {
+      placement = candidates.reduce((best, candidate) =>
+        room[candidate] > room[best] ? candidate : best
+      );
     }
   }
 

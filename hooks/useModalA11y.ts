@@ -40,10 +40,15 @@ export function useModalA11y<T extends HTMLElement = HTMLDivElement>({
     previouslyFocused.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
-    const getFocusable = () =>
-      container
-        ? Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR))
-        : [];
+    const getFocusable = (): HTMLElement[] => {
+      if (!container) return [];
+      const items: HTMLElement[] = [];
+      for (const element of container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)) {
+        if (element.closest('[inert]')) continue;
+        items.push(element);
+      }
+      return items;
+    };
 
     if (initialFocus && container && !container.contains(document.activeElement)) {
       (getFocusable()[0] ?? container).focus();

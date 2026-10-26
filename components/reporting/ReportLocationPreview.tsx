@@ -10,7 +10,7 @@ export function ReportLocationPreview({ location, address, onAdjust, disabled }:
   onAdjust?: () => void;
   disabled: boolean;
 }) {
-  return <section aria-label="Report location preview" className="relative h-32 overflow-hidden rounded-xl sm:h-36">
+  return <section data-tour="report-location" aria-label="Report location preview" className="relative h-32 overflow-hidden rounded-xl sm:h-36">
     <LocationMiniMap latitude={location.lat} longitude={location.lng} onViewOnMap={onAdjust}
       disabled={disabled} attributionPosition="top" actionLabel={onAdjust ? 'Adjust report location on map' : 'Report location on satellite map'} />
     {onAdjust && <span aria-hidden="true" className="pointer-events-none absolute right-2 top-2 rounded-lg bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-gakit-maroon shadow-sm">Adjust</span>}

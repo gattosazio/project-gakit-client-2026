@@ -83,6 +83,9 @@
 
   /* Sleek icon-rail hover label expansion — strictly desktop hover devices (pointer: fine) */
   @media (hover: hover) and (pointer: fine) {
+    .group:hover .rail-icon-badge {
+      transform: translateX(4px) scale(1.1);
+    }
     .group:hover .rail-label-expand {
       max-width: 150px;
       opacity: 1;
