@@ -66,6 +66,10 @@ const archiveData = year => {
 };
 const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'GET, OPTIONS' };
 const navigation = page => page.locator('[data-testid="dashboard-navigation"]');
+const collapseArchive = async page => {
+  const toggle = page.getByRole('button', { name: /Submission Archive/ });
+  if (await toggle.getAttribute('aria-expanded') === 'true') await toggle.click();
+};
 const attachRoutes = async page => {
   await page.route('**/api/v1/reports/archive**', route => {
     archiveFetches++;
@@ -117,9 +121,11 @@ export default function Preview() {
     await page.getByRole('heading', { name: 'Report Inflow', exact: true }).waitFor();
     await page.getByText('No active official advisories', { exact: true }).waitFor();
     await page.getByRole('button', { name: /Submission Archive/ }).waitFor();
-    assert.equal(archiveFetches, 0, 'Collapsed archive must not fetch daily data');
+    await page.getByRole('group', { name: /Daily submissions in/ }).waitFor();
+    assert(archiveFetches >= 1, 'The archive loads while expanded by default');
+    await collapseArchive(page);
     assert.equal(await page.getByRole('heading', { name: 'Situation map' }).count(), 0);
-    assert.equal(await page.getByRole('region', { name: 'Priority reports', exact: true }).getByRole('button').count(), 5, 'Three entries and two browse actions');
+    assert.equal(await page.getByRole('region', { name: 'Priority reports', exact: true }).getByRole('button').count(), 4, 'Three entries and one pending-queue action');
     const region = page.getByRole('region', { name: 'Report inflow', exact: true });
     assert.equal(await region.locator('strong').first().textContent(), String(total));
     await page.getByRole('button', { name: /View pending · All time \(6\)/ }).click();
@@ -187,6 +193,7 @@ export default function Preview() {
     alerts = ['heavy_rain', 'thunderstorm'].map((type, index) => ({ id: `fixture-${index}`, alertType: type, severity: 'warning',
       createdAt: stamp(-0.1), validFrom: stamp(-1), validTo: stamp(2), data: { source: 'DOST-PAGASA', title: index ? 'Thunderstorm Advisory No. 2' : 'Yellow Rainfall Advisory', issuedAt: stamp(-0.1) } }));
     await page.reload({ waitUntil: 'domcontentloaded' });
+    await collapseArchive(page);
     await page.getByText('Yellow Rainfall Advisory', { exact: true }).waitFor();
     await page.getByRole('heading', { name: 'Report Inflow', exact: true }).waitFor();
     const desktopHeight = await height(page);
@@ -232,6 +239,7 @@ export default function Preview() {
     const unavailable = await browser.newPage();
     await attachRoutes(unavailable);
     await unavailable.goto(`${base}/dashboard-preview-test`, { waitUntil: 'domcontentloaded' });
+    await collapseArchive(unavailable);
     await unavailable.getByText('Advisory data unavailable', { exact: true }).waitFor();
     assert.equal(await unavailable.getByText(/All Clear|Normal Conditions/).count(), 0);
     await unavailable.getByRole('button', { name: /Submission Archive/ }).click();

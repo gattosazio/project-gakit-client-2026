@@ -8,6 +8,20 @@ const { chromium } = require(process.env.GAKIT_PLAYWRIGHT_MODULE || 'playwright'
 const root = path.resolve(__dirname, '../..');
 const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
 
+// MapLibre projection round trips may change coordinates by fractions of a
+// millimetre. Reject visible camera movement without requiring bit equality.
+function assertCameraUnchanged(actual, expected, message) {
+  for (const [key, value] of Object.entries(expected)) {
+    if (Array.isArray(value)) {
+      value.forEach((coordinate, index) => assert(Math.abs(actual[key][index] - coordinate) < 1e-9, message + ': ' + key));
+    } else if (key === 'width' || key === 'height') {
+      assert.equal(actual[key], value, message + ': ' + key);
+    } else {
+      assert(Math.abs(actual[key] - value) < 1e-9, message + ': ' + key);
+    }
+  }
+}
+
 (async () => {
   const { build } = await import(pathToFileURL(require.resolve('vite', { paths:[root] })).href);
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'gakit-workspace-'));
@@ -239,17 +253,17 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
     assert(await page.evaluate(()=>{const map=window.maps[0];return Math.abs(map.project(map.getCenter()).x-map.getContainer().clientWidth/2)<2}),'Hiding table centers map in full width');
 
     await mapFits();
-    assert.deepEqual(await page.evaluate(()=>({center:window.maps[0].getCenter().toArray(),zoom:window.maps[0].getZoom()})),camera,'Hiding table does not move map');
+    assertCameraUnchanged(await page.evaluate(()=>({center:window.maps[0].getCenter().toArray(),zoom:window.maps[0].getZoom()})),camera,'Hiding table does not move map');
     await page.getByRole('button',{name:'Show reports',exact:true}).click();
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    assert.deepEqual(await page.evaluate(()=>({center:window.maps[0].getCenter().toArray(),zoom:window.maps[0].getZoom()})),camera,'Showing table does not move map');
+    assertCameraUnchanged(await page.evaluate(()=>({center:window.maps[0].getCenter().toArray(),zoom:window.maps[0].getZoom()})),camera,'Showing table does not move map');
     assert.equal(await panel.getByRole('textbox',{name:'Search reports'}).inputValue(),'Poblacion');
     assert((await panel.innerText()).includes('Page 2 of 3'));
     await page.getByRole('button',{name:'Fullscreen',exact:true}).click();
     assert(!await page.getByRole('complementary',{name:'App sidebar'}).isVisible());
     assert(!await page.getByRole('banner',{name:'App header'}).isVisible());
     await mapFits();
-    assert.deepEqual(await page.evaluate(()=>({center:window.maps[0].getCenter().toArray(),zoom:window.maps[0].getZoom()})),camera,'Camera preserved');
+    assertCameraUnchanged(await page.evaluate(()=>({center:window.maps[0].getCenter().toArray(),zoom:window.maps[0].getZoom()})),camera,'Camera preserved');
     await screenshot('desktop-fullscreen');
     // Details and native fullscreen must coexist with portals outside the workspace.
     const detailsButton=panel.getByRole('button',{name:/View report .* details/}).first();
@@ -401,16 +415,16 @@ const base = process.env.GAKIT_BASE_URL || 'http://localhost:3000';
       await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:touchX,y:touchY-90}]});
       assert((await panel.boundingBox()).height>100,'Sheet follows finger immediately');
       assert(await panel.locator('.reports-workspace-content').isVisible(),'Rows appear during the first pull');
-      assert.deepEqual(await nativeMapState(),beforeSwipe,'Dragging overlays the unchanged map');
+      assertCameraUnchanged(await nativeMapState(),beforeSwipe,'Dragging overlays the unchanged map');
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       assert.equal(await workspace.getAttribute('data-sheet'),'full','One touch stroke opens sheet');
-      assert.deepEqual(await nativeMapState(),beforeSwipe,'Opening does not resize or move map');
+      assertCameraUnchanged(await nativeMapState(),beforeSwipe,'Opening does not resize or move map');
       touchBounds=await handle.boundingBox();
       await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:touchX,y:touchBounds.y+20}]});
       await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:touchX,y:touchBounds.y+110}]});
       await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       assert.equal(await workspace.getAttribute('data-sheet'),'collapsed','One touch stroke closes sheet');
-      assert.deepEqual(await nativeMapState(),beforeSwipe,'Hiding does not resize or move map');
+      assertCameraUnchanged(await nativeMapState(),beforeSwipe,'Hiding does not resize or move map');
       await cdp.detach();
       // Keyboard controls retain an intermediate reading position.
 
