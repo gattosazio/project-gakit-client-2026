@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { MapPinned } from 'lucide-react';
 import { Dialog } from '@/components/ui/Dialog';
-import { FloodLoader } from '@/components/ui/FloodLoader';
+import { Spinner } from '@/components/ui/Spinner';
 
 export type OnboardingLocationStatus =
   | 'idle' | 'checking' | 'locating' | 'ready' | 'outside' | 'denied' | 'unsupported' | 'error';
@@ -70,7 +70,7 @@ export function OnboardingWelcome({ isOpen, status, onContinue }: {
       <div className="shrink-0 border-t border-slate-100 px-5 py-3">
         <button type="button" disabled={!agreed || busy} onClick={() => void onContinue(useLocation && !locationUnavailable)}
           className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-gakit-maroon px-4 text-xs font-semibold text-white transition-colors hover:bg-maroon-800 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2">
-          {status === 'locating' && <FloodLoader compact label="Locating your position" />}
+          {status === 'locating' && <Spinner label="Locating your position" />}
           Continue
         </button>
       </div>

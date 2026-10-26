@@ -10,7 +10,6 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Check, ChevronDown, ChevronUp, History, Info, Layers, MapPin, RotateCwFadingClock, Search, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
-import { FloodLoader } from '@/components/ui/FloodLoader';
 import { HeatIndexDetails, type HeatIndexControlState } from '@/components/map/HeatIndexDetails';
 import type { DroughtControlState } from '@/components/map/DroughtControls';
 import { FloodSimulationInfoModal } from '@/components/map/FloodSimulationInfoModal';
@@ -154,10 +153,10 @@ function PillToggle({
             <span className="truncate leading-tight">{label}</span>
             {beta && <sup className="relative -top-1 shrink-0 select-none rounded bg-amber-100/90 px-1 py-0.5 text-[7px] font-extrabold uppercase leading-none tracking-wider text-amber-800 shadow-xs ring-1 ring-inset ring-amber-200/70">Beta</sup>}
             {subtitle && <span className="text-slate-400 shrink-0">{subtitle}</span>}
-            {loading && <FloodLoader compact label={`Loading ${label}`} />}
+            {loading && <Spinner size="sm" label={`Loading ${label}`} />}
           </span>
         </button>
-        {onDetails && <button type="button" aria-label={`About ${label}`} aria-haspopup="dialog" onClick={onDetails} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-gakit-maroon focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"><Info size={14} /></button>}
+        {onDetails && <button type="button" aria-label={`About ${label}`} aria-haspopup="dialog" onClick={onDetails} className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon"><Info size={14} /></button>}
         {typeof count === 'number' && (
           <span className={`text-[10px] font-bold tabular-nums shrink-0 px-1.5 py-0.5 rounded-full ${
             checked ? 'text-slate-600 bg-slate-100' : 'text-slate-300 bg-slate-50'
@@ -209,7 +208,7 @@ function Card({
           className="flex items-center justify-between gap-2.5 px-3 py-2 text-xs font-bold text-slate-900 cursor-pointer select-none hover:bg-slate-50/60 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <Icon className="w-4 h-4 text-gakit-maroon shrink-0" />
+            <Icon className="w-4 h-4 text-slate-500 shrink-0" />
             <span>{title}</span>
             {badge}
           </div>
@@ -243,7 +242,7 @@ function Card({
     <div className="w-72 hud-card">
       <div className="flex items-center justify-between gap-3 px-3 pt-3 pb-1 text-xs font-bold text-slate-900">
         <div className="flex items-center gap-2">
-          <Icon className="w-3.5 h-3.5 text-gakit-maroon shrink-0" />
+          <Icon className="w-3.5 h-3.5 text-slate-500 shrink-0" />
           {title}
           {badge}
         </div>
@@ -266,7 +265,7 @@ function Card({
       title={`Show ${title}`}
       aria-label={`Show ${title}`}
     >
-      <Icon className="w-5 h-5 text-gakit-maroon" />
+      <Icon className="w-5 h-5 text-slate-500" />
       <span className="text-sm font-semibold text-slate-700">{title}</span>
       {badge}
     </button>
@@ -437,7 +436,7 @@ export function ReportControls({
         isLoading ? (
           <Spinner size="xs" />
         ) : typeof summaryCount === 'number' ? (
-          <span className="rounded-full bg-gakit-maroon/10 px-1.5 py-0.5 text-[10px] font-bold text-gakit-maroon tabular-nums">
+          <span className="rounded-full bg-gakit-maroon px-1.5 py-0.5 text-[10px] font-bold text-white tabular-nums">
             {summaryCount}
           </span>
         ) : undefined
@@ -453,10 +452,10 @@ export function ReportControls({
             <div className="px-2.5"><p className="text-[9px] text-slate-400">Deepest reported</p><p className="mt-1 text-[11px] font-semibold text-slate-800">{deepest ? formatReportDepth(deepest.properties.depth, deepest.properties.depthCm) : '—'}</p></div>
           </div>
           {latest && <button type="button" onClick={() => onOpenReport?.(latest)} disabled={!onOpenReport}
-            className="block w-full rounded-lg border border-slate-200 bg-white p-2.5 text-left hover:border-maroon-200 hover:bg-maroon-50/40 focus-visible:outline-gakit-maroon">
+            className="block w-full rounded-lg border border-slate-200 bg-white p-2.5 text-left hover:border-slate-300 hover:bg-slate-50 focus-visible:outline-gakit-maroon">
             <span className="flex items-center justify-between gap-2 text-[9px] text-slate-400"><span className="font-semibold uppercase tracking-wide">Latest report</span><span>{timeAgo(latest.properties.createdAt)}</span></span>
             <span className="mt-1 block text-xs font-semibold leading-4 text-slate-700 line-clamp-2">{latest.properties.address || 'Location not named'}</span>
-            <span className="mt-1 block text-[10px] font-semibold text-gakit-maroon">View report on map →</span>
+            <span className="mt-1 block text-[10px] font-semibold text-slate-700">View report on map →</span>
           </button>}
         </>}
         <div className="border-t border-slate-100 pt-2">
@@ -939,7 +938,7 @@ export function DataLayerControls({
       isSidebarItem={isSidebarItem}
       badge={
         typeof activeLayersCount === 'number' && activeLayersCount > 0 ? (
-          <span className="rounded-full bg-gakit-maroon/10 px-1.5 py-0.5 text-[10px] font-bold text-gakit-maroon">
+          <span className="rounded-full bg-slate-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
             {activeLayersCount}
           </span>
         ) : undefined
@@ -1252,7 +1251,7 @@ export function DataLayerControls({
               <button
                 type="button"
                 onClick={() => setShowScaleModal(true)}
-                className="inline-flex items-center gap-0.5 text-[9.5px] font-semibold text-slate-500 hover:text-rose-600 transition-colors px-1 py-0.5 rounded hover:bg-slate-100"
+                className="inline-flex items-center gap-0.5 text-[9.5px] font-semibold text-slate-500 hover:text-slate-800 transition-colors px-1 py-0.5 rounded hover:bg-slate-100"
                 title="View full typhoon track legend & wind scale"
               >
                 <Info className="w-3 h-3 text-slate-400" />
@@ -1271,7 +1270,7 @@ export function DataLayerControls({
                       key={storm.name}
                       type="button"
                       onClick={() => onFocusStorm?.(storm.name)}
-                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-700 hover:border-gakit-maroon hover:text-gakit-maroon transition-colors shadow-2xs"
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white border border-slate-200 text-[10px] font-semibold text-slate-700 hover:border-slate-300 hover:text-slate-900 transition-colors shadow-2xs"
                     >
                       <span
                         className="w-1.5 h-1.5 rounded-full shrink-0"

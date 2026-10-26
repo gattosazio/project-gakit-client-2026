@@ -1,16 +1,25 @@
 'use client';
 
-import { FloodLoader, type FloodLoaderSize } from './FloodLoader';
+import { LoaderCircle } from 'lucide-react';
 
-export type SpinnerSize = FloodLoaderSize;
+const SPINNER_SIZES = {
+  xs: 'h-4 w-4',
+  sm: 'h-[18px] w-[18px]',
+  md: 'h-6 w-6',
+  lg: 'h-8 w-8',
+} as const;
 
-/** Inline loading status, using the same water animation as page loaders. */
+export type SpinnerSize = keyof typeof SPINNER_SIZES;
+
+/** Inline loading status for buttons, chips, and small panels. */
 export function Spinner({ size = 'sm', className = '', label = 'Loading' }: {
   size?: SpinnerSize;
   className?: string;
   label?: string;
 }) {
-  return <span role="status" aria-label={label} className={`inline-flex shrink-0 items-center ${className}`}>
-    <FloodLoader compact size={size} label={label} />
-  </span>;
+  return (
+    <span role="status" aria-label={label} title={label} className={`inline-flex shrink-0 items-center ${className}`}>
+      <LoaderCircle className={`${SPINNER_SIZES[size]} animate-spin motion-reduce:animate-none`} aria-hidden="true" />
+    </span>
+  );
 }

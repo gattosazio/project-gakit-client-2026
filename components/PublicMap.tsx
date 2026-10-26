@@ -12,7 +12,6 @@ import {
 import { Focus, Locate, X } from 'lucide-react';
 import { IIT_BOUNDS, isInsideIit, syncCampusFocus } from '@/lib/map/campusFocus';
 import { ensureCampusSatelliteProtocol } from '@/lib/map/campusSatellite';
-import { FloodLoader } from '@/components/ui/FloodLoader';
 import { Spinner } from '@/components/ui/Spinner';
 import { PageLoader } from '@/components/ui/LoadingState';
 import { FloodSimulationTimeline } from '@/components/map/FloodSimulationTimeline';
@@ -431,24 +430,47 @@ export function PublicMap({
     loadTyphoonRef.current = typhoon.loadData;
   }, [typhoon.loadData]);
 
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
-    if (defaultSidebarCollapsed !== undefined) return defaultSidebarCollapsed;
-    if (!fullScreen) return true;
-    if (typeof window !== 'undefined') {
-      return window.innerWidth < 768;
-    }
-    return false;
-  });
-  const [weatherOpen, setWeatherOpen] = useState(() => {
-    if (hideWeather) return false;
-    const collapsedOnStart =
-      defaultSidebarCollapsed ?? (!fullScreen || (typeof window !== 'undefined' && window.innerWidth < 768));
-    if (collapsedOnStart) return false;
-    return fullScreen || weatherExpandedByDefault;
-  });
-  const [layersOpen, setLayersOpen] = useState(() => Boolean(hideWeather) || (fullScreen && !isSidebarCollapsed));
+  // Start collapsed on both server and client. The viewport-specific default is
+  // applied after hydration so phones never flash the desktop Weather/Layers
+  // cards while the client bundle is still loading.
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true);
+  const [weatherOpen, setWeatherOpen] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const initialSidebarLayoutAppliedRef = useRef(false);
   const wasTourActiveRef = useRef(false);
+
+  /* eslint-disable react-hooks/set-state-in-effect -- initial viewport layout */
+  useLayoutEffect(() => {
+    if (initialSidebarLayoutAppliedRef.current) return;
+    initialSidebarLayoutAppliedRef.current = true;
+    if (tourActive) return;
+
+    const isMobile = window.matchMedia('(max-width: 767px)').matches;
+    const collapsed = defaultSidebarCollapsed ?? (!fullScreen || isMobile);
+    const sidebarExpanded = !collapsed;
+
+    setIsSidebarCollapsed(collapsed);
+    setWeatherOpen(sidebarExpanded && !hideWeather && (fullScreen || weatherExpandedByDefault));
+    setLayersOpen(Boolean(hideWeather) || (fullScreen && sidebarExpanded));
+    setReportsOpen(false);
+  }, [defaultSidebarCollapsed, fullScreen, hideWeather, weatherExpandedByDefault, tourActive]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Close the control stack when the viewport crosses into mobile, so a
+  // desktop layout with open panels can't carry over after a resize/rotation.
+  useEffect(() => {
+    const query = window.matchMedia('(max-width: 767px)');
+    const handleChange = (event: MediaQueryListEvent) => {
+      if (!event.matches) return;
+      setIsSidebarCollapsed(true);
+      setWeatherOpen(false);
+      setLayersOpen(false);
+      setReportsOpen(false);
+    };
+    query.addEventListener('change', handleChange);
+    return () => query.removeEventListener('change', handleChange);
+  }, []);
 
   // Keep the sidebar in sync with the tour step. While a step has no panel, the
   // sidebar collapses so the highlighted map/search controls stay reachable.
@@ -1463,7 +1485,7 @@ export function PublicMap({
             className="flex h-9 w-9 items-center justify-center text-slate-700 hud-pill hover:bg-white hover:text-gakit-maroon active:bg-maroon-50 active:text-gakit-maroon active:scale-[0.94] disabled:cursor-not-allowed md:hidden"
           >
             {isShareLocating ? (
-              <FloodLoader compact label="Locating your position" />
+              <Spinner label="Locating your position" />
             ) : (
               <Locate className="h-4 w-4" strokeWidth={2.5} />
             )}
