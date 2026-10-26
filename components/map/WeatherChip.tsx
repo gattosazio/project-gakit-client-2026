@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import { ChevronDown, ChevronRight, ChevronUp, CloudSun, Droplet, Umbrella } from 'lucide-react';
-import { FloodLoader } from '@/components/ui/FloodLoader';
+import { Spinner } from '@/components/ui/Spinner';
 import { usableCurrentWeather } from '@/lib/weather/weather';
 import { usePointOutlook } from '@/hooks/usePointOutlook';
 import { getWeatherCondition, isDaytimeInManila } from '@/lib/weather/weatherCodes';
@@ -56,7 +56,7 @@ function WeatherForecastContent({ current, days, now, loading, delayed, onSelect
         className="flex shrink-0 items-center gap-1 whitespace-nowrap text-xs font-medium tabular-nums text-sky-700">
         <Droplet className="h-3.5 w-3.5" aria-hidden="true" />{currentRainLabel === 'Unavailable' ? '—' : currentRainLabel}
       </p>}
-    </div> : <p role="status" className="flex items-center gap-2 py-2 text-xs text-slate-500">{loading && <FloodLoader compact size="xs" label="Loading weather" />}{loading ? 'Loading weather…' : 'Weather is temporarily unavailable.'}</p>}
+    </div> : <p role="status" className="flex items-center gap-2 py-2 text-xs text-slate-500">{loading && <Spinner size="xs" label="Loading weather" />}{loading ? 'Loading weather…' : 'Weather is temporarily unavailable.'}</p>}
 
     {first && rainMetric ? <>
       <section className="border-t border-slate-100 py-2" aria-label={`${outlookDayLabel(first.date, now)} rain outlook`}>
@@ -149,8 +149,8 @@ export function WeatherChip({ className = '', defaultExpanded = false, open: con
 
   const header = <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} aria-controls={contentId}
     className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-xs font-bold text-slate-900 transition-colors hover:bg-slate-50/60">
-    <span className="flex min-w-0 items-center gap-2"><PillIcon className="h-4 w-4 shrink-0 text-gakit-maroon" aria-hidden="true" /><span className="truncate">Weather Outlook</span>
-      {!open && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-slate-600">{numericLabel}</span>}</span>
+    <span className="flex min-w-0 items-center gap-2"><PillIcon className="h-4 w-4 shrink-0 text-slate-500" aria-hidden="true" /><span className="truncate">Weather Outlook</span>
+      {!open && <span className="rounded-full bg-gakit-maroon px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-white">{numericLabel}</span>}</span>
     {open ? <ChevronUp className="h-4 w-4 shrink-0 text-slate-400" /> : <ChevronDown className="h-4 w-4 shrink-0 text-slate-400" />}
   </button>;
 
@@ -161,7 +161,7 @@ export function WeatherChip({ className = '', defaultExpanded = false, open: con
     </div> : <button type="button" onClick={() => setOpen(true)} aria-label="Show weather outlook" aria-expanded={false}
       className="flex items-center gap-2 px-3 py-2.5 hud-pill transition-colors hover:bg-white"
       title={condition ? `${condition.label} · ${numericLabel}` : 'Weather outlook'}>
-      <PillIcon className="h-5 w-5 text-gakit-maroon" aria-hidden="true" /><span className="text-xs font-semibold tabular-nums text-slate-700">{numericLabel}</span>
+      <PillIcon className="h-5 w-5 text-slate-500" aria-hidden="true" /><span className="text-xs font-semibold tabular-nums text-slate-700">{numericLabel}</span>
     </button>}
     {selectedDayDate && digest && <WeatherAlertModal alert={digest} highlightDate={selectedDayDate} onClose={() => setSelectedDayDate(null)} />}
   </div>;

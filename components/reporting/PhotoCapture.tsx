@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Camera, ImagePlus, Trash2 } from 'lucide-react';
-import { FloodLoader } from '@/components/ui/FloodLoader';
+import { Spinner } from '@/components/ui/Spinner';
 import {
   ACCEPTED_IMAGE_TYPES,
   formatPhotoSize,
@@ -76,7 +76,7 @@ export function PhotoCapture({ photo, onChange, disabled = false, compact = fals
         </button>
       </div> : <button type="button" onClick={() => inputRef.current?.click()} disabled={disabled || isProcessing}
         className="flex h-10 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-300 bg-slate-50 text-xs font-semibold text-gakit-maroon hover:bg-maroon-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon disabled:opacity-50">
-        {isProcessing ? <FloodLoader compact size="xs" label="Preparing photo" /> : <Camera className="h-3.5 w-3.5" aria-hidden="true" />}
+        {isProcessing ? <Spinner size="xs" label="Preparing photo" /> : <Camera className="h-3.5 w-3.5" aria-hidden="true" />}
         {isProcessing ? 'Preparing…' : 'Add photo'}<span className="text-[10px] font-normal text-slate-500">(optional)</span>
       </button>}
       <input ref={inputRef} type="file" accept={ACCEPTED_IMAGE_TYPES} capture="environment" className="sr-only"
@@ -120,7 +120,7 @@ export function PhotoCapture({ photo, onChange, disabled = false, compact = fals
       <div className="flex items-start gap-2.5">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-gakit-maroon ring-1 ring-slate-900/5">
           {isProcessing ? (
-            <FloodLoader compact label="Preparing photo" />
+            <Spinner label="Preparing photo" />
           ) : (
             <Camera className="h-4 w-4" />
           )}

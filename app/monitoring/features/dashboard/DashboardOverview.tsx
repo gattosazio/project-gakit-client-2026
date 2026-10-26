@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Clock3, RefreshCw } from 'lucide-react';
-import { FloodLoader } from '@/components/ui/FloodLoader';
+import { Spinner } from '@/components/ui/Spinner';
 import { fetchDashboardSnapshot, fetchReportStats } from '../reports/actions/reports';
 import type { Report, ReportStats, ReportStatus } from '@/types/report';
 import type { DashboardSnapshot } from '@/types/dashboard';
@@ -220,7 +220,7 @@ export function DashboardOverview({
           <a href="/" target="_blank" rel="noreferrer" className="font-semibold text-gakit-maroon">Open map ↗</a>
           <button type="button" onClick={() => setReload((value) => value + 1)} disabled={refreshing}
             className="inline-flex items-center gap-1 font-semibold text-slate-600 disabled:opacity-50">
-            {refreshing ? <FloodLoader compact size="xs" label="Refreshing dashboard" /> : <RefreshCw className="h-3 w-3" aria-hidden="true" />} Refresh
+            {refreshing ? <Spinner size="xs" label="Refreshing dashboard" /> : <RefreshCw className="h-3 w-3" aria-hidden="true" />} Refresh
           </button>
         </div>
       </div>

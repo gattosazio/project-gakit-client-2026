@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent } from 'react';
 import { Clock3, Locate, MapPin, Search, X } from 'lucide-react';
-import { FloodLoader } from '@/components/ui/FloodLoader';
+import { Spinner } from '@/components/ui/Spinner';
 import { searchLocations } from '@/lib/map/geoUtils';
 import type { LocationSearchResult } from '@/lib/map/geoUtils';
 import { clearRecentSearches, getRecentSearches, getServerRecentSearches, saveRecentSearch, subscribeRecentSearches } from '@/lib/map/recentSearches';
@@ -185,12 +185,12 @@ export function LocationSearch({
             disabled={activeLocating}
             title="Locate my position (GPS)"
             aria-label={activeLocating ? 'Locating your device…' : 'Locate my position'}
-            className={`flex shrink-0 items-center justify-center rounded-full text-slate-500 hover:text-gakit-maroon hover:bg-slate-200/80 active:scale-95 transition-all ${
+            className={`flex shrink-0 items-center justify-center rounded-full text-slate-500 hover:text-slate-900 hover:bg-slate-200/80 active:scale-95 transition-all ${
               isCompact ? 'hidden h-6 w-6 md:flex md:h-7 md:w-7' : 'h-8 w-8 md:h-9 md:w-9'
-            } ${activeLocating ? 'text-gakit-maroon' : ''}`}
+            } ${activeLocating ? 'text-slate-700' : ''}`}
           >
             {activeLocating ? (
-              <FloodLoader compact label="Locating your position" />
+              <Spinner label="Locating your position" />
             ) : (
               <Locate className="h-3.5 w-3.5 md:h-4 md:w-4" strokeWidth={2.2} />
             )}
@@ -228,7 +228,7 @@ export function LocationSearch({
           }`}
         >
           {isSearching ? (
-            <FloodLoader compact size="xs" label="Searching locations" />
+            <Spinner size="xs" label="Searching locations" />
           ) : (
             <Search className="h-3.5 w-3.5" strokeWidth={2.5} />
           )}
@@ -254,17 +254,17 @@ export function LocationSearch({
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleLocateClick}
               disabled={activeLocating}
-              className={`flex w-full items-center gap-2.5 px-3.5 ${isCompact ? 'py-2 md:py-3' : 'py-3'} text-left font-medium transition-colors hover:bg-maroon-50/70 border-b border-slate-100/80 group`}
+              className={`flex w-full items-center gap-2.5 px-3.5 ${isCompact ? 'py-2 md:py-3' : 'py-3'} text-left font-medium transition-colors hover:bg-slate-50 border-b border-slate-100/80 group`}
             >
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-maroon-50 text-gakit-maroon group-hover:bg-maroon-100">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-600 group-hover:bg-slate-200">
                 {activeLocating ? (
-                  <FloodLoader compact label="Locating your position" />
+                  <Spinner label="Locating your position" />
                 ) : (
-                  <Locate className="h-4 w-4 text-gakit-maroon" strokeWidth={2.5} />
+                  <Locate className="h-4 w-4 text-slate-600" strokeWidth={2.5} />
                 )}
               </div>
               <div className="flex flex-col min-w-0">
-                <span className="text-xs font-semibold text-slate-800 group-hover:text-gakit-maroon">
+                <span className="text-xs font-semibold text-slate-800 group-hover:text-slate-900">
                   {activeLocating ? 'Locating your device…' : 'Use your current location'}
                 </span>
                 <span className="text-[10px] text-slate-400">
@@ -278,11 +278,11 @@ export function LocationSearch({
             <div className="flex items-center justify-between px-3.5 pt-2.5 pb-1">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Recent</p>
               <button type="button" onMouseDown={event => event.preventDefault()} onClick={clearRecentSearches}
-                className="min-h-8 rounded-lg px-2 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:text-gakit-maroon" aria-label="Clear recent searches">Clear</button>
+                className="min-h-8 rounded-lg px-2 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Clear recent searches">Clear</button>
             </div>
             {recentSearches.map(location => <button key={`${location.lat},${location.lng}`} type="button"
               onMouseDown={event => event.preventDefault()} onClick={() => selectLocation(location)}
-              className="flex min-h-11 w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-maroon-50">
+              className="flex min-h-11 w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50">
               <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
               <span className="min-w-0"><span className="block text-xs font-semibold text-slate-800">{location.address.split(',')[0]}</span>
                 {location.address.includes(',') && <span className="block truncate text-[11px] text-slate-400">{location.address.substring(location.address.indexOf(',') + 1).trim()}</span>}
@@ -304,7 +304,7 @@ export function LocationSearch({
                       address: result.displayName,
                     });
                   }}
-                  className="flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-maroon-50"
+                  className="flex w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50"
                 >
                   <MapPin className="mt-1 h-3.5 w-3.5 shrink-0 text-gakit-maroon" />
                   <div className="flex flex-col min-w-0 flex-1">

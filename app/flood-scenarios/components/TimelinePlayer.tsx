@@ -11,7 +11,7 @@ import {
   CloudLightning,
   Flag,
 } from 'lucide-react';
-import { FloodLoader } from '@/components/ui/FloodLoader';
+import { Spinner } from '@/components/ui/Spinner';
 import type { ScenarioFrame } from '@/types/scenario';
 
 interface TimelinePlayerProps {
@@ -182,7 +182,7 @@ export function TimelinePlayer({
           <button type="button" onClick={onReset} disabled={!hasFrames} title={resetText ? `${resetAction} · ${resetText}` : resetAction}
             aria-label={resetAction}
             className="flex min-h-8 items-center gap-1.5 rounded-md px-2 text-[11px] font-semibold text-slate-700 transition-colors hover:bg-slate-100 disabled:cursor-default disabled:opacity-40 sm:min-h-9">
-            {loading ? <FloodLoader compact size="xs" label="Loading simulation" />
+            {loading ? <Spinner size="xs" label="Loading simulation" />
               : isLive ? <Radio aria-hidden="true" className={`h-3.5 w-3.5 ${resetText === 'Following live' ? 'text-emerald-700' : ''}`} /> : <RotateCcw aria-hidden="true" className="h-3.5 w-3.5" />}
             <span>{resetText ?? (isLive ? 'Go live' : 'Restart')}</span>
           </button>

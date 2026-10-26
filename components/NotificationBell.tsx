@@ -106,9 +106,9 @@ export function NotificationBell({
 
   const buttonClassName =
     isToolbar
-      ? `relative flex h-8 items-center justify-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold shadow-sm ${open ? 'border-maroon-200 bg-maroon-50 text-gakit-maroon' : 'border-slate-200/80 bg-white/95 text-slate-600'}`
+      ? `relative flex h-8 items-center justify-center gap-1 rounded-full border px-2.5 text-[11px] font-semibold shadow-sm ${open ? 'border-slate-300 bg-slate-100 text-slate-900' : 'border-slate-200/80 bg-white/95 text-slate-600'}`
       : variant === 'header'
-      ? `relative flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-gakit-maroon active:scale-95 md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px] ${
+      ? `relative flex h-10 min-w-10 flex-col items-center justify-center gap-0.5 rounded-full px-1 text-[9px] font-semibold text-slate-600 transition-all duration-150 hover:bg-slate-100 hover:text-slate-900 active:scale-95 md:h-9 md:flex-row md:gap-1.5 md:px-2.5 md:text-[11px] ${
           open
             ? 'bg-slate-200 text-slate-900 ring-1 ring-slate-300/80 font-bold'
             : ''
@@ -117,7 +117,7 @@ export function NotificationBell({
         ? `relative flex w-full flex-col items-center justify-center gap-0.5 rounded-full px-2 py-1 transition-all duration-150 active:scale-95 ${
             open
               ? 'bg-slate-200 text-slate-900 font-bold'
-              : 'text-slate-500 hover:bg-slate-50 hover:text-gakit-maroon active:bg-slate-100'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 active:bg-slate-100'
           }`
         : 'relative flex items-center gap-2 rounded-xl bg-white/90 px-3 py-3 shadow-xl shadow-slate-900/15 ring-1 ring-slate-200 backdrop-blur-none transition-shadow duration-200 hover:shadow-2xl active:scale-95 md:backdrop-blur';
 
@@ -139,12 +139,12 @@ export function NotificationBell({
         aria-label={isToolbar ? 'Advisories' : 'Notifications'}
         aria-expanded={open}
       >
-        <Bell className={`${iconClassName} ${open ? 'text-gakit-maroon' : variant === 'header' ? 'text-slate-600' : 'text-slate-500'}`} />
+        <Bell className={`${iconClassName} ${open ? 'text-slate-900' : variant === 'header' ? 'text-slate-600' : 'text-slate-500'}`} />
         {variant === 'header' && <span>Alerts</span>}
         {isToolbar && <ChevronDown className={`h-3 w-3 ${open ? 'rotate-180' : ''}`} aria-hidden="true" />}
         {count > 0 && (
           <span
-            className={isToolbar ? 'absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-gakit-maroon px-1 text-[9px] font-bold text-white shadow-xs' : `absolute flex h-3.5 min-w-[14px] md:h-4 md:min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 md:px-1 text-[9px] md:text-[10px] font-bold text-white shadow-sm ${
+            className={isToolbar ? 'absolute -bottom-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white shadow-xs' : `absolute flex h-3.5 min-w-[14px] md:h-4 md:min-w-[16px] items-center justify-center rounded-full bg-red-500 px-0.5 md:px-1 text-[9px] md:text-[10px] font-bold text-white shadow-sm ${
               variant === 'header'
                 ? '-right-0.5 -top-0.5 md:-right-1 md:-top-1'
                 : variant === 'mobile-nav'
@@ -292,7 +292,7 @@ export function NotificationBell({
                         <time dateTime={Number.isNaN(issued.getTime()) ? undefined : issuedAt} className="shrink-0">{isToolbar && timestamp ? `Issued ${timestamp} PHT` : timestamp}</time>
                       </span>
                     </span>
-                    <ChevronRight className="mt-5 h-3.5 w-3.5 shrink-0 text-slate-300 transition-colors group-hover:text-gakit-maroon" />
+                    <ChevronRight className="mt-5 h-3.5 w-3.5 shrink-0 text-slate-300 transition-colors group-hover:text-slate-600" />
                   </button>
                 );
               })}
