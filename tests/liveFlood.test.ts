@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { liveScenario, selectedLiveFrame, selectionForFrame, formatFloodMetric, liveModelNotice } from '@/lib/map/liveFloodState';
+import { liveScenario, selectedLiveFrame, selectionForFrame, formatFloodMetric, liveModelNotice, liveStatus } from '@/lib/map/liveFloodState';
 import { LiveRasterController } from '@/lib/map/liveRasterController';
 import type { LiveFrame, LiveTimeline } from '@/types/liveFlood';
 import { liveTimelineSchema } from '@/types/liveFlood';
@@ -60,6 +60,19 @@ describe('live frame selection', () => {
   });
   it('never switches an unavailable forecast selection to the latest frame', () => {
     expect(selectedLiveFrame(timeline([frame(4, 'latest')]), { kind: 'forecast', horizon: 1 })).toBeUndefined();
+  });
+  it.each([
+    { kind: 'forecast' as const, missing: ['2026-10-16T05:00:00Z'], label: 'Forecast rainfall' },
+    { kind: 'forecast' as const, missing: ['2026-10-16T03:00:00Z'], label: 'Rainfall history' },
+    { kind: 'forecast' as const, missing: ['2026-10-16T03:00:00Z', '2026-10-16T05:00:00Z'], label: 'Rainfall inputs' },
+    { kind: 'replay' as const, missing: ['2026-10-16T03:00:00Z'], label: 'Rainfall history' },
+  ])('distinguishes missing rainfall inputs: $label ($kind)', ({ kind, missing, label }) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-16T04:00:00Z'));
+    const unavailable = { ...frame(5, kind), availability: 'incomplete' as const,
+      valid_hours: 24 - missing.length, missing_intervals: missing };
+    const data = { ...timeline([unavailable]), forecast_anchor_at: '2026-10-16T04:00:00Z' };
+    expect(liveStatus(data, unavailable)).toBe(`${label} incomplete (${24 - missing.length}/24 hours)`);
   });
 });
 

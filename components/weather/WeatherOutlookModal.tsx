@@ -48,8 +48,8 @@ export function WeatherOutlookModal({ alert, highlightDate, onClose }: { alert: 
             const selected = value.date === day.date;
             return <button key={value.date} type="button" aria-pressed={selected} aria-label={`${outlookDayLabel(value.date, now)}, ${value.date}`} onClick={() => setDate(value.date)}
               className={`flex min-w-0 flex-col items-center gap-1 rounded-xl border px-1 py-2 transition-colors ${selected ? 'border-sky-200 bg-sky-50 text-sky-900' : 'border-transparent text-slate-500 hover:bg-slate-50'}`}>
-              <span className="text-[11px] font-semibold">{outlookDayLabel(value.date, now)}</span><span className="text-[9px]">{new Date(`${value.date}T12:00:00+08:00`).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' })}</span><Icon className="mt-0.5 h-4 w-4" aria-hidden="true" />
-              <span className="whitespace-nowrap text-[10px] font-semibold tabular-nums">{metric(value.tempMax, '°')} <span className="font-normal text-slate-400">{metric(value.tempMin, '°')}</span></span>
+              <span className="text-[11px] font-semibold">{outlookDayLabel(value.date, now)}</span><span className="text-[11px]">{new Date(`${value.date}T12:00:00+08:00`).toLocaleDateString('en-PH', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' })}</span><Icon className="mt-0.5 h-4 w-4" aria-hidden="true" />
+              <span className="whitespace-nowrap text-[11px] font-semibold tabular-nums">{metric(value.tempMax, '°')} <span className="font-normal text-slate-500">{metric(value.tempMin, '°')}</span></span>
             </button>;
           })}
         </div>
@@ -60,18 +60,18 @@ export function WeatherOutlookModal({ alert, highlightDate, onClose }: { alert: 
             <div className="relative z-10 flex items-center gap-3">
             <AmbientWeatherIcon conditionCode={day.conditionCode} observedAt={scene?.timestamp} isDark={darkSummary} className="!h-12 !w-12 [&_svg]:!h-7 [&_svg]:!w-7" />
             <div className="min-w-0 flex-1"><h3 className="text-sm font-bold">{outlookDayLabel(day.date, now)} forecast</h3><p className={`mt-0.5 text-xs ${darkSummary ? 'text-slate-200' : 'text-slate-600'}`}>{condition?.label}</p></div>
-            <div className="shrink-0 text-right tabular-nums"><p className="text-xl font-semibold tracking-tight">{metric(day.tempMax, '°')}<span className={`ml-1 text-sm font-normal ${darkSummary ? 'text-slate-300' : 'text-slate-500'}`}>/ {metric(day.tempMin, '°')}</span></p><p className={`text-[9px] ${darkSummary ? 'text-slate-300' : 'text-slate-600'}`}>High / low · °C</p></div>
+            <div className="shrink-0 text-right tabular-nums"><p className="text-xl font-semibold tracking-tight">{metric(day.tempMax, '°')}<span className={`ml-1 text-sm font-normal ${darkSummary ? 'text-slate-300' : 'text-slate-500'}`}>/ {metric(day.tempMin, '°')}</span></p><p className={`text-[11px] ${darkSummary ? 'text-slate-300' : 'text-slate-600'}`}>High / low · °C</p></div>
             </div>
           </div>
           <dl className={`grid ${showChance ? 'grid-cols-3' : 'grid-cols-2'} divide-x divide-slate-200 border-t border-slate-200 py-3`}>
-            {[...(showChance ? [{ icon: Droplets, label: 'Peak rain chance', value: metric(day.rainChance, '%') }] : []), { icon: Droplets, label: 'Rainfall', value: metric(day.rainMm, ' mm', 1) }, { icon: Wind, label: 'Max wind', value: metric(day.windMax, ' km/h') }].map(({ icon: Icon, label, value }) => <div key={label} className="min-w-0 px-1 text-center"><dt className="flex items-center justify-center gap-1 text-[10px] text-slate-500"><Icon className="hidden h-3 w-3 sm:block" aria-hidden="true" />{label}</dt><dd className="mt-1 text-xs font-bold tabular-nums text-slate-800">{value}</dd></div>)}
+            {[...(showChance ? [{ icon: Droplets, label: 'Peak rain chance', value: metric(day.rainChance, '%') }] : []), { icon: Droplets, label: 'Rainfall', value: metric(day.rainMm, ' mm', 1) }, { icon: Wind, label: 'Max wind', value: metric(day.windMax, ' km/h') }].map(({ icon: Icon, label, value }) => <div key={label} className="min-w-0 px-1 text-center"><dt className="flex items-center justify-center gap-1 text-[11px] text-slate-500"><Icon className="hidden h-3 w-3 sm:block" aria-hidden="true" />{label}</dt><dd className="mt-1 text-xs font-bold tabular-nums text-slate-800">{value}</dd></div>)}
           </dl>
         </section>
         <HourlyOutlookChart key={day.date} day={day} />
       </> : <p role="status" className="py-8 text-center text-sm text-slate-500">Daily forecast details are unavailable.</p>}
     </div>
     <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/50 px-4 py-3 sm:px-5">
-      <div className="min-w-0"><WeatherAttribution source={alert.data?.source} /><p className="mt-0.5 text-[10px] text-slate-500">{alert.data?.retrievedAt ? 'Retrieved' : 'Issued'} {forecastTime(updated)} · PHT</p></div>
+      <div className="min-w-0"><WeatherAttribution source={alert.data?.source} /><p className="mt-0.5 text-[11px] text-slate-500">{alert.data?.retrievedAt ? 'Retrieved' : 'Issued'} {forecastTime(updated)} · PHT</p></div>
       <button type="button" onClick={onClose} className="shrink-0 rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white hover:bg-slate-700">Done</button>
     </footer>
   </Dialog>;

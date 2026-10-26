@@ -3,10 +3,10 @@
 import { Focus, X } from 'lucide-react';
 import { Dialog } from '@/components/ui/Dialog';
 
-export function CampusFocusPrompt({ isOpen, onEnable, onAssess, onClose }: {
+export function CampusFocusPrompt({ isOpen, onEnable, onGoTo, onClose }: {
   isOpen: boolean;
   onEnable: () => void;
-  onAssess: () => void;
+  onGoTo: () => void;
   onClose: () => void;
 }) {
   return <Dialog isOpen={isOpen} onClose={onClose} ariaLabel="Focus on MSU-IIT">
@@ -18,7 +18,7 @@ export function CampusFocusPrompt({ isOpen, onEnable, onAssess, onClose }: {
     <p className="mt-2 text-sm leading-relaxed text-slate-600">Explore the campus in satellite view with its reports highlighted and the surrounding map dimmed.</p>
     <div className="mt-5 flex flex-col gap-2">
       <button type="button" onClick={onEnable} className="min-h-11 rounded-xl bg-gakit-maroon px-4 text-sm font-semibold text-white hover:bg-maroon-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2">Enable focus view</button>
-      <button type="button" onClick={onAssess} className="min-h-11 rounded-xl bg-slate-100 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-200">Assess this location</button>
+      <button type="button" onClick={onGoTo} className="min-h-11 rounded-xl bg-slate-100 px-4 text-sm font-semibold text-slate-700 hover:bg-slate-200">Go to this location</button>
     </div>
   </Dialog>;
 }

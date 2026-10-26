@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { ChartNoAxesColumnIncreasing, LoaderCircle, Pause, Play, Radio, RotateCcw, X } from 'lucide-react';
+import { ChartNoAxesColumnIncreasing, Pause, Play, Radio, RotateCcw, SkipBack, SkipForward, X } from 'lucide-react';
+import { Spinner } from '@/components/ui/Spinner';
 import { SIMULATION_DEPTH_LEGEND } from '@/lib/map/colorScales';
 import type { SimulatedFloodTelemetry } from '@/lib/map/surrogate';
 import type { ScenarioFrame } from '@/types/scenario';
@@ -103,7 +104,7 @@ export function FloodSimulationTimeline({ frames, selectedIndex, onSelect, statu
     mobile={!desktop} onSelect={choose} onClose={closeOverview} context={context} forecastControl={forecastControl} />;
 
   return <>
-    <section ref={playerRef} aria-label="Flood simulation timeline" className={`pointer-events-auto absolute inset-x-3 z-[1010] md:right-auto ${explorer ? 'md:left-1/2 md:w-[min(640px,calc(100%-2rem))] md:-translate-x-1/2' : 'md:left-[max(340px,calc(50%-320px))] md:w-[min(640px,calc(100%-380px))]'} ${hasBottomNav ? 'bottom-[calc(env(safe-area-inset-bottom,0px)+4rem)]' : 'bottom-[max(1.5rem,env(safe-area-inset-bottom,0px))]'} ${fullScreen ? 'md:bottom-5' : 'md:bottom-3'}`}>
+    <section ref={playerRef} aria-label="Flood simulation timeline" className={`pointer-events-auto absolute inset-x-3 z-[1010] md:right-auto ${explorer ? 'md:left-1/2 md:w-[min(640px,calc(100%-2rem))] md:-translate-x-1/2' : 'md:left-[max(340px,calc(50%-320px))] md:w-[min(640px,calc(100%-380px))]'} ${hasBottomNav ? 'bottom-[calc(env(safe-area-inset-bottom,0px)+5rem)]' : 'bottom-[max(1.5rem,env(safe-area-inset-bottom,0px))]'} ${fullScreen ? 'md:bottom-5' : 'md:bottom-3'}`}>
       {!desktop && overviewOpen && overview}
       <div aria-label="Flood simulation depth legend" className="mb-1.5 flex items-center justify-center gap-1 text-[9px] font-bold md:gap-1.5">
         <span className="mr-1 hidden text-slate-600 md:inline">DEPTH</span>
@@ -111,11 +112,21 @@ export function FloodSimulationTimeline({ frames, selectedIndex, onSelect, statu
       </div>
       {message && <div role="status" className="mb-1.5 flex items-center justify-between gap-2 rounded-xl bg-white/95 px-3 py-2 text-[10px] leading-4 text-slate-600 shadow-sm"><span>{message}</span>{!loading && <button type="button" onClick={() => { if (playback) playback.pause(); else setPlaying(false); onRetry(); }} className="shrink-0 font-bold text-gakit-maroon">Retry</button>}</div>}
       <div className="flex h-[66px] items-center gap-1.5 rounded-2xl border border-white/80 bg-white/95 px-2.5 shadow-lg backdrop-blur-md md:gap-3 md:px-3">
-        <button type="button" aria-label={playing ? 'Pause simulation' : 'Play simulation'} aria-pressed={playing} disabled={frames.length < 2}
-          onClick={() => { setScrub(null); if (playback) playback.toggle(); else { if (!playing && index === maxIndex) onSelect(0); setPlaying(value => !value); } }}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gakit-maroon text-white disabled:opacity-30">
-          {playing ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
-        </button>
+        <div role="group" aria-label="Playback controls" className="flex shrink-0 items-center gap-0.5">
+          <button type="button" aria-label="Previous hour" title="Previous hour" disabled={frames.length < 2 || index <= 0}
+            onClick={() => choose(index - 1)} className="flex h-9 w-6 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:cursor-default disabled:opacity-30 md:w-7">
+            <SkipBack size={15} aria-hidden="true" />
+          </button>
+          <button type="button" aria-label={playing ? 'Pause simulation' : 'Play simulation'} aria-pressed={playing} disabled={frames.length < 2}
+            onClick={() => { setScrub(null); if (playback) playback.toggle(); else { if (!playing && index === maxIndex) onSelect(0); setPlaying(value => !value); } }}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gakit-maroon text-white disabled:opacity-30">
+            {playing ? <Pause size={15} /> : <Play size={15} className="ml-0.5" />}
+          </button>
+          <button type="button" aria-label="Next hour" title="Next hour" disabled={frames.length < 2 || index >= maxIndex}
+            onClick={() => choose(index + 1)} className="flex h-9 w-6 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 disabled:cursor-default disabled:opacity-30 md:w-7">
+            <SkipForward size={15} aria-hidden="true" />
+          </button>
+        </div>
         <div className="w-[66px] shrink-0 tabular-nums md:w-[78px]">
           <p className="whitespace-nowrap text-[11px] font-bold text-slate-800 md:text-xs">{timeLabel(displayedFrame)}</p>
           <p className="mt-0.5 text-[8px] text-slate-500">{!live ? 'Elapsed time' : displayedFrame && Number.isFinite(Date.parse(displayedFrame.raw_time)) ? `${dateFormat.format(new Date(displayedFrame.raw_time))} · PHT` : 'Flood simulation'}</p>
@@ -139,7 +150,7 @@ export function FloodSimulationTimeline({ frames, selectedIndex, onSelect, statu
         <button type="button" onClick={() => playback ? playback.cycleSpeed() : setSpeed(value => value === 1 ? 2 : 1)} aria-label={`Playback speed: ${speed}x. Change speed`} className="hidden h-8 shrink-0 rounded-lg px-1 text-[10px] font-bold text-slate-500 hover:bg-slate-100 lg:block">{speed}×</button>
         <button type="button" onClick={() => { setScrub(null); if (playback) playback.reset(); else { setPlaying(false); onSelect(live ? null : 0); } }} aria-label={live ? 'Return to live and follow updates' : 'Restart simulation'} title={live ? followingLive ? 'Following live' : 'Go live' : 'Restart simulation'} disabled={!frames.length}
           className={`flex h-8 w-7 shrink-0 items-center justify-center rounded-lg hover:bg-slate-100 disabled:opacity-30 ${followingLive ? 'bg-emerald-50 text-emerald-700' : 'text-slate-500'}`}>
-          {loading ? <LoaderCircle size={14} className="animate-spin" /> : live ? <Radio size={15} /> : <RotateCcw size={15} />}
+          {loading ? <Spinner size="xs" label="Loading simulation" /> : live ? <Radio size={15} /> : <RotateCcw size={15} />}
         </button>
         <button type="button" aria-label="Toggle flood overview" aria-expanded={overviewOpen} aria-controls={overviewId} onClick={toggleOverview} className={`flex h-8 w-7 shrink-0 items-center justify-center rounded-lg hover:bg-slate-100 lg:w-auto lg:gap-1.5 lg:px-2 ${overviewOpen ? 'bg-slate-100 text-slate-800' : 'text-slate-500'}`}><ChartNoAxesColumnIncreasing size={14} /><span className="hidden text-[10px] lg:inline">Overview</span></button>
         {onClose && <button type="button" aria-label="Close flood simulation" onClick={onClose} className="hidden shrink-0 p-1 text-slate-400 hover:text-slate-700 md:block"><X size={12} /></button>}

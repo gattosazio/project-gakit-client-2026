@@ -9,7 +9,7 @@ import {
   useState,
   type MutableRefObject,
 } from 'react';
-import { Focus, Locate, MapPinPlus, X } from 'lucide-react';
+import { Focus, Locate, X } from 'lucide-react';
 import { IIT_BOUNDS, isInsideIit, syncCampusFocus } from '@/lib/map/campusFocus';
 import { ensureCampusSatelliteProtocol } from '@/lib/map/campusSatellite';
 import { Spinner } from '@/components/ui/Spinner';
@@ -1335,17 +1335,6 @@ export function PublicMap({
         />
       )}
       <PageLoader isLoading={displayLoadingLabel !== null} label={displayLoadingLabel ?? 'Loading map layers…'} />
-      {onStartReport && !campusFocus && !drought.visible && <button
-        type="button"
-        onClick={onStartReport}
-        data-tour="report"
-        aria-label="Report flooding"
-        className="absolute bottom-[max(1rem,env(safe-area-inset-bottom,0px))] left-1/2 z-[1010] hidden h-11 -translate-x-1/2 items-center justify-center gap-2 whitespace-nowrap rounded-full border border-slate-200/80 bg-white/95 px-5 md:flex text-sm font-semibold text-gakit-maroon shadow-[0_4px_14px_rgba(15,23,42,0.12)] backdrop-blur-md transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon focus-visible:ring-offset-2"
-        style={showSimulatedFlood ? { bottom: 'var(--flood-player-clearance, 12rem)' } : undefined}
-      >
-        <MapPinPlus className="h-5 w-5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
-        Report Flooding
-      </button>}
 
       {showBarangayBoundaries &&
         hoveredBarangay &&
@@ -1481,7 +1470,7 @@ export function PublicMap({
           fullScreen
             ? (hasBottomAction ? 'bottom-24 md:bottom-10' : 'bottom-6 md:bottom-10')
             : (hasBottomAction ? 'bottom-20 md:bottom-6' : 'bottom-3 md:bottom-4')
-        } right-3 md:right-4 z-[1000] flex flex-col items-center gap-2 ${showSimulatedFlood ? 'flood-player-clearance' : ''}`}
+        } right-3 md:right-4 z-[1000] flex flex-col items-center gap-2 ${showSimulatedFlood ? 'flood-player-clearance' : drought.visible ? 'drought-player-clearance' : ''}`}
       >
         {!hideShareLocation && (
           <button

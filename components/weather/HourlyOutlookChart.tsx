@@ -19,15 +19,15 @@ export function HourlyOutlookChart({ day }: { day: WeatherDayData }) {
   return <section aria-labelledby={`${chartId}-title`} className="rounded-xl border border-slate-200 p-3 sm:p-4">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <h3 id={`${chartId}-title`} className="text-xs font-bold text-slate-900">Hourly outlook</h3>
-      <span className="text-[10px] font-medium text-sky-700">{chance ? 'Chance of rain · %' : 'Estimated rainfall · mm'}</span>
+      <span className="text-[11px] font-medium text-sky-700">{chance ? 'Chance of rain · %' : 'Estimated rainfall · mm'}</span>
     </div>
     {chance || amount ? <>
       <div className="mb-3 mt-3 flex flex-wrap items-center justify-between gap-2 tabular-nums">
         <span className="text-[11px] font-medium text-slate-500">{rainIntervalLabel(hour)} · PHT</span>
-        <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">{chance && <span className="text-lg font-bold text-sky-800">{chanceLabel(chance[hour])}<span className="ml-1 text-[10px] font-normal text-slate-500">chance</span></span>}{amount && <span className={chance ? 'text-xs font-semibold text-slate-700' : 'text-lg font-bold text-sky-800'}>{amountLabel(amount[hour])}<span className="ml-1 text-[10px] font-normal text-slate-500">estimated rain</span></span>}</div>
+        <div className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">{chance && <span className="text-lg font-bold text-sky-800">{chanceLabel(chance[hour])}<span className="ml-1 text-[11px] font-normal text-slate-500">chance</span></span>}{amount && <span className={chance ? 'text-xs font-semibold text-slate-700' : 'text-lg font-bold text-sky-800'}>{amountLabel(amount[hour])}<span className="ml-1 text-[11px] font-normal text-slate-500">estimated rain</span></span>}</div>
       </div>
       {series ? <div className="flex gap-2">
-        <div className="flex h-28 w-8 shrink-0 flex-col justify-between text-right text-[9px] tabular-nums text-slate-400" aria-hidden="true">{[maximum, maximum / 2, 0].map(value => <span key={value}>{chance ? `${value}%` : `${Number(value.toFixed(2))} mm`}</span>)}</div>
+        <div className="flex h-28 w-8 shrink-0 flex-col justify-between text-right text-[11px] tabular-nums text-slate-500" aria-hidden="true">{[maximum, maximum / 2, 0].map(value => <span key={value}>{chance ? `${value}%` : Number(value.toFixed(2))}</span>)}</div>
         <div className="min-w-0 flex-1">
           <div className="relative">
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-28 w-full overflow-visible" aria-hidden="true">
@@ -48,10 +48,10 @@ export function HourlyOutlookChart({ day }: { day: WeatherDayData }) {
               className="min-w-0 rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-700" />)}
           </div>
           </div>
-          <div className="mt-2 flex justify-between text-[9px] tabular-nums text-slate-400" aria-hidden="true">{[0, 6, 12, 18, 23].map(value => <span key={value}>{outlookHour(value)}</span>)}</div>
+          <div className="mt-2 flex justify-between text-[11px] tabular-nums text-slate-500" aria-hidden="true">{[0, 6, 12, 18, 23].map(value => <span key={value}>{outlookHour(value)}</span>)}</div>
         </div>
       </div> : <p role="status" className="py-3 text-xs text-slate-500">Hourly rainfall data is unavailable.</p>}
-      <p className="mt-2 text-[10px] leading-relaxed text-slate-500">Hourly estimates · intervals end at the labelled time.</p>
+      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">Hourly estimates · intervals end at the labelled time.</p>
     </> : <p role="status" className="py-6 text-center text-xs text-slate-500">Hourly data is unavailable for this day.</p>}
   </section>;
 }

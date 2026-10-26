@@ -20,7 +20,14 @@ export function liveStatus(timeline: LiveTimeline | null, frame?: LiveFrame): st
   if (!frame) return 'Selected estimate unavailable';
   if (frame.reason === 'preparing_raster') return 'Preparing flood estimate';
   if (frame.kind === 'forecast' && Date.parse(frame.valid_at) <= Date.now()) return 'Forecast update delayed';
-  if (frame.availability === 'incomplete') return `Rainfall history incomplete (${frame.valid_hours}/24 hours)`;
+  if (frame.availability === 'incomplete') {
+    const anchor = Date.parse(timeline.forecast_anchor_at);
+    const missingForecast = frame.kind === 'forecast' && frame.missing_intervals.some(time => Date.parse(time) > anchor);
+    const missingHistory = frame.kind !== 'forecast' || frame.missing_intervals.some(time => Date.parse(time) <= anchor);
+    const inputs = missingForecast && !missingHistory ? 'Forecast rainfall'
+      : missingHistory && !missingForecast ? 'Rainfall history' : 'Rainfall inputs';
+    return `${inputs} incomplete (${frame.valid_hours}/24 hours)`;
+  }
   if (frame.availability === 'outside_coverage') return 'Rainfall outside available coverage';
   if (frame.availability !== 'ready') return 'Estimate unavailable';
   if (frame.kind !== 'replay' && (timeline.freshness !== 'fresh' || Date.parse(timeline.expires_at) <= Date.now())) return 'Rainfall update delayed';

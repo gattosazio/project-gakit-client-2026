@@ -170,7 +170,7 @@ export function LocationSearch({
       className={
         isCompact
           ? `relative flex h-8 md:h-9 items-center rounded-full bg-slate-100/90 md:[background-color:var(--hud-inner-bg-desktop)] ${
-              onLocate ? 'pl-1 md:pl-1.5' : 'pl-3'
+              onLocate ? 'pl-3 md:pl-1.5' : 'pl-3'
             } pr-1 py-1 ring-1 ring-slate-200/90 transition-all duration-150 focus-within:!bg-white focus-within:ring-2 focus-within:ring-gakit-maroon/50 focus-within:shadow-md ${className}`
           : `relative flex h-[52px] items-center ${
               onLocate ? 'pl-1.5' : 'pl-4'
@@ -205,9 +205,9 @@ export function LocationSearch({
             setSearchError(null);
             setIsFocused(true);
           }}
-          placeholder={isMobile && isCompact ? 'Search address or barangay to assess' : placeholder}
+          placeholder={isMobile && isCompact ? 'Search address or barangay' : placeholder}
           aria-label="Search for a location in Iligan City"
-          className={`min-w-0 flex-1 bg-transparent py-0.5 text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 truncate ${isCompact ? 'text-center md:text-left' : ''}`}
+          className="min-w-0 flex-1 bg-transparent py-0.5 text-left text-xs font-medium text-slate-900 outline-none placeholder:text-slate-400 truncate"
         />
         {searchQuery && (
           <button
@@ -267,7 +267,7 @@ export function LocationSearch({
                 <span className="text-xs font-semibold text-slate-800 group-hover:text-slate-900">
                   {activeLocating ? 'Locating your device…' : 'Use your current location'}
                 </span>
-                <span className="text-[10px] text-slate-400">
+                <span className="text-[11px] text-slate-500">
                   Share GPS position on map
                 </span>
               </div>
@@ -276,7 +276,7 @@ export function LocationSearch({
 
           {showRecents && <div aria-label="Recent searches">
             <div className="flex items-center justify-between px-3.5 pt-2.5 pb-1">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Recent</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Recent</p>
               <button type="button" onMouseDown={event => event.preventDefault()} onClick={clearRecentSearches}
                 className="min-h-8 rounded-lg px-2 text-[11px] font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-900" aria-label="Clear recent searches">Clear</button>
             </div>
@@ -285,7 +285,7 @@ export function LocationSearch({
               className="flex min-h-11 w-full items-start gap-2.5 px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50">
               <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
               <span className="min-w-0"><span className="block text-xs font-semibold text-slate-800">{location.address.split(',')[0]}</span>
-                {location.address.includes(',') && <span className="block truncate text-[11px] text-slate-400">{location.address.substring(location.address.indexOf(',') + 1).trim()}</span>}
+                {location.address.includes(',') && <span className="block truncate text-[11px] text-slate-500">{location.address.substring(location.address.indexOf(',') + 1).trim()}</span>}
               </span>
             </button>)}
           </div>}
@@ -313,12 +313,12 @@ export function LocationSearch({
                         {result.displayName.split(',')[0]}
                       </span>
                       {result.category && (
-                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">
+                        <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
                           {result.category}
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px] text-slate-400 truncate">
+                    <span className="text-[11px] text-slate-500 truncate">
                       {result.displayName.includes(',')
                         ? result.displayName.substring(result.displayName.indexOf(',') + 2)
                         : 'Iligan City'}
@@ -328,7 +328,7 @@ export function LocationSearch({
               ))}
             </div>
           )}
-          {searchResults.length > 0 && <p className="border-t border-slate-100 px-3.5 py-2 text-[10px] text-slate-500">
+          {searchResults.length > 0 && <p className="border-t border-slate-100 px-3.5 py-2 text-[11px] text-slate-500">
             Streets © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">OpenStreetMap contributors</a>
             {' · '}Places: <a href="https://docs.overturemaps.org/attribution/" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Overture Maps</a>
           </p>}
