@@ -38,6 +38,21 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isProtected = PROTECTED_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 
+  // Supabase Auth (OAuth) surfaces failures (e.g. an uninvited Google account
+  // hitting the invite-only signup block) by redirecting to the Site URL with
+  // ?error=...&error_description=... in the query string. Funnel those to the
+  // login page so the user gets a clear message instead of a bare error URL.
+  const hasOAuthError =
+    request.nextUrl.searchParams.has('error') &&
+    request.nextUrl.searchParams.has('error_description');
+  if (hasOAuthError) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/login';
+    loginUrl.search = 'google_failed=1';
+    return NextResponse.redirect(loginUrl);
+  }
+
+
   if (!user) {
     if (isProtected) return redirectTo(request, '/login');
     return supabaseResponse;
