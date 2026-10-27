@@ -9,10 +9,11 @@ export const adminFeatures: PortalNavItem<AdminFeatureId>[] = [
     label: 'User Management',
     mobileLabel: 'Users',
     title: 'User Management',
-    description: 'Invite users, change roles, and deactivate or reactivate accounts.',
+    description: 'Invite users, review pending invitations, and manage access.',
     icon: Users,
     contents: [
       'Invite new platform users by email via Supabase Auth',
+      'Resend setup links for pending invitations',
       'Assign and change roles from the roles catalog',
       'Deactivate or reactivate accounts with ban controls',
     ],

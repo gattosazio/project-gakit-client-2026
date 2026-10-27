@@ -9,6 +9,13 @@ export interface AdminUser {
   status: UserStatus;
   lastSignInAt: string | null;
   createdAt: string | null;
+  invitedAt: string | null;
+}
+
+export interface UserStatusCounts {
+  active: number;
+  pending: number;
+  suspended: number;
 }
 
 export interface InviteResult extends AdminUser {
@@ -24,6 +31,7 @@ export interface UserListResult {
   page: number;
   limit: number;
   totalPages: number;
+  counts: UserStatusCounts;
 }
 
 export interface RoleView {
