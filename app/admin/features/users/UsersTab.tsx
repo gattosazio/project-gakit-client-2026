@@ -283,68 +283,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
   return (
     <>
       <FeaturePageShell bare>
-        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 transition-colors focus-within:border-gakit-maroon/40 focus-within:ring-2 focus-within:ring-gakit-maroon/10 sm:min-w-[16rem]">
-            <Search className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
-            <input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Search name or email"
-              aria-label="Search users by name or email"
-              className="h-full min-w-0 flex-1 bg-transparent text-sm text-slate-700 outline-none placeholder:text-slate-400"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery('');
-                  setCurrentPage(1);
-                }}
-                aria-label="Clear search"
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon/30"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            )}
-          </div>
-
-          <div className="relative sm:w-44">
-            <select
-              value={roleFilter}
-              onChange={(event) => {
-                setRoleFilter(event.target.value);
-                setCurrentPage(1);
-              }}
-              aria-label="Filter by role"
-              className="h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-sm text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-gakit-maroon/40 focus:ring-2 focus:ring-gakit-maroon/10"
-            >
-              <option value="all">All roles</option>
-              {roles.map((role) => (
-                <option key={role.id} value={role.name}>
-                  {formatRoleLabel(role.name)}
-                </option>
-              ))}
-            </select>
-            <ChevronDown
-              className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-              aria-hidden="true"
-            />
-          </div>
-
-          {canReset && (
-            <button
-              type="button"
-              onClick={resetFilters}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon/40 focus-visible:ring-offset-2"
-            >
-              <RotateCcw className="h-4 w-4" aria-hidden="true" />
-              Clear
-            </button>
-          )}
-
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={() => setIsInviteOpen(true)}
@@ -359,6 +298,80 @@ export function UsersTab({ active = true }: { active?: boolean }) {
           aria-busy={loading}
           className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm ring-1 ring-slate-900/[0.02]"
         >
+          <div className="flex flex-col gap-4 border-b border-slate-100 px-4 py-4 sm:px-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">
+                User directory
+              </h2>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Find and manage user accounts.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+              <div className="relative min-w-0 sm:w-64">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+                <input
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Search name or email"
+                  aria-label="Search users by name or email"
+                  className="h-10 w-full rounded-lg border border-slate-200 bg-white pl-9 pr-9 text-sm text-slate-700 outline-none transition-colors placeholder:text-slate-400 hover:border-slate-300 focus:border-gakit-maroon/40 focus:ring-2 focus:ring-gakit-maroon/10"
+                />
+                {query && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuery('');
+                      setCurrentPage(1);
+                    }}
+                    aria-label="Clear search"
+                    className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon/30"
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+              <div className="relative sm:w-44">
+                <select
+                  value={roleFilter}
+                  onChange={(event) => {
+                    setRoleFilter(event.target.value);
+                    setCurrentPage(1);
+                  }}
+                  aria-label="Filter by role"
+                  className="h-10 w-full appearance-none rounded-lg border border-slate-200 bg-white pl-3 pr-9 text-sm text-slate-700 outline-none transition-colors hover:border-slate-300 focus:border-gakit-maroon/40 focus:ring-2 focus:ring-gakit-maroon/10"
+                >
+                  <option value="all">All roles</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.name}>
+                      {formatRoleLabel(role.name)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+              </div>
+              {canReset && (
+                <button
+                  type="button"
+                  onClick={resetFilters}
+                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon/40 focus-visible:ring-offset-2"
+                >
+                  <RotateCcw className="h-4 w-4" aria-hidden="true" />
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
           <UserStatusTabs
             value={statusFilter}
             counts={counts}
