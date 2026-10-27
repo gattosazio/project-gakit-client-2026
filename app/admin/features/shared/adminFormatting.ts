@@ -1,10 +1,29 @@
 import type { UserStatus } from '@/types/admin';
 
-export const USER_STATUS_META: Record<UserStatus, { label: string; className: string }> = {
-  active: { label: 'Active', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  pending: { label: 'Pending', className: 'bg-amber-50 text-amber-700 border-amber-200' },
-  suspended: { label: 'Deactivated', className: 'bg-red-50 text-red-700 border-red-200' },
+export const USER_STATUS_META: Record<
+  UserStatus,
+  { label: string; className: string }
+> = {
+  active: {
+    label: 'Active',
+    className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  },
+  pending: {
+    label: 'Pending',
+    className: 'bg-slate-100 text-slate-600 border-slate-200',
+  },
+  suspended: {
+    label: 'Deactivated',
+    className: 'bg-slate-100 text-slate-600 border-slate-200',
+  },
 };
+
+export function formatRoleLabel(role: string | null): string {
+  if (!role) return 'No role';
+  const normalized = role.replace(/[_-]+/g, ' ').trim();
+  if (!normalized) return 'No role';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
 
 export const AUDIT_ACTION_META: Record<string, { label: string; className: string }> = {
   'user.invited': { label: 'Invitation sent', className: 'bg-blue-50 text-blue-700 border-blue-200' },
