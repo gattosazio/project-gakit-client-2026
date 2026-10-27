@@ -14,6 +14,7 @@ import {
 } from '../../actions/admin';
 import { InviteUserModal } from './InviteUserModal';
 import { EditUserRoleModal } from './EditUserRoleModal';
+import { ResendInviteModal } from './ResendInviteModal';
 import { UserRowActions } from './UserRowActions';
 import type { AdminUser, RoleView, UserStatus } from '@/types/admin';
 import { formatDateTime } from '@/lib/reports/reportFormatting';
@@ -42,6 +43,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
   const [savingStatusFor, setSavingStatusFor] = useState<string | null>(null);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [resendingUser, setResendingUser] = useState<AdminUser | null>(null);
   const requestSeqRef = useRef(0);
 
   useEffect(() => {
@@ -136,6 +138,11 @@ export function UsersTab({ active = true }: { active?: boolean }) {
     setRefreshKey((key) => key + 1);
   };
 
+  const handleInviteResent = () => {
+    setResendingUser(null);
+    setRefreshKey((key) => key + 1);
+  };
+
   return (
     <>
       <FeaturePageShell
@@ -191,6 +198,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
             >
               <option value="all">All statuses</option>
               <option value="active">Active</option>
+              <option value="pending">Pending</option>
               <option value="suspended">Deactivated</option>
             </select>
             <button
@@ -281,6 +289,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                               status={user.status}
                               busy={savingStatusFor === user.id}
                               onEditRole={() => setEditingUser(user)}
+                              onResendInvite={() => setResendingUser(user)}
                               onToggleStatus={() =>
                                 void handleStatusChange(user, user.status !== 'suspended')
                               }
@@ -348,6 +357,7 @@ export function UsersTab({ active = true }: { active?: boolean }) {
                             status={user.status}
                             busy={savingStatusFor === user.id}
                             onEditRole={() => setEditingUser(user)}
+                            onResendInvite={() => setResendingUser(user)}
                             onToggleStatus={() =>
                               void handleStatusChange(user, user.status !== 'suspended')
                             }
@@ -413,6 +423,14 @@ export function UsersTab({ active = true }: { active?: boolean }) {
           roles={roles}
           onClose={() => setEditingUser(null)}
           onSaved={handleRoleSaved}
+        />
+      )}
+
+      {resendingUser && (
+        <ResendInviteModal
+          user={resendingUser}
+          onClose={() => setResendingUser(null)}
+          onResent={handleInviteResent}
         />
       )}
     </>

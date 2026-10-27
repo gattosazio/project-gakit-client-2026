@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { EllipsisVertical, ShieldCheck, UserCheck, UserX } from 'lucide-react';
+import { EllipsisVertical, MailPlus, ShieldCheck, UserCheck, UserX } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import type { UserStatus } from '@/types/admin';
 
-const MENU_WIDTH = 176;
+const MENU_WIDTH = 208;
 const MENU_GAP = 4;
 const VIEWPORT_MARGIN = 8;
 
@@ -20,12 +20,14 @@ export function UserRowActions({
   status,
   busy = false,
   onEditRole,
+  onResendInvite,
   onToggleStatus,
 }: {
   userLabel: string;
   status: UserStatus;
   busy?: boolean;
   onEditRole: () => void;
+  onResendInvite: () => void;
   onToggleStatus: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -34,6 +36,7 @@ export function UserRowActions({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isSuspended = status === 'suspended';
+  const isPending = status === 'pending';
 
   const reposition = useCallback(() => {
     const trigger = buttonRef.current;
@@ -115,11 +118,22 @@ export function UserRowActions({
               type="button"
               role="menuitem"
               onClick={choose(onEditRole)}
-              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-canvas-light"
+              className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-canvas-light"
             >
               <ShieldCheck className="h-4 w-4 text-slate-400" aria-hidden="true" />
               Edit role
             </button>
+            {isPending && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={choose(onResendInvite)}
+                className="flex w-full items-center gap-2 whitespace-nowrap px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-canvas-light"
+              >
+                <MailPlus className="h-4 w-4 text-slate-400" aria-hidden="true" />
+                Resend invitation
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

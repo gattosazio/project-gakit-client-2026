@@ -1,10 +1,11 @@
 'use client';
 
 import { useId, useState } from 'react';
-import { Check, Copy, Mail, X } from 'lucide-react';
+import { Check, Mail, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/Spinner';
 import { Dialog } from '@/components/ui/Dialog';
 import { inviteUser } from '../../actions/admin';
+import { InviteResultNotice } from './InviteResultNotice';
 import type { InviteResult, RoleView } from '@/types/admin';
 
 export function InviteUserModal({
@@ -22,7 +23,6 @@ export function InviteUserModal({
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [result, setResult] = useState<InviteResult | null>(null);
-  const [copied, setCopied] = useState(false);
   const titleId = useId();
 
   const canSubmit =
@@ -32,7 +32,6 @@ export function InviteUserModal({
     if (!canSubmit) return;
     setSubmitting(true);
     setServerError(null);
-    setCopied(false);
     try {
       const invite = await inviteUser({
         email: email.trim(),
@@ -54,17 +53,6 @@ export function InviteUserModal({
   const dismiss = () => {
     if (result) onInvited();
     else onClose();
-  };
-
-  const copyInviteLink = async () => {
-    if (!result?.inviteLink) return;
-    try {
-      await navigator.clipboard.writeText(result.inviteLink);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Clipboard can be unavailable (e.g. non-secure context); nothing to do.
-    }
   };
 
   return (
@@ -101,49 +89,11 @@ export function InviteUserModal({
 
         {result ? (
           <div className="mt-5 space-y-4">
-            {result.emailSent ? (
-              <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
-                A setup email with a link to choose a password was sent to{' '}
-                <span className="font-semibold">{result.email}</span>.
-              </div>
-            ) : result.inviteLink ? (
-              <div className="space-y-2">
-                <div className="text-sm text-amber-800">
-                  An invitation was created, but the email could not be sent.
-                  Share this one-time link with the user so they can set their
-                  password:
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    readOnly
-                    value={result.inviteLink}
-                    aria-label="One-time invitation link"
-                    onFocus={(event) => event.currentTarget.select()}
-                    className="w-full rounded-lg border border-canvas-grey bg-canvas-light px-3 py-2 text-xs text-slate-600 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void copyInviteLink()}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-canvas-grey px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-canvas-light"
-                  >
-                    {copied ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-600" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
-                <p className="text-xs text-slate-400">
-                  The link expires in 24 hours.
-                </p>
-              </div>
-            ) : (
-              <div className="rounded-lg bg-blue-50 px-3 py-2 text-sm text-blue-800">
-                The account was created. Have the user reset their password to
-                begin.
-              </div>
-            )}
+            <InviteResultNotice
+              email={result.email}
+              emailSent={result.emailSent}
+              inviteLink={result.inviteLink}
+            />
 
             <div className="flex justify-end">
               <button
