@@ -54,6 +54,15 @@ export async function inviteUser(input: {
   return result;
 }
 
+export async function resendUserInvite(userId: string): Promise<InviteResult> {
+  const result = await apiRequest<InviteResult>(
+    `/api/v1/admin/users/${encodeURIComponent(userId)}/resend-invite`,
+    { method: 'POST' }
+  );
+  invalidateApiCache(USERS_URL);
+  return result;
+}
+
 export async function updateUserRole(userId: string, role: string): Promise<void> {
   await apiRequest(`/api/v1/admin/users/${encodeURIComponent(userId)}/role`, {
     method: 'PATCH',

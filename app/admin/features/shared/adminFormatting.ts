@@ -2,11 +2,13 @@ import type { UserStatus } from '@/types/admin';
 
 export const USER_STATUS_META: Record<UserStatus, { label: string; className: string }> = {
   active: { label: 'Active', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  pending: { label: 'Pending', className: 'bg-amber-50 text-amber-700 border-amber-200' },
   suspended: { label: 'Deactivated', className: 'bg-red-50 text-red-700 border-red-200' },
 };
 
 export const AUDIT_ACTION_META: Record<string, { label: string; className: string }> = {
   'user.invited': { label: 'Invitation sent', className: 'bg-blue-50 text-blue-700 border-blue-200' },
+  'user.invite_resent': { label: 'Invitation resent', className: 'bg-blue-50 text-blue-700 border-blue-200' },
   'user.role_changed': { label: 'Role changed', className: 'bg-violet-50 text-violet-700 border-violet-200' },
   'user.suspended': { label: 'User deactivated', className: 'bg-red-50 text-red-700 border-red-200' },
   'user.activated': { label: 'User reactivated', className: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
