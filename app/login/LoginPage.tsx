@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -19,6 +19,22 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Surface a failed Google sign-in (e.g. uninvited account, disabled signups)
+  // that the OAuth callback reported back via ?google_failed=1.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('google_failed') === '1') {
+      setError(
+        'Google sign-in is restricted to invited accounts. Ask the GAKIT administrator for access.'
+      );
+      params.delete('google_failed');
+      const clean = params.toString();
+      const url = clean ? `${window.location.pathname}?${clean}` : window.location.pathname;
+      window.history.replaceState(null, '', url);
+    }
+  }, []);
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -54,8 +70,9 @@ export function LoginPage() {
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      // Middleware routes authenticated users to their role's portal.
-      options: { redirectTo: `${window.location.origin}/login` },
+      // /auth/callback performs the PKCE code exchange, then the proxy routes
+      // the signed-in user to their role's portal.
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
 
     if (error) {
