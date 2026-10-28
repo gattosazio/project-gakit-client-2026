@@ -7,7 +7,6 @@ import type { ReportReviewHistory } from './actions/reports';
 
 type Recommendation = ReportReviewHistory['assessments'][number]['assessment']['result'];
 
-/** Evidence checks produce a recommendation; the existing moderation controls apply a decision. */
 export function ReportEvidenceReview({ reportId }: { reportId: string }) {
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);

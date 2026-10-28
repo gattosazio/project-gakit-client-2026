@@ -31,7 +31,6 @@ export function inflowInterval(hour: DashboardHour, snapshot: DashboardSnapshot)
 }
 
 export function inflowSummary(snapshot: DashboardSnapshot) {
-  // Compare complete clock hours; partial edge buckets are clearly labeled in the chart.
   const complete = snapshot.hourly.filter((hour) => !inflowInterval(hour, snapshot).partial);
   const peak = complete.reduce<DashboardHour | null>(
     (best, hour) => (!best || hour.count > best.count ? hour : best),

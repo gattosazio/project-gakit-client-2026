@@ -35,10 +35,6 @@ function MapPinSearchIcon({ className }: { className?: string }) {
   );
 }
 
-/**
- * Slim navigation-only action group: view the report on the map and open its
- * details panel. Status updates live in <StatusDropdown> in the status column.
- */
 export function ReportActions({
   report,
   onInspect,
@@ -79,7 +75,6 @@ export function ReportActions({
   );
 }
 
-/** The same decision form is used from the table and report details. */
 export function StatusDropdown({ report, isUpdating, onUpdateStatus, compact = false }: {
   report: Report;
   isUpdating: boolean;

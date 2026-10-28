@@ -5,7 +5,6 @@ import { ChevronDown } from 'lucide-react';
 import { formatDateTime, STATUS_META } from '@/lib/reports/reportFormatting';
 import { fetchReportReviewHistory, type ReportReviewHistory } from './actions/reports';
 
-/** Staff-only history endpoint; private notes never come from a public receipt. */
 export function StaffDecisionHistory({ reportId }: { reportId: string }) {
   const [decisions, setDecisions] = useState<ReportReviewHistory['decisions']>();
   const [loading, setLoading] = useState(false);

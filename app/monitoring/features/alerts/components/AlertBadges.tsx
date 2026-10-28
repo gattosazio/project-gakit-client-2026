@@ -75,11 +75,7 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
   );
 }
 
-/**
- * Per-advisory badge for weather rows. The generic `weather` TYPE_META entry
- * only says "Weather alert"; in its own panel the specific advisory matters
- * more (thunderstorm vs heat advisory).
- */
+
 export const WEATHER_TYPE_META: Record<
   AlertType,
   { icon: typeof CloudRain; className: string }
@@ -90,10 +86,6 @@ export const WEATHER_TYPE_META: Record<
   daily_digest: { icon: Thermometer, className: 'bg-slate-100 text-slate-600' },
 };
 
-/**
- * Badge that picks the right vocabulary for the row: specific weather advisory
- * for weather notifications, report status for everything else.
- */
 export function AlertTypeBadge({ notification }: { notification: Notification }) {
   const alertType = notification.weatherAlert?.alertType;
 

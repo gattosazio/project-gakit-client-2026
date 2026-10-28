@@ -209,13 +209,11 @@ export function PublicViewPage({
     }
   }, [scrollToMap, smoothScrollTo]);
 
-  // Pre-warm local barangay boundaries & Overture landmark dataset in memory
   useEffect(() => {
     preloadGeoData();
   }, []);
 
-  // Keep the free-tier backend warm while this page is open (opt-in).
-  // Only active during a dev session, so it never burns idle instance-hours.
+
   useEffect(() => {
     if (process.env.NEXT_PUBLIC_KEEPALIVE !== '1') return;
 
@@ -242,7 +240,7 @@ export function PublicViewPage({
     return { lat, lng, address };
   };
 
-  // Visible feedback while the geofence check runs before a modal opens.
+
   // Held for a minimum of 400ms so a cached/fast response doesn't flash it.
   const withPreparing = useCallback(async <T,>(work: Promise<T>): Promise<T> => {
     const started = Date.now();
@@ -259,8 +257,7 @@ export function PublicViewPage({
     }
   }, []);
 
-  // Both dialogs use the same address and city-boundary preparation.
-  // The server remains the authoritative geofence for report submission.
+
   const openLocationModalFor = useCallback(
     async (location: SelectedLocation, mode: 'assessment' | 'report') => {
       setWelcomePinnedLocation(null);
@@ -461,8 +458,7 @@ export function PublicViewPage({
 
     onboardingInitializedRef.current = true;
 
-    // Repeat visitors are never located silently. On mobile, open an explicit
-    // prompt so the browser permission request only runs after a tap.
+
     if (isOnboardingComplete()) {
       if (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches) {
         setIsMobileLocationPromptOpen(true);
@@ -476,7 +472,6 @@ export function PublicViewPage({
     void getGeolocationPermission().then((permission) => {
       if (onboardingStageRef.current !== 'welcome') return;
       if (permission === 'granted') {
-        // Existing browser permission is not a new choice to share location.
         setOnboardingLocationStatus('idle');
       } else if (permission === 'denied') {
         setOnboardingLocationStatus('denied');
@@ -558,9 +553,7 @@ export function PublicViewPage({
         lastPick.key === pickKey &&
         (Date.now() - lastPick.at < 2500 || onboardingStageRef.current === 'tour')
       ) {
-        // Map taps emit a raw coordinate and then a reverse-geocoded copy of the
-        // same point. The first pick starts the tour; the second only refines
-        // the address instead of opening the assessment modal over the tour.
+
         setSelectedLocation((prev) => {
           if (!prev) return location;
           const samePoint =
@@ -608,7 +601,6 @@ export function PublicViewPage({
       }
       setIsLocationPromptOpen(false);
 
-      // Locate is always a deliberate gesture: pin + bubble, never a modal.
       if (location.source === 'gps' && onboardingStageRef.current === 'closed') {
         setSelectedLocation(location);
         setWelcomePinnedLocation(location);
@@ -622,7 +614,6 @@ export function PublicViewPage({
         return;
       }
 
-      // Plain tap drops the pin + quick-action bubble instead of a modal.
       setSelectedLocation(location);
       setWelcomePinnedLocation(location);
     },
@@ -873,10 +864,8 @@ export function PublicViewPage({
 
           <section id="about" className="relative min-h-screen overflow-hidden border-t border-maroon-900/30 bg-gakit-maroon scroll-mt-16 snap-start">
             <TopoBackground className="opacity-[0.55]" />
-            {/* vignette spans the whole section so taller tabs (Data & Privacy) stay edge-to-edge */}
             <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/[0.06] via-transparent to-black/[0.10]" />
             <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pt-16 pb-24 sm:px-8 sm:pt-20 sm:pb-28 lg:px-8 lg:pt-20 lg:pb-28">
-              {/* ── Tab header — airy, 44px+ ergonomic targets ── */}
               <div className="flex flex-col gap-5 border-b border-white/[0.10] pb-6 sm:flex-row sm:items-end sm:justify-between sm:pb-7">
                 <div className="flex items-center gap-3">
                   <div className="inline-flex items-center gap-1.5 rounded-full bg-maroon-950/35 p-1 sm:p-1.5 ring-1 ring-white/10 backdrop-blur-md">
@@ -962,7 +951,6 @@ export function PublicViewPage({
         onDismiss={handleMobileLocationDismiss}
       />
 
-      {/* Spinner-only pill shown while the geofence check prepares a modal */}
       {isPreparing && (
         <div
           role="status"

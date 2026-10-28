@@ -10,7 +10,6 @@ const mapCredits = [
 export function DataPrivacySection() {
   return (
     <div className="mt-10 sm:mt-12 lg:mt-14">
-      {/* ── Top: two equal cards — no lopsided column ── */}
       <div className="grid gap-5 lg:grid-cols-2 lg:gap-6">
         <div className="flex flex-col rounded-[22px] bg-white p-6 shadow-[0_8px_32px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06] transform-gpu transition-[transform,box-shadow] duration-200 ease-out hover:shadow-[0_16px_40px_rgba(0,0,0,0.16)] sm:rounded-[28px] sm:p-7 lg:p-8 md:hover:scale-[1.015] motion-reduce:transition-none motion-reduce:hover:transform-none">
           <div className="flex items-start gap-4">
@@ -94,7 +93,6 @@ export function DataPrivacySection() {
         </div>
       </div>
 
-      {/* ── Full-width attribution bento — grid, not stacked list ── */}
       <div className="mt-5 overflow-hidden rounded-[22px] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)] ring-1 ring-black/[0.06] transform-gpu transition-[transform,box-shadow] duration-200 ease-out hover:shadow-[0_16px_40px_rgba(0,0,0,0.16)] sm:mt-6 sm:rounded-[28px] md:hover:scale-[1.01] motion-reduce:transition-none motion-reduce:hover:transform-none">
         <div className="border-b border-slate-100 px-6 py-5 sm:px-7 sm:py-6 lg:px-8 lg:py-7">
           <div className="flex flex-wrap items-start justify-between gap-4">

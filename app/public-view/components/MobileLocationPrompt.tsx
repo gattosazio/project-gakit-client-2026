@@ -4,10 +4,7 @@ import { Locate, MapPinned } from 'lucide-react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Spinner } from '@/components/ui/Spinner';
 
-/**
- * Explicit, mobile-only location prompt for returning visitors. Nothing is
- * requested from the browser until the visitor taps "Use my location".
- */
+
 export function MobileLocationPrompt({
   isOpen,
   isLocating,

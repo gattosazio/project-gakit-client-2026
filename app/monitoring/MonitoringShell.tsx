@@ -65,7 +65,6 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     };
   }, []);
 
-  // Idle-prefetch tab component chunks so first click is instantaneous
   useEffect(() => {
     const prefetchTabs = () => {
       void import('./features/alerts/AlertsTab');
@@ -83,7 +82,6 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     }
   }, []);
 
-  // URL updater: modifies browser address bar with 0ms latency and 0 server round-trips
   const updateUrl = (newTab: MonitoringFeatureId, queryMutator?: (params: URLSearchParams) => void) => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -100,7 +98,6 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     window.history.replaceState(null, '', url);
   };
 
-  // Support browser Back and Forward navigation without server round-trips
   useEffect(() => {
     const handlePopState = () => {
       const currentParams = new URLSearchParams(window.location.search);
