@@ -2,8 +2,7 @@ import { hasEvidenceConflict } from '@/lib/reports/decisionReasons';
 import type { FloodDepthCode, Report } from '@/types/report';
 import { DEPTH_LABELS, timeAgo } from '@/lib/reports/reportFormatting';
 
-// Backward-compatible re-export: callers (and tests) may import timeAgo from
-// either home. The canonical implementation lives in lib/reports/reportFormatting.
+
 export { timeAgo };
 
 export const CRITICAL_DEPTHS: ReadonlySet<FloodDepthCode> = new Set(['head', 'overhead']);

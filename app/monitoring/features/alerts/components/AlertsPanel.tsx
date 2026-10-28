@@ -20,15 +20,12 @@ interface AlertsPanelProps {
   title: string;
   icon: LucideIcon;
   view: AlertsView;
-  /** Already filtered and sorted by the section wrapper. */
   notifications: Notification[];
   readIds: string[];
   loading: boolean;
   error: string | null;
   highlightedId: string | null;
-  /** Rendered under the header; holds the section's own chips + dropdowns. */
   filterBar: ReactNode;
-  /** Change this to invalidate pagination (i.e. any filter/sort change). */
   resetKey: string;
   emptyState?: ReactNode;
   onMarkRead: (id: string) => void;
@@ -40,15 +37,6 @@ interface AlertsPanelProps {
   onMarkAllRead?: (ids: string[]) => void;
 }
 
-/**
- * Shared mechanics for one side of the alerts inbox: unread/read grouping,
- * pagination, empty/loading/error states, and highlight routing. Section
- * specifics (which filters, which columns) stay in the wrappers.
- *
- * Pagination and the `?notification=` deep link are derived during render
- * rather than synced in effects: the page falls back to 1 whenever `resetKey`
- * changes, and a matching highlight pins the page to the row's index.
- */
 export function AlertsPanel({
   section,
   title,
@@ -83,7 +71,6 @@ export function AlertsPanel({
     [notifications, readIds]
   );
 
-  // Archived items are already "done" — no unread/read split there.
   const orderedNotifications = useMemo(
     () => (isArchivedView ? notifications : [...unread, ...read]),
     [isArchivedView, notifications, read, unread]
@@ -94,8 +81,6 @@ export function AlertsPanel({
     Math.ceil(orderedNotifications.length / NOTIFICATIONS_PER_PAGE)
   );
 
-  // Which group a deep-linked row belongs to, or -1 when this panel doesn't
-  // own the highlight (or the row was filtered out).
   const highlightedIndex =
     highlightedId && sectionForNotificationId(highlightedId) === section
       ? orderedNotifications.findIndex((n) => n.id === highlightedId)
@@ -127,9 +112,6 @@ export function AlertsPanel({
     [pagedNotifications, readIds]
   );
 
-  // A deep-linked row must be visible, so force its group open. Clicking any
-  // control clears the highlight (see the inbox's click-away listener), which
-  // hands control back to the user's own collapse state.
   const highlightedIsRead = highlightOwnsView && !!highlightedId && readIds.includes(highlightedId);
   const showUnreadGroup =
     !isArchivedView && (!unreadCollapsed || (highlightOwnsView && !highlightedIsRead));

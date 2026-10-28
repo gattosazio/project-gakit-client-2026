@@ -77,7 +77,6 @@ export function ReportDetail({
     };
   }, [modal, requestClose, photoOpen, decisionOpen]);
 
-  // Nested dialogs own focus and Escape while the outer focus scope is paused.
 
   const copyText = async (text: string, target: 'id' | 'coord') => {
     try {

@@ -13,9 +13,7 @@ export function TopoBackground({ className = '' }: { className?: string }) {
         preserveAspectRatio="xMidYMid slice"
         fill="none"
       >
-        {/* Minor intermediate contours (0.9px stroke) */}
         <g stroke="#1a0004" strokeOpacity="0.32" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-          {/* Top North-West Ridge */}
           <path d="M-50,60 Q280,120 520,40 T960,110 T1420,50 T1980,80" />
           <path d="M-50,90 Q290,150 540,70 T980,140 T1440,80 T1980,110" />
           <path d="M-50,120 Q300,180 560,100 T1000,170 T1460,110 T1980,140" />
@@ -26,7 +24,6 @@ export function TopoBackground({ className = '' }: { className?: string }) {
           <path d="M-50,270 Q350,330 660,250 T1100,320 T1560,260 T1980,290" />
           <path d="M-50,300 Q360,360 680,280 T1120,350 T1580,290 T1980,320" />
 
-          {/* Mid River Valley & Meanders */}
           <path d="M-50,360 C240,440 480,280 780,380 S1240,310 1520,410 S1820,320 1980,370" />
           <path d="M-50,390 C250,470 500,310 800,410 S1260,340 1540,440 S1840,350 1980,400" />
           <path d="M-50,420 C260,500 520,340 820,440 S1280,370 1560,470 S1860,380 1980,430" />
@@ -37,7 +34,6 @@ export function TopoBackground({ className = '' }: { className?: string }) {
           <path d="M-50,570 C310,650 620,490 920,590 S1380,520 1660,620 S1960,530 1980,580" />
           <path d="M-50,600 C320,680 640,520 940,620 S1400,550 1680,650 S1980,560 1980,610" />
 
-          {/* South Basin & Alluvial Fan */}
           <path d="M-50,660 Q360,780 720,670 T1220,730 T1720,640 T1980,680" />
           <path d="M-50,690 Q380,810 740,700 T1240,760 T1740,670 T1980,710" />
           <path d="M-50,720 Q400,840 760,730 T1260,790 T1760,700 T1980,740" />
@@ -52,7 +48,6 @@ export function TopoBackground({ className = '' }: { className?: string }) {
           <path d="M-50,990 Q580,1110 940,1000 T1440,1060 T1940,970 T1980,1010" />
         </g>
 
-        {/* Major Index Contours (1.6px, bolder, representing 100m elevation intervals) */}
         <g stroke="#120003" strokeOpacity="0.48" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
           <path d="M-50,30 Q270,90 500,10 T940,80 T1400,20 T1980,50" />
           <path d="M-50,180 Q320,240 600,160 T1040,230 T1500,170 T1980,200" />
@@ -64,7 +59,6 @@ export function TopoBackground({ className = '' }: { className?: string }) {
           <path d="M-50,1050 Q620,1170 980,1060 T1480,1120 T1980,1030" />
         </g>
 
-        {/* Concentric Highland Mountain Formations (North-East Summit) */}
         <g stroke="#1a0004" strokeOpacity="0.36" strokeWidth="1.2" strokeLinecap="round">
           <path d="M1420,120 C1540,80 1680,100 1740,180 C1800,260 1720,340 1600,360 C1480,380 1360,300 1340,220 C1320,140 1380,130 1420,120 Z" />
           <path d="M1450,145 C1540,110 1640,130 1690,190 C1740,250 1670,310 1580,325 C1490,340 1400,280 1385,220 C1370,160 1410,150 1450,145 Z" strokeWidth="1.7" stroke="#120003" strokeOpacity="0.52" />
@@ -73,7 +67,6 @@ export function TopoBackground({ className = '' }: { className?: string }) {
           <circle cx="1530" cy="225" r="14" strokeWidth="1.6" stroke="#120003" strokeOpacity="0.55" />
         </g>
 
-        {/* Concentric Highland Mountain Formations (South-West Basin / River Gorge) */}
         <g stroke="#1a0004" strokeOpacity="0.36" strokeWidth="1.2" strokeLinecap="round">
           <path d="M220,680 C360,620 520,660 580,770 C640,880 540,990 400,1010 C260,1030 120,930 100,810 C80,700 160,690 220,680 Z" />
           <path d="M250,710 C360,660 480,695 530,785 C580,875 500,955 390,970 C280,985 170,905 155,810 C140,725 200,715 250,710 Z" strokeWidth="1.7" stroke="#120003" strokeOpacity="0.52" />

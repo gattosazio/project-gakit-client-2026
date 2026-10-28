@@ -15,7 +15,7 @@ import type {
   ReportStatus,
 } from '@/types/report';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 // A free-tier server that has spun down cold-starts slowly (30-60s), so give
 // requests a generous timeout and retry with backoff so a cold start or a
@@ -147,13 +147,7 @@ export async function createReport(
   }
 }
 
-/**
- * Attach a prepared evidence photo to an already-created report.
- *
- * Deliberately separate from {@link createReport}: the report is the valuable
- * artefact, so an upload failure must never discard it. Failures are surfaced
- * to the caller but never block the submission itself.
- */
+
 export async function uploadReportPhoto(
   reportId: string,
   blob: Blob,
@@ -171,7 +165,6 @@ export async function uploadReportPhoto(
   });
 }
 
-/** Owner-scoped, uncached status; the guest credential stays in memory/headers. */
 export async function fetchReportReceipt(
   reportId: string, signal?: AbortSignal, uploadToken?: string,
 ): Promise<ReportReceipt> {

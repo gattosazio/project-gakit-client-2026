@@ -13,7 +13,6 @@ export function archiveLevel(count: number) {
 }
 
 export function archiveDateLabel(date: string) {
-  // The API returns a Manila calendar date, not an instant to shift between zones.
   return new Intl.DateTimeFormat('en-PH', {
     timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
   }).format(new Date(`${date}T00:00:00Z`));

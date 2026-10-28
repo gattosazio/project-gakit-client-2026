@@ -377,8 +377,7 @@ export function ReportsTab({
     setActiveHighlightedId(null);
   };
 
-  // Status/depth/time filters are shared. Search and pagination apply to the
-  // report list; the map retains spatial context across its own result limit.
+
   const reportFilters: MapReportFilters = {
     createdAfterHours:
       timeRangeOptions.find((option) => option.value === timeFilter)?.hours ?? null,
@@ -613,9 +612,6 @@ export function ReportsTab({
         {selectedReport && (
           <div>
             <ReportDetail
-              // A fresh instance per report: the minimap, the failed flag and
-              // the status-menu state must never leak from one report into the
-              // next through a reused instance.
               key={selectedReport.id}
               report={selectedReport}
               onUpdateStatus={handleUpdateStatus}

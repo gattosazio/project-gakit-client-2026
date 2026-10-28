@@ -71,10 +71,7 @@ function parseSort(value: WeatherSortValue): { column: SortColumn; direction: So
   return { column, direction };
 }
 
-/**
- * Left-hand column: weather advisories with their own advisory-type, severity,
- * date, and sort filters — independent of the report panel beside it.
- */
+
 export function WeatherAlertsPanel({
   notifications,
   readIds,

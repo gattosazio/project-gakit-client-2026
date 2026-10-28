@@ -18,12 +18,7 @@ interface AlertListItemProps {
   highlighted: boolean;
 }
 
-/**
- * Single row/card renderer used at every breakpoint and in both the Active and
- * Archived views. The old table (`NotificationRow`) and mobile card
- * (`NotificationCard`) diverged in what they displayed; this keeps the fields
- * identical everywhere so the two side-by-side panels stay comparable.
- */
+
 export const AlertListItem = memo(function AlertListItem({
   notification,
   view,
@@ -48,8 +43,7 @@ export const AlertListItem = memo(function AlertListItem({
     }
   };
 
-  // Weather rows have no depth; show the advisory's validity window instead so
-  // neither column carries a column the other can't fill.
+
   const metaLine = isWeather
     ? validTo
       ? `Valid until ${formatDateTime(validTo)}`

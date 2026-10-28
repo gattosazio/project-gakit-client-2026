@@ -128,7 +128,6 @@ export function StatusStrip({ current, alerts, alertsCheckedAt, alertsError = fa
                   : 'bg-gradient-to-br from-sky-200/90 via-sky-100/70 to-sky-50/50 text-slate-900 hover:from-sky-200 hover:to-sky-100/60'
               }`}
             >
-              {/* Cinematic Animated Weather Canvas Backdrop */}
               <WeatherCanvasBackdrop
                 paused={modalAlert !== null}
                 conditionCode={current.conditionCode}
@@ -197,7 +196,6 @@ export function StatusStrip({ current, alerts, alertsCheckedAt, alertsError = fa
             </div>
           )}
 
-          {/* Right Segment: Regional Weather Advisories */}
           <div className="flex flex-col justify-between p-3.5 sm:px-4 sm:py-3 min-w-0">
             <div className="flex items-center justify-between gap-2 min-w-0 mb-1.5 w-full">
               <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">

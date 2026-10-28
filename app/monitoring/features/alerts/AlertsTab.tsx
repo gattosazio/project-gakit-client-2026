@@ -62,13 +62,10 @@ export function AlertsTab({
     searchParams.get('view') === 'archived' ? 'archived' : 'active'
   );
 
-  // Sync the highlight with the notification URL param or prop.
   useEffect(() => {
     setActiveHighlightedId(notificationParam);
   }, [notificationParam]);
 
-  // Click-away listener: dismisses the maroon highlight when clicking outside
-  // the highlighted row/card.
   useEffect(() => {
     if (!activeHighlightedId) return;
 
@@ -83,9 +80,6 @@ export function AlertsTab({
     return () => window.removeEventListener('mousedown', handleClickAway);
   }, [activeHighlightedId]);
 
-  // Keep ?view= in the address bar so a refresh or Back returns to the same
-  // segment, without a server round-trip. Matches MonitoringShell's popstate
-  // convention: replaceState doesn't notify React, so re-read on Back/Forward.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -105,8 +99,7 @@ export function AlertsTab({
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  // Source fetch. Each source fails independently so a reports outage still
-  // leaves the weather panel usable (and vice versa).
+
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
@@ -162,7 +155,6 @@ export function AlertsTab({
     };
   }, [active]);
 
-  // Keep inbox in sync with changes made on other surfaces (header bell).
   useEffect(
     () =>
       subscribeToReceiptChanges((kind, ids) => {
@@ -201,18 +193,15 @@ export function AlertsTab({
     void restoreNotifications([id]);
   }, []);
 
-  // Source lists, kept separate so each panel owns its own feed.
   const reportSource = useMemo(() => reportNotifications(reports), [reports]);
   const weatherSource = useMemo(() => weatherNotifications(weatherAlerts), [weatherAlerts]);
 
-  // Every notification the modal can target, archived or not.
   const allNotifications = useMemo(
     () => [...reportSource, ...weatherSource],
     [reportSource, weatherSource]
   );
 
-  // Archive partition drives which segment each panel feeds. Read receipts
-  // don't change often enough to justify memoising on a clock.
+
   const { active: activeReports, archived: archivedReports } = useMemo(
     () => partitionArchived(reportSource, { dismissedIds, readIds }),
     [dismissedIds, readIds, reportSource]

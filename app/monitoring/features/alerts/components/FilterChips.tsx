@@ -8,10 +8,6 @@ export interface ChipOption<T extends string> {
   icon: LucideIcon;
 }
 
-/**
- * Horizontal toggle chips used as the primary filter in each alerts panel.
- * `aria-pressed` communicates selection to assistive tech.
- */
 export function FilterChips<T extends string>({
   options,
   value,

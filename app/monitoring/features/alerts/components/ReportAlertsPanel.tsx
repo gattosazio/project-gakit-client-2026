@@ -73,10 +73,6 @@ function parseSort(value: ReportSortValue): { column: SortColumn; direction: Sor
   return { column, direction };
 }
 
-/**
- * Right-hand column: flood report notifications with their own type, depth,
- * date, and sort filters.
- */
 export function ReportAlertsPanel({
   notifications,
   readIds,

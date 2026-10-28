@@ -84,7 +84,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'report',
     title: 'Report flooding you can see',
-    body: 'Pin the flooded spot, choose how deep the water is, and submit. Staff review every report before it appears publicly.',
+    body: 'Pin the flooded spot, choose how deep the water is, and submit.',
     target: 'report',
     panel: 'reports',
     placement: 'top',
