@@ -32,6 +32,8 @@ export interface CurrentWeather {
 }
 
 export interface WeatherAlertData {
+  coverageLabel?: string;
+  regionalAffectedAreas?: string[];
   retrievedAt?: string;
   location?: { latitude: number; longitude: number; label: string; gridLatitude?: number; gridLongitude?: number };
   days?: WeatherDayData[];

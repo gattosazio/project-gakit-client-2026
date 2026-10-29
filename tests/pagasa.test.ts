@@ -7,8 +7,16 @@ import {
   parseLocalTowns,
   shortTitle,
   timingShort,
+  thunderstormBulletinType,
 } from '@/lib/weather/pagasa';
 import type { WeatherAlert } from '@/types/weather';
+
+describe('thunderstorm bulletin labels', () => {
+  it('uses the official title rather than treating severity as the bulletin type', () => {
+    expect(thunderstormBulletinType({ ...makeAlert(), severity: 'warning', data: { title: 'Thunderstorm Advisory No. 15' } })).toBe('advisory');
+    expect(thunderstormBulletinType({ ...makeAlert(), severity: 'info', data: { title: 'Thunderstorm Watch' } })).toBe('watch');
+  });
+});
 
 const DESCRIPTION =
   'Thunderstorm Advisory No. 2 #MINPRSD\n' +

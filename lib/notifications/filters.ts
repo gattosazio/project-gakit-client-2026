@@ -4,7 +4,6 @@
 //
 // These are a 1:1 extraction of the inline logic that previously lived inside
 // AlertsTab.tsx, plus the archive predicates the Archived view will build on.
-import { DEPTH_LABELS } from '@/lib/reports/reportFormatting';
 import {
   createNotifications,
   mapWeatherAlertToNotification,
@@ -46,9 +45,8 @@ export interface ArchiveContext {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * A notification that has been read for this long is auto-archived in addition
- * to anything the user explicitly dismissed. Read receipts only store that an
- * item was read, not when, so age is measured from the notification itself.
+ * Notifications are auto-archived at this age, in addition to anything the
+ * user explicitly dismissed. Age is measured from the notification itself.
  */
 export const ARCHIVE_AFTER_DAYS = 7;
 
@@ -141,7 +139,7 @@ export function filterByDepth<T extends { depth?: FloodDepthCode }>(
 function sortValue(notification: Notification, column: SortColumn): string | number {
   switch (column) {
     case 'depth':
-      return notification.depth ? DEPTH_LABELS[notification.depth] : '';
+      return notification.depth ? ['ankle', 'knee', 'waist', 'shoulder', 'head', 'overhead'].indexOf(notification.depth) : -1;
     case 'sentAt':
       return new Date(notification.sentAt).getTime();
     case 'severity':
@@ -186,8 +184,8 @@ export function partitionUnreadRead<T extends Notification>(
 }
 
 /**
- * Archived means explicitly dismissed, or read for at least
- * ARCHIVE_AFTER_DAYS. Anything not archived stays in the Active view.
+ * Archived means explicitly dismissed, or at least ARCHIVE_AFTER_DAYS old,
+ * regardless of read status. Anything else stays in the Active view.
  */
 export function isArchived(
   notification: Notification,
@@ -195,7 +193,6 @@ export function isArchived(
   now: Date = new Date()
 ): boolean {
   if (context.dismissedIds.includes(notification.id)) return true;
-  if (!context.readIds.includes(notification.id)) return false;
 
   return now.getTime() - new Date(notification.sentAt).getTime() >= ARCHIVE_AFTER_DAYS * DAY_MS;
 }
@@ -231,7 +228,18 @@ export function weatherNotifications(alerts: WeatherAlert[]): Notification[] {
  * panel can load, filter, and paginate its own list.
  */
 export function reportNotifications(reports: Report[]): Notification[] {
-  return createNotifications(reports);
+  return reports.flatMap<Notification>(report => {
+    if (report.status === 'VERIFIED' && (report.depth.code === 'head' || report.depth.code === 'overhead')) {
+      return [{ id: `critical-${report.id}`, type: 'new-report', severity: 'critical',
+        title: 'Validated critical flood report', location: report.location.address || 'Unknown location',
+        depth: report.depth.code, sentAt: report.updatedAt, reportId: report.id, reportStatus: report.status }];
+    }
+    if (report.reporterType !== 'staff' || (report.status !== 'UNVERIFIED' && report.status !== 'ANOMALY')) return [];
+    return createNotifications([report], { includeRoutine: true }).map(notification => ({
+      ...notification, reportStatus: report.status,
+      title: notification.type === 'new-report' ? 'A staff member submitted a report' : notification.title,
+    }));
+  });
 }
 
 /** Build the combined inbox feed from both sources. */

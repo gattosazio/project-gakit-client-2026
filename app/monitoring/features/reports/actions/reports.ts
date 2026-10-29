@@ -60,6 +60,7 @@ export interface MonitoringReportListQuery {
   limit?: number;
   search?: string;
   status?: ReportStatus;
+  exclude_rejected?: boolean;
   depth?: FloodDepthCode;
   critical?: boolean;
   created_after?: string;

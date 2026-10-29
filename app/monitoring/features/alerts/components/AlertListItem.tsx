@@ -4,6 +4,7 @@ import { DEPTH_LABELS, formatDateTime } from '@/lib/reports/reportFormatting';
 import type { Notification } from '@/lib/notifications';
 import type { AlertsView } from '@/lib/notifications/filters';
 import type { WeatherAlert as WeatherAlertType } from '@/types/weather';
+import { WeatherBulletinBadge } from '@/components/weather/WeatherBulletinBadge';
 import { AlertTypeBadge, SeverityBadge } from './AlertBadges';
 
 interface AlertListItemProps {
@@ -33,6 +34,7 @@ export const AlertListItem = memo(function AlertListItem({
   const isArchivedView = view === 'archived';
   const isWeather = notification.type === 'weather';
   const validTo = notification.weatherAlert?.validTo;
+
 
   const handleView = () => {
     if (!isRead && !isArchivedView) onMarkRead(notification.id);
@@ -69,7 +71,7 @@ export const AlertListItem = memo(function AlertListItem({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <AlertTypeBadge notification={notification} />
-          <SeverityBadge severity={notification.severity} />
+          {notification.weatherAlert ? <WeatherBulletinBadge alert={notification.weatherAlert} /> : <SeverityBadge severity={notification.severity} />}
           {!isRead && !isArchivedView && (
             <span
               aria-label="Unread"

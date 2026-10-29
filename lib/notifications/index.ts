@@ -2,10 +2,10 @@ import { hasEvidenceConflict } from '@/lib/reports/decisionReasons';
 // Pure mapping logic that turns domain objects (reports, weather alerts) into
 // the unified notification model shown in the monitoring alerts tab. Kept free
 // of React so it can be unit-tested directly.
-import type { FloodDepthCode, Report } from '@/types/report';
+import type { FloodDepthCode, Report, ReportStatus } from '@/types/report';
 import type { WeatherAlert } from '@/types/weather';
 import { alertTitle } from '@/lib/weather/weatherCodes';
-import { isPagasaAlert, shortTitle } from '@/lib/weather/pagasa';
+import { isPagasaAlert, normalizeTownName, shortTitle } from '@/lib/weather/pagasa';
 
 export type NotificationType =
   | 'new-report'
@@ -24,6 +24,7 @@ export interface Notification {
   depth?: FloodDepthCode;
   sentAt: string;
   reportId?: string;
+  reportStatus?: ReportStatus;
   weatherAlert?: WeatherAlert;
 }
 
@@ -127,12 +128,15 @@ export function createNotifications(
 }
 
 export function mapWeatherAlertToNotification(alert: WeatherAlert): Notification {
+  const affectedAreas = (alert.data?.affectedAreas ?? [])
+    .map(area => normalizeTownName(area.replace(/^#/, '').trim()))
+    .filter(Boolean);
   return {
     id: `weather-${alert.id}`,
     type: 'weather',
     severity: alert.severity as Severity,
     title: isPagasaAlert(alert) ? shortTitle(alert) || alertTitle(alert) : alertTitle(alert),
-    location: 'Iligan City',
+    location: alert.data?.coverageLabel || (affectedAreas.length ? affectedAreas.join('; ') : alert.data?.location?.label || 'Area not specified'),
     sentAt: alert.createdAt,
     weatherAlert: alert,
   };

@@ -233,6 +233,7 @@ export function SideBar<T extends string>({
                 <Icon
                   className={`h-5 w-5 transition-colors ${isActive ? 'text-gakit-maroon' : 'text-slate-400 group-hover:text-gakit-maroon'}`}
                 />
+                {isCollapsed && !!feature.unreadCount && <sup aria-label={`${feature.unreadCount} unread alerts`} className="absolute -right-2 -top-1 rounded-full bg-gakit-maroon px-1 py-0.5 text-[10px] font-bold leading-none text-white">{feature.unreadCount > 99 ? '99+' : feature.unreadCount}</sup>}
                 {feature.badge && isCollapsed && (
                   <span className="absolute -top-1 -right-1 flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75" />
@@ -243,6 +244,7 @@ export function SideBar<T extends string>({
               <span className={`truncate whitespace-nowrap ${isCollapsed ? 'sr-only' : ''}`}>
                 {feature.label}
               </span>
+              {feature.unreadCount !== undefined && !isCollapsed && <sup aria-label={`${feature.unreadCount} unread alerts`} className="relative -top-1 ml-1 shrink-0 rounded-full bg-gakit-maroon px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{feature.unreadCount > 99 ? '99+' : feature.unreadCount}</sup>}
               {feature.badge && !isCollapsed && (
                 <span
                   title="Beta feature"

@@ -107,12 +107,12 @@ describe('createNotifications', () => {
 });
 
 describe('mapWeatherAlertToNotification', () => {
-  it('wraps the alert with a weather- prefixed id and Iligan location', () => {
+  it('shows the actual affected area instead of assuming Iligan', () => {
     const alert = {
       id: 'w1',
       alertType: 'severe_weather',
       severity: 'warning',
-      data: { title: 'Heavy rainfall expected' },
+      data: { title: 'Heavy rainfall expected', affectedAreas: ['LanaoDelNorte(SultanNagaDimaporo)'] },
       validFrom: '2026-08-22T00:00:00Z',
       validTo: '2026-08-22T12:00:00Z',
       createdAt: '2026-08-21T23:00:00Z',
@@ -125,9 +125,14 @@ describe('mapWeatherAlertToNotification', () => {
       type: 'weather',
       severity: 'warning',
       title: 'Heavy rainfall expected',
-      location: 'Iligan City',
+      location: 'Lanao Del Norte(Sultan Naga Dimaporo)',
       sentAt: '2026-08-21T23:00:00Z',
     });
     expect(notification.weatherAlert).toBe(alert);
+  });
+
+  it('does not invent an area when none is provided', () => {
+    const alert = { id: 'w2', alertType: 'heavy_rain', severity: 'warning', data: {}, createdAt: '2026-08-21T23:00:00Z' } as any;
+    expect(mapWeatherAlertToNotification(alert).location).toBe('Area not specified');
   });
 });
