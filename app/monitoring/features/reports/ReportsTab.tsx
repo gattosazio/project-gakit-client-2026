@@ -74,7 +74,7 @@ export function ReportsTab({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'All' | ReportStatus>('All');
+  const [statusFilter, setStatusFilter] = useState<'All' | 'AllStatuses' | ReportStatus>('All');
   const [depthFilter, setDepthFilter] = useState<'All' | FloodDepthCode>('All');
   const [timeFilter, setTimeFilter] = useState('48h');
   const [queryDraft, setQueryDraft] = useState('');
@@ -106,6 +106,7 @@ export function ReportsTab({
   });
 
   const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(highlightedReportId);
+  const [linkedMapTarget, setLinkedMapTarget] = useState<Report | null>(null);
   const [hasEverBeenActive, setHasEverBeenActive] = useState(Boolean(active));
 
   useEffect(() => {
@@ -238,8 +239,19 @@ export function ReportsTab({
     void getReport(highlightedReportId)
       .then((report) => {
         if (cancelled) return;
+        // Make the linked row part of the server-paginated result, even if
+        // stale search, status, depth, time or page settings would exclude it.
+        setQuery(report.id);
+        setQueryDraft(report.id);
+        setStatusFilter('AllStatuses');
+        setDepthFilter('All');
+        setTimeFilter('all');
+        setCurrentPage(1);
+        setPanelHidden(false);
+        setSheetPosition('half');
         setActiveHighlightedId(highlightedReportId);
-        setSelectedReport(report);
+        setSelectedReport(null);
+        setLinkedMapTarget(report);
       })
       .catch((error: unknown) => {
         if (cancelled) return;
@@ -247,6 +259,28 @@ export function ReportsTab({
       });
     return () => { cancelled = true; };
   }, [active, highlightedReportId]);
+
+  useEffect(() => {
+    if (!active || !mapDisplay.ready || !linkedMapTarget || linkedMapTarget.id !== activeHighlightedId) return;
+    const frame = requestAnimationFrame(() => {
+      mapRef.current?.resize?.();
+      mapRef.current?.focusLocation({
+        lat: linkedMapTarget.location.latitude,
+        lng: linkedMapTarget.location.longitude,
+      });
+      setLinkedMapTarget(null);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [active, mapDisplay.ready, linkedMapTarget, activeHighlightedId]);
+
+  useEffect(() => {
+    if (!active || loading || !activeHighlightedId) return;
+    const frame = requestAnimationFrame(() => {
+      workspaceRef.current?.querySelector(`[data-highlighted-report="${activeHighlightedId}"]`)
+        ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [active, loading, reports, activeHighlightedId]);
 
   useEffect(() => {
     if (!activeHighlightedId) return;
@@ -311,7 +345,8 @@ export function ReportsTab({
       page: currentPage,
       limit: REPORTS_PER_PAGE,
       search: (query || '').trim() || undefined,
-      status: statusFilter === 'All' ? undefined : statusFilter,
+      status: statusFilter === 'All' || statusFilter === 'AllStatuses' ? undefined : statusFilter,
+      exclude_rejected: statusFilter === 'All' ? true : undefined,
       depth: depthFilter === 'All' ? undefined : depthFilter,
       created_after: since,
       sort_by: sort.column,
@@ -381,21 +416,21 @@ export function ReportsTab({
   const reportFilters: MapReportFilters = {
     createdAfterHours:
       timeRangeOptions.find((option) => option.value === timeFilter)?.hours ?? null,
-    status: statusFilter === 'All' ? undefined : statusFilter,
+    status: statusFilter === 'All' || statusFilter === 'AllStatuses' ? undefined : statusFilter,
     depth: depthFilter === 'All' ? undefined : depthFilter,
   };
 
   const mapSubtitle = [
     timeRangeOptions.find((option) => option.value === timeFilter)?.label.toLowerCase() ??
       'all time',
-    statusFilter !== 'All' ? STATUS_META[statusFilter].label.toLowerCase() : null,
+    statusFilter !== 'All' && statusFilter !== 'AllStatuses' ? STATUS_META[statusFilter].label.toLowerCase() : null,
     depthFilter !== 'All' ? DEPTH_LABELS[depthFilter].toLowerCase() : null,
   ]
     .filter((part): part is string => Boolean(part))
     .join(' · ');
   const reportWindow = timeRangeOptions.find(option => option.value === timeFilter);
   const reportBarStatus = loading && !reports.length ? 'Loading reports…'
-    : `${total.toLocaleString()} ${query.trim() ? 'matching ' : ''}${statusFilter !== 'All' ? `${STATUS_META[statusFilter].label.toLowerCase()} ` : ''}report${total === 1 ? '' : 's'}${reportWindow?.hours == null ? ' · All time' : ` in the ${reportWindow.label.toLowerCase()}`}`;
+    : `${total.toLocaleString()} ${query.trim() ? 'matching ' : ''}${statusFilter !== 'All' && statusFilter !== 'AllStatuses' ? `${STATUS_META[statusFilter].label.toLowerCase()} ` : ''}report${total === 1 ? '' : 's'}${reportWindow?.hours == null ? ' · All time' : ` in the ${reportWindow.label.toLowerCase()}`}`;
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
@@ -487,7 +522,9 @@ export function ReportsTab({
             {(hasEverBeenActive || active) ? <PublicMap
               controlsHost={mapControlsHost} mapApiRef={mapRef} onLocationSelect={handleNoopLocationSelect} selectedLocation={null}
               hideShareLocation hideWeather hideDisplayControls onDisplaySettingsChange={setMapDisplay}
+              hideAttribution={mapDisplay.basemap !== 'satellite'}
               enableAddressLookup={false} reportFilters={reportFilters} onReportClick={handleMapPinClick}
+              showRejectedReports={statusFilter === 'REJECTED' || statusFilter === 'AllStatuses'}
               defaultBasemap="light" hideBuildingsOnSatellite hideBarangayBoundariesToggle
               rightInset={mapRightInset}
               bottomInset={desktop ? 0 : COLLAPSED_SHEET_HEIGHT}
@@ -535,7 +572,7 @@ export function ReportsTab({
                     setCurrentPage(1);
                     setActiveHighlightedId(null);
                   }} />
-                  <button type="button" onClick={resetFilters} disabled={!canReset} aria-label="Reset filters" title="Reset filters" className="inline-flex h-7 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><RotateCcw className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={resetFilters} disabled={!canReset} aria-label="Reset filters" title="Reset filters" className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-200 text-slate-600 disabled:opacity-40"><RotateCcw className="h-3.5 w-3.5" /></button>
                 </div>
               </div>
               {error ? (
@@ -589,7 +626,8 @@ export function ReportsTab({
                     )}
                     {reports.length === 0 && !loading && (
                       <div className="px-5 py-12 text-center text-sm text-slate-500">
-                        No reports match the current filters.
+                        <p>No reports match the current filters.</p>
+                        {statusFilter === 'All' && <p className="mt-2 text-xs text-slate-400">Rejected reports are hidden by default. Select Rejected to show them.</p>}
                       </div>
                     )}
                   </div>

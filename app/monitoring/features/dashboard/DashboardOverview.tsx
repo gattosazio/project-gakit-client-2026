@@ -183,6 +183,7 @@ export function DashboardOverview({
       )}
       {snapshot && (
         <>
+          <p className="text-[11px] text-slate-500">Recent observations · last 24 hours. Reported conditions may have changed; older unresolved work is shown separately.</p>
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1.7fr)_minmax(16rem,1fr)]">
             <PriorityReports
               snapshot={snapshot}

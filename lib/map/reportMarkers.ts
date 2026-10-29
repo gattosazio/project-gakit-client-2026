@@ -1,6 +1,6 @@
 import { decisionStatus } from '@/lib/reports/decisionReasons';
 import { REPORT_STATUS_LABELS } from '@/constants/publicMap';
-import { DEPTH_LABELS, formatDateTime, getReportAssessmentBasis, STATUS_META, timeAgo } from '@/lib/reports/reportFormatting';
+import { DEPTH_BAR_COLOR, DEPTH_LABELS, formatDateTime, getReportAssessmentBasis, STATUS_META, timeAgo } from '@/lib/reports/reportFormatting';
 import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
 
 export const createReportMarkerImage = (color: string): ImageData | null => {
@@ -13,7 +13,7 @@ export const createReportMarkerImage = (color: string): ImageData | null => {
 
   const cx = size / 2;
   const cy = size / 2;
-  const r = size / 2 - 4;
+  const r = size / 2 - 5.5;
 
   // Soft drop shadow grounds the marker.
   context.save();
@@ -29,40 +29,28 @@ export const createReportMarkerImage = (color: string): ImageData | null => {
   // Flat status disc with a crisp white ring.
   context.beginPath();
   context.arc(cx, cy, r, 0, Math.PI * 2);
-  context.lineWidth = 2.5;
+  context.lineWidth = 9;
   context.strokeStyle = '#ffffff';
   context.stroke();
-
-  // Original flood-wave glyph.
-  drawWave(context, cx, cy, 6);
 
   return context.getImageData(0, 0, size, size);
 };
 
-function drawWave(ctx: CanvasRenderingContext2D, x: number, y: number, width: number) {
-  ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2;
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  [-2.5, 2.5].forEach(offset => {
-    const lineY = y + offset;
-    ctx.beginPath(); ctx.moveTo(x - width, lineY);
-    ctx.bezierCurveTo(x - width * .5, lineY - 2.5, x - width * .15, lineY - 2.5, x, lineY);
-    ctx.bezierCurveTo(x + width * .15, lineY + 2.5, x + width * .5, lineY + 2.5, x + width, lineY);
-    ctx.stroke();
-  });
-}
-
-/** Compact depth counter; the circular pin itself carries the status. */
+/** Static callout with a fixed stem and a depth-colored accent. */
 export function createReportBubbleImage(depthColor = '#64748b'): ImageData | null {
   const canvas = document.createElement('canvas');
-  canvas.width = 96; canvas.height = 36;
+  canvas.width = 240; canvas.height = 76;
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
-  ctx.beginPath(); ctx.roundRect(1, 1, 94, 34, 17);
-  ctx.fillStyle = '#ffffff'; ctx.fill();
-  ctx.lineWidth = 1.5; ctx.strokeStyle = '#d7dee7'; ctx.stroke();
-  ctx.beginPath(); ctx.arc(14, 18, 4, 0, Math.PI * 2);
+  // The stem is part of the label image so it shares label collision behavior.
+  ctx.beginPath(); ctx.roundRect(1, 1, 238, 46, 12);
+  // Fill one connected silhouette; the stem enters the rounded corner.
+  // 19 image pixels = 9.5 CSS pixels, matching the pin's outer diameter.
+  ctx.rect(1, 36, 19, 40);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.94)'; ctx.fill();
+  ctx.beginPath(); ctx.roundRect(5, 8, 4, 32, 2);
   ctx.fillStyle = depthColor; ctx.fill();
-  return ctx.getImageData(0, 0, 96, 36);
+  return ctx.getImageData(0, 0, 240, 76);
 }
 
 export function reportMapLabels(props: MapReportFeature['properties'], now = Date.now()) {
@@ -79,6 +67,7 @@ export function reportMapLabels(props: MapReportFeature['properties'], now = Dat
   return {
     depthLabel: hasNumber ? `${category} (${bubbleDepth})` : category,
     bubbleDepth,
+    depthColor: DEPTH_BAR_COLOR[props.depth.code] ?? '#475569',
     depthBadge: hasNumber ? `${cm}${props.depth.code === 'overhead' ? '+' : ''} cm` : category.replace(/ Deep$/, ''),
     depthBadgeImage: `report-depth-badge-${props.depth.code}`,
     bubbleAge: timestamp ? `${observed ? '' : 'sent '}${timeAgo(timestamp, now)}` : '',

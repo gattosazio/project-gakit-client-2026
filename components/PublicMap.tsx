@@ -157,6 +157,7 @@ interface PublicMapProps {
   searchOverlayActive?: boolean;
   weatherExpandedByDefault?: boolean;
   reportFilters?: MapReportFilters;
+  showRejectedReports?: boolean;
   /** Notified when the rainfall accumulation window changes so parent pages can
    *  keep any mirrored state (e.g. the report modal's "Xh accum." label) in sync. */
   onRainfallHoursChange?: (hours: RainfallAccumulationHours) => void;
@@ -193,7 +194,7 @@ const DEFAULT_VISIBLE_REPORT_STATUSES: Record<ReportStatus, boolean> = {
   UNVERIFIED: true,
   VERIFIED: true,
   ANOMALY: true,
-  REJECTED: true,
+  REJECTED: false,
 };
 
 function MinimalCompass({
@@ -262,6 +263,7 @@ export function PublicMap({
   searchOverlayActive = false,
   weatherExpandedByDefault = false,
   reportFilters,
+  showRejectedReports,
   onReady,
   onLoadingChange,
   onReportClick,
@@ -354,6 +356,11 @@ export function PublicMap({
   const [visibleReportStatuses, setVisibleReportStatuses] = useState<Record<ReportStatus, boolean>>(
     initialVisibleReportStatuses
   );
+  useEffect(() => {
+    if (showRejectedReports === undefined) return;
+    setVisibleReportStatuses(current => current.REJECTED === showRejectedReports
+      ? current : { ...current, REJECTED: showRejectedReports });
+  }, [showRejectedReports]);
   const [mapMode, setMapMode] = useState<MapMode>('2d');
   const [basemap, setBasemap] = useState<BasemapId>(defaultBasemap);
   const [smoothPolygons, setSmoothPolygons] = useState(true);

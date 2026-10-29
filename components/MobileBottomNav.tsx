@@ -43,8 +43,9 @@ export function MobileBottomNav<T extends string>({
                   </span>
                 )}
               </div>
-              <span className="max-w-full truncate text-[10px] font-semibold">
+              <span className="flex max-w-full items-baseline text-[10px] font-semibold">
                 {feature.mobileLabel ?? feature.label}
+                {feature.unreadCount !== undefined && <sup aria-label={`${feature.unreadCount} unread alerts`} className="relative -top-1 ml-0.5 shrink-0 rounded-full bg-gakit-maroon px-1 py-0.5 text-[9px] font-bold leading-none text-white">{feature.unreadCount > 99 ? '99+' : feature.unreadCount}</sup>}
               </span>
             </button>
           );

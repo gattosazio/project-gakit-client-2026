@@ -37,6 +37,7 @@ interface AdminHeaderProps {
   badge?: string;
   showTopo?: boolean;
   compact?: boolean;
+  hideNotifications?: boolean;
   onNotificationClick?: (notificationId: string) => void;
 }
 
@@ -145,6 +146,7 @@ export function AdminHeader({
   badge,
   showTopo = false,
   compact = false,
+  hideNotifications = false,
   onNotificationClick,
 }: AdminHeaderProps) {
   const [recentReports, setRecentReports] = useState<Report[]>([]);
@@ -162,6 +164,7 @@ export function AdminHeader({
   );
 
   useEffect(() => {
+    if (hideNotifications) return;
     let cancelled = false;
     const load = async () => {
       try {
@@ -208,11 +211,11 @@ export function AdminHeader({
       cancelled = true;
       clearInterval(interval);
     };
-  }, []);
+  }, [hideNotifications]);
 
   // Keep read/dismissed state in sync with other surfaces (alerts inbox)
   useEffect(
-    () =>
+    () => hideNotifications ? undefined :
       subscribeToReceiptChanges((kind, ids) => {
         if (kind === 'read') setReadIds((cur) => [...new Set([...cur, ...ids])]);
         else if (kind === 'dismissed') setDismissedIds((cur) => [...new Set([...cur, ...ids])]);
@@ -222,10 +225,11 @@ export function AdminHeader({
           setDismissedIds((cur) => cur.filter((id) => !ids.includes(id)));
         }
       }),
-    []
+    [hideNotifications]
   );
 
   useEffect(() => {
+    if (hideNotifications) return;
     // Live updates: refetch when reports change (new submission or status
     // change). Payloads are ignored; the existing loader is the source of
     // truth. Debounced to coalesce bursts (bulk status updates etc).
@@ -259,7 +263,7 @@ export function AdminHeader({
       if (debounce) clearTimeout(debounce);
       void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [hideNotifications]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -277,6 +281,7 @@ export function AdminHeader({
   // Keep `now` current so the "last 48 hours" cutoff in recentNotifications
   // stays accurate without calling an impure function during render.
   useEffect(() => {
+    if (hideNotifications) return;
     let cancelled = false;
     void Promise.resolve().then(() => {
       if (!cancelled) setNow(Date.now());
@@ -286,7 +291,7 @@ export function AdminHeader({
       cancelled = true;
       clearInterval(id);
     };
-  }, []);
+  }, [hideNotifications]);
 
   const recentNotifications = useMemo(() => {
     // Only show notifications from the last 48 hours, excluding dismissed ones.
@@ -408,7 +413,7 @@ export function AdminHeader({
       </div>
 
       <div className="relative flex items-center gap-1.5 sm:gap-2">
-        <div ref={notificationRef} className="relative">
+        {!hideNotifications && <div ref={notificationRef} className="relative">
           <button
             type="button"
             aria-label="Open notifications"
@@ -507,6 +512,7 @@ export function AdminHeader({
             </div>
           )}
         </div>
+        }
         <SettingsDropdown />
         <ValidationModeBadge />
         <div className="lg:hidden">

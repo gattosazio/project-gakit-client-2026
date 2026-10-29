@@ -195,15 +195,17 @@ describe('sortNotifications', () => {
     ]);
   });
 
-  it('orders depth by its display label', () => {
+  it('orders depth from shallow to deep', () => {
     const items = [
       makeNotification({ id: 'ankle', depth: 'ankle' }),
       makeNotification({ id: 'head', depth: 'head' }),
+      makeNotification({ id: 'knee', depth: 'knee' }),
       makeNotification({ id: 'nodepth' }),
     ];
     expect(sortNotifications(items, 'depth', 'asc').map((n) => n.id)).toEqual([
       'nodepth',
       'ankle',
+      'knee',
       'head',
     ]);
   });
@@ -249,7 +251,7 @@ describe('isArchived', () => {
     expect(isArchived(dismissed, { dismissedIds: ['dismissed'], readIds: [] }, NOW)).toBe(true);
   });
 
-  it('auto-archives a notification read for at least ARCHIVE_AFTER_DAYS', () => {
+  it('auto-archives a read notification at least ARCHIVE_AFTER_DAYS old', () => {
     expect(isArchived(readOld, { dismissedIds: [], readIds: ['read-old'] }, NOW)).toBe(true);
   });
 
@@ -257,8 +259,8 @@ describe('isArchived', () => {
     expect(isArchived(readRecent, { dismissedIds: [], readIds: ['read-recent'] }, NOW)).toBe(false);
   });
 
-  it('never auto-archives an unread notification, however old', () => {
-    expect(isArchived(unreadOld, { dismissedIds: [], readIds: [] }, NOW)).toBe(false);
+  it('auto-archives an old unread notification', () => {
+    expect(isArchived(unreadOld, { dismissedIds: [], readIds: [] }, NOW)).toBe(true);
   });
 
   it('treats the age boundary as inclusive', () => {
@@ -313,9 +315,30 @@ describe('weatherNotifications', () => {
 });
 
 describe('buildNotifications', () => {
+  it('includes validated critical reports from any source, but not rejected or routine validated reports', () => {
+    const critical = { code: 'head', label: 'Head', approximateCm: 150 } as const;
+    const notifications = reportNotifications([
+      makeReport({ id: 'public-critical', reporterType: 'public', status: 'VERIFIED', depth: critical }),
+      makeReport({ id: 'staff-critical', reporterType: 'staff', status: 'VERIFIED', depth: critical }),
+      makeReport({ id: 'rejected-critical', reporterType: 'staff', status: 'REJECTED', depth: critical }),
+      makeReport({ id: 'validated-shallow', reporterType: 'staff', status: 'VERIFIED' }),
+    ]);
+    expect(notifications.map(item => item.reportId)).toEqual(['public-critical', 'staff-critical']);
+    expect(notifications.every(item => item.severity === 'critical' && item.reportStatus === 'VERIFIED')).toBe(true);
+  });
+  it('only produces report alerts for pending staff submissions', () => {
+    const notifications = reportNotifications([
+      makeReport({ id: 'staff-pending', reporterType: 'staff' }),
+      makeReport({ id: 'staff-flagged', reporterType: 'staff', status: 'ANOMALY' }),
+      makeReport({ id: 'staff-rejected', reporterType: 'staff', status: 'REJECTED' }),
+      makeReport({ id: 'staff-verified', reporterType: 'staff', status: 'VERIFIED' }),
+      makeReport({ id: 'public-pending', reporterType: 'public' }),
+    ]);
+    expect(notifications.map(item => item.reportId)).toEqual(['staff-pending', 'staff-flagged']);
+  });
   it('concatenates report and weather notifications', () => {
     const reports = [
-      makeReport({ id: 'r1', depth: { code: 'head', label: 'Head', approximateCm: 150 } }),
+      makeReport({ id: 'r1', reporterType: 'staff', depth: { code: 'head', label: 'Head', approximateCm: 150 } }),
     ];
     const alerts = [makeAlert({ id: 'w1' })];
 

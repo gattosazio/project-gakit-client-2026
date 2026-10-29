@@ -4,6 +4,22 @@ import { digestSubtitle } from './weatherCodes';
 /** Towns shown before the "+N more" expander in the alert modal. */
 export const INITIAL_TOWNS = 7;
 
+export function thunderstormBulletinType(alert: WeatherAlert): 'watch' | 'advisory' | undefined {
+  if (alert.alertType !== 'thunderstorm') return undefined;
+  for (const heading of [alert.data?.title, alert.data?.bulletinType, alert.data?.rawText?.split('\n')[0]]) {
+    const match = /\bthunderstorm\s+(watch|advisory)\b/i.exec(heading ?? '');
+    if (match) return match[1].toLowerCase() as 'watch' | 'advisory';
+  }
+  return undefined;
+}
+
+/** Read the Iligan-specific level from the server-projected bulletin title. */
+export function rainfallWarningLevel(alert: WeatherAlert): 'yellow' | 'orange' | 'red' | undefined {
+  if (alert.alertType !== 'heavy_rain') return undefined;
+  const match = /\b(yellow|orange|red)\s+(?:advisory|warning)\b/i.exec(alert.data?.title ?? '');
+  return match?.[1].toLowerCase() as 'yellow' | 'orange' | 'red' | undefined;
+}
+
 export function isPagasaAlert(alert: WeatherAlert): boolean {
   if (alert.alertType === 'daily_digest') return false;
   const source = alert.data?.source ?? '';

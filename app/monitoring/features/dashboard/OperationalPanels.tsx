@@ -26,49 +26,66 @@ const REASONS = {
   needs_review: 'Awaiting evidence or review',
 };
 
+function PriorityReportRow({ report, snapshot, onOpen }: {
+  report: DashboardSnapshot['priorityReports'][number];
+  snapshot: DashboardSnapshot;
+  onOpen: (report: Report) => void;
+}) {
+  const meta = STATUS_META[report.status];
+  const older = report.priorityReason === 'older_review';
+  return (
+    <button type="button" onClick={() => onOpen(report)} className="group flex w-full items-center gap-3 px-4 py-1.5 text-left hover:bg-slate-50">
+      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${older ? 'bg-slate-400' : report.priorityReason === 'high_severity' ? 'bg-red-500' : 'bg-violet-500'}`} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-xs font-semibold text-slate-800">{report.location.address || 'Unnamed report location'}</span>
+        <span className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-slate-500">
+          <span className="font-semibold text-slate-700">{formatReportDepth(report.depth, report.depthCm)}</span>
+          <span>{REASONS[report.priorityReason]}</span>
+          <span title={manilaTime(report.observedAt, true)}>Observed {timeAgo(report.observedAt, Date.parse(snapshot.asOf))}</span>
+        </span>
+      </span>
+      <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold ${meta.badgeClass}`}>{meta.label}</span>
+      <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+    </button>
+  );
+}
+
 export function PriorityReports({ snapshot, onOpen, onBrowse }: {
   snapshot: DashboardSnapshot;
   onOpen: (report: Report) => void;
   onBrowse: (status: 'UNVERIFIED') => void;
 }) {
-  const visible = snapshot.priorityReports.slice(0, 3);
+  const start = Date.parse(snapshot.windowStart);
+  const end = Date.parse(snapshot.asOf);
+  // Also guard old snapshots while client and server updates roll out.
+  const visible = snapshot.priorityReports.filter(report =>
+    (report.status === 'UNVERIFIED' || report.status === 'ANOMALY') &&
+    Date.parse(report.observedAt) >= start && Date.parse(report.observedAt) <= end).slice(0, 3);
+  const older = (snapshot.olderReviewReports ?? snapshot.priorityReports.filter(report =>
+    (report.status === 'UNVERIFIED' || report.status === 'ANOMALY') && Date.parse(report.observedAt) < start))
+    .slice(0, 3);
   return (
     <section className={`${PANEL_CLASS} flex h-full flex-col`} aria-label="Priority reports">
-      <PanelHeading title="Priority queue" action={
-        <span className="text-[10px] text-slate-500">Recent severe observations & reviews</span>
-      } />
+      <PanelHeading title="Priority queue" action={<span className="text-[10px] text-slate-500">Observed in last 24h</span>} />
       <div className="flex-1 divide-y divide-slate-100">
-        {visible.length ? visible.map((report) => {
-          const meta = STATUS_META[report.status];
-          return (
-            <button key={report.id} type="button" onClick={() => onOpen(report)}
-              className="group flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-slate-50">
-              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${report.priorityReason === 'high_severity' ? 'bg-red-500' : report.priorityReason === 'older_review' ? 'bg-slate-400' : 'bg-violet-500'}`} />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-semibold text-slate-800">{report.location.address || 'Unnamed report location'}</span>
-                <span className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-slate-500">
-                  <span className="font-semibold text-slate-700">{formatReportDepth(report.depth, report.depthCm)}</span>
-                  <span className="sm:hidden">{meta.label}</span>
-                  <span>{REASONS[report.priorityReason]}</span>
-                  <span title={manilaTime(report.observedAt, true)}>Observed {timeAgo(report.observedAt, Date.parse(snapshot.asOf))}</span>
-                </span>
-              </span>
-              <span className={`hidden shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-semibold sm:inline ${meta.badgeClass}`}>{meta.label}</span>
-              <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-400 group-hover:text-gakit-maroon" />
-            </button>
-          );
-        }) : (
-          <div className="flex items-center gap-3 px-4 py-10 text-xs text-slate-500">
-            <Check className="h-5 w-5 text-slate-400" /> No recent severe observations or unresolved reviews.
-          </div>
-        )}
+        {visible.length ? visible.map(report => <PriorityReportRow key={report.id} report={report} snapshot={snapshot} onOpen={onOpen} />)
+          : <div className="flex items-center gap-3 px-4 py-5 text-xs text-slate-500"><Check className="h-5 w-5 text-slate-400" />No unresolved reports observed in the last 24 hours.</div>}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 bg-slate-50/50 px-4 py-2">
-        <span className="text-[10px] text-slate-500">{snapshot.totals.olderReviews} older reviews · all dates included</span>
-        <div className="flex gap-2">
-          <button type="button" onClick={() => onBrowse('UNVERIFIED')} className="text-[11px] font-semibold text-gakit-maroon">View pending · All time ({snapshot.totals.pending})</button>
-          <span className="text-[11px] text-slate-500">Includes {snapshot.totals.flagged} with conflicts</span>
+      <details className="border-t border-slate-200 bg-slate-50/50" aria-label="Older unresolved reports">
+        <summary className="cursor-pointer px-4 py-2 text-xs font-semibold text-slate-600">
+          Older unresolved <span className="tabular-nums">({snapshot.totals.olderReviews})</span>
+          <span className="ml-2 text-[10px] font-normal text-slate-500">Review backlog</span>
+        </summary>
+        <div className="px-4 pb-1">
+          <span className="text-[10px] text-slate-500">Observed over 24h ago · review backlog</span>
         </div>
+        <div className="divide-y divide-slate-100">
+          {older.map(report => <PriorityReportRow key={report.id} report={{ ...report, priorityReason: 'older_review' }} snapshot={snapshot} onOpen={onOpen} />)}
+          {snapshot.totals.olderReviews === 0 && <p className="px-4 pb-2 text-[10px] text-slate-500">No older unresolved reports.</p>}
+        </div>
+      </details>
+      <div className="border-t border-slate-100 px-4 py-2">
+        <button type="button" onClick={() => onBrowse('UNVERIFIED')} className="text-[11px] font-semibold text-gakit-maroon">View all pending · All time ({snapshot.totals.pending})</button>
       </div>
     </section>
   );
@@ -78,8 +95,9 @@ export function WorkloadSummary({ snapshot, onReview }: { snapshot: DashboardSna
   const { totals } = snapshot;
   const metrics = [
     { label: 'High severity', detail: 'Observed in 24h', value: totals.highSeverity, icon: Waves, color: 'text-red-600' },
-    { label: 'Pending review', detail: 'All unresolved', value: totals.pending, icon: Clock3, color: 'text-amber-700' },
-    { label: 'Evidence conflicts', detail: 'Included in Pending', value: totals.flagged, icon: ShieldAlert, color: 'text-amber-700' },
+    { label: 'Recent pending', detail: 'Observed in 24h', value: totals.recentReviews ?? Math.max(0, totals.pending - totals.olderReviews), icon: Clock3, color: 'text-amber-700' },
+    { label: 'Older pending', detail: 'Observed over 24h ago', value: totals.olderReviews, icon: Clock3, color: 'text-slate-600' },
+    { label: 'Evidence conflicts', detail: 'All unresolved · all dates', value: totals.flagged, icon: ShieldAlert, color: 'text-amber-700' },
     { label: 'Validated observations', detail: 'Observed in 24h', value: totals.verifiedObservations, icon: ShieldCheck, color: 'text-green-700' },
   ];
   return (
@@ -87,7 +105,7 @@ export function WorkloadSummary({ snapshot, onReview }: { snapshot: DashboardSna
       <PanelHeading title="Workload summary" />
       <div className="flex-1 divide-y divide-slate-100">
         {metrics.map((metric) => (
-          <div key={metric.label} className="flex items-center gap-2.5 px-4 py-2">
+          <div key={metric.label} className="flex items-center gap-2.5 px-4 py-1.5">
             <metric.icon className={`h-3.5 w-3.5 shrink-0 ${metric.color}`} />
             <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-0.5">
               <span className="text-xs font-medium text-slate-700">{metric.label}</span>

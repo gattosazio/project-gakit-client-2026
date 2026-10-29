@@ -33,14 +33,14 @@ const report = (id, address, status, code, depthCm, hours = -0.5) => ({
 const total = hourly.reduce((sum, hour) => sum + hour.count, 0);
 const normal = { asOf: stamp(0), windowStart: stamp(-24),
   totals: { submissions: total, previousSubmissions: 94, lastHourSubmissions: 3, highSeverity: 3,
-    recentObservations: 18, verifiedObservations: 10, barangays: 3, unlocated: 1, needsReview: 9, olderReviews: 2, pending: 6, flagged: 3 },
+    recentObservations: 18, verifiedObservations: 10, barangays: 3, unlocated: 1, needsReview: 6, recentReviews: 4, olderReviews: 2, pending: 6, flagged: 3 },
   hourly, barangays: [area('Tibanga', 8, 6, 1, 1, 165), area('Pala-o', 6, 3, 2, 1, 95), area('Tambacan', 4, 1, 2, 1, 45)],
   priorityReports: [
-    { ...report('severe', 'Tibanga · National Highway', 'VERIFIED', 'head', 165), priorityReason: 'high_severity' },
+    { ...report('severe', 'Tibanga · National Highway', 'UNVERIFIED', 'head', 165), priorityReason: 'high_severity' },
     { ...report('pending', 'Pala-o · Market access road', 'UNVERIFIED', 'knee', 45), priorityReason: 'needs_review' },
-    { ...report('older', 'Mahayahay · Community road', 'UNVERIFIED', 'knee', 45, -30), priorityReason: 'older_review' },
     { ...report('conflict', 'Tambacan · Riverside', 'ANOMALY', 'waist', 95), priorityReason: 'conflicting_evidence' },
   ],
+  olderReviewReports: [{ ...report('older', 'Mahayahay · Community road', 'UNVERIFIED', 'knee', 45, -30), priorityReason: 'older_review' }],
   automation: { enabled: true, queued: 3, failed: 1, oldestQueuedAt: stamp(-0.8), firstFailedReportId: 'conflict' },
 };
 let snapshot = normal, reportsFail = false, advisoryFailure = false, alerts = [];
@@ -112,7 +112,7 @@ export default function Preview() {
  </main></div></div>;
 }`);
   try {
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true, channel: process.platform === 'win32' ? 'msedge' : undefined });
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
@@ -128,10 +128,12 @@ export default function Preview() {
     assert.equal(await page.getByRole('region', { name: 'Priority reports', exact: true }).getByRole('button').count(), 4, 'Three entries and one pending-queue action');
     const region = page.getByRole('region', { name: 'Report inflow', exact: true });
     assert.equal(await region.locator('strong').first().textContent(), String(total));
-    await page.getByRole('button', { name: /View pending · All time \(6\)/ }).click();
+    await page.getByRole('button', { name: /View all pending · All time \(6\)/ }).click();
     assert.deepEqual(JSON.parse(await navigation(page).textContent()), { status: 'UNVERIFIED', time: 'all' });
+    await page.locator('summary').filter({ hasText: 'Older unresolved' }).click();
     await page.getByRole('button').filter({ hasText: 'Mahayahay · Community road' }).click();
     assert.deepEqual(JSON.parse(await navigation(page).textContent()), { reportId: 'older' });
+    await page.locator('summary').filter({ hasText: 'Older unresolved' }).click();
     await page.getByRole('button').filter({ hasText: 'Tibanga · National Highway' }).click();
     assert.equal(JSON.parse(await navigation(page).textContent()).reportId, 'severe');
     await page.getByRole('button', { name: '1 failed assessment', exact: true }).click();
@@ -203,7 +205,7 @@ export default function Preview() {
     assert(desktopHeight.excess <= 1, `1440x900 with two advisories should fit: ${JSON.stringify(desktopHeight)}`);
     await page.setViewportSize({ width: 1366, height: 768 });
     const shortHeight = await height(page);
-    assert(shortHeight.excess <= 100, `Short desktop must need minimal scrolling: ${JSON.stringify(shortHeight)}`);
+    assert(shortHeight.excess <= 160, `Short desktop must allow only limited scrolling for the separate backlog and workload rows: ${JSON.stringify(shortHeight)}`);
     await page.screenshot({ path: path.join(output, 'dashboard-desktop-1366.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: /Submission Archive/ }).click();
@@ -227,7 +229,7 @@ export default function Preview() {
     snapshot = { ...normal, totals: Object.fromEntries(Object.keys(normal.totals).map(key => [key, 0])),
       hourly: hourly.map(hour => ({ ...hour, count: 0, verified: 0, pending: 0, flagged: 0, rejected: 0 })), barangays: [], priorityReports: [] };
     await page.getByRole('button', { name: 'Refresh', exact: true }).click();
-    await page.getByText('No recent severe observations or unresolved reviews.', { exact: true }).waitFor();
+    await page.getByText('No unresolved reports observed in the last 24 hours.', { exact: true }).waitFor();
     assert.equal(await region.locator('strong').first().textContent(), '0');
     assert((await region.getByRole('button', { name: /: 0 received;/ }).count()) === 25);
     archiveEmpty = true;

@@ -43,6 +43,7 @@ export interface DashboardSnapshot {
     unlocated: number;
     needsReview: number;
     olderReviews: number;
+    recentReviews?: number;
     pending: number;
     flagged: number;
   };
@@ -53,6 +54,7 @@ export interface DashboardSnapshot {
       priorityReason: 'high_severity' | 'older_review' | 'conflicting_evidence' | 'needs_review';
     }
   >;
+  olderReviewReports?: Array<Report & { priorityReason: 'older_review' }>;
   automation: {
     enabled: boolean;
     queued: number;

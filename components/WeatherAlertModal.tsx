@@ -3,7 +3,7 @@ import { CloudRain, X, Droplet, MapPin } from 'lucide-react';
 import type { WeatherAlert, AlertSeverity } from '@/types/weather';
 import { alertDescription, alertTitle, digestPeriod, formatDayForecast, getWeatherCondition } from '@/lib/weather/weatherCodes';
 import { ALERT_ICONS, ALERT_TYPE_LABELS } from '@/lib/weather/alertLabels';
-import { hazardSummary, isPagasaAlert, otherProvinceCount, parseLocalTowns, shortTitle } from '@/lib/weather/pagasa';
+import { hazardSummary, isPagasaAlert, otherProvinceCount, parseLocalTowns, rainfallWarningLevel, shortTitle, thunderstormBulletinType } from '@/lib/weather/pagasa';
 import { WeatherAttribution } from './weather/WeatherAttribution';
 import { RainStrip } from './weather/RainStrip';
 import { Dialog } from '@/components/ui/Dialog';
@@ -100,11 +100,26 @@ function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAle
     setTownsExpanded(false);
   }
 
-  const config = SEVERITY_CONFIG[activeAlert.severity];
   const Icon = ALERT_ICONS[activeAlert.alertType] ?? CloudRain;
   const pagasa = isPagasaAlert(activeAlert);
   const heading = pagasa ? shortTitle(activeAlert) || alertTitle(activeAlert) : alertTitle(activeAlert);
-  const localTowns = pagasa ? parseLocalTowns(activeAlert) : [];
+  // The projected bulletin title identifies the warning level for Iligan.
+  const rainfallLevel = rainfallWarningLevel(activeAlert);
+  const rainfallStyle = rainfallLevel === 'yellow'
+    ? { badge: 'bg-yellow-100 text-yellow-900', border: 'border-l-yellow-500', header: 'bg-yellow-50', label: 'Yellow advisory' }
+    : rainfallLevel === 'orange'
+      ? { badge: 'bg-orange-100 text-orange-900', border: 'border-l-orange-500', header: 'bg-orange-50', label: 'Orange warning' }
+      : rainfallLevel === 'red'
+        ? { badge: 'bg-red-100 text-red-900', border: 'border-l-red-500', header: 'bg-red-50', label: 'Red warning' }
+        : undefined;
+  const thunderstormType = thunderstormBulletinType(activeAlert);
+  const bulletinStyle = rainfallStyle ?? (thunderstormType === 'watch'
+    ? { badge: 'bg-blue-50 text-blue-800', border: 'border-l-blue-500', header: 'bg-blue-50', label: 'Thunderstorm Watch' }
+    : thunderstormType === 'advisory'
+      ? { badge: 'bg-amber-50 text-amber-900', border: 'border-l-amber-500', header: 'bg-amber-50', label: 'Thunderstorm Advisory' }
+      : undefined);
+  const config = bulletinStyle ?? SEVERITY_CONFIG[activeAlert.severity];
+  const localTowns = activeAlert.data?.coverageLabel ? [activeAlert.data.coverageLabel] : pagasa ? parseLocalTowns(activeAlert) : [];
   const towns = [...new Set(localTowns.length ? localTowns : activeAlert.data?.affectedAreas?.filter(Boolean) ?? [])];
   const summary = (pagasa ? hazardSummary(activeAlert) : null) || activeAlert.data?.description?.trim() || alertDescription(activeAlert);
   const otherCount = pagasa ? otherProvinceCount(activeAlert) : 0;
@@ -125,13 +140,13 @@ function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAle
       maxWidthClass="max-w-xl"
       panelClassName="relative flex max-h-[90dvh] flex-col overflow-hidden border border-canvas-grey"
     >
-        <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5">
+        <div className={`flex shrink-0 items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 sm:px-5 ${bulletinStyle?.header ?? ''}`}>
           <div className="flex min-w-0 items-start gap-2.5">
             <span className={`mt-0.5 shrink-0 rounded-xl p-2 ${config.badge}`}><Icon className="h-5 w-5" /></span>
             <div className="min-w-0">
               <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide">
                 <span className="text-slate-500">{ALERT_TYPE_LABELS[activeAlert.alertType]}</span>
-                <span className={`rounded px-1.5 py-0.5 ${config.badge}`}>{activeAlert.severity}</span>
+                <span className={`rounded px-1.5 py-0.5 ${config.badge}`}>{bulletinStyle?.label ?? activeAlert.severity}</span>
                 {activeAlert.data?.bulletinNumber != null && <span className="text-slate-500">Bulletin #{activeAlert.data.bulletinNumber}</span>}
               </div>
               <h3 id={titleId} className="text-sm font-bold leading-5 text-slate-900">{heading}</h3>
@@ -247,14 +262,15 @@ function AdvisoryWeatherAlertModal({ alert, highlightDate, onClose }: WeatherAle
           ) : (
             <div className="space-y-3">
               {summary && (
-                <div className={`rounded-xl border border-slate-200 border-l-[3px] bg-slate-50/70 p-3 ${activeAlert.severity === 'critical' ? 'border-l-red-500' : activeAlert.severity === 'warning' ? 'border-l-orange-500' : 'border-l-blue-500'}`}>
+                <div className={`rounded-xl border border-slate-200 border-l-[3px] bg-slate-50/70 p-3 ${bulletinStyle?.border ?? (activeAlert.severity === 'critical' ? 'border-l-red-500' : activeAlert.severity === 'warning' ? 'border-l-orange-500' : 'border-l-blue-500')}`}>
                   <h4 className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500">Advisory summary</h4>
                   <p className="whitespace-pre-line text-xs leading-5 text-slate-700">{summary}</p>
                 </div>
               )}
               {towns.length > 0 && (
                 <div className="rounded-xl bg-slate-50 p-3 border border-slate-200/70 text-xs">
-                  <h4 className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500"><MapPin className="h-3 w-3" />Affected areas <span className="ml-auto rounded-full bg-white px-1.5 text-slate-500">{towns.length}</span></h4>
+                  <h4 className="mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500"><MapPin className="h-3 w-3" />{activeAlert.data?.coverageLabel ? 'Local coverage' : 'Affected areas'}</h4>
+                  {activeAlert.data?.coverageLabel && <p className="mb-2 text-[11px] leading-4 text-slate-600">This advisory applies to Iligan City. The original regional bulletin may also name other towns or warning levels.</p>}
                   <div className="flex flex-wrap gap-1.5">
                     {visibleTowns.map((town) =>
                       /iligan/i.test(town) ? (

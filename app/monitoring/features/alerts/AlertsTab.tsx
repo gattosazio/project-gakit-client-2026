@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useVisibleInterval } from '@/hooks/useVisibleInterval';
 import { Archive, CheckCircle2, Inbox } from 'lucide-react';
 import {
   dismissNotifications,
@@ -18,7 +19,11 @@ import {
   fetchReportPages,
   fetchWeatherPages,
 } from '@/lib/notifications/feed';
-import type { Report } from '@/types/report';
+import type { Report, ReportStatus } from '@/types/report';
+import type { DecisionReason } from '@/lib/reports/decisionReasons';
+import { getReport, updateReportStatus } from '../reports/actions/reports';
+import { ReportDetail } from '../reports/ReportDetail';
+import { toast } from 'react-toastify';
 import type { WeatherAlert as WeatherAlertType } from '@/types/weather';
 import {
   partitionArchived,
@@ -41,16 +46,22 @@ export function AlertsTab({
   highlightedNotificationId = null,
   onOpenReports,
   onSelectWeatherAlert,
+  onUnreadCountChange,
 }: {
   active?: boolean;
   highlightedNotificationId?: string | null;
   onOpenReports: (reportId?: string) => void;
   onSelectWeatherAlert?: (alert: WeatherAlertType) => void;
+  onUnreadCountChange?: (count: number) => void;
 }) {
   const searchParams = useSearchParams();
   const notificationParam = highlightedNotificationId ?? searchParams.get('notification');
   const [activeHighlightedId, setActiveHighlightedId] = useState<string | null>(notificationParam);
   const [reports, setReports] = useState<Report[]>([]);
+  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
+  const [updatingReport, setUpdatingReport] = useState(false);
+  const [feedVersion, setFeedVersion] = useState(0);
+  useVisibleInterval(() => setFeedVersion(version => version + 1), 60_000);
   const [weatherAlerts, setWeatherAlerts] = useState<WeatherAlertType[]>([]);
   const [loading, setLoading] = useState(true);
   const [reportsError, setReportsError] = useState<string | null>(null);
@@ -101,7 +112,6 @@ export function AlertsTab({
 
 
   useEffect(() => {
-    if (!active) return;
     let cancelled = false;
 
     const reportPages = view === 'archived' ? ARCHIVED_REPORT_PAGES : ACTIVE_REPORT_PAGES;
@@ -139,10 +149,9 @@ export function AlertsTab({
     return () => {
       cancelled = true;
     };
-  }, [active, view]);
+  }, [active, view, feedVersion]);
 
   useEffect(() => {
-    if (!active) return;
     let cancelled = false;
     void (async () => {
       const receipts = await fetchNotificationReceipts();
@@ -235,7 +244,30 @@ export function AlertsTab({
   }, [dismissConfirmId]);
 
   const unreadCount = unreadIds.length;
+  useEffect(() => { onUnreadCountChange?.(unreadCount); }, [onUnreadCountChange, unreadCount]);
   const totalCount = activeReports.length + activeWeather.length;
+
+  const openReportDetail = (reportId?: string) => {
+    if (!reportId) return;
+    const report = reports.find(item => item.id === reportId);
+    if (report) { setSelectedReport(report); return; }
+    void getReport(reportId).then(setSelectedReport).catch(() => toast.error('Unable to load report details.'));
+  };
+
+  const updateSelectedReport = async (report: Report, status: ReportStatus, reason?: DecisionReason) => {
+    if (!reason) return false;
+    setUpdatingReport(true);
+    try {
+      const updated = await updateReportStatus(report.id, status, { reasonCode: reason.reasonCode, reason: reason.note });
+      setReports(current => current.map(item => item.id === updated.id ? updated : item));
+      setSelectedReport(null);
+      toast.success('Report status updated.');
+      return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Unable to update report.');
+      return false;
+    } finally { setUpdatingReport(false); }
+  };
 
   const sharedPanelProps = {
     view,
@@ -246,7 +278,7 @@ export function AlertsTab({
     onDismiss: dismiss,
     onRestore: restore,
     onDismissRequest: setDismissConfirmId,
-    onOpenReports,
+    onOpenReports: openReportDetail,
     onMarkAllRead: markManyAsRead,
   };
 
@@ -310,15 +342,15 @@ export function AlertsTab({
       </div>
 
       <div className="grid min-h-0 grid-cols-1 gap-3 xl:flex-1 xl:grid-cols-2 xl:grid-rows-1">
+        <ReportAlertsPanel
+          notifications={visibleReports}
+          error={reportsError}
+          {...sharedPanelProps}
+        />
         <WeatherAlertsPanel
           notifications={visibleWeather}
           error={weatherError}
           onSelectWeatherAlert={onSelectWeatherAlert}
-          {...sharedPanelProps}
-        />
-        <ReportAlertsPanel
-          notifications={visibleReports}
-          error={reportsError}
           {...sharedPanelProps}
         />
       </div>
@@ -331,6 +363,9 @@ export function AlertsTab({
           setDismissConfirmId(null);
         }}
       />
+      {selectedReport && <ReportDetail key={selectedReport.id} report={selectedReport} modal
+        isUpdating={updatingReport} onClose={() => setSelectedReport(null)} onUpdateStatus={updateSelectedReport}
+        onViewOnMap={() => { const id = selectedReport.id; setSelectedReport(null); onOpenReports(id); }} />}
     </section>
   );
 }

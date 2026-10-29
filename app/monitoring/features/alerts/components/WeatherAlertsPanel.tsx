@@ -103,7 +103,7 @@ export function WeatherAlertsPanel({
 }) {
   const [typeFilter, setTypeFilter] = useState<WeatherAlertTypeFilter>('all');
   const [severityFilter, setSeverityFilter] = useState<Severity | 'all'>('all');
-  const [dateFilter, setDateFilter] = useState<DateRange>('48h');
+  const [dateFilter, setDateFilter] = useState<DateRange>('7d');
   const [sortValue, setSortValue] = useState<WeatherSortValue>('sentAt:desc');
   const sort = useMemo(() => parseSort(sortValue), [sortValue]);
 
@@ -140,7 +140,7 @@ export function WeatherAlertsPanel({
           title={view === 'archived' ? 'Nothing archived yet' : 'No matching weather alerts'}
           description={
             view === 'archived'
-              ? 'Archived weather alerts and ones read for over a week appear here.'
+              ? 'Manually archived weather alerts and alerts at least 7 days old appear here.'
               : 'Try another advisory type, severity, or date filter.'
           }
         />

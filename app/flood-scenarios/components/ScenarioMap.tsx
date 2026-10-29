@@ -155,7 +155,7 @@ export function ScenarioMap({ scenarioId, currentFrame, bounds, onRasterStateCha
             'ANOMALY', REPORT_MARKER_IMAGE_IDS.ANOMALY,
             'REJECTED', REPORT_MARKER_IMAGE_IDS.REJECTED,
             REPORT_MARKER_IMAGE_IDS.UNVERIFIED],
-          'icon-anchor': 'center', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
+          'icon-anchor': 'center', 'icon-size': 0.5, 'icon-allow-overlap': true, 'icon-ignore-placement': true,
         },
       });
       map.setLayoutProperty('demo-observation-points', 'visibility', demoReportPinsHidden ? 'none' : 'visible');

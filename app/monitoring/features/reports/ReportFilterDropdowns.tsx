@@ -10,11 +10,12 @@ export function StatusFilterDropdown({
   value,
   onChange,
 }: {
-  value: 'All' | ReportStatus;
-  onChange: (value: 'All' | ReportStatus) => void;
+  value: 'All' | 'AllStatuses' | ReportStatus;
+  onChange: (value: 'All' | 'AllStatuses' | ReportStatus) => void;
 }) {
-  const options: FilterDropdownOption<'All' | ReportStatus>[] = [
-    { value: 'All', label: 'All statuses', icon: <Filter className="w-4 h-4 shrink-0" /> },
+  const options: FilterDropdownOption<'All' | 'AllStatuses' | ReportStatus>[] = [
+    { value: 'All', label: 'Pending & validated', icon: <Filter className="w-4 h-4 shrink-0" /> },
+    { value: 'AllStatuses', label: 'All statuses', icon: <Filter className="w-4 h-4 shrink-0" /> },
     ...(['UNVERIFIED', 'VERIFIED', 'REJECTED'] as ReportStatus[]).map((status) => {
       const Icon = STATUS_ICONS[status];
       return {
@@ -24,7 +25,8 @@ export function StatusFilterDropdown({
       };
     }),
   ];
-  const SelectedIcon = value === 'All' ? Filter : STATUS_ICONS[value];
+  const isGroup = value === 'All' || value === 'AllStatuses';
+  const SelectedIcon = isGroup ? Filter : STATUS_ICONS[value];
 
   return (
     <FilterDropdown
@@ -35,10 +37,10 @@ export function StatusFilterDropdown({
       triggerIcon={
         <SelectedIcon
           className="w-4 h-4"
-          style={value !== 'All' ? { color: STATUS_META[value].color } : undefined}
+          style={!isGroup ? { color: STATUS_META[value].color } : undefined}
         />
       }
-      triggerLabel={value === 'All' ? 'All statuses' : STATUS_META[value].label}
+      triggerLabel={value === 'All' ? 'Pending & validated' : value === 'AllStatuses' ? 'All statuses' : STATUS_META[value].label}
     />
   );
 }
@@ -59,6 +61,7 @@ export function DepthsFilterDropdown({
   return (
     <FilterDropdown
       size="sm"
+      maxMenuHeight={320}
       value={value}
       onSelect={onChange}
       options={options}

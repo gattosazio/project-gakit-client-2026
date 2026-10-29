@@ -140,36 +140,20 @@ export function LocationMiniMap({ latitude, longitude, status, onViewOnMap, acti
             ))}
           </div>
           {/* The strip is translated so the report lands dead center. */}
-          {/* Status disc matching the incident map's pins (see
-              createReportMarkerImage): flat status color, white ring, white
-              wave glyph. */}
+          {/* Status disc matching the incident map's pins. */}
           <span
             aria-hidden
-            className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 drop-shadow-md ${status ? 'h-6 w-6 -translate-y-1/2' : 'h-7 w-7 -translate-y-full'}`}
+            className={`pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 drop-shadow-md ${status ? 'h-4 w-4 -translate-y-1/2' : 'h-7 w-7 -translate-y-full'}`}
           >
             {status ? <svg viewBox="0 0 40 40" className="h-full w-full">
-              <circle cx="20" cy="20" r="16" fill={REPORT_MARKER_COLORS[status]} />
+              <circle cx="20" cy="20" r="14.5" fill={REPORT_MARKER_COLORS[status]} />
               <circle
                 cx="20"
                 cy="20"
-                r="16"
+                r="14.5"
                 fill="none"
                 stroke="#ffffff"
-                strokeWidth="2.5"
-              />
-              <path
-                d="M14 17.5 C17 15 19.1 15 20 17.5 C20.9 20 23 20 26 17.5"
-                fill="none"
-                stroke="#ffffff"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-              <path
-                d="M14 22.5 C17 20 19.1 20 20 22.5 C20.9 25 23 25 26 22.5"
-                fill="none"
-                stroke="#ffffff"
-                strokeWidth="2"
-                strokeLinecap="round"
+                strokeWidth="9"
               />
             </svg> : <MapPin className="h-7 w-7 fill-gakit-maroon text-white" strokeWidth={1.5} />}
           </span>

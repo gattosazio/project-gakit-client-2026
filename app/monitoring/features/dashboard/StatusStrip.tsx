@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Cloud,
 } from 'lucide-react';
+import { WeatherBulletinBadge } from '@/components/weather/WeatherBulletinBadge';
 import { WeatherAlertModal } from '@/components/WeatherAlertModal';
 import { AmbientWeatherIcon } from '@/components/weather/AmbientWeatherIcon';
 import { WeatherCanvasBackdrop } from '@/components/weather/WeatherCanvasBackdrop';
@@ -29,18 +30,6 @@ const SEVERITY_CHIP: Record<string, string> = {
   critical: 'bg-red-50 text-red-900 border-red-200 hover:bg-red-100/70',
   warning: 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100/70',
   info: 'bg-blue-50 text-blue-900 border-blue-200 hover:bg-blue-100/70',
-};
-
-const SEVERITY_BADGE: Record<string, string> = {
-  critical: 'bg-red-100 text-red-800 border-red-200',
-  warning: 'bg-amber-100 text-amber-800 border-amber-200',
-  info: 'bg-blue-100 text-blue-800 border-blue-200',
-};
-
-const SEVERITY_LABEL: Record<string, string> = {
-  critical: 'Critical',
-  warning: 'Warning',
-  info: 'Advisory',
 };
 
 function manilaTimestamp(date: Date): string {
@@ -228,9 +217,7 @@ export function StatusStrip({ current, alerts, alertsCheckedAt, alertsError = fa
                             <span className="truncate text-xs sm:text-sm font-bold">
                               {isPagasaAlert(alert) ? shortTitle(alert) || alertTitle(alert) : alertTitle(alert)}
                             </span>
-                            <span className={`shrink-0 rounded px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide ${SEVERITY_BADGE[alert.severity] ?? SEVERITY_BADGE.info}`}>
-                              {SEVERITY_LABEL[alert.severity] ?? 'Info'}
-                            </span>
+                            <WeatherBulletinBadge alert={alert} />
                           </div>
                           <p className="truncate text-[11px] font-semibold opacity-80 mt-0.5">
                             {ALERT_TYPE_LABELS[alert.alertType] ?? 'Advisory'} · Issued {shortTime(alert.data?.issuedAt ?? alert.createdAt)}

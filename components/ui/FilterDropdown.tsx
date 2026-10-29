@@ -17,6 +17,7 @@ export function FilterDropdown<T extends string>({
   triggerLabel,
   triggerIcon,
   size = 'md',
+  maxMenuHeight,
 }: {
   value: T;
   onSelect: (value: T) => void;
@@ -24,6 +25,7 @@ export function FilterDropdown<T extends string>({
   triggerLabel: string;
   triggerIcon: ReactNode;
   size?: 'sm' | 'md';
+  maxMenuHeight?: number;
 }) {
   const [open, setOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0, width: 192 });
@@ -73,7 +75,7 @@ export function FilterDropdown<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         className={`flex items-center justify-between gap-1.5 rounded-lg border border-slate-200 bg-white font-medium text-slate-700 outline-none transition-colors hover:bg-canvas-light ${
-          isSm ? 'h-7 w-auto px-2 text-[11px] [&_svg]:h-3.5 [&_svg]:w-3.5' : 'w-full px-3 py-2 text-sm'
+          isSm ? 'h-9 w-auto px-2 text-[11px] [&_svg]:h-3.5 [&_svg]:w-3.5' : 'w-full px-3 py-2 text-sm'
         }`}
       >
         <span className="flex min-w-0 items-center gap-1.5 truncate">
@@ -88,7 +90,7 @@ export function FilterDropdown<T extends string>({
           <div
             ref={menuRef}
             role="listbox"
-            style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: menuPos.width }}
+            style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: menuPos.width, maxHeight: maxMenuHeight }}
             className="z-[1400] max-h-60 overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
           >
             {options.map((option, index) => {
@@ -104,7 +106,7 @@ export function FilterDropdown<T extends string>({
                     setOpen(false);
                   }}
                   className={`flex w-full items-center text-left font-medium hover:bg-canvas-light ${
-                    isSm ? 'gap-2 px-2.5 py-1.5 text-[11px] [&_svg]:h-3.5 [&_svg]:w-3.5' : 'gap-2.5 px-4 py-2.5 text-sm'
+                    isSm ? 'min-h-9 gap-2 px-2.5 py-2 text-[11px] [&_svg]:h-3.5 [&_svg]:w-3.5' : 'gap-2.5 px-4 py-2.5 text-sm'
                   } ${index > 0 ? 'border-t border-slate-100' : ''} ${isSelected ? 'bg-canvas-light text-gakit-maroon' : 'text-slate-700'}`}
                 >
                   {option.icon}

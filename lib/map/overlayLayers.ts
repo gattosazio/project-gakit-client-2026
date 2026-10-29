@@ -665,19 +665,9 @@ export const setupOverlayLayers = async (
       if (map.hasImage(imageId)) return;
       const depthBadge = createReportBubbleImage(color);
       if (depthBadge) map.addImage(imageId, depthBadge, {
-        pixelRatio: 2, stretchX: [[28, 84]], content: [24, 0, 88, 36],
+        pixelRatio: 2, stretchX: [[36, 208]], stretchY: [[16, 32]], content: [16, 8, 224, 40],
       });
     });
-
-    // Status colors for the individual-pin glow. Cluster discs are coloured
-    // separately by dominant status (see the report-clusters layer below).
-    const statusColor = (expr: any) => [
-      'match', expr,
-      'VERIFIED', REPORT_MARKER_COLORS.VERIFIED,
-      'ANOMALY', REPORT_MARKER_COLORS.ANOMALY,
-      'REJECTED', REPORT_MARKER_COLORS.REJECTED,
-      REPORT_MARKER_COLORS.UNVERIFIED,
-    ];
 
     // Preserve the existing status-colored cluster appearance.
     map.addLayer({
@@ -716,22 +706,6 @@ export const setupOverlayLayers = async (
       paint: { 'text-color': '#ffffff' },
     });
 
-    // Soft glow behind individual pins.
-    map.addLayer({
-      id: 'report-point-halo',
-      type: 'circle',
-      source: 'reports',
-      filter: ['!', ['has', 'point_count']],
-      paint: {
-        'circle-color': statusColor(['get', 'status']),
-        'circle-radius': 11,
-        'circle-blur': 0.5,
-        'circle-opacity': 0.32,
-        'circle-radius-transition': { duration: 0 },
-        'circle-opacity-transition': { duration: 0 },
-      },
-    });
-
     map.addLayer({
       id: 'report-points',
       type: 'symbol',
@@ -747,9 +721,9 @@ export const setupOverlayLayers = async (
           REPORT_MARKER_IMAGE_IDS.UNVERIFIED,
         ],
         'icon-anchor': 'center',
-        'icon-size': 1,
+        'icon-size': 0.5,
         'icon-allow-overlap': true,
-        'icon-ignore-placement': true,
+        'icon-ignore-placement': false,
       },
     });
     map.addLayer({
@@ -757,16 +731,26 @@ export const setupOverlayLayers = async (
       filter: ['!', ['has', 'point_count']],
       layout: {
         'icon-image': ['get', 'depthBadgeImage'],
-        'icon-text-fit': 'width',
-        'text-field': ['get', 'depthBadge'],
-        'text-font': ['Noto Sans Bold'], 'text-size': 10.5,
-        'text-anchor': 'left', 'text-offset': [1.85, -1.1], 'text-max-width': 24,
+        'icon-text-fit': 'both',
+        'icon-text-fit-padding': [0, 0, 0, 0],
+        'text-field': ['format', ['get', 'depthBadge'], {},
+          ['case', ['!=', ['get', 'bubbleAge'], ''], ['concat', '  ·  ', ['get', 'bubbleAge']], ''],
+          { 'font-scale': 0.75, 'text-color': '#475569', 'text-font': ['literal', ['Noto Sans Regular']] }],
+        'text-font': ['Noto Sans Bold'], 'text-size': 12, 'text-line-height': 1.15,
+        'text-justify': 'left',
+        // Fixed image margins put the stem endpoint exactly on the report.
+        'text-anchor': 'left', 'text-offset': [2.75 / 12, -24 / 12], 'text-max-width': 24,
         'icon-allow-overlap': false, 'text-allow-overlap': false,
         'icon-ignore-placement': false, 'text-ignore-placement': false,
-        'symbol-sort-key': ['get', 'labelPriority'], 'text-padding': 4,
+        // Reserve the card area, excluding the stem that ends on its own pin.
+        'symbol-sort-key': ['get', 'labelPriority'], 'text-padding': 1, 'icon-padding': [1, 1, -14, 1],
       },
-      paint: { 'text-color': '#0f172a' },
+      paint: {
+        'text-color': '#1e293b',
+      },
     });
+    // Pins take placement priority so cards cannot cover another report's dot.
+    map.moveLayer('report-points');
   }
 
 

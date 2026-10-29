@@ -29,6 +29,9 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
   const tabFromParams =
     requestedTab && monitoringFeatureMap[requestedTab] ? requestedTab : 'dashboard';
   const [activeTab, setActiveTab] = useState<MonitoringFeatureId>(tabFromParams);
+  const [unreadAlertCount, setUnreadAlertCount] = useState(0);
+  const navigationItems = monitoringFeatures.map(feature => feature.id === 'alerts'
+    ? { ...feature, unreadCount: unreadAlertCount } : feature);
   const [highlightedReportId, setHighlightedReportId] = useState<string | null>(null);
   const [highlightedNotificationId, setHighlightedNotificationId] = useState<string | null>(
     () => searchParams.get('notification')
@@ -148,23 +151,12 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
     });
   };
 
-  const handleOpenNotification = (notificationId: string) => {
-    setActiveTab('alerts');
-    setReportsFullscreen(false);
-    setHighlightedReportId(null);
-    setHighlightedNotificationId(notificationId);
-    updateUrl('alerts', (params) => {
-      params.set('notification', notificationId);
-      consumeReportDeepLinkParams(params);
-    });
-  };
-
   return (
     <div className="flex h-dvh overflow-hidden bg-slate-50/80">
       <div className={focusedReports ? 'hidden' : 'contents'}>
       <SideBar
         activeTab={activeTab}
-        items={monitoringFeatures}
+        items={navigationItems}
         portalSubtitle="Monitoring Portal"
         onTabChange={handleTabChange}
         initialAuth={initialAuth}
@@ -180,7 +172,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           badge={activeFeature.badge}
           compact
           showTopo
-          onNotificationClick={handleOpenNotification}
+          hideNotifications
         />
         </div>
         <main className={`min-h-0 flex-1 ${reportsActive
@@ -192,6 +184,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
           </div>
           <div className={activeTab === 'alerts' ? 'min-h-0 xl:h-full' : 'hidden'}>
             <AlertsTab
+              onUnreadCountChange={setUnreadAlertCount}
               active={activeTab === 'alerts'}
               highlightedNotificationId={highlightedNotificationId}
               onOpenReports={handleOpenReport}
@@ -212,7 +205,7 @@ export function MonitoringShell({ initialAuth }: { initialAuth?: AuthSnapshot })
       </div>
       <div className={focusedReports ? 'hidden' : 'contents'}>
       <MobileBottomNav
-        items={monitoringFeatures}
+        items={navigationItems}
         activeTab={activeTab}
         onTabChange={handleTabChange}
         role={initialAuth?.role ?? null}

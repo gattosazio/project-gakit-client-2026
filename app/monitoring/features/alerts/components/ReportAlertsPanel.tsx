@@ -2,12 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import {
+  Clock,
   AlertTriangle,
   BellRing,
-  CheckCircle2,
-  Clock,
   MapPin,
-  ShieldAlert,
   ArrowDownAZ,
   ArrowDownWideNarrow,
 } from 'lucide-react';
@@ -18,11 +16,9 @@ import type { FloodDepthCode } from '@/types/report';
 import {
   filterByDateRange,
   filterByDepth,
-  filterReportsByType,
   sortNotifications,
   type AlertsView,
   type DateRange,
-  type ReportTypeFilter,
   type SortColumn,
   type SortDirection,
 } from '@/lib/notifications/filters';
@@ -30,13 +26,12 @@ import { AlertsPanel } from './AlertsPanel';
 import { FilterChips, type ChipOption } from './FilterChips';
 import { EmptyNotifications } from './EmptyNotifications';
 
-const REPORT_TYPE_CHIPS: readonly ChipOption<ReportTypeFilter>[] = [
+const REPORT_FILTERS: readonly ChipOption<'all' | 'pending' | 'critical'>[] = [
   { value: 'all', label: 'All', icon: BellRing },
-  { value: 'new-report', label: 'New', icon: BellRing },
-  { value: 'needs-review', label: 'Needs review', icon: ShieldAlert },
-  { value: 'flagged', label: 'Flagged', icon: AlertTriangle },
-  { value: 'rejected', label: 'Rejected', icon: CheckCircle2 },
+  { value: 'pending', label: 'Pending', icon: BellRing },
+  { value: 'critical', label: 'Critical', icon: AlertTriangle },
 ];
+
 
 const DATE_OPTIONS: FilterDropdownOption<DateRange>[] = [
   { value: '48h', label: 'Last 48 hours', icon: <Clock className="h-4 w-4 shrink-0" /> },
@@ -100,20 +95,21 @@ export function ReportAlertsPanel({
   onOpenReports: (reportId?: string) => void;
   onMarkAllRead?: (ids: string[]) => void;
 }) {
-  const [typeFilter, setTypeFilter] = useState<ReportTypeFilter>('all');
+  const [priorityFilter, setPriorityFilter] = useState<'all' | 'pending' | 'critical'>('all');
   const [depthFilter, setDepthFilter] = useState<FloodDepthCode | 'all'>('all');
-  const [dateFilter, setDateFilter] = useState<DateRange>('48h');
+  const [dateFilter, setDateFilter] = useState<DateRange>('7d');
   const [sortValue, setSortValue] = useState<ReportSortValue>('sentAt:desc');
   const sort = useMemo(() => parseSort(sortValue), [sortValue]);
 
   const filtered = useMemo(() => {
-    const byType = filterReportsByType(notifications, typeFilter);
-    const byDepth = filterByDepth(byType, depthFilter);
+    const byPriority = priorityFilter === 'critical' ? notifications.filter(item => item.reportStatus === 'VERIFIED' && item.severity === 'critical')
+      : priorityFilter === 'pending' ? notifications.filter(item => item.reportStatus === 'UNVERIFIED' || item.reportStatus === 'ANOMALY') : notifications;
+    const byDepth = filterByDepth(byPriority, depthFilter);
     const byDate = filterByDateRange(byDepth, dateFilter);
     return sortNotifications(byDate, sort.column, sort.direction);
-  }, [dateFilter, depthFilter, notifications, sort, typeFilter]);
+  }, [dateFilter, depthFilter, notifications, sort, priorityFilter]);
 
-  const resetKey = `${typeFilter}|${depthFilter}|${dateFilter}|${sortValue}`;
+  const resetKey = `${priorityFilter}|${depthFilter}|${dateFilter}|${sortValue}`;
 
   return (
     <AlertsPanel
@@ -138,19 +134,14 @@ export function ReportAlertsPanel({
           title={view === 'archived' ? 'Nothing archived yet' : 'No matching report alerts'}
           description={
             view === 'archived'
-              ? 'Archived report alerts and ones read for over a week appear here.'
-              : 'Try another status, depth, or date filter.'
+              ? 'Manually archived report alerts and alerts at least 7 days old appear here.'
+              : 'Pending staff reports and validated critical reports appear here. Try another priority, depth, or date filter.'
           }
         />
       }
       filterBar={
         <div className="space-y-2">
-          <FilterChips
-            ariaLabel="Filter report alerts by status"
-            options={REPORT_TYPE_CHIPS}
-            value={typeFilter}
-            onSelect={setTypeFilter}
-          />
+          <FilterChips ariaLabel="Filter report alerts by priority" options={REPORT_FILTERS} value={priorityFilter} onSelect={setPriorityFilter} />
           <div className="flex flex-wrap gap-1.5">
             <FilterDropdown
               value={depthFilter}
