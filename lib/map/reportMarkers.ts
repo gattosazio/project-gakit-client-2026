@@ -1,7 +1,7 @@
 import { decisionStatus } from '@/lib/reports/decisionReasons';
 import { REPORT_STATUS_LABELS } from '@/constants/publicMap';
 import { DEPTH_BAR_COLOR, DEPTH_LABELS, formatDateTime, getReportAssessmentBasis, STATUS_META, timeAgo } from '@/lib/reports/reportFormatting';
-import type { DepthCategory, MapReportFeature, ReportStatus } from '@/types/report';
+import type { DepthCategory, FloodDepthCode, MapReportFeature, ReportStatus } from '@/types/report';
 
 export const createReportMarkerImage = (color: string): ImageData | null => {
   const size = 40;
@@ -37,7 +37,11 @@ export const createReportMarkerImage = (color: string): ImageData | null => {
 };
 
 /** Static callout with a fixed stem and a depth-colored accent. */
-export function createReportBubbleImage(depthColor = '#64748b'): ImageData | null {
+const DEPTH_ACCENT_WIDTH: Record<FloodDepthCode, number> = {
+  ankle: 38, knee: 76, waist: 114, shoulder: 152, head: 190, overhead: 230,
+};
+
+export function createReportBubbleImage(depthColor = '#64748b', depth?: FloodDepthCode): ImageData | null {
   const canvas = document.createElement('canvas');
   canvas.width = 240; canvas.height = 76;
   const ctx = canvas.getContext('2d');
@@ -45,12 +49,12 @@ export function createReportBubbleImage(depthColor = '#64748b'): ImageData | nul
   // The stem is part of the label image so it shares label collision behavior.
   ctx.beginPath(); ctx.roundRect(1, 1, 238, 46, 12);
   // Fill one connected silhouette; the stem enters the rounded corner.
-  // 19 image pixels = 9.5 CSS pixels, matching the pin's outer diameter.
   ctx.rect(1, 36, 19, 40);
   ctx.fillStyle = 'rgba(255, 255, 255, 0.94)'; ctx.fill();
-  ctx.beginPath(); ctx.roundRect(5, 8, 4, 32, 2);
+  // The accent crosses the stretch region so it scales with the card width.
+  ctx.beginPath(); ctx.roundRect(5, 2, depth ? DEPTH_ACCENT_WIDTH[depth] : 38, 4, 2);
   ctx.fillStyle = depthColor; ctx.fill();
-  return ctx.getImageData(0, 0, 240, 76);
+  return ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
 export function reportMapLabels(props: MapReportFeature['properties'], now = Date.now()) {
@@ -203,7 +207,12 @@ function reportPopupDisplay(props: Record<string, any>) {
 export const buildReportHoverHtml = (feature: Record<string, any>): string => {
   const props = feature.properties ?? {};
   const display = reportPopupDisplay(props);
+  const code = String(props.depthBadgeImage ?? '').replace(/^report-depth-badge-/, '').replace(/-row-[0-2](?:-left|-right)?$/, '') as FloodDepthCode;
+  const accent = Object.prototype.hasOwnProperty.call(DEPTH_ACCENT_WIDTH, code)
+    ? `<span class="report-pin-preview-accent" style="width:${DEPTH_ACCENT_WIDTH[code] / 230 * 100}%;background:${DEPTH_BAR_COLOR[code]}"></span>`
+    : '';
   return `<div class="report-pin-preview" role="tooltip">
+    ${accent}
     <p class="report-pin-preview-depth">${escapeHtml(String(props.depthLabel ?? 'Flood report'))}</p>
     <p class="report-pin-preview-meta">${display.status ? `<span class="report-pin-status" data-status="${display.statusCode}">${escapeHtml(display.status)}</span>` : ''}
       ${display.age ? `<span title="${display.timeLabel} ${escapeHtml(display.fullTime)}">${display.timeLabel} ${escapeHtml(display.age)}</span>` : ''}</p>

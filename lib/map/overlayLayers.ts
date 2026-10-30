@@ -663,7 +663,7 @@ export const setupOverlayLayers = async (
     Object.entries(DEPTH_BAR_COLOR).forEach(([code, color]) => {
       const imageId = `report-depth-badge-${code}`;
       if (map.hasImage(imageId)) return;
-      const depthBadge = createReportBubbleImage(color);
+      const depthBadge = createReportBubbleImage(color, code as keyof typeof DEPTH_BAR_COLOR);
       if (depthBadge) map.addImage(imageId, depthBadge, {
         pixelRatio: 2, stretchX: [[36, 208]], stretchY: [[16, 32]], content: [16, 8, 224, 40],
       });
@@ -706,6 +706,22 @@ export const setupOverlayLayers = async (
       paint: { 'text-color': '#ffffff' },
     });
 
+    // A static, status-colored halo uses a separate circle layer so it does
+    // not enlarge the pin's collision box or require a frame-by-frame update.
+    map.addLayer({
+      id: 'report-point-glow', type: 'circle', source: 'reports',
+      filter: ['!', ['has', 'point_count']],
+      paint: {
+        'circle-color': ['match', ['get', 'status'],
+          'VERIFIED', REPORT_MARKER_COLORS.VERIFIED,
+          'ANOMALY', REPORT_MARKER_COLORS.ANOMALY,
+          'REJECTED', REPORT_MARKER_COLORS.REJECTED,
+          REPORT_MARKER_COLORS.UNVERIFIED],
+        'circle-radius': 13,
+        'circle-blur': 0.55,
+        'circle-opacity': 0.75,
+      },
+    });
     map.addLayer({
       id: 'report-points',
       type: 'symbol',

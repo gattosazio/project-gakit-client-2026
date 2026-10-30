@@ -20,7 +20,8 @@ import type {
   ReportStatus,
 } from '@/types/report';
 import { toast } from 'react-toastify';
-import { getReport, listReports as fetchReports, updateReportStatus } from './actions/reports';
+import { getReport, listReports as fetchReports, updateReportStatus, type MonitoringReportListQuery } from './actions/reports';
+import { isInsideIit } from '@/lib/map/campusFocus';
 import { ReportDetail } from './ReportDetail';
 import {
   DepthsFilterDropdown,
@@ -69,6 +70,7 @@ export function ReportsTab({
   onFullscreenModeChange?: (enabled: boolean) => void;
 }) {
   const [reports, setReports] = useState<Report[]>([]);
+  const [campusFocus, setCampusFocus] = useState(false);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -341,7 +343,7 @@ export function ReportsTab({
           ).toISOString()
         : undefined;
 
-    fetchReports({
+    const listQuery: MonitoringReportListQuery = {
       page: currentPage,
       limit: REPORTS_PER_PAGE,
       search: (query || '').trim() || undefined,
@@ -351,7 +353,23 @@ export function ReportsTab({
       created_after: since,
       sort_by: sort.column,
       sort_dir: sort.direction,
-    })
+    };
+    const loadReports = async () => {
+      if (!campusFocus) return fetchReports(listQuery);
+      const all: Report[] = [];
+      let page = 1;
+      let pages = 1;
+      do {
+        const result = await fetchReports({ ...listQuery, page, limit: 100 });
+        if (seq !== requestSeqRef.current) return result;
+        all.push(...result.items.filter(report => isInsideIit(report.location.longitude, report.location.latitude)));
+        pages = result.totalPages;
+        page++;
+      } while (page <= pages);
+      const total = all.length;
+      return { items: all.slice((currentPage - 1) * REPORTS_PER_PAGE, currentPage * REPORTS_PER_PAGE), total, page: currentPage, limit: REPORTS_PER_PAGE, totalPages: Math.ceil(total / REPORTS_PER_PAGE) };
+    };
+    loadReports()
       .then((result) => {
         if (seq !== requestSeqRef.current) return;
         setReports(result.items);
@@ -374,7 +392,7 @@ export function ReportsTab({
         if (seq === requestSeqRef.current) setLoading(false);
       });
     return () => { if (seq === requestSeqRef.current) requestSeqRef.current++; };
-  }, [active, currentPage, query, statusFilter, depthFilter, timeFilter, refreshKey, sort]);
+  }, [active, campusFocus, currentPage, query, statusFilter, depthFilter, timeFilter, refreshKey, sort]);
 
   // Background auto-refresh, paused while the tab is hidden.
   useVisibleInterval(() => setRefreshKey((key) => key + 1), 30_000, active);
@@ -511,6 +529,14 @@ export function ReportsTab({
                 onBarangayBoundariesChange={value => mapRef.current?.setBarangayBoundariesVisible(value)} onSmoothingChange={value => mapRef.current?.setPolygonSmoothing(value)}
                 onBuildingsChange={value => mapRef.current?.setBuildingsVisible(value)} onRoadsChange={value => mapRef.current?.setRoadsVisible(value)}
                 onFocusRoadsChange={value => mapRef.current?.setFocusRoads(value)} />
+            <details className="relative" onKeyDown={event => { if (event.key === 'Escape') { event.currentTarget.open = false; event.currentTarget.querySelector('summary')?.focus(); } }}>
+              <summary aria-disabled={!mapDisplay.ready} onClick={event => { if (!mapDisplay.ready) event.preventDefault(); }} className="flex h-8 cursor-pointer list-none items-center gap-1 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 shadow-sm hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon aria-disabled:cursor-not-allowed aria-disabled:opacity-50">
+                Focus area <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+              </summary>
+              <div className="absolute left-0 top-full z-[1300] mt-1 w-full rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                <button type="button" onClick={event => { mapRef.current?.setCampusFocus(true); const menu = event.currentTarget.closest('details'); if (menu) menu.open = false; }} className="w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gakit-maroon">MSU-IIT</button>
+              </div>
+            </details>
             {onFullscreenModeChange && <button type="button" onClick={() => void toggleFullscreen()} aria-label={fullscreenMode ? 'Exit fullscreen' : 'Fullscreen'} title={fullscreenMode ? 'Exit fullscreen' : 'Fullscreen'} className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-100">
               {fullscreenMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
             </button>}
@@ -522,6 +548,7 @@ export function ReportsTab({
             {(hasEverBeenActive || active) ? <PublicMap
               controlsHost={mapControlsHost} mapApiRef={mapRef} onLocationSelect={handleNoopLocationSelect} selectedLocation={null}
               hideShareLocation hideWeather hideDisplayControls onDisplaySettingsChange={setMapDisplay}
+              onCampusFocusChange={enabled => { setCampusFocus(enabled); setCurrentPage(1); setSelectedReport(null); setReports([]); setTotal(0); setTotalPages(1); }}
               hideAttribution={mapDisplay.basemap !== 'satellite'}
               enableAddressLookup={false} reportFilters={reportFilters} onReportClick={handleMapPinClick}
               showRejectedReports={statusFilter === 'REJECTED' || statusFilter === 'AllStatuses'}
