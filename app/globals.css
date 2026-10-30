@@ -237,6 +237,8 @@ body {
   pointer-events: none !important;
   padding: 9px 11px !important;
 }
+.report-pin-preview { position: relative; }
+.report-pin-preview-accent { position: absolute; top: -9px; left: -11px; height: 3px; border-radius: 3px; }
 .report-pin-preview-depth { margin: 0; color: #0f172a; font-size: 12px; line-height: 1.4; font-weight: 700; }
 .report-pin-preview-meta { display: flex; align-items: center; gap: 8px; margin: 5px 0 0; color: #64748b; font-size: 10px; }
 

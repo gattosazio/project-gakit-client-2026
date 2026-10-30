@@ -33,7 +33,7 @@ import {
   type SubmittedReport,
 } from './components/SuccessModal';
 import { MobileLocationPrompt } from './components/MobileLocationPrompt';
-import { TopoBackground } from './components/TopoBackground';
+import { AboutTopoBackground } from './components/AboutTopoBackground';
 import {
   OnboardingWelcome,
   type OnboardingLocationStatus,
@@ -863,7 +863,7 @@ export function PublicViewPage({
           </section>
 
           <section id="about" className="relative min-h-screen overflow-hidden border-t border-maroon-900/30 bg-gakit-maroon scroll-mt-16 snap-start">
-            <TopoBackground className="opacity-[0.55]" />
+            <AboutTopoBackground />
             <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/[0.06] via-transparent to-black/[0.10]" />
             <div className="relative z-10 mx-auto w-full max-w-6xl px-5 pt-16 pb-24 sm:px-8 sm:pt-20 sm:pb-28 lg:px-8 lg:pt-20 lg:pb-28">
               <div className="flex flex-col gap-5 border-b border-white/[0.10] pb-6 sm:flex-row sm:items-end sm:justify-between sm:pb-7">
